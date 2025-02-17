@@ -1,0 +1,14 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background layer (Battery outline) -->
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="40dp" android:height="20dp"/> <!-- Set the full size of the drawable to 16dp by 16dp -->
+            <solid android:color="#50000000"/> <!-- Semi-transparent black for background -->
+            <corners android:radius="30dp"/> <!-- Rounded rectangle for oval appearance -->
+        </shape>
+    </item>
+
+
+    <!-- Icon layer -->
+    <item android:drawable="@drawable/ic_oui_info" android:gravity="center"/>
+</layer-list>

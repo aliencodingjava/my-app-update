@@ -1,0 +1,75 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:windowSoftInputMode="adjustResize"
+    android:background="@color/bottom_bar"
+    android:padding="0dp">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:elevation="4dp"
+        app:layout_collapseMode="pin"
+        app:contentScrim="@color/bottom_bar">
+
+        <com.google.android.material.button.MaterialButton
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:id="@+id/btn_save"
+            android:textColor="?attr/colorAccent"
+            app:icon="@drawable/save_as_24dp_ffffff_fill0_wght400_grad0_opsz24"
+            app:iconTint="?attr/colorAccent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/save"
+            android:layout_gravity="end"
+            android:layout_marginTop="0dp" />
+
+    </com.google.android.material.appbar.MaterialToolbar>
+
+
+
+
+
+        <ScrollView
+            android:background="@color/box_alert_update"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="3dp"
+                android:hint="@string/edit_note"
+                app:hintEnabled="true"
+                app:boxBackgroundMode="outline"
+                app:boxStrokeWidth="1dp"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp">
+
+                <AutoCompleteTextView
+                    android:id="@+id/edit_note"
+                    style="@style/EditTextStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/transparent"
+                    android:gravity="top|start"
+                    android:minLines="40"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:textSize="18sp"
+                    android:inputType="textMultiLine|textCapSentences|textAutoCorrect|textEnableTextConversionSuggestions"
+                    android:imeOptions="actionDone"
+                    tools:ignore="Autofill,LabelFor" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+        </ScrollView>
+
+</LinearLayout>

@@ -1,0 +1,5 @@
+<!-- res/drawable/online_indicator.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/material_yellow"/>
+    <corners android:radius="50dp"/>
+</shape>

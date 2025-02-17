@@ -1,0 +1,20 @@
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:duration="@integer/material_motion_duration_short_2"
+    android:interpolator="@interpolator/m3_sys_motion_easing_emphasized_decelerate"
+    android:shareInterpolator="true"
+    tools:ignore="PrivateResource">
+
+    <alpha
+        android:fromAlpha="0.4"
+        android:toAlpha="1.0" />
+
+    <scale
+        android:fromXScale="1"
+        android:fromYScale="1"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:toXScale="1"
+        android:toYScale="1" />
+
+</set>

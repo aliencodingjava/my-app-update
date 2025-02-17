@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_marginTop="2dp">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardviewsplash"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        android:gravity="center_horizontal"
+        android:orientation="horizontal"
+        app:cardCornerRadius="0dp"
+        app:strokeColor="@color/transparent"
+        app:strokeWidth="0dp">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="?android:attr/windowBackground"
+            android:padding="10dp">
+
+            <!-- Card 1 -->
+            <FrameLayout
+                android:id="@+id/card1Frame"
+                android:layout_width="0dp"
+                android:layout_height="125dp"
+                android:layout_margin="10dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginEnd="0dp"
+                android:background="@drawable/checking_for_updates_backround"
+                android:elevation="0dp"
+                android:padding="2dp"
+                app:layout_constraintEnd_toStartOf="@+id/card2Frame"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card1"
+                    android:layout_width="match_parent"
+                    android:layout_height="92dp"
+                    android:transitionName="card_transition"
+                    app:cardBackgroundColor="?attr/colorButtonNormal"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="4dp"
+                    app:rippleColor="@color/material_yellow"
+                    app:strokeColor="@color/transparent"
+                    app:strokeWidth="0.1dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/image1"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/welcome" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:layout_marginBottom="1dp"
+                    android:elevation="1dp"
+                    android:gravity="center">
+
+                    <TextView
+                        android:id="@+id/welcome"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center|bottom"
+                        android:background="@drawable/text_card_background"
+                        android:drawablePadding="4dp"
+                        android:elevation="1dp"
+                        android:gravity="center"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="@string/card_1"
+                        android:textAlignment="center"
+                        android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                        android:textColor="?attr/actionMenuTextColor"
+                        app:drawableStartCompat="@drawable/accessibility_new_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                        tools:ignore="TextContrastCheck" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Card 2 -->
+            <FrameLayout
+                android:id="@+id/card2Frame"
+                android:layout_width="0dp"
+                android:layout_height="125dp"
+                android:layout_margin="10dp"
+                android:layout_marginStart="0dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/checking_for_updates_backround"
+                android:padding="2dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/card1Frame"
+                app:layout_constraintTop_toTopOf="parent">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card2"
+                    android:layout_width="match_parent"
+                    android:layout_height="92dp"
+                    android:transitionName="card_transition"
+                    app:cardBackgroundColor="?attr/colorButtonNormal"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="4dp"
+                    app:rippleColor="@color/material_yellow"
+                    app:strokeColor="@color/transparent"
+                    app:strokeWidth="0.1dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/image2"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/inside" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:layout_marginBottom="1dp"
+                    android:elevation="1dp"
+                    android:gravity="center">
+
+                    <androidx.appcompat.widget.AppCompatTextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom|center_horizontal"
+                        android:background="@drawable/text_card_background"
+                        android:drawableStart="@drawable/brand_awareness_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                        android:drawablePadding="6dp"
+                        android:elevation="1dp"
+                        android:gravity="center"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="3dp"
+                        android:text="@string/card_2"
+                        android:textAlignment="center"
+                        android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                        android:textColor="?attr/actionMenuTextColor"
+                        app:fontFamily="@font/roboto_regular"
+                        tools:ignore="TextContrastCheck" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Card 3 -->
+            <FrameLayout
+                android:id="@+id/card3Frame"
+                android:layout_width="0dp"
+                android:layout_height="125dp"
+                android:layout_margin="10dp"
+                android:layout_marginTop="64dp"
+                android:background="@drawable/checking_for_updates_backround"
+                android:padding="2dp"
+                app:layout_constraintEnd_toStartOf="@+id/card4Frame"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/card1Frame">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card3"
+                    android:layout_width="match_parent"
+                    android:layout_height="92dp"
+                    android:transitionName="card_transition"
+                    app:cardBackgroundColor="?attr/colorButtonNormal"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="4dp"
+                    app:rippleColor="@color/material_yellow"
+                    app:strokeColor="@color/transparent"
+                    app:strokeWidth="0.1dp">
+
+                    <ImageView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="5dp"
+                        android:background="@drawable/ic_oui_airplane_mode"
+                        android:backgroundTint="@color/white"
+                        android:contentDescription="@string/thelitleairplane"
+                        android:elevation="4dp"
+                        android:rotation="50"
+                        android:scaleX="0.8"
+                        android:scaleY="0.8"
+                        tools:ignore="ImageContrastCheck">
+
+                    </ImageView>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|center_horizontal"
+                        android:layout_marginTop="0dp"
+                        android:layout_marginBottom="15dp"
+                        android:elevation="5dp"
+                        android:focusable="true"
+                        android:fontFamily="@font/montecarlo_regular"
+                        android:gravity="center_horizontal"
+                        android:importantForAccessibility="yes"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="@string/Experience"
+                        android:textAlignment="center"
+                        android:textColor="@color/white"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:transitionName="adventureText">
+
+                    </TextView>
+
+                    <TextView
+                        android:id="@+id/adventure_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical|center_horizontal"
+                        android:layout_marginTop="10dp"
+                        android:elevation="5dp"
+                        android:fontFamily="@font/fjordfont"
+                        android:gravity="center_horizontal"
+                        android:importantForAccessibility="yes"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="@string/adventure"
+                        android:textAlignment="center"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:transitionName="adventureText">
+
+                    </TextView>
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/image3"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/frontairport" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:layout_marginBottom="1dp"
+                    android:elevation="1dp"
+                    android:gravity="center">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="bottom|center_horizontal"
+                        android:background="@drawable/text_card_background"
+                        android:drawablePadding="4dp"
+                        android:elevation="1dp"
+                        android:gravity="center"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:text="@string/flights"
+                        android:textAlignment="center"
+                        android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                        android:textColor="?attr/actionMenuTextColor"
+                        app:drawableStartCompat="@drawable/travel_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                        tools:ignore="TextContrastCheck" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Card 4 -->
+            <FrameLayout
+                android:id="@+id/card4Frame"
+                android:layout_width="0dp"
+                android:layout_height="125dp"
+                android:layout_margin="10dp"
+                android:layout_marginStart="0dp"
+                android:layout_marginTop="40dp"
+                android:background="@drawable/checking_for_updates_backround"
+                android:padding="2dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@+id/card3Frame"
+                app:layout_constraintTop_toBottomOf="@+id/card2Frame">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card4"
+                    android:layout_width="match_parent"
+                    android:layout_height="92dp"
+                    android:transitionName="card_transition"
+                    app:cardBackgroundColor="?attr/colorButtonNormal"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="4dp"
+                    app:rippleColor="@color/material_yellow"
+                    app:strokeColor="@color/transparent"
+                    app:strokeWidth="0.1dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/image4"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/airport" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|center_horizontal"
+                    android:layout_marginBottom="1dp"
+                    android:elevation="1dp"
+                    android:gravity="center">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center|bottom|center_horizontal"
+                        android:background="@drawable/text_card_background"
+                        android:drawablePadding="10dp"
+                        android:elevation="1dp"
+                        android:gravity="center"
+                        android:paddingHorizontal="15dp"
+                        android:paddingVertical="4dp"
+                        android:text="@string/card_4"
+                        android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                        android:textColor="?attr/actionMenuTextColor"
+                        app:drawableStartCompat="@drawable/travel_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                        tools:ignore="TextContrastCheck" />
+                </LinearLayout>
+            </FrameLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

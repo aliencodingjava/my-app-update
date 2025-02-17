@@ -1,0 +1,5 @@
+<!-- res/drawable/btn_ripple.xml -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/material_yellow"> <!-- Ripple color -->
+    <item android:drawable="@drawable/button_background" /> <!-- Reference to your shape -->
+</ripple>

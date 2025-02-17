@@ -1,0 +1,29 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_backround"
+    android:orientation="vertical">
+
+    <!-- Title Layout -->
+    <include layout="@layout/widget_title_layout" />
+
+    <!-- Your existing RelativeLayout with ListView -->
+    <RelativeLayout
+        android:background="@drawable/widget_backround"
+        style="@style/Widget.Test.AppWidget.Container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:theme="@style/Theme.Test.AppWidgetContainer">
+
+        <ListView
+            android:id="@+id/appwidget_list"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="8dp"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="8dp"
+            android:padding="8dp"
+            android:background="@android:color/transparent" />
+    </RelativeLayout>
+</LinearLayout>

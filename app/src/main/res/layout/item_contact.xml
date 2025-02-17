@@ -1,0 +1,337 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <!-- Background View for Deleting Animation -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/delete_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        app:cardBackgroundColor="@color/red"
+        android:alpha="0"
+        app:strokeColor="@color/transparent"
+        android:layout_marginBottom="1dp"
+        app:strokeWidth="0dp"
+        android:layout_marginStart="3dp"
+        android:layout_marginEnd="3dp"
+        android:layout_marginTop="1dp"
+        app:cardCornerRadius="5dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/delete_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|center"
+            android:elevation="1dp"
+            android:fontFamily="@font/roboto_slab_extra_bold"
+            android:text="SWIPE LEFT TO DELETE..."
+            android:layout_marginEnd="5dp"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="@color/material_yellow"
+            tools:ignore="HardcodedText" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Combined Contact Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/combined_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="3dp"
+        android:layout_marginEnd="3dp"
+        android:layout_marginBottom="0dp"
+        app:cardCornerRadius="0dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp"
+        app:rippleColor="@color/transparent"
+        android:foreground="?android:attr/selectableItemBackground"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        app:strokeColor="@color/transparent">
+
+        <!-- Single ConstraintLayout to handle all inner content -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/inner_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="0dp">
+
+            <!-- Collapsing Text Container (Header) -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/collapsing_text_container"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:background="@color/box_alert_update"
+                android:padding="8dp"
+                app:rippleColor="@color/transparent"
+                app:strokeColor="@color/transparent"
+                app:strokeWidth="0dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <!-- Icon Image (invisible by default) -->
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/iconImage"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="10dp"
+                    android:src="@drawable/my_photo"
+                    android:contentDescription="@string/icon_image"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    tools:visibility="gone" />
+
+                <!-- Initials -->
+                <TextView
+                    android:id="@+id/iconInitials"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="10dp"
+                    android:gravity="center"
+                    android:text=""
+                    android:textSize="14sp"
+                    android:textColor="@android:color/white"
+                    app:layout_constraintStart_toEndOf="@id/iconImage"
+                    app:layout_constraintTop_toTopOf="@id/iconImage"
+                    app:layout_constraintBottom_toBottomOf="@id/iconImage" />
+
+                <!-- Name TextView -->
+                <TextView
+                    android:id="@+id/text_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="10dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:text="@string/name"
+                    android:textSize="14sp"
+                    android:gravity="start"
+                    app:layout_constraintStart_toEndOf="@id/iconInitials"
+                    app:layout_constraintEnd_toStartOf="@id/expand_collapse_icon"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+
+                <!-- Expand/Collapse Icon -->
+                <ImageView
+                    android:id="@+id/expand_collapse_icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="10dp"
+                    android:elevation="3dp"
+                    android:rotation="180"
+                    android:src="@drawable/expand_circle_up_24dp_ffffff_fill1_wght400_grad0_opsz24"
+                    android:contentDescription="@string/expand_collapse"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:tint="?attr/colorAccent" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <!-- Expandable Content -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/expandable_content"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:paddingStart="15dp"
+                android:paddingEnd="15dp"
+                android:paddingTop="15dp"
+                android:visibility="gone"
+                android:elevation="6dp"
+                app:layout_constraintTop_toBottomOf="@id/collapsing_text_container"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+                <View
+                    android:id="@+id/expandableOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/transparent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
+                <!-- Phone Field -->
+                <TextView
+                    android:id="@+id/text_phone"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/phone"
+                    android:hint="@string/phone"
+                    android:textSize="15sp"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Divider -->
+                <View
+                    android:id="@+id/divider1"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="?attr/colorControlActivated"
+                    app:layout_constraintTop_toBottomOf="@id/text_phone"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Email Field -->
+                <TextView
+                    android:id="@+id/text_email"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/email"
+                    android:hint="@string/email"
+                    android:textSize="15sp"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    app:layout_constraintTop_toBottomOf="@id/divider1"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Divider -->
+                <View
+                    android:id="@+id/divider2"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="?attr/colorControlActivated"
+                    app:layout_constraintTop_toBottomOf="@id/text_email"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Address Field -->
+                <TextView
+                    android:id="@+id/text_address"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/address_title"
+                    android:hint="@string/address_title"
+                    android:textSize="15sp"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    app:layout_constraintTop_toBottomOf="@id/divider2"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Divider -->
+                <View
+                    android:id="@+id/divider3"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="10dp"
+                    android:background="?attr/colorControlActivated"
+                    app:layout_constraintTop_toBottomOf="@id/text_address"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <!-- Action Buttons Container -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/action_buttons_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    app:layout_constraintTop_toBottomOf="@id/divider3"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent">
+
+                    <!-- Color Selector (Left) -->
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/color_selector"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:layout_marginStart="10dp"
+                        android:elevation="2dp"
+                        android:background="@drawable/circle_shape"
+                        app:layout_constraintEnd_toStartOf="@id/fab_call"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"/>
+
+                    <!-- Call Button -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/fab_call"
+                        android:layout_width="60dp"
+                        android:layout_height="40dp"
+                        android:elevation="1dp"
+                        app:icon="@drawable/ic_oui_phone_outline"
+                        app:strokeWidth="0dp"
+                        android:pointerIcon="cell"
+                        app:iconGravity="textEnd"
+                        android:layout_marginStart="8dp"
+                        style="?attr/borderlessButtonStyle"
+                        app:layout_constraintStart_toEndOf="@id/color_selector"
+                        app:layout_constraintEnd_toStartOf="@id/fab_update"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintHorizontal_chainStyle="packed"
+                        tools:ignore="SmallSp" />
+
+                    <!-- Edit Button -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/fab_update"
+                        android:layout_width="60dp"
+                        android:layout_height="40dp"
+                        android:elevation="1dp"
+                        app:icon="@drawable/ic_oui_compose_edit"
+                        android:gravity="center"
+                        app:iconGravity="textEnd"
+                        app:strokeWidth="0dp"
+                        android:layout_marginStart="8dp"
+                        style="?attr/buttonBarButtonStyle"
+                        app:layout_constraintStart_toEndOf="@id/fab_call"
+                        app:layout_constraintEnd_toStartOf="@id/fab_delete"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintHorizontal_chainStyle="packed"
+                        tools:ignore="SmallSp" />
+
+                    <!-- Delete Button -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/fab_delete"
+                        android:layout_width="60dp"
+                        android:layout_height="40dp"
+                        android:elevation="1dp"
+                        app:iconGravity="textEnd"
+                        app:icon="@drawable/ic_oui_delete_outline"
+                        app:strokeWidth="0dp"
+                        style="?attr/borderlessButtonStyle"
+                        android:layout_marginStart="8dp"
+                        android:layout_marginEnd="8dp"
+                        app:layout_constraintStart_toEndOf="@id/fab_update"
+                        app:layout_constraintEnd_toStartOf="@id/holo_color_selector"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintHorizontal_chainStyle="packed"
+                        tools:ignore="SmallSp" />
+
+                    <!-- Color Selector (Right) -->
+                    <androidx.appcompat.widget.AppCompatImageView
+                        android:id="@+id/holo_color_selector"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:layout_marginEnd="10dp"
+                        android:elevation="2dp"
+                        android:background="@drawable/holo_colors"
+                        app:layout_constraintStart_toEndOf="@id/fab_delete"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent"/>
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</FrameLayout>

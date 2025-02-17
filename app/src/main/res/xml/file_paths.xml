@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Internal storage paths -->
+    <cache-path name="cache" path="cache/"/>
+
+    <!-- External storage paths -->
+    <external-path name="external_files" path="."/>
+    <external-path name="cache_images" path="." />
+    <external-path name="shared_qr" path="shared/qr/"/>
+    <external-path name="media" path="media/" />
+    <external-path name="apk" path="Download/" />
+
+</paths>
+

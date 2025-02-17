@@ -1,0 +1,9 @@
+<!-- res/drawable/ripple_close_icon.xml -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/color_success">  <!-- Ripple color -->
+
+    <item android:drawable="@drawable/baseline_arrow_back_ios_24">
+
+</item>
+
+    </ripple>

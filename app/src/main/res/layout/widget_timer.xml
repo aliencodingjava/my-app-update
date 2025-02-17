@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center_horizontal"
+    android:elevation="20dp"
+    android:padding="10dp">
+
+    <FrameLayout
+        android:id="@+id/frameLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:elevation="0dp"
+        android:padding="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Circular Progress Bar for Countdown -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/countdownCardView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="0dp"
+            app:cardBackgroundColor="@color/bottom_bar"
+            app:cardCornerRadius="30dp"
+            app:cardElevation="1dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:rippleColor="@color/material_yellow"
+            app:strokeWidth="0dp"
+            tools:ignore="TouchTargetSizeCheck">
+
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:elevation="7dp"
+                android:gravity="center">
+                <!-- Countdown MaterialCardView -->
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/countdownTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="start"
+                    android:background="@drawable/countdown_background"
+                    android:drawableStart="@drawable/time_auto_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                    android:drawablePadding="4dp"
+                    android:drawableTint="@color/black"
+                    android:elevation="7dp"
+                    android:gravity="center"
+                    android:paddingHorizontal="13dp"
+                    android:paddingVertical="4dp"
+                    android:text="@string/_01_30"
+                    android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="30dp"
+                    android:layout_marginTop="1dp"
+                    android:elevation="7dp">
+
+                    <androidx.appcompat.widget.AppCompatTextView
+                        android:id="@+id/refreshingInTextView"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:drawableStart="@drawable/avg_pace_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                        android:drawableTint="@color/black"
+                        android:elevation="7dp"
+                        android:gravity="center"
+                        android:text="@string/refreshing_in_default"
+                        android:textColor="@color/black"
+                        android:textSize="4sp"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/countdownTextView"
+                        tools:ignore="SmallSp,TextContrastCheck" />
+                </FrameLayout>
+
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:elevation="4dp"
+                android:gravity="center">
+                <!-- Current Time TextView -->
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/currentTimeTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="0dp"
+                    android:background="@drawable/curent_time"
+                    android:drawableStart="@drawable/schedule_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                    android:drawablePadding="4dp"
+                    android:drawableTint="@color/black"
+                    android:elevation="4dp"
+                    android:gravity="center"
+                    android:paddingHorizontal="0dp"
+                    android:paddingVertical="4dp"
+                    android:paddingStart="80dp"
+                    android:paddingEnd="10dp"
+                    android:text="@string/jan_26_2025_17_18_00"
+                    android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    tools:ignore="RtlSymmetry,SmallSp,VisualLintOverlap" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:elevation="3dp"
+                android:gravity="center">
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/battery_info"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="0dp"
+                    android:layout_marginEnd="5dp"
+                    android:background="@drawable/battery_info_background"
+                    android:drawableStart="@drawable/battery_icon"
+                    android:drawablePadding="4dp"
+                    android:elevation="3dp"
+                    android:fontFamily="@font/roboto_sla_blight"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="4dp"
+                    android:paddingStart="220dp"
+                    android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                    android:textColor="?attr/colorOnSecondaryFixed"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    tools:ignore="RtlSymmetry,SmallSp,VisualLintOverlap" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:clickable="false"
+                android:elevation="2dp"
+                android:focusable="false"
+                android:gravity="center">
+
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/open_close_full_screen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="start"
+                    android:layout_marginStart="0dp"
+                    android:background="@drawable/ripple_expand_fullscreen"
+                    android:clickable="true"
+                    android:contentDescription="@string/openclosefullscreen"
+                    android:drawableStart="@drawable/new_expand_button"
+                    android:drawablePadding="4dp"
+                    android:elevation="2dp"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:paddingHorizontal="280dp"
+                    android:paddingVertical="4dp"
+                    android:paddingEnd="5dp"
+                    android:textSize="9sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    tools:ignore="RtlSymmetry,SmallSp,VisualLintOverlap,TouchTargetSizeCheck" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:elevation="6dp"
+                android:gravity="center">
+                <!-- Refreshing MaterialCardView -->
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/refreshingTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="0dp"
+                    android:background="@drawable/refresh_image"
+                    android:drawableStart="@drawable/published_with_changes_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                    android:drawablePadding="4dp"
+                    android:drawableTint="@color/black"
+                    android:elevation="6dp"
+                    android:gravity="center"
+                    android:paddingHorizontal="0dp"
+                    android:paddingVertical="4dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="@string/refreshing"
+                    android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                    android:textColor="@color/black"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="@color/white"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/countdownCardView"
+                    app:strokeColor="@color/black"
+                    app:strokeWidth="0dp"
+                    tools:ignore="VisualLintOverlap" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start"
+                android:elevation="6dp"
+                android:gravity="center">
+                <!-- Refreshing MaterialCardView -->
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/nointernetTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="0dp"
+                    android:background="@drawable/refresh_image"
+                    android:drawableStart="@drawable/signal_disconnected_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                    android:drawablePadding="4dp"
+                    android:drawableTint="@color/black"
+                    android:elevation="6dp"
+                    android:gravity="center"
+                    android:paddingHorizontal="0dp"
+                    android:paddingVertical="4dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="@string/no_internet"
+                    android:textAppearance="@style/TextAppearance.Widget.SmallText"
+                    android:textColor="@color/black"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="@color/white"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/countdownCardView"
+                    app:strokeColor="@color/black"
+                    app:strokeWidth="0dp"
+                    tools:ignore="VisualLintOverlap" />
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+    </FrameLayout>
+
+    <androidx.constraintlayout.widget.Group
+        android:id="@+id/group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        app:layout_constraintBottom_toTopOf="@+id/frameLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/frameLayout" />
+</androidx.constraintlayout.widget.ConstraintLayout>

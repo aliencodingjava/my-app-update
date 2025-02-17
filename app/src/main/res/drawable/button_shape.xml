@@ -1,0 +1,6 @@
+<!-- res/drawable/button_background_shape.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/bottom_sheet" /> <!-- Set your desired background color here -->
+    <corners android:radius="10dp" /> <!-- Adjust corner radius as needed -->
+</shape>

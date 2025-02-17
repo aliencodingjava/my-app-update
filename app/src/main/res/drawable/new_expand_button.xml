@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- State when pressed (Yellow background, Black icon) -->
+    <item android:state_pressed="true">
+        <layer-list>
+            <!-- Background layer (Yellow when pressed) -->
+            <item>
+                <shape android:shape="rectangle">
+                    <size android:width="16dp" android:height="16dp"/>
+                    <solid android:color="#FFFF00"/> <!-- Yellow when pressed -->
+                    <corners android:radius="30dp"/>
+                </shape>
+            </item>
+
+            <!-- Foreground layer (Battery fill) -->
+            <item android:id="@id/fill">
+                <clip android:clipOrientation="horizontal" android:gravity="left">
+                    <shape android:shape="rectangle">
+                        <size android:width="25dp"/>
+                        <solid android:color="#FFFFFF"/> <!-- White fill color -->
+                        <corners android:radius="30dp"/>
+                    </shape>
+                </clip>
+            </item>
+
+            <!-- Icon layer (Black when pressed) -->
+            <item android:drawable="@drawable/fullscreen_16dp_black" android:gravity="center"/>
+        </layer-list>
+    </item>
+
+    <!-- Default state (Gray background, White icon) -->
+    <item>
+        <layer-list>
+            <!-- Background layer -->
+            <item>
+                <shape android:shape="rectangle">
+                    <size android:width="16dp" android:height="16dp"/>
+                    <solid android:color="#50000000"/> <!-- Default semi-transparent black -->
+                    <corners android:radius="30dp"/>
+                </shape>
+            </item>
+
+            <!-- Foreground layer (Battery fill) -->
+            <item android:id="@id/fill">
+                <clip android:clipOrientation="horizontal" android:gravity="left">
+                    <shape android:shape="rectangle">
+                        <size android:width="25dp"/>
+                        <solid android:color="#FFFFFF"/> <!-- White fill color -->
+                        <corners android:radius="30dp"/>
+                    </shape>
+                </clip>
+            </item>
+
+            <!-- Icon layer (Default White) -->
+            <item android:drawable="@drawable/fullscreen_16dp_ffffff_fill0_wght400_grad0_opsz20" android:gravity="center"/>
+        </layer-list>
+    </item>
+
+</selector>

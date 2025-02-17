@@ -1,0 +1,11 @@
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="@string/flight_information"
+    android:textSize="18sp"
+    android:gravity="center"
+    android:padding="8dp"
+    android:background="@color/transparent"
+    android:textColor="@color/custom_color_light"
+    tools:ignore="Overdraw" />

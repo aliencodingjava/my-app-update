@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_home"
+            android:icon="@drawable/new_home"
+            android:title="@string/Home" />
+        <item
+            android:id="@+id/nav_contacts"
+            android:icon="@drawable/new_contact"
+            android:title="@string/Contact" />
+        <item
+            android:id="@+id/nav_all_contacts"
+            android:icon="@drawable/new_allccontacts"
+            android:title="@string/All_contacts" />
+
+        <item
+            android:id="@+id/nav_settings"
+            android:icon="@drawable/new_settings"
+            android:title="@string/menu_settings" />
+    </group>
+    <!-- New "Add Contact" button -->
+    <group android:checkableBehavior="single">
+
+    <item
+        android:id="@+id/nav_add_contact"
+        android:icon="@drawable/new_add_contact"
+        android:title="@string/add_contact" />
+
+    <!-- New "Import Contacts" button -->
+    <item
+        android:id="@+id/nav_import_contacts"
+        android:icon="@drawable/new_import"
+        android:title="@string/Import_contacts" />
+    <item
+        android:id="@+id/action_search"
+        android:title="Search"
+        android:icon="@drawable/new_search"
+        tools:ignore="HardcodedText" />
+
+    </group>
+
+</menu>

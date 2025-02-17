@@ -1,0 +1,433 @@
+<resources>
+        <string name="app_name">JH Rastreador de Vuelos</string>
+        <string name="fab_content_desc">fab_contenido</string>
+        <string name="content_description_flight">menu_vuelo</string>
+        <string name="content_description_home">menu_inicio</string>
+        <string name="imageview">TImageView</string>
+        <string name="jackson_hole_airport_n1250_east_airport_road">1250 East Airport Road</string>
+
+        <string name="_307_733_7682">307–733–7682</string>
+
+        <string name="info_jhairport_org">info@jhairport.org</string>
+        <string name="info_jhflight_org">flightinfo@jhflight.org</string>
+        <string name="fbo_general_manager">craig.foster@jhairport.org</string>
+        <string name="fbo_customer_service_manager">customerservice@jhairport.org</string>
+        <string name="airport_operations">airportoperations@jhairport.org</string>
+        <string name="human_resources">recursoshumanos@jhairport.org</string>
+        <string name="lost_and_found">objetosperdidos@jhairport.org</string>
+        <string name="communications_customer_experience">comunicaciones@jhairport.org</string>
+
+        <string name="contact_info">Información</string>
+        <string name="contactfab">contacto</string>
+        <string name="webcam">cámara web</string>
+        <string name="mainhome">Vuelos</string>
+        <string name="jac">JAC</string>
+        <string name="nointernet">sininternet</string>
+        <string name="no_internet_connectiontitle">Sin Conexión a Internet</string>
+
+        <string name="title_activity_photo">Parque Nacional</string>
+        <string name="photo">fotos</string>
+        <string name="photoview">vistafoto</string>
+        <string name="photoscroll">desplazarfotos</string>
+        <string name="Photos">Parque Nacional Grand Teton</string>
+        <string name="item1">vuelos</string>
+        <string name="item3">contacto</string>
+        <string name="Contact" translatable="false">Contacto</string>
+        <string name="appbar_scrolling_view_behavior">com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior</string>
+        <string name="PO_Box_n159Jackson_WY_n83001">PO Box 159Jackson WY 83001</string>
+
+        <string name="title_activity_settings">ActividadConfiguración</string>
+
+        <string name="settings_header">Configuraciones</string>
+        <string name="new_features">Nueva función - Sincronización para actualización automática</string>
+
+        <string name="sync_title">Habilitar Sincronización</string>
+        <string name="attachment_title">Descargar adjuntos entrantes</string>
+        <string name="attachment_summary_on">Descargas automáticas; Requiere verificación.</string>
+
+        <string name="fab_settings">configuraciones</string>
+        <string name="feature_released">Función lanzada</string>
+        <string name="JACAIRPORT_text">J A C</string>
+
+        <string name="title_activity_fullscreen">ActividadPantallaCompleta</string>
+        <string name="closeimage">cerrarimagen</string>
+        <string name="page_name">Configuración</string>
+        <string name="name_contact">Contacto</string>
+
+        <string name="send_feedback_title">Comentarios</string>
+        <string name="send_feedback_summary">enviar comentarios</string>
+        <string name="rate_us_title">¡Califica nuestra app!</string>
+        <string name="rate_us_summary">califícanos</string>
+        <string name="share_app_title">¡Comparte esta app con amigos!</string>
+        <string name="share_app_summary">comparte nuestra app</string>
+        <string name="first_name">Nombre</string>
+        <string name="last_name">Apellido</string>
+        <string name="email">Correo Electrónico</string>
+        <string name="submit">Enviar</string>
+        <string name="be_the_first_updated">Sé el primero en actualizarte</string>
+        <string name="show_dialog">Mostrar Diálogo</string>
+        <string name="no_internet_image_logo">sin logo de internet</string>
+        <string name="_0">0</string>
+        <string name="rate_us">Calificar y Comentar</string>
+        <string name="_5_stars">5</string>
+        <string name="_4_stars">4</string>
+        <string name="_3_stars">3</string>
+        <string name="_2_stars">2</string>
+        <string name="_1_star">1</string>
+        <string name="sample_item">Elemento de Ejemplo</string>
+        <string name="airport_operations_email">operaciones@jhairport.org</string>
+        <string name="lost_and_found_email">info@jhairport.org</string>
+        <string name="human_resources_email">rrhh@jhairport.org</string>
+        <string name="communications_customer_experience_email">megan.jenkins@jhairport.org</string>
+        <string name="call_float">Llamar</string>
+        <string name="cancel">Cerrar</string>
+        <string name="confirm_call_message">¿Quieres llamar a %s?</string>
+        <string name="card_view_icon">ícono de tarjeta</string>
+        <string name="opensplash">página splash</string>
+        <string name="placeholder_text">Parque Nacional Grand Teton</string>
+        <string name="downloading_update">Descargando actualización…</string>
+        <string name="zero_percent">0%</string>
+        <string name="percentage_placeholder">%1$d%%</string>
+        <string name="time_left_initial">Tiempo Restante: 00:00</string>
+        <string name="time_left">Tiempo Restante: %1$s</string>
+        <string name="download">Descargar</string>
+        <string name="update_app_title">Actualiza Tu App</string>
+        <string name="install">Instalar</string>
+        <string name="changelog_title_placeholder">Registro de Cambios</string>
+        <string name="checking_for_updates">Buscando actualizaciones</string>
+        <string name="app_update">Actualización de App</string>
+        <string name="app_up_to_date">¡Estás al día! Tu app está actualizada.</string>
+        <string name="ok">Aceptar</string>
+
+    <string-array name="update_messages">
+        <item>&#8211; <b>Actualización Anterior:</b></item>
+        <item>&#8211; Interfaz y animaciones mejoradas.</item>
+        <item>&#8211; Nuevas animaciones añadidas para transiciones más fluidas.</item>
+        <item>&#8211; Se ha introducido una paleta de colores para la personalización de contactos.</item>
+        <item>&#8211; Se agregó un selector de colores Holo con una interfaz moderna en BottomSheet.</item>
+        <item>&#8211; Comportamiento mejorado del BottomSheet: ahora se abre a media pantalla por defecto.</item>
+        <item>&#8211; Se corrigió un problema de la interfaz donde el BottomSheet perdía sus esquinas redondeadas después de expandirse.</item>
+        <item>&#8211; Mayor estabilidad y rendimiento.</item>
+        <item>&#8211; Secciones de Notas y Contactos añadidas.</item>
+        <item>&#8211; Nuevas opciones de configuración de página personalizables.</item>
+        <item>&#8211; Introducción de Widget (beta) para acceso rápido.</item>
+        <item>&#8211; Localización expandida (Español, Inglés).</item>
+        <item>&#8211; Nueva funcionalidad para actualizar imágenes en línea.</item>
+        <item>&#8211; Optimización del Modo Oscuro para mejor visibilidad.</item>
+        <item>&#8211; Corrección de errores que causaban fallos al iniciar la aplicación.</item>
+        <item>&#8211; Mejoras de rendimiento para una navegación más fluida.</item>
+        <item>&#8211; Actualización de iconos internos para un diseño moderno.</item>
+        <item>&#8211; Mejor manejo de red en condiciones de baja conectividad.</item>
+        <item>&#8211; Medidas de seguridad mejoradas y corrección de errores.</item>
+        <item>&#8211; Nuevas animaciones añadidas para transiciones más suaves.</item>
+        <item>&#8211; Mayor compatibilidad con las últimas versiones de Android.</item>
+        <item>&#8211; Optimización del consumo de batería para sesiones más largas.</item>
+        <item>&#8211; Mejor soporte de accesibilidad para lectores de pantalla.</item>
+        <item>&#8211; Tiempos de carga más rápidos y mayor velocidad de la aplicación.</item>
+        <item>&#8211; Nuevo **Widget (Beta)** agregado para mostrar un temporizador de cuenta regresiva para la actualización automática de imágenes.</item>
+        <item>&#8211; ¡Gracias por usar nuestra aplicación!</item>
+    </string-array>
+
+
+    <string name="licenses_title">Licencias</string>
+    <string name="feedback">Comentarios</string>
+    <string name="privacy_policy_title">Política de Privacidad</string>
+
+    <string name="licenses_content">
+    <![CDATA[
+        <h2>Licencias de Código Abierto</h2>
+        <p>Esta aplicación utiliza bibliotecas de software de código abierto, licenciadas bajo sus respectivos términos. A continuación, se muestra una lista de bibliotecas y sus licencias:</p>
+
+        <h3>1. Bibliotecas Android Jetpack</h3>
+        <p>Licenciadas bajo la <a href="https://www.apache.org/licenses/LICENSE-2.0">Licencia Apache, Versión 2.0</a>.</p>
+
+        <h3>2. Componentes Material para Android</h3>
+        <p>La biblioteca de Componentes Material está licenciada bajo la <a href="https://www.apache.org/licenses/LICENSE-2.0">Licencia Apache, Versión 2.0</a>.</p>
+
+        <h3>3. Glide</h3>
+        <p>La biblioteca de carga de imágenes por BumpTech está licenciada bajo la <a href="https://www.apache.org/licenses/LICENSE-2.0">Licencia Apache, Versión 2.0</a>.</p>
+
+        <h3>4. Retrofit</h3>
+        <p>El cliente HTTP Retrofit por Square está licenciado bajo la <a href="https://www.apache.org/licenses/LICENSE-2.0">Licencia Apache, Versión 2.0</a>.</p>
+
+        <h3>5. OkHttp</h3>
+        <p>La biblioteca de red OkHttp por Square está licenciada bajo la <a href="https://www.apache.org/licenses/LICENSE-2.0">Licencia Apache, Versión 2.0</a>.</p>
+
+        <h3>6. Gson</h3>
+        <p>La biblioteca Gson para análisis de JSON por Google está licenciada bajo la <a href="https://www.apache.org/licenses/LICENSE-2.0">Licencia Apache, Versión 2.0</a>.</p>
+
+        <p>Los iconos proporcionados por <a href="https://fonts.google.com/icons/">Material Design Icons</a> están licenciados bajo la <a href="https://creativecommons.org/licenses/by/4.0/">Licencia Creative Commons 4.0</a>.</p>
+
+        <p>Datos obtenidos de <a href="https://www.jacksonholeairport.com">Jackson Hole Airport</a>.</p>
+        <p>&copy; 2024 Jackson Hole Airport App. Todos los derechos reservados.</p>
+        <p>Los iconos proporcionados por <a href="https://fonts.google.com/icons/" target="_blank" rel="noopener noreferrer">Google Material Icons</a> están licenciados bajo la <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">Licencia de Atribución de Creative Commons 4.0</a>.</p>
+
+        <h2>Agradecimientos</h2>
+        <p>Esta aplicación fue desarrollada en <strong>Android Studio</strong> utilizando el lenguaje de programación <strong>Kotlin</strong>.</p>
+        <p>Creada por <em>N.F. Programmer</em>.</p>
+
+        <h3>Descargo de Responsabilidad</h3>
+        <p>Las bibliotecas de código abierto están regidas por sus respectivas licencias. Consulte la documentación oficial de cada biblioteca para conocer los términos y condiciones detallados.</p>
+
+        <p>Agradecemos a los desarrolladores de estas herramientas por hacerlas disponibles de forma gratuita.</p>
+        <p>Al utilizar esta aplicación, acepta cumplir con los términos y condiciones establecidos en la Política de Privacidad y el Acuerdo de Licencia.</p>
+
+    ]]>
+</string>
+
+    <string name="privacy_policy_goes_here">
+    <![CDATA[
+        <h2>Política de Privacidad</h2>
+        <p>Su privacidad es importante para nosotros. Esta Política de Privacidad explica cómo Jackson Hole Airport ("JH Airport", "nosotros", "nuestro" o "nos") recopila, utiliza y protege su información personal al usar la aplicación Jackson Hole Airport App.</p>
+
+        <h3>Recopilación de Información</h3>
+        <p>Podemos recopilar información que usted proporcione, incluyendo pero no limitado a:</p>
+        <ul>
+            <li>Su nombre y dirección de correo electrónico (si se proporcionan para notificaciones o comentarios).</li>
+            <li>Datos de uso de la aplicación y preferencias para mejorar la funcionalidad.</li>
+            <li>Datos de ubicación (si están habilitados) para proporcionar servicios en tiempo real, como direcciones, disponibilidad de estacionamiento y estado de vuelos.</li>
+        </ul>
+
+        <h3>Cómo Usamos Sus Datos</h3>
+        <p>Usamos sus datos para:</p>
+        <ul>
+            <li>Proporcionarle actualizaciones en tiempo real sobre horarios de vuelos, retrasos y cancelaciones.</li>
+            <li>Mejorar el rendimiento de la aplicación y mejorar la experiencia del usuario.</li>
+            <li>Enviar notificaciones importantes relacionadas con los servicios del Aeropuerto Jackson Hole (si usted lo autoriza).</li>
+        </ul>
+
+        <h3>Compartir Datos</h3>
+        <p>No vendemos, intercambiamos ni compartimos su información personal con terceros, excepto en los siguientes casos:</p>
+        <ul>
+            <li>Para cumplir con obligaciones legales o responder a solicitudes legítimas.</li>
+            <li>Para proporcionar servicios esenciales (por ejemplo, actualizaciones de vuelos) en asociación con proveedores confiables.</li>
+        </ul>
+
+        <h3>Seguridad de los Datos</h3>
+        <p>Implementamos medidas estándar en la industria para garantizar que sus datos estén protegidos contra acceso, alteración o divulgación no autorizados.</p>
+
+        <h3>Sus Derechos</h3>
+        <p>Usted tiene derecho a acceder, actualizar o eliminar su información personal en cualquier momento. También puede optar por no recibir notificaciones o deshabilitar el seguimiento de ubicación a través de la configuración de su dispositivo.</p>
+
+        <h3>Contáctenos</h3>
+        <p>Si tiene preguntas sobre esta Política de Privacidad o nuestras prácticas de datos, comuníquese con Jackson Hole Airport a través de:</p>
+        <p>Correo electrónico: <a href="mailto:info@jhairport.org">info@jhairport.org</a></p>
+        <p>Visite nuestro sitio web: <a href="https://www.jacksonholeairport.com">www.jacksonholeairport.com</a></p>
+
+        <p>Al usar esta aplicación, usted acepta los términos de esta Política de Privacidad. Podemos actualizar esta política ocasionalmente, y cualquier cambio se reflejará en la aplicación.</p>
+    ]]>
+</string>
+    <string name="qrcode">descarga nuestra aplicación</string>
+    <string name="why_download_app">
+    "¡Descubre la forma más fácil de conectarte con nuestra aplicación! \n
+    Escanea códigos QR al instante, compártelos con amigos y disfruta de una experiencia sin interrupciones. \n
+    ¡Descárgala ahora y desbloquea funciones exclusivas diseñadas especialmente para ti!"
+</string>
+    <string name="fragment_settings">configuración_fragmento</string>
+    <string name="download_complete">Descarga completa</string>
+    <string name="minimized">minimizado</string>
+    <string name="fab_content_description">Representa una vista para invocar una acción</string>
+    <string name="image_view_item_transform_content_description">Representa una vista de imagen en el
+    elemento
+</string>
+    <string name="title_activity_scrolling_settings">ConfiguracionesDeActividadDeDesplazamiento</string>
+    <string name="search_settings_hint">Buscar configuraciones…</string>
+    <string name="cardlung1">Tarjeta 1</string>
+    <string name="cardlung2">Tarjeta 2</string>
+    <string name="cardlung3">Tarjeta 3</string>
+    <string name="cardlung4">Tarjeta 4</string>
+    <string name="cardlung5">Tarjeta 5</string>
+    <string name="cardlung6">Tarjeta 6</string>
+    <string name="cardlung7">Tarjeta 7</string>
+    <string name="cardlung8">Tarjeta 8</string>
+    <string name="cardlung9">Tarjeta 9</string>
+    <string name="nav_header_title">Configuración de Estudio</string>
+    <string name="nav_header_subtitle">configuraciones</string>
+    <string name="nav_header_desc">Encabezado de navegación</string>
+
+    <string name="menu_transform">Transformar</string>
+    <string name="menu_reflow">Reformar</string>
+
+    <string name="menu_slideshow">Presentación</string>
+    <string name="menu_settings">Configuraciones</string>
+
+    <string name="lorem_ipsum_title">Lorem Ipsum</string>
+    <string name="lorem_ipsum">Lorem Ipsum es simplemente un texto de marcador de posición de la industria de la impresión y la composición tipográfica. Lorem Ipsum ha sido el texto de marcador de posición estándar de la industria desde la década de 1500, cuando un impresor desconocido tomó una galera de tipos y los mezcló para hacer un libro de muestras de tipos.</string>
+    <string name="server_online">Servidor en línea</string>
+    <string name="server_offline">Servidor fuera de línea</string>
+    <string name="clear_feedback">Borrar comentarios</string>
+    <string name="checking_status">Comprobando estado del servidor…</string>
+    <string name="title_activity_main2">MainActivity2</string>
+    <string name="navigation_drawer_open">Abrir barra lateral de navegación</string>
+    <string name="navigation_drawer_close">Cerrar barra lateral de navegación</string>
+
+    <string name="action_settings">Configuraciones</string>
+
+    <string name="title_activity_scrolling">Actividad de desplazamiento</string>
+    <string name="large_text">"Material es la metáfora.\n\n"</string>
+    <string name="adventure">Aventura</string>
+    <string name="Experience">Experiencia</string>
+    <string name="thelitleairplane">elpequeñoavión</string>
+    <string name="open_maps">Abrir Mapas</string>
+    <!-- A string for progress percentage -->
+    <string name="progress_percentage">%1$d%%</string>
+    <!-- A string for the progress message -->
+    <string name="progress_text">Cargando la página… %1$d%%</string>
+    <string name="call_from_contact">Llamar</string>
+    <string name="Cancelphonecall">Cancelar</string>
+    <string name="Cancel">Cancelar</string>
+    <string name="enter_your_feedback_here">Ingrese su retroalimentación aquí…</string>
+    <string name="your_feedback_helps_us_improve">¡Su retroalimentación nos ayuda a mejorar!</string>
+    <string name="send_feedback">Enviar retroalimentación</string>
+    <string name="tell_us_what_you_think">¡Cuéntenos lo que piensa!</string>
+    <string name="offline_feedback">¡Envíe su retroalimentación incluso cuando el servidor esté fuera de línea; se procesará más tarde!</string>
+    <string name="card1">Tarjeta 1</string>
+    <string name="card2">Tarjeta 2</string>
+    <string name="card3">Tarjeta 3</string>
+    <string name="card_4_support_text">Noticias</string>
+    <string name="close">Cerrar</string>
+    <string name="card_1">Bienvenido</string>
+    <string name="card_2">Noticias</string>
+    <string name="flights">Vuelos</string>
+    <string name="card_4">Fbo</string>
+    <string name="image1">Imagen 1</string>
+    <string name="image2">Imagen 2</string>
+    <string name="image3">Imagen 3</string>
+    <string name="image4">Imagen 4</string>
+    <string name="grand_teton_national">Parque Nacional Grand Teton</string>
+    <string name="card_image">Imagen de tarjeta</string>
+    <string name="confirm_call_messagebutton">Botón de llamada</string>
+    <string name="drive_safely_and_stay_focused">Conduce con seguridad y mantente concentrado.</string>
+    <string name="carousel_description">para recycleview material design3</string>
+    <string name="fab_content_desc_main">FAB principal</string>
+    <string name="fab_content_desc_camera">FAB cámara</string>
+    <string name="fab_content_desc_insert_photo">FAB insertar foto</string>
+    <string name="fab_content_desc_contact">FAB contacto</string>
+    <string name="fab_content_desc_settings">FAB configuraciones</string>
+    <string name="changelog_title">Registro de cambios para %s</string>
+    <string name="load_image_2">Norte</string>
+    <string name="load_image_1">Bordillo</string>
+    <string name="south">Sur</string>
+    <string name="button_load_image_1">Cargar imagen 1</string>
+    <string name="button_load_image_2">Cargar imagen 2</string>
+    <string name="button_load_image_south">Cargar imagen Sur</string>
+    <string name="logo_description">descripción del logo</string>
+    <string name="expand_button">botón expandir</string>
+    <string name="airport_image">imagen redonda del aeropuerto</string>
+    <string name="bottomsheet">Menú</string>
+    <string name="openmenu">abrir menú</string>
+    <string name="drag_handle_arrow">flecha del controlador</string>
+    <string name="hello_welcome">¡Hola, bienvenido al nuevo menú inferior!</string>
+    <string name="future_icons">Los futuros íconos se colocarán aquí.</string>
+    <string name="error_loading">Error al cargar</string>
+    <string name="menu">menú</string>
+    <string name="download_complete_title">Descarga completada</string>
+    <string name="app_update_title">Actualización de la app</string>
+    <string name="app_up_to_date_message">¡Tu app está actualizada!</string>
+
+    <string name="installation_downloaded">Archivo descargado.</string>
+    <string name="install_message_template">Archivo descargado. %s</string>
+
+    <string name="app_widget_description">Esta es una descripción del widget de la app</string>
+    <string name="flight_information">Información</string>
+    <string name="clicked_item">Elemento clicado en la posición %1$d</string>
+    <string name="back_arrow_desc">flecha hacia atrás</string>
+    <string name="carousel_content_description">Carrusel de imágenes</string>
+    <string name="card4">tarjeta 4</string>
+    <string name="download_in_progress">espera</string>
+    <string name="internet_strength_weak">Internet débil</string>
+    <string name="internet_strength_strong">Fuerte</string>
+    <string name="internet_strength_moderate">Moderado</string>
+    <string name="internet_strength_none">Sin Conexión</string>
+    <string name="downloading">Descargando… %1$d%%</string>
+    <string name="internet_strength">Fuerza de Internet: %1$s</string>
+    <string name="download_speed">%.2f MB/seg</string>
+    <string name="your_app_download_is_in_progress">La descarga de tu aplicación está en progreso…</string>
+    <string name="toolbar_logo">logo barra</string>
+    <string name="search">Buscar</string>
+    <string name="scan_qr_code">escanea QR</string>
+    <string name="add_contact">Agregar</string>
+    <string name="contacts">Mis Contactos</string>
+
+
+    <string name="name">Nombre</string>
+    <string name="phone">Teléfono</string>
+    <string name="address">Dirección</string>
+    <string name="call_contact">Llamar</string>
+    <string name="update_contact">Actualizar</string>
+    <string name="delete">Eliminar</string>
+    <string name="delete_contact">eliminar</string>
+    <string name="search_contacts_hint">Buscar…</string>
+    <string name="edit_note">Editar nota</string>
+    <string name="expand_collapse">expandir contraer</string>
+    <string name="delete_selected">Eliminar seleccionados</string>
+    <string name="add_note">agregar nota</string>
+    <string name="back">atrás</string>
+    <string name="_0_1500">0/1500</string>
+    <string name="save_note">Guardar nota</string>
+    <string name="char_count_format">%1$d/1500</string>
+    <string name="note_empty_error">¡La nota no puede estar vacía!</string>
+    <string name="update">actualizar</string>
+    <string name="save">guardar</string>
+    <string name="date_created">Fecha de creación \u00A0|</string>
+    <string name="sort_arrow">Flecha de clasificación</string>
+    <string name="country_info_format">País: %1$s, Bandera: %2$s</string>
+    <string name="note_title">Título de la nota</string>
+    <string name="title_hint">Ingrese el título</string>
+    <string name="edit_title">editar título</string>
+    <string name="All_Notes">Todas las notas</string>
+    <string name="icon_image">imagen del ícono</string>
+    <string name="add_photo">agregar foto</string>
+    <string name="updated_note_key">NOTA_ACTUALIZADA</string>
+    <string name="note_position_key">POSICION_NOTA</string>
+    <string name="error_loading_note">Error al cargar la nota</string>
+    <string name="exit">salir</string>
+    <string name="confirm_exit_message">Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?</string>
+    <string name="fbo">FBO</string>
+    <string name="news">Noticias</string>
+    <string name="welcome">Bienvenido</string>
+    <string name="fbo_services">Servicios FBO</string>
+    <string name="more_information">Más Información</string>
+    <string name="other_services">Otros Servicios</string>
+    <string name="main_section">Sección Principal</string>
+    <string name="contact_us">Contáctanos</string>
+    <string name="subtitle_text">Subtítulo para %1$s</string>
+    <string name="email_addresses_n_nairport_operations_operations_jhairport_org_nairport_services_info_jhairport_org_nhuman_resources_hr_jhairport_org_nlost_and_found_info_jhairport_org_ncommunications_megan_jenkins_jhairport_org">Direcciones de correo electrónico:\n\nOperaciones del Aeropuerto: operations@jhairport.org\nServicios del Aeropuerto: info@jhairport.org\nRecursos Humanos: hr@jhairport.org\nObjetos Perdidos: info@jhairport.org\nComunicaciones: megan.jenkins@jhairport.org</string>
+    <string name="operational_concerns_n_nplease_email_community_jhairport_org_for_concerns_and_inquiries_that_do_not_involve_airport_aircraft_noise">Preocupaciones Operativas:\n\nPor favor, envía un correo a community@jhairport.org para consultas que no involucren ruido del aeropuerto/aviones.</string>
+    <string name="phone_307_733_7682">Teléfono: (307) 733–7682</string>
+    <string name="although_the_jackson_hole_airport_is_the_busiest_airport_in_wyoming_the_small_size_affords_the_traveling_public_with_a_more_intimate_traveling_experience_any_questions_and_concerns_are_met_with_smiles_and_immediate_assistance_if_you_have_any_questions_or_comments_you_d_like_to_share_please_click_on_the_appropriate_category_to_e_mail_the_appropriate_airport_representative_thanks_n_npeople_helping_people_n_nwe_care_about_your_travel_experience_please_share_your_feedback_by_filling_out_the_short_form_below_with_your_help_the_airport_can_address_concerns_award_staff_members_who_go_above_and_beyond_or_contact_stakeholders_airlines_rental_car_companies_concessionaires_on_your_behalf">Aunque el Aeropuerto Jackson Hole es el más concurrido de Wyoming, su pequeño tamaño permite una experiencia de viaje más íntima. Todas las preguntas y preocupaciones se atienden con sonrisas y asistencia inmediata. Si tienes preguntas o comentarios que quieras compartir, selecciona la categoría adecuada para enviar un correo electrónico al representante correspondiente del aeropuerto. ¡Gracias!\n\nGente Ayudando a Gente\n\n¡Nos importa tu experiencia de viaje! Por favor comparte tus comentarios llenando el formulario corto a continuación. Con tu ayuda, el Aeropuerto puede abordar preocupaciones, reconocer a los miembros del personal que van más allá, o contactar a las partes interesadas (aerolíneas, empresas de alquiler de autos, concesionarios) en tu nombre.</string>
+    <string name="email_addresses">Correos Electrónicos y Teléfonos:</string>
+    <string name="address_title">Dirección</string>
+    <string name="operational_concerns">Preocupaciones Operativas:</string>
+    <string name="address_location">Dirección</string>
+    <string name="about_us">Sobre Nosotros</string>
+    <string name="about_us_description">Todo, desde información detallada para pilotos hasta instrucciones sobre cómo contactar a nuestro Departamento de Objetos Perdidos, se puede encontrar aquí. ¿Quieres saber cómo se fundó el Aeropuerto Jackson Hole? Consulta nuestra página de Historia. ¿Eres un piloto planificando una aventura en el área de Jackson Hole? No te pierdas toda la información listada en nuestra página de Información para Pilotos. ¿Aún tienes preguntas? Asegúrate de visitar la página de Preguntas Frecuentes para respuestas a preguntas comunes. Si no encuentras lo que buscas, envía un correo a info@jhairport.org para obtener ayuda adicional.</string>
+    <string name="careers_title">Carreras en el Aeropuerto Jackson Hole</string>
+    <string name="careers_description">El Aeropuerto Jackson Hole se esfuerza por servir a la comunidad como un Empleador de Preferencia, ofreciendo salarios líderes en la industria y un paquete de beneficios diseñado para apoyarte a ti, a tu familia y a tu profesión. Deja que tu carrera despegue en un puesto temporal, de medio tiempo o de tiempo completo. Nos gusta pensar que el Aeropuerto es un lugar emocionante y amigable para aterrizar con muchas oportunidades para expandir tus conocimientos y habilidades. ¡Nuestro mantra es Gente Ayudando a Gente, y esto guía cómo operamos todos los días!</string>
+    <string name="human_resources_contact">Departamento de Recursos Humanos: hr@jhairport.org</string>
+    <string name="job_application">Solicitud de Empleo</string>
+    <string name="job_application_link">https://www.jacksonholeairport.com/wp-content/uploads/2023/04/JHAB-general-employment-application-fillable.pdf</string>
+    <string name="send_sms">Enviar SMS</string>
+    <string name="share">compartir</string>
+    <string name="edit">editar</string>
+    <string name="opening_map_countdown">La notificación se cerrará en 10 segundos…</string>
+    <string name="open_map_action">Abrir mapa</string>
+    <string name="countdown_seconds">Cerrando en %1$d segundos…</string>
+    <string name="failed_to_load_map">No se pudo cargar el mapa. Verifique la conexión a internet.</string>
+    <string name="failed_to_load_contact_us">No se pudo cargar el contenido de Contáctanos.</string>
+    <string name="select_language">Seleccionar idioma</string>
+    <string name="english">Inglés</string>
+    <string name="spanish">Español</string>
+    <string name="no_internet">Sin conexión a internet</string>
+    <string name="battery_default">--%</string>
+    <string name="battery_level_short">%1$d%%</string>
+    <string name="battery_unknown_short">--%%</string>
+    <string name="select_a_color">Selecciona un color</string>
+
+
+
+
+
+
+
+</resources>

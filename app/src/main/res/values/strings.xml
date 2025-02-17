@@ -1,0 +1,492 @@
+<resources>
+    <string name="app_name">JH AirTracker</string>
+    <string name="fab_content_desc">fab_content</string>
+    <string name="content_description_flight">fligh_menu</string>
+    <string name="content_description_home">home_menu</string>
+    <string name="imageview">TImageView</string>
+    <string name="jackson_hole_airport_n1250_east_airport_road">1250 East Airport Road</string>
+
+    <string name="_307_733_7682">307–733–7682</string> <!-- This is a phone number, keep it as is. -->
+
+    <!-- Email strings (replace with actual email addresses) -->
+    <string name="info_jhairport_org">info@jhairport.org</string>
+    <string name="info_jhflight_org">flightinfo@jhflight.org</string>
+    <string name="fbo_general_manager">craig.foster@jhairport.org</string>
+    <string name="fbo_customer_service_manager">customerservice@jhairport.org</string>
+    <string name="airport_operations">airportoperations@jhairport.org</string>
+    <string name="human_resources">hr@jhairport.org</string>
+    <string name="lost_and_found">lostandfound@jhairport.org</string>
+    <string name="communications_customer_experience">commcustomer@jhairport.org</string>
+
+    <string name="contact_count_message">You have %1$d contacts</string>
+    <string name="contacts_count">Contacts: %1$d</string>
+
+
+
+    <string name="contact_info">Information</string>
+    <string name="contactfab">contact</string>
+    <string name="webcam">webcam</string>
+    <string name="mainhome">Flights</string>
+    <string name="jac">JAC</string>
+    <string name="nointernet">nointernet</string>
+    <string name="no_internet_connectiontitle">No Internet Connection</string>
+
+    <string name="title_activity_photo">National Park</string>
+    <string name="photo">photos</string>
+    <string name="photoview">photoview</string>
+    <string name="photoscroll">photoscroll</string>
+    <string name="Photos">Grand Teton National Park</string>
+    <string name="item1">flights</string>
+    <string name="item3">contact</string>
+    <string name="Contact" translatable="false">Contact</string>
+    <string name="appbar_scrolling_view_behavior">com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior</string>
+    <string name="PO_Box_n159Jackson_WY_n83001">PO Box 159Jackson WY 83001</string>
+
+    <string name="title_activity_settings">SettingsActivity</string>
+
+    <!-- Preference Titles -->
+    <string name="settings_header">Settings</string>
+    <string name="new_features">New Feature - Sync for auto update</string>
+
+    <!-- Messages Preferences -->
+
+
+    <!-- Sync Preferences -->
+    <string name="sync_title">Enable Sync</string>
+
+    <!-- Attachment Download Preferences -->
+    <string name="attachment_title">Download incoming attachments</string>
+    <string name="attachment_summary_on">Auto-downloads; Check required.</string>
+
+
+    <string name="fab_settings">settings</string>
+    <string name="feature_released">Feature released</string>
+    <string name="JACAIRPORT_text">J A C</string>
+
+
+    <string name="title_activity_fullscreen">FullscreenActivity</string>
+    <string name="closeimage">closeimage</string>
+    <string name="page_name">Settings</string>
+    <string name="name_contact">Contact</string>
+
+    <string name="send_feedback_title">Feedback</string>
+    <string name="send_feedback_summary">send feedback</string>
+    <string name="rate_us_title">Rate Our app!</string>
+    <string name="rate_us_summary">rate us</string>
+    <string name="share_app_title">Share this app with friends!</string>
+    <string name="share_app_summary">share our app</string>
+    <string name="first_name">First Name</string>
+    <string name="last_name">Last Name</string>
+    <string name="email">Email</string>
+    <string name="submit">Submit</string>
+    <string name="be_the_first_updated">Be the first updated</string>
+    <string name="show_dialog">Show Dialog</string>
+    <string name="no_internet_image_logo">no internet image logo</string>
+    <string name="_0">0</string>
+    <string name="rate_us">Rate  &amp; Feedback</string>
+    <string name="_5_stars">5</string>
+    <string name="_4_stars">4</string>
+    <string name="_3_stars">3</string>
+    <string name="_2_stars">2</string>
+    <string name="_1_star">1</string>
+    <string name="sample_item">Sample Item</string>
+    <string name="airport_operations_email">operations@jhairport.org</string>
+    <string name="lost_and_found_email">info@jhairport.org</string>
+    <string name="human_resources_email">hr@jhairport.org</string>
+    <string name="communications_customer_experience_email">megan.jenkins@jhairport.org</string>
+    <string name="call_float">Call</string>
+    <string name="cancel">Close</string>
+    <string name="confirm_call_message">Do you want to call %s?</string>
+    <string name="card_view_icon">cardviewicon</string>
+    <string name="opensplash">splashpage</string>
+    <string name="placeholder_text">Grand Teton National Park</string>
+    <string name="downloading_update">Downloading update…</string>
+    <string name="zero_percent">0%</string>
+    <string name="percentage_placeholder">%1$d%%</string>
+    <string name="time_left_initial">Time Left: 00:00</string>
+    <string name="time_left">Time Left: %1$s</string>
+    <string name="download">Download</string>
+    <string name="update_app_title">Update Your App</string>
+    <string name="install">Install</string>
+    <string name="changelog_title_placeholder">Changelog</string>
+    <string name="checking_for_updates">Checking for Updates</string>
+    <string name="app_update">App Update</string>
+    <string name="app_up_to_date">You\'re all caught up!\nYour app is up to date.</string>
+    <string name="ok">OK</string>
+
+    <string-array name="update_messages">
+        <item>&#8211; <b>Previous Update:</b></item>
+        <item>&#8211; New animations added for smoother transitions.</item>
+        <item>&#8211; Introduced a color palette for contacts customization.</item>
+        <item>&#8211; Added Holo color picker with a modern BottomSheet UI.</item>
+        <item>&#8211; Improved BottomSheet behavior: now opens half-screen by default.</item>
+        <item>&#8211; Fixed UI issue where BottomSheet lost rounded corners after expanding.</item>
+        <item>&#8211; Enhanced UI and animations.</item>
+        <item>&#8211; Improved stability and performance.</item>
+        <item>&#8211; Added Notes and Contact sections.</item>
+        <item>&#8211; New customizable Page Settings.</item>
+        <item>&#8211; Introduced Widget (beta) for quick access.</item>
+        <item>&#8211; Expanded localization (Spanish, English).</item>
+        <item>&#8211; Added functionality to refresh images online.</item>
+        <item>&#8211; Dark Mode optimizations for better visibility.</item>
+        <item>&#8211; Fixed bugs related to app crashes on startup.</item>
+        <item>&#8211; Performance improvements for smoother navigation.</item>
+        <item>&#8211; Updated in-app icons for a modern look.</item>
+        <item>&#8211; Improved network handling for low connectivity.</item>
+        <item>&#8211; Enhanced security measures and bug fixes.</item>
+        <item>&#8211; New animations added for transitions.</item>
+        <item>&#8211; Increased compatibility with latest Android versions.</item>
+        <item>&#8211; Optimized battery usage for longer app sessions.</item>
+        <item>&#8211; Improved accessibility support for screen readers.</item>
+        <item>&#8211; Faster loading times and improved app speed.</item>
+        <item>&#8211; New **Widget (Beta)** added to display a countdown timer for automatic image refresh.</item>
+        <item>&#8211; Thank you for using our app!</item>
+    </string-array>
+
+
+
+
+
+    <string name="download_complete_title">Download Complete</string>
+    <string name="app_update_title">App Update</string>
+    <string name="app_up_to_date_message">Your app is up to date!</string>
+
+    <string name="installation_downloaded">File downloaded.</string>
+    <string name="install_message_template">File downloaded. %s</string>
+
+    <string name="app_widget_description">This is an app widget description</string>
+    <string name="flight_information">Information</string>
+    <string name="clicked_item">Item clicked at position %1$d</string>
+    <string name="back_arrow_desc">backarrow</string>
+    <string name="carousel_content_description">Carousel of images</string>
+    <string name="card4">card 4</string>
+
+    <string name="carousel_description">for recycleview material design3</string>
+    <string name="fab_content_desc_main">Main FAB</string>
+    <string name="fab_content_desc_camera">Camera FAB</string>
+    <string name="fab_content_desc_insert_photo">Insert Photo FAB</string>
+    <string name="fab_content_desc_contact">Contact FAB</string>
+    <string name="fab_content_desc_settings">Settings FAB</string>
+    <string name="changelog_title">Changelog for %s</string>
+    <string name="load_image_2">North</string>
+    <string name="load_image_1">Curb</string>
+    <string name="south">South</string>
+    <string name="button_load_image_1">Load Image 1</string>
+    <string name="button_load_image_2">Load Image 2</string>
+    <string name="button_load_image_south">Load Image South</string>
+    <string name="logo_description">logo description</string>
+    <string name="expand_button">expand button</string>
+    <string name="airport_image">airport round image</string>
+    <string name="bottomsheet">Menu</string>
+    <string name="openmenu">openmenu</string>
+    <string name="drag_handle_arrow">handle arrow</string>
+    <string name="hello_welcome">Hello, welcome to the new bottom menu!</string>
+    <string name="future_icons">Future icons will be placed here.</string>
+    <string name="error_loading">Error Loading</string>
+    <string name="menu">menu</string>
+    <string name="card1">card 1</string>
+    <string name="card2">card2</string>
+    <string name="card3">card3</string>
+    <string name="card_4_support_text">News</string>
+    <string name="close">Close</string>
+    <string name="card_1"> Welcome </string>
+    <string name="card_2">News</string>
+    <string name="flights">Flights</string>
+    <string name="card_4">Fbo</string>
+    <string name="image1">image 1</string>
+    <string name="image2">image 2</string>
+    <string name="image3">image 3</string>
+    <string name="image4">image 4</string>
+    <string name="grand_teton_national">Grand Teton National Park</string>
+    <string name="card_image">cardimage</string>
+    <string name="confirm_call_messagebutton">call button</string>
+    <string name="drive_safely_and_stay_focused">Drive safely and stay focused.</string>
+    <string name="open_maps">Open Maps</string>
+    <!-- A string for progress percentage -->
+    <string name="progress_percentage">%1$d%%</string>
+    <!-- A string for the progress message -->
+    <string name="progress_text">Loading the page… %1$d%%</string>
+    <string name="call_from_contact">Call</string>
+    <string name="Cancelphonecall">Cancel</string>
+    <string name="Cancel">Cancel</string>
+    <string name="enter_your_feedback_here">Enter your feedback here…</string>
+    <string name="your_feedback_helps_us_improve">Your feedback helps us improve!</string>
+    <string name="send_feedback">Send Feedback</string>
+    <string name="tell_us_what_you_think">Tell us what you think!</string>
+    <string name="offline_feedback">Submit feedback even when the server is offline; it\'ll be processed later!</string>
+
+    <string name="server_online">Server Online</string>
+    <string name="server_offline">Server Offline</string>
+    <string name="clear_feedback">Clear Feedback</string>
+    <string name="checking_status">Checking server status…</string>
+    <string name="title_activity_main2">MainActivity2</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_settings">Settings</string>
+
+    <string name="title_activity_scrolling">ScrollingActivity</string>
+    <string name="large_text">
+        "Material is the metaphor.\n\n"
+
+    </string>
+    <string name="adventure">ADVENTURE</string>
+    <string name="Experience">Experience</string>
+    <string name="thelitleairplane">thelitleairplane</string>
+
+    <string name="cardlung1">Card 1</string>
+    <string name="cardlung2">Card 2</string>
+    <string name="cardlung3">Card 3</string>
+    <string name="cardlung4">Card 4</string>
+    <string name="cardlung5">Card 5</string>
+    <string name="cardlung6">Card 6</string>
+    <string name="cardlung7">Card 7</string>
+    <string name="cardlung8">Card 8</string>
+    <string name="cardlung9">Card 9</string>
+    <string name="nav_header_title">Navigation menu</string>
+    <string name="nav_header_subtitle">settings</string>
+    <string name="nav_header_desc">Navigation header</string>
+
+    <string name="menu_transform">Transform</string>
+    <string name="menu_reflow">Reflow</string>
+
+    <string name="menu_slideshow">Slideshow</string>
+    <string name="menu_settings">Settings</string>
+
+    <string name="lorem_ipsum_title">Lorem Ipsum"</string>
+    <string name="lorem_ipsum">Lorem Ipsum is simply placeholder text of the printing and
+        typesetting industry. Lorem Ipsum has been the industry\'s standard placeholder text ever
+        since the 1500s, when an unknown printer took a galley of type and scrambled it to make a
+        type specimen book"
+    </string>
+    <string name="fab_content_description">Represents a view to invoke an action</string>
+    <string name="image_view_item_transform_content_description">Represents an image view in the
+        item
+    </string>
+    <string name="title_activity_scrolling_settings">ScrollingActivitySettings</string>
+    <string name="search_settings_hint">Search settings…</string>
+    <string name="feedback">Feedback</string>
+    <string name="licenses_title">Licenses</string>
+    <string name="licenses_content">
+    <![CDATA[
+        <h2>Open Source Licenses</h2>
+        <p>This app uses open-source software libraries, licensed under their respective terms. Below is a list of libraries and their licenses:</p>
+
+        <h3>1. Android Jetpack Libraries</h3>
+        <p>Licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+
+        <h3>2. Material Components for Android</h3>
+        <p>Material Components library is licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+
+        <h3>3. Glide</h3>
+        <p>Image loading library by BumpTech is licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+
+        <h3>4. Retrofit</h3>
+        <p>Retrofit HTTP client by Square is licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+
+        <h3>5. OkHttp</h3>
+        <p>OkHttp network library by Square is licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+
+        <h3>6. Gson</h3>
+        <p>Gson library for JSON parsing by Google is licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+
+            <p>Icons provided by <a href="https://fonts.google.com/icons/">Material Design Icons</a> are licensed under the <a href="https://creativecommons.org/licenses/by/4.0/">Creative Commons 4.0 </a> under Creative Commons License.</p>
+
+         <p>Data sourced from <a href="https://www.jacksonholeairport.com">Jackson Hole Airport</a>.</p>
+         <p>&copy; 2024 Jackson Hole Airport App. All rights reserved.</p>
+         <p>Icons provided by <a href="https://fonts.google.com/icons/" target="_blank" rel="noopener noreferrer">Google Material Icons</a> are licensed under the <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">Creative Commons Attribution 4.0 License</a>.</p>
+
+
+
+        <h2>Acknowledgments</h2>
+        <p>This app was developed in <strong>Android Studio</strong> using the <strong>Kotlin</strong> programming language.</p>
+        <p>Created by <em>N.F. Programmer</em>.</p>
+
+        <h3>Disclaimer</h3>
+        <p>The open-source libraries are governed by their respective licenses. Please refer to the official documentation of each library for detailed terms and conditions.</p>
+
+            <p>We thank the developers of these tools for making them freely available.</p>
+         <p>By using this app, you agree to comply with the terms and conditions set forth in the Privacy Policy and Licensing Agreement.</p>
+
+    ]]>
+</string>
+
+
+    <string name="privacy_policy_title">Privacy Policy</string>
+    <string name="privacy_policy_goes_here">
+    <![CDATA[
+        <h2>Privacy Policy</h2>
+        <p>Your privacy is important to us. This Privacy Policy explains how Jackson Hole Airport ("JH Airport", "we", "our", or "us") collects, uses, and protects your personal information when using the Jackson Hole Airport App.</p>
+
+        <h3>Information Collection</h3>
+        <p>We may collect information that you provide, including but not limited to:</p>
+        <ul>
+            <li>Your name and email address (if provided for notifications or feedback).</li>
+            <li>App usage data and preferences to improve functionality.</li>
+            <li>Location data (if enabled) to provide real-time airport services such as directions, parking availability, and flight status.</li>
+        </ul>
+
+        <h3>How We Use Your Data</h3>
+        <p>We use your data to:</p>
+        <ul>
+            <li>Provide you with real-time updates on flight schedules, delays, and cancellations.</li>
+            <li>Improve app performance and enhance user experience.</li>
+            <li>Send important notifications related to Jackson Hole Airport services (if you opt in).</li>
+        </ul>
+
+        <h3>Data Sharing</h3>
+        <p>We do not sell, trade, or share your personal information with third parties except in the following cases:</p>
+        <ul>
+            <li>To comply with legal obligations or respond to lawful requests.</li>
+            <li>To provide essential services (e.g., flight updates) in partnership with trusted providers.</li>
+        </ul>
+
+        <h3>Data Security</h3>
+        <p>We implement industry-standard measures to ensure your data is protected against unauthorized access, alteration, or disclosure.</p>
+
+        <h3>Your Rights</h3>
+        <p>You have the right to access, update, or delete your personal information at any time. You can also choose to opt-out of notifications or disable location tracking through your device settings.</p>
+
+        <h3>Contact Us</h3>
+        <p>If you have any questions about this Privacy Policy or our data practices, please contact Jackson Hole Airport via:</p>
+        <p>Email: <a href="mailto:info@jhairport.org">info@jhairport.org</a></p>
+        <p>Visit our website: <a href="https://www.jacksonholeairport.com">www.jacksonholeairport.com</a></p>
+
+        <p>By using this app, you agree to the terms of this Privacy Policy. We may update this policy from time to time, and any changes will be reflected in the app.</p>
+    ]]>
+</string>
+    <string name="qrcode">download our app</string>
+    <string name="why_download_app">" Discover the easiest way to connect with our app! \n    Instantly scan QR codes, share with friends, and enjoy a seamless experience. \n    Download now and unlock exclusive features designed just for you!"</string>
+    <string name="fragment_settings">fragment_settings</string>
+    <string name="download_complete">Download complete</string>
+    <string name="minimized">minimized</string>
+
+    <string name="download_in_progress">Please wait…</string>
+
+    <string name="internet_strength_strong">Internet Strength: Strong</string>
+    <string name="internet_strength_moderate">Internet Strength: Moderate</string>
+    <string name="internet_strength_none">No Internet Connection</string>
+    <string name="internet_strength_weak">Internet Strength: Weak</string>
+
+    <string name="internet_strength">Internet Strength: %1$s</string>
+    <string name="download_speed">%.2f MB/sec</string>
+    <string name="downloading">Downloading: %1$d%%</string>
+    <string name="your_app_download_is_in_progress">your app download is in progress…</string>
+    <string name="toolbar_logo">toolbar_logo</string>
+    <string name="search">Search</string>
+    <string name="scan_qr_code">scan qr code</string>
+    <string name="add_contact">Add Contact</string>
+    <string name="contacts">My Contacts</string>
+    <string name="name">Name</string>
+    <string name="phone">Phone</string>
+    <string name="call_contact">Call contact</string>
+    <string name="update_contact">Update contact</string>
+    <string name="delete">delete</string>
+    <string name="delete_contact">delete contact</string>
+    <string name="search_contacts_hint">Search contacts…</string>
+    <string name="edit_note">Edit Note</string>
+    <string name="expand_collapse">expand collapse</string>
+    <string name="delete_selected">Delete Selected</string>
+    <string name="add_note">add_note</string>
+    <string name="back">back</string>
+    <string name="_0_1500">0/1500</string>
+    <string name="save_note">Save Note</string>
+    <string name="char_count_format">%1$d/1500</string>
+    <string name="note_empty_error">Note cannot be empty!</string>
+    <string name="update">update</string>
+    <string name="save">save</string>
+    <string name="date_created">Date Created \u00A0|</string>
+    <string name="sort_arrow">Sort Arrow</string>
+    <string name="country_info_format">Country: %1$s, Flag: %2$s</string>
+    <string name="note_title">Note Title</string>
+    <string name="title_hint">Enter title</string>
+    <string name="edit_title">edit title</string>
+    <string name="All_Notes">All Notes</string>
+    <string name="icon_image">icon image</string>
+    <string name="add_photo">add photo</string>
+    <string name="updated_note_key">UPDATED_NOTE</string>
+    <string name="note_position_key">NOTE_POSITION</string>
+    <string name="error_loading_note">Error loading the note</string>
+    <string name="exit">exit</string>
+    <string name="confirm_exit_message">You have unsaved changes. Are you sure you want to exit?</string>
+    <string name="fbo">FBO</string>
+    <string name="news">News</string>
+    <string name="welcome">Welcome</string>
+    <string name="fbo_services">FBO Services</string>
+    <string name="more_information">More Information</string>
+    <string name="other_services">Other Services</string>
+    <string name="main_section">Main Section</string>
+    <string name="contact_us">Contact Us</string>
+    <string name="subtitle_text">Subtitle for %1$s</string>
+    <string name="email_addresses_n_nairport_operations_operations_jhairport_org_nairport_services_info_jhairport_org_nhuman_resources_hr_jhairport_org_nlost_and_found_info_jhairport_org_ncommunications_megan_jenkins_jhairport_org">Email Addresses:\n\nAirport Operations: operations@jhairport.org\nAirport Services: info@jhairport.org\nHuman Resources: hr@jhairport.org\nLost and Found: info@jhairport.org\nCommunications: megan.jenkins@jhairport.org</string>
+    <string name="operational_concerns_n_nplease_email_community_jhairport_org_for_concerns_and_inquiries_that_do_not_involve_airport_aircraft_noise">Operational Concerns:\n\nPlease email community@jhairport.org for concerns and inquiries that do not involve airport/aircraft noise.</string>
+    <string name="address">1250 East Airport Road\nPO Box 159\nJackson, WY 83001</string>
+    <string name="phone_307_733_7682">Phone: (307) 733–7682</string>
+    <string name="although_the_jackson_hole_airport_is_the_busiest_airport_in_wyoming_the_small_size_affords_the_traveling_public_with_a_more_intimate_traveling_experience_any_questions_and_concerns_are_met_with_smiles_and_immediate_assistance_if_you_have_any_questions_or_comments_you_d_like_to_share_please_click_on_the_appropriate_category_to_e_mail_the_appropriate_airport_representative_thanks_n_npeople_helping_people_n_nwe_care_about_your_travel_experience_please_share_your_feedback_by_filling_out_the_short_form_below_with_your_help_the_airport_can_address_concerns_award_staff_members_who_go_above_and_beyond_or_contact_stakeholders_airlines_rental_car_companies_concessionaires_on_your_behalf">Although the Jackson Hole Airport is the busiest airport in Wyoming, the small size affords the traveling public with a more intimate traveling experience. Any questions and concerns are met with smiles and immediate assistance. If you have any questions or comments you’d like to share, please click on the appropriate category to e-mail the appropriate airport representative. Thanks!\n\nPeople Helping People\n\nWe care about your travel experience! Please share your feedback by filling out the short form below. With your help, the Airport can address concerns, award staff members who go above and beyond, or contact stakeholders (airlines/rental car companies/concessionaires) on your behalf.</string>
+    <string name="email_addresses">Email Addresses and Phone:</string>
+    <string name="address_title">Address</string>
+    <string name="operational_concerns">Operational Concerns:</string>
+    <string name="address_location">Address</string>
+    <string name="about_us">About Us</string>
+    <string name="about_us_description">Everything from detailed pilot information to instructions on how to contact our Lost and Found Department can be found here. Want to know how the Jackson Hole Airport came to be? Check out our History page. Are you a pilot planning an adventure to the Jackson Hole Area? Don’t miss out on all the information listed on our Pilot Information Page. Still have questions? Be sure to visit the Frequently Asked Questions page for answers to common questions. If you can’t find what you’re looking for, please email info@jhairport.org for additional assistance.</string>
+    <string name="careers_title">Careers with the Jackson Hole Airport</string>
+    <string name="careers_description">The Jackson Hole Airport strives to serve the community as an Employer of Choice, offering industry-leading wages and a benefits package designed to support you, your family and your profession. Let your career take off in a seasonal, part-time, or full-time position. We like to think the Airport is an exciting and friendly place to land with plenty of opportunities to expand your knowledge and skillset. Our mantra is People Helping People, and this guides how we operate every day!</string>
+    <string name="human_resources_contact">Human Resources Department: hr@jhairport.org</string>
+    <string name="job_application">Job Application</string>
+    <string name="job_application_link">https://www.jacksonholeairport.com/wp-content/uploads/2023/04/JHAB-general-employment-application-fillable.pdf</string>
+    <string name="send_sms" />
+    <string name="share">share</string>
+    <string name="edit">edit</string>
+    <string name="ga_tracking_id" translatable="false">G-F0TX6S19ZQ</string>
+        <string name="opening_map_countdown">Snackbar will dismiss in 10 seconds…</string>
+        <string name="open_map_action">Open Map</string>
+        <string name="countdown_seconds">Dismissing in %1$d seconds…</string>
+        <string name="failed_to_load_map">Failed to load map. Please ensure an internet connection.</string>
+        <string name="failed_to_load_contact_us">Failed to load Contact Us content.</string>
+    <string name="time" translatable="false">dismissed</string>
+
+    <string name="refreshing_image" translatable="false">Refreshing Image...</string>
+    <string name="_01_30" translatable="false">01:30</string>
+    <string name="refreshing" translatable="false">Refreshing…</string>
+    <string name="refreshing_in_default" translatable="false">Refreshing in…</string>
+    <string name="jan_26_2025_00_00_00" translatable="false">Jan/26/2025 00:00:00</string>
+    <string name="_14_29_02" translatable="false">14:29:02</string>
+    <string name="jan_26_2025_17_18_00" translatable="false">Jan/26/2025 17:18:00</string>
+    <string name="select_language">Select Language</string>
+    <string name="english">English</string>
+    <string name="spanish">Spanish</string>
+    <string name="no_internet">no internet</string>
+    <string name="battery_default">--%</string>
+    <string name="battery_level_short">%1$d%%</string>
+    <string name="battery_unknown_short">--%%</string>
+    <string name="country_flag_with_code" translatable="false">%1$s %2$d %3$s</string>
+    <string name="call" translatable="false">call</string>
+
+    <string-array name="language_options">
+        <item>English</item>
+        <item>Español</item>
+    </string-array>
+
+    <string-array name="language_values">
+        <item>en</item>
+        <item>es</item>
+    </string-array>
+
+    <string name="undo" translatable="false">Undo</string>
+    <!-- Use a placeholder for the message; the %1$d will be replaced with the deleted contacts count -->
+    <string name="snackbar_message" translatable="false">%1$d contacts removed</string>
+    <string name="snackbar_message_placeholder" translatable="false">0 contacts deleted</string>
+    <string name="select_a_color">Select a Color</string>
+    <string name="openclosefullscreen">open-close-full-screen</string>
+    <string name="curb">Curb</string>
+    <string name="north">North</string>
+    <string name="Home">Home</string>
+    <string name="qr_code">Qr Code</string>
+    <string name="All_contacts">all contacts</string>
+    <string name="Import_contacts">import contacts</string>
+    <string name="contact_icon">Contact icon</string>
+    <string name="new_contacts_count">New contacts count</string>
+    <string name="total_contacts">Total contacts</string>
+
+
+</resources>

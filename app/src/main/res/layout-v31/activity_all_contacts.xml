@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingTop="0dp"
+    android:elevation="1dp"
+    android:fitsSystemWindows="true"
+    android:background="@color/box_qrcode">
+
+        <!-- FrameLayout (Below Toolbar) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="80dp"
+            android:layout_marginEnd="0dp"
+            android:clipToOutline="true"
+            app:cardElevation="0dp"
+            android:backgroundTint="@color/card_background"
+            app:strokeWidth="0dp"
+            />
+
+
+    <com.google.android.material.navigationrail.NavigationRailView
+        android:id="@+id/navigation_rail"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        app:itemTextColor="?attr/actionMenuTextColor"
+        app:menu="@menu/navigation_drawer_all_contacts"
+        app:labelVisibilityMode="unlabeled"
+        app:itemIconSize="40dp"
+        android:background="@color/box_qrcode"
+        app:itemIconTint="?attr/colorControlNormal"
+        app:itemTextAppearanceActive="@style/SmallTextAppearanceActive"
+        app:itemTextAppearanceInactive="@style/SmallTextAppearanceInactive">
+
+
+
+        <androidx.appcompat.widget.LinearLayoutCompat
+            android:id="@+id/nav_contact_count_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginTop="470dp"
+            android:layout_gravity="center_horizontal">
+
+
+        <TextView
+            android:id="@+id/nav_contact_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:text="999"
+            android:textStyle="normal"
+            android:background="@drawable/rounded_total_count_contacts"
+            android:elevation="1dp"
+            android:backgroundTint="@color/holo_yellow_light"
+            android:paddingHorizontal="20dp"
+            android:textAlignment="center"
+            android:textSize="13sp"
+            android:textColor="@color/message_color_alert"
+            android:gravity="center"
+            android:contentDescription="@string/new_contacts_count" />
+            <!-- New TextView to show the contact count message -->
+            <TextView
+                android:id="@+id/contact_count_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:textStyle="normal"
+                android:textColor="?attr/actionMenuTextColor"
+                android:gravity="center"
+                android:textSize="11sp"
+                android:text="@string/total_contacts"
+                android:layout_marginTop="10dp"
+                android:visibility="visible" />
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+
+</com.google.android.material.navigationrail.NavigationRailView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

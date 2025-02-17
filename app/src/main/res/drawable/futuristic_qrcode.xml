@@ -1,0 +1,32 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer border or padding -->
+    <item android:right="2dp" android:left="2dp" android:top="2dp" android:bottom="2dp">
+        <shape>
+            <solid android:color="#50000000" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+
+    <!-- Gradient background -->
+    <item>
+        <shape>
+            <gradient
+                android:type="linear"
+                android:centerX="1"
+                android:centerY="1"
+                android:useLevel="true"
+                android:startColor="@color/button_color_dark"
+                android:centerColor="@color/actionbarwebsitestandart"
+                android:endColor="@color/box_alert_update"
+                android:angle="45" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+
+    <!-- Scaled drawable layer -->
+    <item android:drawable="@drawable/bing_generated_qrcode"
+        android:top="10dp"
+        android:bottom="10dp"
+        android:start="5dp"
+        android:end="5dp"/>
+</layer-list>

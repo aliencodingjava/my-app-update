@@ -1,0 +1,128 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="3dp"
+    android:background="@android:color/transparent">
+
+    <!-- NestedScrollView for scrolling -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:clipToPadding="false"
+        android:overScrollMode="always">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bottom_sheet_background"
+        android:padding="16dp"
+        android:elevation="6dp">
+
+        <!-- Title Section -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_oui_contact"
+                    android:tint="?attr/colorPrimary"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/contactUsTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/about_us"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/actionMenuTextColor" />
+            </LinearLayout>
+
+        <!-- Divider -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Description Section -->
+        <TextView
+            android:id="@+id/aboutUsDescription"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/about_us_description"
+            android:textSize="16sp"
+            android:lineSpacingExtra="6dp"
+            android:layout_marginBottom="16dp"
+            android:textColor="?attr/colorOnSurface"
+            tools:ignore="VisualLintLongText" />
+
+        <!-- Careers Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/careers_title"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"
+            android:textColor="?attr/colorPrimary" />
+
+        <TextView
+            android:id="@+id/aboutUsCareers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/careers_description"
+            android:textSize="16sp"
+            android:lineSpacingExtra="4dp"
+            android:layout_marginBottom="16dp"
+            android:textColor="?attr/colorOnSurface"
+            tools:ignore="VisualLintLongText" />
+
+        <!-- Human Resources Contact Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/hrContactText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/human_resources_contact"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"
+            android:textColor="?attr/colorPrimary"
+            android:icon="@drawable/ic_oui_email"
+            app:iconTint="?attr/colorPrimary"
+            android:backgroundTint="?attr/colorSurface"
+            app:cornerRadius="12dp"
+            android:elevation="4dp"
+            app:rippleColor="?attr/colorPrimaryVariant" />
+
+        <!-- Job Application Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/aboutUsJobApplication"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/job_application"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"
+            android:textColor="?attr/colorPrimary"
+            android:icon="@drawable/ic_oui_share_outline"
+            app:iconTint="?attr/colorPrimary"
+            android:backgroundTint="?attr/colorSurface"
+            app:cornerRadius="12dp"
+            android:elevation="4dp"
+            app:rippleColor="?attr/colorPrimaryVariant" />
+
+        <!-- Bottom Spacing -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>
+    </FrameLayout>

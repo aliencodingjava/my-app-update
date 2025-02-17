@@ -1,0 +1,44 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Title for the first section -->
+    <group android:id="@+id/group1" android:title="@string/main_section">
+        <item
+            android:id="@+id/nav_welcome"
+            android:title="@string/welcome"
+            android:icon="@drawable/ic_oui_accessibility"
+            android:summary="Explore our app" />
+        <item
+            android:id="@+id/nav_news"
+            android:title="@string/news"
+            android:icon="@drawable/ic_oui_news"
+            android:summary="Latest updates and events" />
+    </group>
+
+    <!-- Divider will be added automatically -->
+    <group android:id="@+id/group2" android:title="@string/other_services">
+        <item
+            android:id="@+id/nav_flights"
+            android:title="@string/flights"
+            android:icon="@drawable/baseline_flight_24"
+            android:summary="Check flight schedules" />
+        <item
+            android:id="@+id/nav_fbo"
+            android:title="@string/fbo_services"
+            android:icon="@drawable/baseline_flight_24"
+            android:summary="View FBO options" />
+    </group>
+
+    <!-- Footer Section -->
+    <group android:id="@+id/group3" android:title="@string/more_information">
+        <item
+            android:id="@+id/nav_about_us"
+            android:title="@string/about_us"
+            android:icon="@drawable/ic_oui_info"
+            android:summary="Learn about our company" />
+        <item
+            android:id="@+id/nav_contact_us"
+            android:title="@string/contact_us"
+            android:icon="@drawable/ic_oui_contact"
+            android:summary="Get in touch with us" />
+    </group>
+</menu>

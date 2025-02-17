@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.appcompat.widget.LinearLayoutCompat xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:layout_gravity="top|center_horizontal"
+    android:padding="40dp"
+    android:gravity="center"
+    android:id="@+id/feedbackLayout"
+    style="@style/CustomBottomSheetStyle"
+    android:background="@drawable/futuristic_background"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Status Indicator -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <!-- Circle status indicator -->
+        <View
+            android:id="@+id/statusIndicator"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:layout_gravity="center|end"
+            android:layout_marginTop="0dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/online_indicator" />
+        <!-- Status Text -->
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|top"
+            android:layout_marginTop="0dp"
+            android:layout_marginEnd="30dp"
+            android:text="@string/server_online"
+            android:textSize="13sp"
+            android:textColor="?attr/actionMenuTextColor"
+            android:visibility="visible" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/feedback_offline"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/offline_feedback"
+        android:textSize="11sp"
+        android:textColor="?attr/actionMenuTextColor"
+        android:textStyle="italic"
+        android:gravity="center"
+        android:layout_marginBottom="10dp"
+        android:fontFamily="sans-serif-condensed"/>
+
+    <!-- Title with a futuristic font -->
+    <TextView
+        android:id="@+id/feedbackTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/tell_us_what_you_think"
+        android:textSize="22sp"
+        android:textColor="?attr/actionMenuTextColor"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="10dp"
+        android:fontFamily="sans-serif-condensed"/>
+
+    <!-- Description Text for the feedback -->
+    <TextView
+        android:id="@+id/feedbackSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/your_feedback_helps_us_improve"
+        android:textSize="16sp"
+        android:textColor="?attr/actionMenuTextColor"
+        android:gravity="center"
+        android:layout_marginBottom="20dp"/>
+
+    <!-- Fancy EditText for Feedback -->
+    <androidx.appcompat.widget.AppCompatEditText
+        android:id="@+id/feedbackEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:autofillHints=""
+        android:hint="@string/enter_your_feedback_here"
+        android:inputType="textMultiLine"
+        android:lines="4"
+        android:maxLines="6"
+        android:elevation="4dp"
+        android:gravity="top|start"
+        android:background="@drawable/futuristic_edittext_background"
+        android:padding="16dp"
+        android:textColor="?attr/actionMenuTextColor"
+        android:textColorHint="?attr/colorControlHighlight"
+        android:textSize="16sp"
+        android:layout_marginBottom="40dp"
+        tools:ignore="VisualLintTextFieldSize" />
+
+    <!-- Progress Bar for Feedback Submission -->
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/feedbackProgressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:layout_gravity="center"
+        android:indeterminate="false"
+        android:max="100"
+        android:layout_marginBottom="20dp"/>
+
+    <!-- Fancy Submit Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/submitFeedbackButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/send_feedback"
+        android:textColor="?android:attr/colorBackground"
+        android:textSize="18sp"
+        android:layout_marginTop="30dp"
+        android:drawablePadding="10dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:elevation="1dp"
+        app:iconSize="30dp"
+        app:icon="@android:drawable/ic_menu_send"
+        android:background="@drawable/btn_ripple"
+        tools:ignore="VisualLintButtonSize"
+        android:maxHeight="50dp" />
+
+
+    <!-- Clear Button to reset form -->
+    <Button
+        android:id="@+id/clearFeedbackButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/clear_feedback"
+        android:textColor="?android:attr/colorBackground"
+        android:textSize="18sp"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/btn_ripple"
+        android:visibility="gone"
+        tools:ignore="VisualLintButtonSize" />
+
+</androidx.appcompat.widget.LinearLayoutCompat>

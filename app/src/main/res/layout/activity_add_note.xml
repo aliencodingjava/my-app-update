@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+xmlns:app="http://schemas.android.com/apk/res-auto"
+xmlns:tools="http://schemas.android.com/tools"
+android:layout_width="match_parent"
+android:layout_height="match_parent"
+android:background="@color/bottom_bar"
+android:fitsSystemWindows="true"
+android:orientation="vertical"
+android:paddingTop="30dp"
+tools:context=".AddNoteActivity">
+
+<com.google.android.material.appbar.MaterialToolbar
+    android:id="@+id/toolbar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:contentDescription="@string/save_note"
+    android:elevation="4dp"
+    android:paddingEnd="16dp"
+    android:paddingStart="0dp"
+    app:titleTextColor="?attr/actionMenuTextColor"
+    app:title="Add Your Note">
+
+    <com.google.android.material.button.MaterialButton
+        style="@style/Widget.AppCompat.Button.Borderless"
+        android:id="@+id/btn_save"
+        android:textColor="?attr/colorAccent"
+        android:layout_gravity="end"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/save_note"
+        android:contentDescription="@string/save_note"
+        android:tooltipText="@string/save"
+        android:background="?attr/selectableItemBackground"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:minWidth="64dp"
+        android:focusable="true"
+        android:clickable="true"
+        app:cornerRadius="12dp"
+        app:elevation="4dp"
+        app:icon="@drawable/save_as_24dp_ffffff_fill0_wght400_grad0_opsz24"
+        app:iconTint="?attr/colorAccent"
+        app:iconGravity="start"
+        app:iconPadding="8dp"
+        android:layout_marginTop="0dp" />
+
+</com.google.android.material.appbar.MaterialToolbar>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_marginStart="1dp"
+        android:layout_marginEnd="1dp"
+        android:background="@color/box_alert_update"
+        android:layout_height="match_parent">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="start|top"
+            android:isScrollContainer="true"
+            android:maxLength="500000"
+            android:focusableInTouchMode="true"
+            android:importantForAutofill="yes"
+            android:hint="Write your note here..."
+            android:inputType="textMultiLine|textCapSentences"
+            android:minLines="5"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            android:textColor="?attr/actionMenuTextColor"
+            tools:ignore="HardcodedText"
+            android:scrollbars="vertical"
+            android:overScrollMode="always" />
+
+    </androidx.core.widget.NestedScrollView>
+
+
+</LinearLayout>
+

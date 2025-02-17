@@ -1,0 +1,161 @@
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="-70dp"
+        android:orientation="vertical">
+
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/progressBarContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/actionbarwebsitestandart">
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/linearProgressIndicator"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            app:trackThickness="3dp"
+            android:indeterminate="false"
+            android:progress="0"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="88dp"
+            android:visibility="visible" />
+        <TextView
+            android:id="@+id/progressTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="20sp"
+            android:fillColor="@color/night_mountain_high"
+            android:layout_marginBottom="0dp"
+            android:textColor="@color/night_mountain_high"
+            android:layout_gravity="center_horizontal|center_vertical"
+            android:visibility="visible" />
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal|center_vertical"
+            android:contentDescription="@string/jac"
+            android:src="@drawable/newmainlogo"
+            android:layout_marginBottom="75dp"
+            android:visibility="visible"
+            android:text="@string/jac" />
+
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/noInternetOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?attr/colorBackgroundFloating"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:src="@drawable/ic_no_internet_oval"
+            android:scaleType="centerInside"
+            android:layout_gravity="center"
+            android:contentDescription="@string/no_internet_image_logo" />
+
+    </FrameLayout>
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/fabFrameLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:strokeWidth="0dp"
+        style="@style/NoShadowFAB"
+        app:cardBackgroundColor="@color/button_main_card"
+        app:strokeColor="@color/transparent"
+        android:background="@drawable/fab_menu_background"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="95dp"
+        android:layout_gravity="end|bottom"
+        android:clickable="false">
+
+        <!-- Main FAB on the right -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/mainFab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:contentDescription="@string/menu"
+            android:src="@drawable/baseline_menu_24"
+            style="@style/NoShadowFAB"
+            app:fabCustomSize="60dp"
+            android:backgroundTint="@color/mapsBackgroundDay" />
+
+        <LinearLayout
+            android:id="@+id/fabMenuLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_gravity="bottom|center"
+            android:visibility="gone"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="90dp">
+
+            <!-- FAB home -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fab_home"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:backgroundTint="?attr/colorPrimary"
+                android:contentDescription="@string/content_description_home"
+                style="@style/NoShadowFAB"
+                app:fabCustomSize="50dp"
+                android:src="@drawable/baseline_home_24" />
+        <!-- FAB 1 -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fab1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="13dp"
+                android:backgroundTint="@color/cameraBackgroundDay"
+                android:contentDescription="@string/fab_content_desc_camera"
+                style="@style/NoShadowFAB"
+                app:fabCustomSize="50dp"
+                android:src="@drawable/airplane_svgrepo_com" />
+
+            <!-- FAB 2 -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fab2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="15dp"
+                android:backgroundTint="@color/contactsBackgroundDay"
+                android:contentDescription="@string/fab_content_desc_insert_photo"
+                style="@style/NoShadowFAB"
+                android:src="@drawable/baseline_map_24"
+                app:fabCustomSize="50dp"
+
+                tools:ignore="ImageContrastCheck" />
+
+            <!-- FAB 3 -->
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fab3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="0dp"
+                android:backgroundTint="?attr/colorControlActivated"
+                android:contentDescription="@string/fab_content_desc_contact"
+                style="@style/NoShadowFAB"
+                app:fabCustomSize="50dp"
+                android:src="@drawable/map_and_placeholder_svgrepo_com" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
+

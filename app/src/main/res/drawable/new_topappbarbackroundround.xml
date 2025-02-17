@@ -1,0 +1,17 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Layer 1: Background color -->
+    <item android:right="0dp" android:left="0dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/transparent" />
+            <corners
+                android:topLeftRadius="12dp"
+                android:topRightRadius="12dp"
+                android:bottomLeftRadius="0dp"
+                android:bottomRightRadius="0dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 2: Add another layer if you need one, such as an image or another color -->
+    <!-- Example: an image layer -->
+    <item android:drawable="@drawable/layered_peaks_haikei" />
+</layer-list>

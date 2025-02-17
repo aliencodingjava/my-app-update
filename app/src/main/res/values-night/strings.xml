@@ -1,0 +1,137 @@
+<resources>
+    <string name="app_name">JH AirTracker</string>
+    <string name="fab_content_desc">fab_content</string>
+    <string name="content_description_flight">fligh_menu</string>
+    <string name="content_description_home">home_menu</string>
+    <string name="imageview">TImageView</string>
+    <string name="jackson_hole_airport_n1250_east_airport_road">1250 East Airport Road</string>
+
+
+    <string name="_307_733_7682">307–733–7682</string> <!-- This is a phone number, keep it as is. -->
+
+    <!-- Email strings (replace with actual email addresses) -->
+    <string name="info_jhairport_org">info@jhairport.org</string>
+    <string name="info_jhflight_org">flightinfo@jhflight.org</string>
+    <string name="fbo_general_manager">craig.foster@jhairport.org</string>
+    <string name="fbo_customer_service_manager">customerservice@jhairport.org</string>
+    <string name="airport_operations">airportoperations@jhairport.org</string>
+    <string name="human_resources">hr@jhairport.org</string>
+    <string name="lost_and_found">lostandfound@jhairport.org</string>
+    <string name="communications_customer_experience">commcustomer@jhairport.org</string>
+
+    <string name="contact_info">Information</string>
+    <string name="contactfab">contact</string>
+    <string name="webcam">webcam</string>
+    <string name="mainhome">Flights</string>
+    <string name="jac">JAC</string>
+    <string name="nointernet">nointernet</string>
+    <string name="no_internet_connectiontitle">No Internet Connection</string>
+    <string name="Photos">Grand Teton National Park</string>
+    <string name="item1">flights</string>
+    <string name="item3">contact</string>
+    <string name="appbar_scrolling_view_behavior">com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior</string>
+    <string name="Contact">Contact</string>
+
+    <string name="airport_operations_email">operations@jhairport.org</string>
+    <string name="lost_and_found_email">info@jhairport.org</string>
+    <string name="human_resources_email">hr@jhairport.org</string>
+    <string name="communications_customer_experience_email">megan.jenkins@jhairport.org</string>
+
+
+    <!-- Preference Titles -->
+    <string name="settings_header">Settings</string>
+    <string name="new_features">New Feature - Sync for auto update</string>
+    <!-- Sync Preferences -->
+    <string name="sync_title">Enable Sync</string>
+
+    <!-- Attachment Download Preferences -->
+    <string name="attachment_title">Download incoming attachments</string>
+    <string name="attachment_summary_on">Auto-downloads; Check required.</string>
+
+    <string name="closeimage">closeimage</string>
+    <string name="page_name">Settings</string>
+    <string name="name_contact">Contact</string>
+
+    <string name="send_feedback_title">Feedback</string>
+    <string name="send_feedback_summary">send feedback</string>
+    <string name="rate_us_title">Rate Our app!</string>
+    <string name="rate_us_summary">rate us</string>
+    <string name="share_app_title">Share this app with friends!</string>
+    <string name="share_app_summary">share our app</string>
+    <string name="first_name">First Name</string>
+    <string name="last_name">Last Name</string>
+    <string name="email">Email</string>
+    <string name="submit">Submit</string>
+    <string name="be_the_first_updated">Be the first updated</string>
+    <string name="_0">0</string>
+    <string name="rate_us">Rate  &amp; Feedback</string>
+    <string name="_5_stars">5</string>
+    <string name="_4_stars">4</string>
+    <string name="_3_stars">3</string>
+    <string name="_2_stars">2</string>
+    <string name="_1_star">1</string>
+    <string name="confirm_call_message">Do you want to call %s?</string>
+    <string name="downloading_update">Downloading update…</string>
+    <string name="zero_percent">0%</string>
+    <string name="percentage_placeholder">%1$d%%</string>
+    <string name="time_left_initial">Time Left: 00:00</string>
+    <string name="time_left">Time Left: %1$s</string>
+    <string name="JACAIRPORT_text">J A C</string>
+    <string name="update_app_title">Update Your App</string>
+    <string name="install">Install</string>
+    <string name="changelog_title_placeholder">Changelog</string>
+    <string name="checking_for_updates">Checking for Updates</string>
+    <string name="app_update">App Update</string>
+    <string name="app_up_to_date">You\'re all caught up!\nYour app is up to date.</string>
+    <string name="app_update_title">App Update</string>
+    <string name="app_up_to_date_message">Your app is up to date!</string>
+    <string name="ok">OK</string>
+    <string name="clicked_item">Item clicked at position %1$d</string>
+    <string name="installation_downloaded">File downloaded.</string>
+    <string name="install_message_template">File downloaded. %s</string>
+    <string name="download_complete_title">Download Complete</string>
+    <string name="flight_information">Information</string>
+    <string name="back_arrow_desc">backarrow</string>
+    <string name="carousel_content_description">Carousel of images</string>
+    <string name="carousel_description">for recycleview material design3</string>
+    <string name="fab_content_desc_main">Main FAB</string>
+    <string name="fab_content_desc_camera">Camera FAB</string>
+    <string name="fab_content_desc_insert_photo">Insert Photo FAB</string>
+    <string name="fab_content_desc_contact">Contact FAB</string>
+    <string name="fab_content_desc_settings">Settings FAB</string>
+    <string name="changelog_title">Changelog for %s</string>
+    <string name="load_image_2">North</string>
+    <string name="load_image_1">Curb</string>
+    <string name="south">South</string>
+    <string name="logo_description">logo description</string>
+    <string name="expand_button">expand button</string>
+    <string name="airport_image">airport round image</string>
+    <string name="bottomsheet">Menu</string>
+    <string name="openmenu">openmenu</string>
+    <string name="drag_handle_arrow">handle arrow</string>
+    <string name="hello_welcome">Hello, welcome to the new bottom menu!</string>
+    <string name="future_icons">Future icons will be placed here.</string>
+    <string name="error_loading">Error Loading</string>
+    <string name="title_activity_photo">National Park</string>
+    <string name="menu">menu</string>
+    <string name="card1">card 1</string>
+    <string name="card2">card2</string>
+    <string name="card3">card3</string>
+    <string name="card_4_support_text">news</string>
+    <string name="close">Close</string>
+    <string name="grand_teton_national">Grand Teton National Park</string>
+    <string name="drive_safely_and_stay_focused">Drive safely and stay focused.</string>
+    <string name="open_maps">Open Maps</string>
+    <string name="call_from_contact">Call</string>
+    <string name="Cancel">Cancel</string>
+    <string name="enter_your_feedback_here">Enter your feedback here…</string>
+    <string name="your_feedback_helps_us_improve">Your feedback helps us improve!</string>
+    <string name="send_feedback">Send Feedback</string>
+    <string name="tell_us_what_you_think">Tell us what you think!</string>
+    <string name="offline_feedback">Submit feedback even when the server is offline; it\'ll be processed later!</string>
+
+    <string name="server_online">Server Online</string>
+    <string name="server_offline">Server Offline</string>
+    <string name="clear_feedback">Clear Feedback</string>
+    <string name="checking_status">Checking server status…</string>
+</resources>

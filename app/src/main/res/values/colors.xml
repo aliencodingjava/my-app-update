@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="lightStatusBarColor">#32302A</color>
+    <color name="lightSplashStatusBarColor">#FEF7FF</color>
+    <color name="darkSplashStatusBarColor">#141218</color>
+    <color name="lightPhotoStatusBarColor">#81d4fa</color>
+    <color name="darkPhotoStatusBarColor">#FFEBD0</color>
+    <!-- main  -->
+    <color name="darkBottomAppBarColor">#FF32302A</color>
+    <color name="darkBottomNavigationColor">#FF32302A</color>
+    <color name="lightBottomAppBarColor">#E1F5FE</color>
+    <color name="iconColor">@color/box_alert_update</color>
+    <color name="LightbottomAppBarColorsplash">#FFFFFF</color>
+    <color name="white">#FFFFFF</color>
+
+    <color name="lightBottomNavigationColor">#FBE9E7</color>
+    <!-- Default light theme color -->
+    <!-- Default dark theme color -->
+
+    <!-- contact info text  theme color -->
+    <color name="custom_color_light">#F3EDF7</color>
+    <color name="custom_color_dark">#211F26</color>
+    <color name="semi_transparent_black">#20FFFFFF</color>
+    <color name="black">#000000</color>
+
+    <color name="button_color_light">#F3EDF7</color> <!-- Example white color -->
+    <color name="button_color_dark">#211F26</color> <!-- Example black color -->
+
+    <color name="transparent">#00000000</color>
+
+    <color name="colorBoxLight">#FFFFFF</color>
+    <color name="colorBoxDark">#17161a</color>
+    <color name="modalstyleclicklight">#C2C1FF</color>
+    <color name="modalstyleclickdark">#595892</color>
+    <!-- This is just an example; use your desired color -->
+    <color name="actionbarwebsiteBlue">#00153D</color>
+    <color name="actionbarwebsitebluelight">#002E5C</color>
+    <color name="actionbarwebsitestandart">#FF32302A</color>
+    <color name="bottomAppBarColorPortrait">@color/box_alert_update</color>
+    <!-- Summer Day Theme Colors from Earth to Sky -->
+    <color name="day_ground_base">#0D1B2A
+    </color> <!-- Deep Brown: Rich, fertile soil at the base -->
+    <color name="day_ground_high">#2B2D42
+    </color> <!-- Dark Brown: Slightly lighter earth, indicative of dry summer earth -->
+    <color name="day_foothills">#1d3144</color> <!-- Light Brown: Dry grasslands and foothills -->
+    <color name="day_mountain_low">#2d4961
+    </color> <!-- Grayish Brown: Lower mountain areas, where rock starts to show through sparse summer vegetation -->
+    <color name="day_mountain_mid">#3e627e
+    </color> <!-- Blue Grey: Mid mountain elevations, capturing the color of stone and sparse greenery -->
+    <color name="day_mountain_high">#4e7d9c
+    </color> <!-- Light Blue Grey: Higher elevations with less vegetation, approaching the sky -->
+    <color name="day_atmosphere">#5f99bb
+    </color> <!-- Pale Blue: The atmospheric color just below the sky, where the air is crisp and clear -->
+    <color name="day_sky_mid">#70b6da
+    </color> <!-- Light Sky Blue: Representing the mid-sky on a clear day -->
+    <color name="day_sky_top">#81d4fa
+    </color> <!-- Bright Sky Blue: The topmost, lightest part of the sky -->
+
+
+    <!-- Night Theme Colors Ordered from Sky to Ground -->
+    <color name="night_sky_top">#FFEBD0</color>
+    <color name="night_sky_mid">#FFD8A9</color>
+    <color name="night_atmosphere">#EDB79B</color>
+    <color name="night_mountain_high">#B67F86</color>
+    <color name="night_mountain_mid">#94687A</color>
+    <color name="night_mountain_low">#70536B</color>
+    <color name="night_foothills">#4C4058</color>
+    <color name="night_ground_high">#2B2D42</color>
+    <color name="night_ground_base">#0D1B2A</color>
+
+
+
+    Red: #FF0000 (Equivalent to R.color.progress_red)
+    Yellow: #FFFF00 (Equivalent to R.color.progress_yellow)
+    Green: #00FF00 (Equivalent to R.color.progress_green)
+
+
+    <color name="five_star_progress_color">#4169e1</color>
+    <!-- progress_yellow -->
+
+
+    <color name="material_yellow">#FFFF00</color>
+    <color name="green">#049447</color>
+
+
+    <!-- colors icons.xml -->
+    <color name="cameraBackgroundDay">#c34300</color> <!-- Deep Orange -->
+    <color name="photosBackgroundDay">#4CAF50</color> <!-- Green -->
+    <color name="contactsBackgroundDay">#2196F3</color> <!-- Blue -->
+    <color name="settingsBackgroundDay">#FFC107</color> <!-- Amber -->
+    <color name="phoneBackgroundDay">#34B649</color> <!-- Bright Green for Phone -->
+    <color name="emailBackgroundDay">#1E88E5</color> <!-- Deep Blue for Email -->
+    <color name="mapsBackgroundDay">#F44336</color> <!-- Vibrant Red for Maps -->
+    <color name="card_background_light">#F5F5F5</color> <!-- Light background color -->
+    <color name="card_background_dark">@color/night_ground_base</color> <!-- Dark background color -->
+    <color name="color_warning">#FFAA00</color>  <!-- Example warning color -->
+    <color name="color_progress">#00FFAA</color> <!-- Example progress color -->
+    <color name="color_success">#00AAFF</color>  <!-- Example success color -->
+    <color name="red">#FF0000</color>
+
+    <color name="icon_enabled">#FF4081</color> <!-- Example active color -->
+    <color name="icon_disabled">#B0BEC5</color> <!-- Example inactive color -->
+
+
+
+
+
+</resources>

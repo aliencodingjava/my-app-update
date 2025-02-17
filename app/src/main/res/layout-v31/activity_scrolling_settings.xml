@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/box_qrcode"
+    android:elevation="1dp"
+    android:fitsSystemWindows="true"
+    android:paddingTop="0dp">
+
+
+    <!-- Your content goes here -->
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/content_frame"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="80dp"
+        android:layout_marginEnd="0dp"
+        android:clipToOutline="true"
+        app:cardElevation="0dp"
+        android:backgroundTint="@color/card_background"
+
+        app:strokeWidth="0dp" />
+
+
+    <com.google.android.material.navigationrail.NavigationRailView
+        android:id="@+id/navigation_rail"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="center|start"
+        android:animateLayoutChanges="false"
+        android:background="@color/box_qrcode"
+        app:itemIconSize="40dp"
+        app:itemIconTint="?attr/colorControlNormal"
+        app:itemTextAppearanceActive="@style/SmallTextAppearanceActive"
+        app:itemTextAppearanceInactive="@style/SmallTextAppearanceInactive"
+        app:itemTextColor="?attr/actionMenuTextColor"
+        app:labelVisibilityMode="unlabeled"
+        app:menu="@menu/navigation_drawer_settings" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

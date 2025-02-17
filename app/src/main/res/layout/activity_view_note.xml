@@ -1,0 +1,82 @@
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:fitsSystemWindows="true"
+    android:background="@color/bottom_bar"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Toolbar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        app:titleTextColor="?attr/actionMenuTextColor"
+        app:title="View Note" >
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingEnd="10dp"
+            android:layout_marginTop="0dp"
+            android:paddingStart="0dp">
+
+            <!-- ImageView aligned to the end -->
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/expandCollapseIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginVertical="8dp"
+                android:contentDescription="@string/edit_note"
+                app:srcCompat="@drawable/view_notes_icon"
+                tools:ignore="ContentDescription" />
+
+            <!-- TextView positioned to the left of the ImageView -->
+            <TextView
+                android:id="@+id/edit_text_id"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_toStartOf="@id/expandCollapseIcon"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="8dp"
+                android:text="@string/edit_note"
+                android:textSize="16sp"
+                android:textColor="?attr/actionMenuTextColor"
+                android:ellipsize="end"
+                android:maxLines="1" />
+        </RelativeLayout>
+
+
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <com.google.android.material.card.MaterialCardView
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:cardCornerRadius="1dp"
+    app:strokeWidth="0dp"
+    app:cardElevation="0dp"
+    android:backgroundTint="@color/box_alert_update"
+    android:layout_marginTop="?attr/actionBarSize">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:background="@android:color/transparent"
+        android:layout_height="match_parent">
+
+    <!-- Note Content -->
+    <androidx.appcompat.widget.AppCompatTextView
+        android:id="@+id/tv_note_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="10dp"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:textSize="18sp"
+        android:text="test"
+        android:textColor="?attr/colorOnBackground"
+        tools:ignore="HardcodedText" />
+    </ScrollView>
+</com.google.android.material.card.MaterialCardView>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
