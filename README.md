@@ -13,14 +13,8 @@ Built with Jetpack Compose and a custom **LiquidGlass** design, it delivers a sm
 
 ## 📸 Screenshots
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/7acfdc3c-b4d8-41ec-a3d3-3ac7abee81e2" alt="Screenshot 1" width="200"/>
-  <img src="https://github.com/user-attachments/assets/7e5030a3-e93d-4611-8e69-79c4b18c46ed" alt="Screenshot 2" width="200"/>
-  <img src="https://github.com/user-attachments/assets/6ceca656-20d7-46f7-aab1-bb16bb9936da" alt="Screenshot 3" width="200"/>
-  <img src="https://github.com/user-attachments/assets/27f37af1-6952-4871-825b-d53b9fc89d6e" alt="Screenshot 4" width="200"/>
-  <img src="https://github.com/user-attachments/assets/d936f002-784b-4512-bf97-65ee000d3265" alt="Screenshot 5" width="200"/>
-  <img src="https://github.com/user-attachments/assets/729102ec-310d-4800-843b-6ca41bfa2a91" alt="Screenshot 6" width="200"/>
-</p>
+| <img src="https://github.com/user-attachments/assets/7acfdc3c-b4d8-41ec-a3d3-3ac7abee81e2" alt="Screenshot 1" width="200" loading="lazy"/> | <img src="https://github.com/user-attachments/assets/7e5030a3-e93d-4611-8e69-79c4b18c46ed" alt="Screenshot 2" width="200" loading="lazy"/> | <img src="https://github.com/user-attachments/assets/6ceca656-20d7-46f7-aab1-bb16bb9936da" alt="Screenshot 3" width="200" loading="lazy"/> |
+| <img src="https://github.com/user-attachments/assets/27f37af1-6952-4871-825b-d53b9fc89d6e" alt="Screenshot 4" width="200" loading="lazy"/> | <img src="https://github.com/user-attachments/assets/d936f002-784b-4512-bf97-65ee000d3265" alt="Screenshot 5" width="200" loading="lazy"/> | <img src="https://github.com/user-attachments/assets/729102ec-310d-4800-843b-6ca41bfa2a91" alt="Screenshot 6" width="200" loading="lazy"/> |
 
 
 
