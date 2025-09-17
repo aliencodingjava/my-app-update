@@ -42,3 +42,7 @@ app/firestore-debug.log
 app/release/
 # IntelliJ/Android Studio project settings
 .idea/
+# Supabase secrets
+app/src/main/java/com/flights/studio/SupabaseProfileUploader.kt
+# Supabase keys
+SupabaseManager.kt
