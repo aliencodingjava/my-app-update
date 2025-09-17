@@ -1,9 +1,29 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+# Signing keys and properties
+*.jks
+*.keystore
+keystore.properties
 
-fototeton/20171113_162233.jpg
-*.jpg
-*.jpg
-*.jpg
-fototeton/20171113_162233.jpg
-note-supabase.apk
-note-supabase.apk
-note-supabase.apk
+# APK / build outputs
+*.apk
+*.aab
+
+# Android Studio / Gradle cache
+.idea/deploymentTargetDropDown.xml
+.idea/misc.xml
+.idea/vcs.xml
+.gradle/
