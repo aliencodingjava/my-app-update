@@ -1,4 +1,4 @@
-# stil in alpha testing 
+# still in alpha testing 
 
 # ✈️ Jack Flight Studio
 
