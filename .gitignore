@@ -40,3 +40,5 @@ app/firestore-debug.log
 
 # Build artifacts
 app/release/
+# IntelliJ/Android Studio project settings
+.idea/
