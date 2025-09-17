@@ -40,8 +40,11 @@ Built with Jetpack Compose and a custom **LiquidGlass** design, it delivers a sm
 
 ---
 
-🙏 Acknowledgements
+## 🙏 Acknowledgements
 
-Huge thanks to Kyant0
-for AndroidLiquidGlass
-— the library behind the Liquid Glass effects in Jack Flight Studio.
+Huge thanks to [**Kyant0**](https://github.com/Kyant0) for creating  
+**[AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)** — the library behind the Liquid Glass effects in Jack Flight Studio.
+
+[![AndroidLiquidGlass](https://img.shields.io/github/stars/Kyant0/AndroidLiquidGlass?label=AndroidLiquidGlass&style=flat-square)](https://github.com/Kyant0/AndroidLiquidGlass)
+[![Kyant0](https://img.shields.io/badge/GitHub-Kyant0-000?logo=github&style=flat-square)](https://github.com/Kyant0)
+
