@@ -1,4 +1,7 @@
-![banner-dark](https://github.com/user-attachments/assets/53971440-9b73-447e-b7eb-68436d034f77)<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="420" viewBox="0 0 1600 420">
+<a href="https://github.com/aliencodingjava/my-app-update/releases/tag/v0.2.213">
+  <img src="https://github.com/user-attachments/assets/53971440-9b73-447e-b7eb-68436d034f77" alt="Jack Flight Studio banner" width="100%">
+</a>
+
 
 
 
@@ -51,11 +54,14 @@
 </svg>
 
 
-[![Status](https://img.shields.io/badge/status-alpha-orange)](#-status)
-[![Platform](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](#-getting-started)
-[![Kotlin](https://img.shields.io/badge/Kotlin-✓-7F52FF?logo=kotlin&logoColor=white)](#-tech-stack)
-[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-✓-4285F4?logo=jetpackcompose&logoColor=white)](#-tech-stack)
-[![Supabase](https://img.shields.io/badge/Supabase-✓-3FCF8E?logo=supabase&logoColor=white)](#-tech-stack)
+[![Status](https://img.shields.io/badge/status-alpha-orange)](https://github.com/aliencodingjava/my-app-update/releases/tag/v0.2.213)
+[![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/about/versions/oreo)
+[![Android Studio](https://img.shields.io/badge/Android%20Studio-IDE-3DDC84?logo=androidstudio&logoColor=white)](https://developer.android.com/studio)
+[![Kotlin](https://img.shields.io/badge/Kotlin-✓-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-✓-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Supabase](https://img.shields.io/badge/Supabase-✓-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+
+
 
 **Jack Flight Studio** is an Android app for tracking flights in real time and managing travel notes.  
 Built with Jetpack Compose and a custom **LiquidGlass** design, it delivers a smooth, modern experience.
