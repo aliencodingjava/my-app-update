@@ -1,0 +1,302 @@
+{
+  "coding": {
+    "words": [
+      "coding", "debug", "algorithm", "programming", "script", "api", "developer",
+      "software", "debugger", "repository", "source code", "version control",
+      "code review", "refactor", "unit test", "framework", "library",
+      "data structure", "compiler", "runtime", "developing", "testing",
+      "deployment", "backend", "frontend", "full stack"
+    ],
+    "synonyms": [
+      "writing code", "fixing bugs", "solving errors", "debugging a problem",
+      "working on software", "creating a script", "developing an app",
+      "learning to code", "software engineering", "writing functions",
+      "refactoring code", "server-side programming", "client-side scripting",
+      "code optimization", "software maintenance", "app development",
+      "programming logic", "deploying code", "software project",
+      "automating processes", "framework integration", "code refactoring",
+      "writing test cases", "fixing compilation errors", "syntax debugging",
+      "software prototyping", "software patching", "open source contribution",
+      "agile development", "git commits", "machine learning programming"
+    ],
+    "title": "💻 Programming & Software Development",
+    "phrases": {
+      "words": [
+        "writing code", "fixing bugs", "solving errors", "debugging a problem",
+        "working on software", "creating a script", "developing an app",
+        "learning to code", "I am coding", "I was coding",
+        "reviewing the code", "writing a function", "pushing to Git",
+        "merging a branch", "writing unit tests", "setting up a repository",
+        "software development", "building an application", "server-side scripting",
+        "implementing an API", "coding session", "refactoring the code",
+        "software engineering", "frontend development", "backend programming",
+        "fixing compilation errors"
+      ],
+      "synonyms": [
+        "writing scripts", "debugging process", "fixing program issues",
+        "software troubleshooting", "app debugging", "framework setup",
+        "automation scripting", "code implementation", "writing classes",
+        "software logic", "pushing commits", "merging conflicts",
+        "bug fixing", "coding workflow", "software fixes",
+        "patching software", "updating application", "software patches",
+        "continuous integration", "feature development",
+        "algorithm optimization", "server scripting",
+        "database programming", "AI model training", "programming tutorials",
+        "software testing", "troubleshooting errors", "clean coding",
+        "code reviews", "development pipeline"
+      ],
+      "title": "🖥️ Software Engineering & Debugging"
+    },
+    "languages": {
+      "words": [
+        "java", "kotlin", "python", "javascript", "typescript", "ruby", "swift",
+        "c", "c++", "go", "rust", "html", "css", "sql", "bash", "scala"
+      ],
+      "synonyms": [
+        "frontend coding", "backend scripting", "object-oriented programming",
+        "compiled languages", "interpreted languages", "mobile development",
+        "web development", "low-level programming", "scripting languages",
+        "functional programming", "dynamic typing", "static typing",
+        "full-stack languages", "cloud programming", "server-side scripting",
+        "frontend frameworks", "modern programming languages"
+      ],
+      "title": "💻 Programming Languages & Development"
+    },
+
+    "tools": {
+      "words": [
+        "vscode", "eclipse", "git", "docker", "jenkins", "kubernetes",
+        "jira", "trello", "gitlab", "bitbucket", "npm", "maven", "gradle",
+        "intellij", "android studio", "github", "pycharm", "postman",
+        "selenium", "xcode", "firebase", "heroku", "netlify", "supabase"
+      ],
+      "synonyms": [
+        "version control", "CI/CD tools", "package managers", "IDE",
+        "text editor", "cloud deployment", "automation tools",
+        "API testing", "web development tools", "software management",
+        "container orchestration", "code repositories", "development platforms",
+        "serverless functions", "testing automation", "mobile development tools"
+      ],
+      "title": "🛠️ Dev Tools & Infrastructure"
+    }
+  },
+  "work": {
+    "general": [
+      "meeting schedule", "project deadline", "work task", "team collaboration", "office environment", "client presentation", "report feedback", "assignment completion", "task priority", "teamwork skills",
+      "manager review", "promotion opportunity", "resignation notice", "interview preparation", "project update", "deadline pressure", "team goals", "work-life balance", "performance review", "team meeting",
+      "client meeting", "office politics", "employee performance", "task management", "time management", "leadership skills", "remote work", "office supplies", "corporate culture", "job description",
+      "workplace diversity", "employee engagement", "company policy", "staff meeting", "task assignment", "work stress", "employee satisfaction", "workplace culture", "career development", "work hours",
+      "meeting minutes", "conference call", "project proposal", "client feedback", "team performance", "job promotion", "work relationship", "team effort", "work agreement", "company growth",
+      "office layout", "job training", "team bonding", "business proposal", "office party", "corporate event", "employee wellness", "internal communication", "project review", "meeting room",
+      "work schedule", "office location", "career advancement", "staff training", "team strategy", "client request", "management feedback", "project deadline", "time tracker", "company values",
+      "client update", "task progress", "company strategy", "staff development", "project manager", "work expectations", "team building", "performance goals", "employee recognition", "team growth",
+      "management style", "project manager", "job satisfaction", "company vision", "staff feedback", "meeting agenda", "client follow-up", "company meeting", "team discussion", "performance targets",
+      "staff morale", "company resources", "team performance", "work objectives", "internal feedback", "team efficiency", "company events", "project milestone", "employee growth", "office environment",
+      "communication skills", "work atmosphere", "job flexibility", "remote working", "professional development", "work task", "team performance", "client engagement", "management team", "company leadership"
+    ],
+    "job_titles": ["developer", "manager", "designer", "analyst", "consultant", "product manager", "CEO", "CTO", "engineer", "HR", "marketer", "intern", "executive"],
+    "industry": ["IT", "finance", "marketing", "healthcare", "construction", "engineering", "education", "retail", "legal", "hospitality", "entertainment", "real estate", "automotive", "aerospace", "pharmaceutical", "biotechnology", "telecommunications", "energy", "manufacturing", "logistics", "media", "agriculture", "fashion", "food and beverage", "tourism", "gaming", "security", "government", "non-profit", "transportation", "insurance", "environmental", "legal", "art", "publishing", "music", "sports", "design", "construction", "consumer goods"]
+  },
+  "personal": {
+    "relationships": [
+      "family bond", "close friend", "holiday getaway", "vacation plans", "romantic relationship", "birthday party", "family reunion", "best friend", "love story", "relationship advice",
+      "special occasion", "event planning", "wedding anniversary", "parental guidance", "social gathering", "family support", "long-distance relationship", "engagement ring", "relationship goal", "love life",
+      "friendship bond", "romantic getaway", "birthday celebration", "family dinner", "couple goals", "holiday retreat", "travel destination", "vacation spot", "friendship goals", "holiday season",
+      "birthday gift", "weekend getaway", "relationship counseling", "love connection", "family tradition", "romantic dinner", "sports event", "wedding proposal", "shared hobby", "weekend trip",
+      "vacation package", "holiday festivities", "family activities", "love letter", "friend reunion", "romantic date", "adventure trip", "weekend plans", "special moments", "romantic proposal",
+      "travel memories", "family vacation", "close relationship", "shared adventure", "friendship circle", "couple retreat", "holiday decorations", "family support", "intimate dinner", "romantic weekend",
+      "life partner", "emotional connection", "holiday celebration", "birthday surprise", "family bonding", "friend's wedding", "travel buddy", "romantic partner", "close-knit family", "couple vacation",
+      "lovers' quarrel", "family affair", "intimate relationship", "friendly advice", "soulmate connection", "quality time", "friend support", "birthday wish", "family gathering", "trust issues",
+      "holiday travel", "vacation memories", "special celebration", "couple's retreat", "personal relationship", "friend connection", "family love", "romantic partnership", "adventurous spirit", "weekend outing",
+      "close friendship", "family love", "romantic weekend", "family matters", "friend bonding", "long-term relationship", "holiday spirit", "relationship growth", "travel together", "vacation fun"
+    ],
+    "emotions": ["happy", "excited", "love", "joy", "sad", "angry", "depressed", "hopeful", "motivated", "frustrated"],
+    "self_improvement": [
+      "personal growth", "self-care routine", "positive mindset", "goal setting", "healthy lifestyle", "mindful living", "mental clarity", "fitness routine", "self-love", "personal development",
+      "mindful breathing", "stress management", "healthy habits", "morning routine", "evening routine", "self-motivation", "inner peace", "mental health", "growth mindset", "fitness goals",
+      "time management", "positive affirmations", "daily practice", "habit building", "personal progress", "mindful meditation", "personal goals", "self-reflection", "mental focus", "energy boost",
+      "healthy diet", "self-discipline", "confidence building", "personal achievements", "personal growth", "wellness journey", "body transformation", "mental wellness", "fitness progress", "self-improvement plan",
+      "daily journal", "life goals", "inspiration sources", "wellness routine", "positive thinking", "self-compassion", "creative expression", "meditation practice", "emotional intelligence", "self-awareness",
+      "productivity boost", "exercise routine", "mental resilience", "self-esteem", "stress relief", "balanced life", "focus training", "self-confidence", "calm mind", "spiritual growth",
+      "personal development plan", "fitness progress", "relaxation techniques", "mindfulness meditation", "energy management", "goal achievement", "gratitude practice", "work-life balance", "mental rejuvenation", "life coaching",
+      "inner strength", "health journey", "emotional well-being", "positive energy", "habit tracking", "personal coaching", "healthy mindset", "wellness goals", "mental clarity techniques", "journaling therapy",
+      "affirmation practice", "lifestyle changes", "self-growth plan", "life purpose", "self-transformation", "balance lifestyle", "progress tracking", "mental exercises", "wellness coaching", "self-discovery",
+      "inner calm", "confidence booster", "vision board", "holistic health", "relaxation time", "goal planning", "personal reflection", "healthy living", "time tracking", "self-motivation tips"
+    ]
+  },
+  "car": {
+    "brands": [
+      "tesla", "toyota", "cadillac", "bmw", "mercedes", "audi", "honda", "ford", "chevrolet", "nissan", "hyundai", "kia", "volkswagen", "porsche", "jaguar", "land rover", "mazda", "subaru",
+      "volvo", "bugatti", "ferrari", "lamborghini", "bentley", "rolls royce", "maserati", "aston martin", "lexus", "peugeot", "fiat", "chrysler", "dodge", "ram", "jeep", "buick", "gmc",
+      "infiniti", "mitsubishi", "acura", "land rover", "lincoln", "mini", "alfa romeo", "cadillac", "cadillac", "saab", "seat", "skoda", "pagani", "koenigsegg", "lotus", "mclaren",
+      "zonda", "genesis", "chery", "fisker", "smart", "rims", "geely", "great wall", "chrysler", "mercedes-benz", "peugeot", "toyota", "tata motors", "isuzu", "hummer", "subaru", "audi"
+    ],
+    "general": ["car", "vehicle", "ride", "drive", "automobile", "new model", "speed", "comfortable", "nice", "beautiful", "fast", "luxury", "vintage"],
+    "maintenance": ["maintenance", "repair", "fuel", "oil", "tires", "checkup", "brakes", "service", "garage", "mechanic", "insurance", "registration", "engine", "warranty"],
+    "electric": ["electric vehicle", "EV", "charging station", "autopilot", "range", "battery", "sustainability", "green energy"]
+  },
+  "colors": {
+    "basic": ["blue", "red", "green", "black", "white", "yellow", "silver", "gray", "orange", "pink", "purple", "brown", "gold", "beige", "cyan", "magenta", "teal", "navy", "indigo", "violet", "peach", "lavender", "turquoise", "amber", "ivory", "cream", "chocolate", "rose", "aquamarine", "charcoal", "mint", "coral", "plum", "emerald", "fuchsia", "lime", "mustard", "taupe", "blush", "periwinkle", "chartreuse", "mauve", "burgundy", "onyx", "tangerine", "apricot", "emerald", "scarlet", "cerulean", "sunflower", "lavender", "sapphire", "jade", "silver", "obsidian", "cobalt", "coral", "malachite", "copper", "steel", "raspberry", "pearl", "sunset", "forest green", "rose gold", "ivory", "dandelion", "turquoise blue", "mint green", "flamingo", "pistachio", "champagne", "chartreuse", "dark chocolate", "blush pink", "butter", "canary yellow", "cinnamon", "kiwi", "cloud", "peach puff", "heather", "lavender mist", "cloudberry", "platinum", "dark olive", "saffron", "baby blue", "spring green", "sapphire", "beetroot", "fawn", "cerulean", "dusty rose", "sunset orange", "cantaloupe", "tulip", "melon", "mocha", "cobalt blue", "seafoam", "violet red", "red-orange", "lime green", "charcoal gray", "eggshell", "bordeaux", "pearl white", "autumn", "cadmium yellow", "blue-violet", "cobalt green", "blue-gray", "champagne pink", "fuchsia pink"],
+    "shades": [
+      "lime", "coral", "peach", "mint", "charcoal", "turquoise", "emerald", "amber", "ivory", "plum",
+      "lavender", "fuchsia", "rose", "aquamarine", "chocolate", "cream", "crimson", "rust", "teal",
+      "mustard", "periwinkle", "sapphire", "seafoam", "malachite", "ivory", "ruby", "topaz", "basil",
+      "copper", "celadon", "maroon", "goldenrod", "dandelion", "scarlet", "ocean", "mauve", "champagne",
+      "burnt orange", "slate", "platinum", "cerulean", "fuchsia", "sienna", "cantaloupe", "blueberry",
+      "crimson", "tangerine", "sunflower", "frost", "garnet", "pearl", "cobalt", "sandstone", "mint green",
+      "apricot", "snow", "cinnabar", "chartreuse", "blush", "tulip", "magenta", "firebrick", "butter",
+      "saffron", "heather", "brick red", "lime green", "rose gold", "sea breeze", "emerald green",
+      "honeysuckle", "plum purple", "aquamarine blue", "lavender mist", "buttercup", "sunset orange",
+      "peach puff", "pear", "silver sage", "blue jade", "antique white", "baby pink", "apricot orange",
+      "dark teal", "golden yellow", "cloud white", "fiesta", "blush pink", "tangerine dream", "cherry",
+      "caramel", "dark olive", "wisteria", "spring green", "turquoise blue", "storm gray", "deep plum",
+      "lemon chiffon", "sea foam green", "pistachio", "cherry blossom", "pale violet", "royal purple",
+      "lemonade", "pastel pink", "cobalt blue", "sunset gold", "pale blue", "greenery", "ice blue",
+      "dark chocolate", "orchid", "blue violet", "amber yellow", "twilight blue", "lilac", "banana yellow",
+      "ginseng", "ginger", "sea mist", "deep coral", "foggy gray", "dusty rose", "watermelon", "pale mint",
+      "midnight blue", "cloudberry", "pale pink", "fiery red", "raspberry", "deep lavender", "vanilla",
+      "cherry red", "plum rose", "green mist", "burnt sienna", "light brown", "rich mauve", "almond",
+      "silver moon", "autumn leaf", "frosted lavender"
+    ]
+  },
+  "sentiment": {
+    "positive": [
+      "happy mood", "excited feeling", "good vibes", "great day", "success story", "joyful moment",
+      "satisfied life", "optimistic outlook", "motivated spirit", "achievement unlocked", "bright future",
+      "hopeful heart", "enthusiastic approach", "loving kindness", "enjoyable experience", "fun activity",
+      "wonderful time", "positive energy", "peaceful mind", "grateful heart", "inspired action", "fulfilled dreams",
+      "blessed journey", "caring nature", "cheerful smile", "calm presence", "appreciative attitude",
+      "loving care", "supportive environment", "friendly smile", "confident step", "joyful spirit", "content life",
+      "uplifted soul", "hopeful future", "serene state", "determined mind", "encouraging word", "honored moment",
+      "balanced life", "courageous heart", "compassionate soul", "successful journey", "friendly company",
+      "gracious attitude", "honest person", "strong will", "radiant smile", "vibrant energy", "dynamic spirit",
+      "united front", "resilient heart", "motivating words", "productive day", "beloved friend", "blissful life",
+      "empowered soul", "rewarding experience", "amazing feat", "incredible person", "astonishing view",
+      "thrilled heart", "fulfilled promise", "proud moment", "satisfied goal", "positive outcome", "optimism rising",
+      "refreshing break", "funny moment", "incredible journey", "amazing feat", "determined spirit", "adventurous soul",
+      "brilliant mind", "peaceful heart", "secure life", "self-assured person", "contented soul", "comfortable state",
+      "gratefulness shared", "renewed energy", "grinning face", "ecstatic joy", "hopeful attitude", "bubbly personality",
+      "playful heart", "fantastic day", "light-hearted mood", "brightened spirit", "lively soul", "cheerful atmosphere"
+    ],
+    "negative": [
+      "problem solving", "stressful situation", "emergency response", "worried thoughts", "sad moment",
+      "failure ahead", "frustrated feeling", "trouble ahead", "conflict arises", "down mood", "difficult time",
+      "panic attack", "issue unresolved", "painful experience", "sick day", "hurt feelings", "broken heart",
+      "angry outburst", "bad news", "negative thoughts", "unresolved issue", "unhappy feeling", "stressful work",
+      "frustration mounting", "problematic situation", "challenging task", "sick body", "sad face", "strained relationship",
+      "difficult choice", "painful memory", "unwanted stress", "worried mind", "angry words", "feeling down",
+      "negative outcome", "unwanted feelings", "disappointing result", "tired body", "unhealthy habits", "shattered dream",
+      "growing concern", "dangerous situation", "unresolved conflict", "hurt emotions", "sick person", "high stress",
+      "stressed out", "broken promise", "frustrated mind", "bad decision", "negative impact", "lost hope",
+      "painful truth", "unlucky day", "bad experience", "feeling hopeless", "troublesome issue", "conflict resolution",
+      "feeling ill", "broken spirit", "failing attempt", "negative feedback", "unsettling news", "gloomy outlook",
+      "frustrating issue", "sick feelings", "heavy heart", "miserable day", "conflicted heart", "depressed state",
+      "anger rising", "failure ahead", "damaged relationship", "stressed out", "broken dreams", "disastrous situation",
+      "unhealthy mind", "painful reality", "negative thoughts", "emotionally drained", "unhappy situation", "fearful heart",
+      "unsettled feelings", "crisis point", "unresolved stress", "stressed body", "unpleasant surprise", "unwanted attention",
+      "unresolved problem", "sick of it", "worried mind", "broken trust", "negative emotions", "distressed heart",
+      "empty feeling", "dangerous turn", "lost cause", "frustrated emotions", "troublesome person", "stressed work"
+    ],
+    "neutral": ["is", "was", "are", "were", "seems", "looks", "maybe", "perhaps", "somewhat"],
+    "emotions": [
+      "feeling anxious", "nervous energy", "pleasantly surprised", "bored out", "content with",
+      "indifferent attitude", "feeling nervous", "surprised reaction", "bored feeling",
+      "indifferent mood", "content heart", "surprised expression", "anxious thoughts",
+      "nervous excitement", "bored mindset", "content soul", "feeling indifferent",
+      "surprised look", "nervous laugh", "bored stare", "indifferent response",
+      "feeling content", "surprised joy", "anxious anticipation", "bored attitude",
+      "content vibes", "nervousness rising", "feeling bored", "content smile",
+      "surprised joy", "indifferent gaze", "anxious glance", "surprised face",
+      "content heart", "nervous breath", "bored conversation", "feeling indifferent",
+      "surprised emotions", "anxious situation", "content with life", "nervous hands",
+      "bored expression", "indifferent feelings", "surprised reaction", "feeling bored",
+      "anxious anticipation", "content mood", "indifferent glance", "bored outlook",
+      "surprised laughter", "nervous tension", "feeling content", "indifferent mood",
+      "bored silence", "surprised wonder", "contentment rising", "anxious worry",
+      "nervous excitement", "bored stare", "indifferent view", "surprised expression",
+      "feeling anxious", "nervous reaction", "bored attitude", "content spirit",
+      "indifferent air", "surprised mind", "feeling nervous", "bored energy"
+    ]
+  },
+  "animals": {
+    "wild": ["lion", "tiger", "elephant", "giraffe", "zebra", "shark", "whale", "bear", "wolf", "monkey", "parrot", "panda", "koala"],
+    "domestic": ["dog", "cat", "bird", "fish", "rabbit", "mouse", "hamster", "guinea pig", "turtle", "frog"],
+    "sea": ["dolphin", "octopus", "seal", "shark", "starfish", "whale", "coral reef", "jellyfish"]
+  },
+  "home": {
+    "apartment": ["studio", "one bedroom", "two bedroom", "apartment", "rent", "lease", "landlord", "tenant", "furniture", "kitchen", "bathroom", "living room", "balcony", "garage"],
+    "house": ["detached", "bungalow", "villa", "mansion", "neighborhood", "garden", "backyard", "front yard", "pool", "driveway", "lawn", "fence", "roof", "door", "window"],
+    "decor": ["modern", "minimalist", "rustic", "vintage", "chic", "bohemian", "industrial", "eclectic", "scandi", "transitional"]
+  },
+  "universe": ["space", "planet", "star", "galaxy", "black hole", "solar system", "asteroid", "comet", "nebula", "telescope", "astronomy", "NASA", "spacecraft", "exploration", "alien", "cosmos", "milky way"],
+  "war": ["battle", "conflict", "army", "soldier", "weapon", "gun", "fight", "peace", "strategy", "victory", "defeat", "territory", "tactics", "military", "operation", "navy", "air force"],
+  "guns": ["pistol", "revolver", "rifle", "shotgun", "machine gun", "gunshot", "ammo", "safety", "barrel", "silencer", "holster", "trigger", "firearm", "caliber", "military", "handgun"],
+  "technology": {
+    "AI": [
+      "artificial intelligence", "machine learning", "deep learning", "neural networks", "supervised learning",
+      "unsupervised learning", "reinforcement learning", "chatbots", "NLP", "vision AI", "robotics", "automation",
+      "intelligent systems", "openAI", "chatGPT", "GPT-3", "GPT-4", "language models", "natural language processing",
+      "computer vision", "AI ethics", "predictive analytics", "autonomous vehicles", "AI research", "AI models",
+      "AI development", "speech recognition", "voice assistants", "AI algorithms", "AI training", "deep reinforcement learning"
+    ],
+    "future": [
+      "blockchain", "cloud computing", "big data", "internet of things", "virtual reality", "augmented reality",
+      "quantum computing", "5G", "edge computing", "nanotechnology", "biotechnology", "smart homes", "smart cities",
+      "synthetic biology", "AI-powered", "machine vision", "3D printing", "autonomous drones", "wearable tech", "smart wearables",
+      "digital twins", "AI chips", "cybersecurity", "autonomous robots", "green technology"
+    ],
+    "gadgets": [
+      "smartphone", "tablet", "laptop", "wearable", "smartwatch", "VR headset", "AR glasses", "drones", "robots",
+      "AI assistants", "IoT devices", "smart speakers", "smart glasses", "fitness trackers", "bluetooth headphones",
+      "smart thermostats", "smart locks", "robot vacuums", "4K TVs", "gaming consoles", "e-readers", "smart home hubs",
+      "smart refrigerators", "smart light bulbs", "motion sensors", "smart cameras", "solar-powered devices"
+    ]
+  },
+  "gaming": {
+    "general": ["game", "video game", "gamer", "gaming", "console", "PC", "controller", "multiplayer", "level", "boss fight", "achievement", "high score", "eSports", "strategy", "role play", "RPG", "shooter", "adventure", "pubg", "simulation"],
+    "genres": ["action", "adventure", "RPG", "shooter", "strategy", "simulation", "sports", "racing", "fighting", "platformer", "MMO", "puzzle", "indie"],
+    "platforms": ["steam", "epic games", "playstation", "xbox", "nintendo", "mobile", "pc"]
+  },
+  "reminder": ["reminder", "alert", "task", "due", "deadline", "to do", "alarm", "notify", "schedule", "remind", "appointment", "event", "reminder notification", "remind me", "set reminder", "plan", "next", "time", "important"],
+  "calendar": ["calendar", "date", "time", "event", "schedule", "appointment", "meeting", "reminder", "plan", "month", "day", "week", "year", "reminder app", "occasion"],
+  "social_networks": [
+    "facebook", "instagram", "twitter", "snapchat", "linkedin", "tiktok", "youtube", "whatsapp",
+    "social media", "post", "like", "share", "followers", "story", "feed", "hashtag", "pinterest",
+    "reddit", "tumblr", "flickr", "vimeo", "weibo", "douyin", "telegram", "discord", "skype",
+    "myspace", "foursquare", "quora", "xing", "periscope", "beacon", "medium", "clubhouse",
+    "twitch", "vkontakte", "yelp", "yammer", "meetup", "badoo", "oklahoma", "ask.fm", "kaixin001",
+    "line", "wechat", "taringa", "pocket", "mocospace", "ello", "plurk", "path", "viber", "kik",
+    "younow", "google+", "hangouts", "vine", "microsoft teams", "zoom", "slack", "wechat", "minds",
+    "stumbleupon", "tapatalk", "reel", "flickchat", "houseparty", "chime", "triller", "periscope",
+    "booyah", "vlog", "zoom", "chaturbate", "happn", "youtube","www.youtube.com","www.facebook.com"
+  ],
+  "actors": [
+    "Leonardo DiCaprio", "Brad Pitt", "Tom Hanks", "Meryl Streep", "Robert Downey Jr.", "Scarlett Johansson", "Will Smith", "Denzel Washington", "Angelina Jolie", "Johnny Depp",
+    "Jennifer Lawrence", "Morgan Freeman", "Tom Cruise", "Matt Damon", "Charlize Theron", "Ryan Reynolds", "Natalie Portman", "Chris Hemsworth", "Emma Stone", "Keanu Reeves",
+    "Hugh Jackman", "Nicole Kidman", "Chris Pratt", "Al Pacino", "Sandra Bullock", "Matthew McConaughey", "Anne Hathaway", "George Clooney", "Julia Roberts", "Kate Winslet",
+    "Dwayne Johnson", "Emily Blunt", "Harrison Ford", "Samuel L. Jackson", "Zoe Saldana", "Johnny Depp", "Will Ferrell", "Chris Evans", "Gal Gadot", "Reese Witherspoon",
+    "Adam Driver", "Cate Blanchett", "Eddie Redmayne", "Emma Watson", "Jessica Chastain", "Ben Affleck", "Joaquin Phoenix", "Jake Gyllenhaal", "Ryan Gosling", "Catherine Zeta-Jones",
+    "Matthew McConaughey", "Keira Knightley", "Margot Robbie", "Sylvester Stallone", "Helen Mirren", "Vin Diesel", "Alec Baldwin", "Tom Hardy", "Bradley Cooper", "Kristen Stewart",
+    "Gwyneth Paltrow", "Benicio del Toro", "Olivia Colman", "Robert Pattinson", "Tommy Lee Jones", "Naomi Watts", "Mark Ruffalo", "Josh Brolin", "Emily Blunt", "Charlie Hunnam",
+    "Charlize Theron", "Luke Evans", "Cameron Diaz", "Jessica Alba", "Michael B. Jordan", "Tessa Thompson", "Bryan Cranston", "Laurence Fishburne", "Helen Hunt", "Jonah Hill",
+    "Idris Elba", "Selena Gomez", "Mila Kunis", "Emma Roberts", "Tina Fey", "Zac Efron", "Hugh Grant", "Benedict Cumberbatch", "Kate Hudson", "Matthew Fox",
+    "Jodie Foster", "Saoirse Ronan", "Lupita Nyong'o", "John Krasinski", "Claire Foy", "Joseph Gordon-Levitt", "Sarah Jessica Parker", "Patrick Stewart", "Terry Crews", "Cynthia Erivo"
+  ],
+
+  "aviation": [
+    "delta", "american airlines", "united airlines", "southwest", "jetblue", "alaska airlines",
+    "lufthansa", "air france", "british airways", "emirates", "qatar airways", "singapore airlines",
+    "cathay pacific", "china airlines", "air canada", "australian airlines", "easyJet", "ryanair",
+    "korean air", "japan airlines", "air india", "ethiopian airlines", "turkish airlines",
+    "air new zealand", "norwegian air", "air austral", "air berlin", "air china", "all nippon airways",
+    "austrian airlines", "blue air", "brazilian airlines", "canadian airlines", "china southern",
+    "china eastern", "copa airlines", "egyptair", "finnair", "garuda indonesia", "hawaiian airlines",
+    "hainan airlines", "iberia", "indigo airlines", "jazeera airways", "kenya airways", "klm royal dutch",
+    "korean air", "lot polish airlines", "malaysia airlines", "mango airlines", "nepal airlines",
+    "oman air", "pesa", "portugal airlines", "qantas", "royal jordanian", "saudi arabian airlines",
+    "scandinavian airlines", "seair", "skymark airlines", "solaseed air", "spirit airlines",
+    "sri lankan airlines", "swiss international", "tap air portugal", "thai airways", "tigerair",
+    "transavia", "tui fly", "us airways", "vietnam airlines", "virgin atlantic", "volotea", "westjet",
+    "wizz air"
+  ]
+}

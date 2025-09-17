@@ -1,0 +1,95 @@
+{
+    "social_networks": {
+    "facebook": "📘",
+    "instagram": "📸",
+    "twitter": "🐦",
+    "youtube": "📺",
+    "linkedin": "🔗",
+    "whatsapp": "💬",
+    "tiktok": "🎶",
+    "pinterest": "📌",
+    "reddit": "👽",
+    "snapchat": "👻",
+    "vimeo": "🎥",
+    "telegram": "📱",
+    "discord": "🎮",
+    "skype": "🖥️",
+    "zoom": "💻",
+    "slack": "📚",
+    "twitch": "🎮",
+    "tumblr": "📑",
+    "quora": "❓",
+    "myspace": "🌐",
+    "foursquare": "📍",
+    "google_plus": "➕",
+    "periscope": "📡",
+    "medium": "📝",
+    "clubhouse": "🏠",
+    "yelp": "⭐",
+    "meetup": "🤝",
+    "badoo": "❤️"
+    },
+    "animals": {
+    "cat": "🐱",
+    "dog": "🐶",
+    "lion": "🦁",
+    "elephant": "🐘",
+    "tiger": "🐯",
+    "horse": "🐴",
+    "cow": "🐄",
+    "monkey": "🐒",
+    "panda": "🐼",
+    "koala": "🐨",
+    "rabbit": "🐇",
+    "sheep": "🐑",
+    "pig": "🐖",
+    "chicken": "🐔",
+    "bird": "🐦",
+    "fish": "🐟",
+    "dolphin": "🐬",
+    "whale": "🐋",
+    "octopus": "🐙",
+    "frog": "🐸",
+    "snake": "🐍",
+    "mouse": "🐭",
+    "rat": "🐀",
+    "bat": "🦇",
+    "beetle": "🪲"
+    },
+    "weather": {
+        "sunny": "☀️", "cloudy": "☁️", "rainy": "🌧️", "stormy": "⛈️", "snowy": "❄️", "windy": "🌬️", "foggy": "🌫️", "thunderstorm": "🌩️", "tornado": "🌪️", "hail": "🌨️", "drizzle": "🌦️", "partly_cloudy": "🌤️"
+    },
+    "objects": {
+        "car": "🚗", "bus": "🚌", "train": "🚆", "bicycle": "🚲", "airplane": "✈️", "rocket": "🚀", "ship": "🚢", "truck": "🚚", "helicopter": "🚁", "motorcycle": "🏍️", "camera": "📷", "watch": "⌚", "laptop": "💻", "phone": "📱", "light_bulb": "💡", "microscope": "🔬", "glasses": "👓", "scissors": "✂️", "anchor": "⚓", "bell": "🔔", "battery": "🔋", "lock": "🔒", "key": "🔑", "magnifying_glass": "🔍"
+    },
+    "emotions": {
+        "happy": "😊", "sad": "😢", "angry": "😠", "surprised": "😲", "crying": "😭", "laughing": "😂", "blushing": "😊", "love": "❤️", "kiss": "😘", "heart_eyes": "😍", "cool": "😎", "confused": "😕", "shocked": "😱", "wink": "😉", "sleepy": "😴", "sick": "🤢", "dizzy": "🤯", "relieved": "😌", "thinking": "🤔", "flushed": "😳", "grinning": "😁", "frown": "🙁"
+    },
+    "people": {
+        "man": "👨", "woman": "👩", "girl": "👧", "boy": "👦", "baby": "👶", "adult": "👵", "older_woman": "👵", "older_man": "👴", "family": "👪", "couple": "👩‍❤️‍👨", "couple_woman_woman": "👩‍❤️‍👩", "couple_man_man": "👨‍❤️‍👨", "teacher": "👩‍🏫", "doctor": "👨‍⚕️", "nurse": "👩‍⚕️", "scientist": "👩‍🔬", "astronaut": "👩‍🚀", "chef": "👨‍🍳", "police_officer": "👮‍♂️", "firefighter": "👨‍🚒"
+    },
+    
+        "nature": {
+            "tree": "🌳", "flower": "🌸", "rose": "🌹", "sunflower": "🌻", "cactus": "🌵", "palm_tree": "🌴", "seedling": "🌱", "herb": "🌿", "evergreen_tree": "🌲", "maple_leaf": "🍁", "fallen_leaf": "🍂", "leaf_fluttering_in_wind": "🍃"
+        },
+        "travel": {
+            "luggage": "🧳", "passport_control": "🛂", "ticket": "🎫", "world_map": "🗺️", "mountain": "🏔️", "beach": "🏖️", "desert": "🏜️", "volcano": "🌋", "mount_fuji": "🗻", "camping": "🏕️", "tent": "⛺", "ferry": "⛴️"
+        },
+        "activities": {
+            "soccer": "⚽", "basketball": "🏀", "baseball": "⚾", "football": "American football", "rugby": "🏉", "tennis": "🎾", "badminton": "🏸", "cricket": "🏏", "boxing": "🥊", "golf": "🏌️‍♂️", "ping_pong": "🏓", "bowling": "🎳", "ice_skate": "⛸️"
+        },
+        "music": {
+            "guitar": "🎸", "violin": "🎻", "trumpet": "🎺", "saxophone": "🎷", "drum": "🥁", "microphone": "🎤", "headphones": "🎧", "musical_note": "🎶", "musical_keyboard": "🎹", "radio": "📻", "studio_microphone": "🎙️", "vuvuzela": "📯"
+        },
+        "vehicles": {
+            "taxi": "🚖", "minibus": "🚐", "snowplow": "🚜", "tractor": "🚜", "ambulance": "🚑", "police_car": "🚓", "fire_engine": "🚒"
+        },
+        "technology": {
+            "robot": "🤖", "computer": "💻", "tv": "📺", "telephone": "☎️", "fax": "📠", "printer": "🖨️", "camera": "📷", "video_camera": "🎥", "smartphone": "📱", "tablet": "📲", "satellite": "📡"
+        },
+        "buildings": {
+            "house": "🏠", "office": "🏢", "hospital": "🏥", "school": "🏫", "hotel": "🏨", "bank": "🏦", "post_office": "🏣", "church": "⛪", "mosque": "🕌", "synagogue": "🕍", "castle": "🏰", "factory": "🏭", "stadium": "🏟️"
+        }
+    
+    
+}

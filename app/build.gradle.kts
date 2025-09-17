@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
 plugins {
@@ -11,11 +12,15 @@ plugins {
 }
 
 // ---- read local.properties safely (NO internal APIs) ----
-val localProps = Properties().apply {
-    val lp = rootProject.file("local.properties")
-    if (lp.exists()) lp.inputStream().use { load(it) }
+val props = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
-val openAiKey: String = localProps.getProperty("OPENAI_API_KEY") ?: ""
+
+val openAiKey: String? = props.getProperty("OPENAI_API_KEY", "")
+val supabaseUrl: String? = props.getProperty("SUPABASE_URL", "")
+val supabaseAnonKey: String? = props.getProperty("SUPABASE_ANON_KEY", "")
+
 
 val keystoreProperties = Properties().apply {
     val ks = rootProject.file("keystore.properties")
@@ -50,19 +55,27 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 31
         targetSdk = 36
-        versionCode = 215
-        versionName = "0.2.211"
+        versionCode = 216
+        versionName = "0.2.212"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Sep-16-2025\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Sep-17-2025\"")
 
         // ✅ from local.properties
         buildConfigField("String", "OPENAI_API_KEY", "\"$openAiKey\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+
+
+
+
 
         signingConfig = signingConfigs.getByName("release")
     }
 
     buildTypes {
         getByName("release") {
+
+
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -70,6 +83,10 @@ android {
                 "custom-proguard-rules.pro"
             )
             // signingConfig = signingConfigs.getByName("release")
+        }
+        getByName("debug") {
+
+
         }
 
         create("beta") {
@@ -101,7 +118,7 @@ android {
     kotlin {
         // makes the Kotlin compiler emit Java 17 bytecode
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+            jvmTarget.set(JvmTarget.JVM_21)
         }
         // uses a JDK 17 toolchain if available
         jvmToolchain(21)

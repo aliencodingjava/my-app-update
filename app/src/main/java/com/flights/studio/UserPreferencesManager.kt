@@ -13,7 +13,7 @@ class UserPreferencesManager(context: Context) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     // ✅ Observable login state
-    val isLoggedInLiveData = MutableLiveData<Boolean>(prefs.getBoolean(KEY_IS_LOGGED_IN, false))
+    val isLoggedInLiveData = MutableLiveData(prefs.getBoolean(KEY_IS_LOGGED_IN, false))
 
     var userBio: String?
         get() = prefs.getString(KEY_USER_BIO, null)
