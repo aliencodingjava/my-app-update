@@ -1,0 +1,107 @@
+<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <androidx.preference.PreferenceCategory
+        app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
+        android:title="Contact Information">
+
+        <!-- Contact Information Preferences -->
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+        <androidx.preference.Preference
+            android:key="phone"
+            android:icon="@drawable/dialpad_fill0_wght400_grad0_opsz24"
+            android:title="Phone Number"
+            android:summary="@string/_307_733_7682"
+            android:defaultValue="307-733-7682"
+            android:contentDescription="Airport Phone Number"/>
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <Preference
+            android:key="custom_note"
+            android:title="Add a Note"
+            android:icon="@drawable/note_add_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            android:summary="Tap to add a custom note"
+            android:onClick="openNoteScreen"/>
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            android:key="all_contacts"
+            android:icon="@drawable/groups_2_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            android:title="All Contacts"
+            android:summary="View and manage all your contacts"
+            android:selectable="true" />
+
+
+
+        <androidx.preference.Preference
+            android:key="email"
+            android:icon="@drawable/baseline_email_24"
+            android:title="Email Address" />
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+        <androidx.preference.Preference
+            android:icon="@drawable/baseline_map_24"
+            android:key="address"
+            android:title="Physical Address"
+            android:summary="@string/jackson_hole_airport_n1250_east_airport_road" />
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+        <androidx.preference.Preference
+            android:key="pobox"
+            app:enableCopying="true"
+            android:selectable="true"
+            android:icon="@drawable/local_post_office_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            android:title="PO Box"
+            android:summary="@string/PO_Box_n159Jackson_WY_n83001" />
+
+
+    </androidx.preference.PreferenceCategory>
+
+    <androidx.preference.PreferenceCategory
+        app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
+        android:title="Airport Services">
+
+        <!-- Airport Services Preferences -->
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+        <androidx.preference.Preference
+            android:key="operations"
+            android:icon="@drawable/contact_mail_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            android:title="Airport Operations" />
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+        <androidx.preference.Preference
+            android:icon="@drawable/baseline_no_luggage_24"
+            android:key="lost_and_found"
+            android:title="Lost and Found" />
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+        <androidx.preference.Preference
+            android:icon="@drawable/diversity_3_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            android:key="human_resources"
+            android:title="Human Resources" />
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            android:icon="@drawable/table_chart_view_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            android:key="customer_experience"
+            android:title="Customer Experience" />
+
+    </androidx.preference.PreferenceCategory>
+
+
+
+</androidx.preference.PreferenceScreen>

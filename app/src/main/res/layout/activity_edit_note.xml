@@ -1,0 +1,248 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:windowSoftInputMode="adjustResize"
+    android:background="?attr/colorOnSecondary"
+    android:padding="0dp">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        app:layout_collapseMode="pin"
+        android:background="?attr/colorOnSecondary"
+        app:titleTextColor="?attr/colorOnSurface"
+        app:contentInsetEndWithActions="0dp">
+
+        <!-- keep same id for save -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_save"
+            style="@style/Widget.Material3.Button.ElevatedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center|end"
+            android:minWidth="64dp"
+            android:text="@string/save_note"
+            android:contentDescription="@string/save_note"
+            android:tooltipText="@string/save"
+            app:iconTint="?attr/colorOnSecondaryContainer"
+            android:textColor="?attr/colorOnSecondaryContainer"
+            android:layout_marginEnd="6dp" />
+
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?attr/colorSurface"
+        android:id="@+id/nestedScroll"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="0dp">
+
+            <!-- TITLE -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="0dp"
+                android:hint="@string/note_title_optional"
+                app:hintTextColor="?attr/colorOnSurfaceVariant"
+                app:boxBackgroundMode="outline"
+                app:boxStrokeColor="?attr/colorOutline"
+                app:boxStrokeWidth="1dp"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:maxLength="60"
+                    android:gravity="center"
+                    android:imeOptions="actionNext"
+                    android:inputType="textCapSentences|textNoSuggestions"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- IMAGES STRIP -->
+            <LinearLayout
+                android:id="@+id/images_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:descendantFocusability="blocksDescendants"
+                android:focusable="false"
+                android:focusableInTouchMode="false">
+
+            <!-- Header -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end|center_vertical"
+                    android:layout_margin="3dp"
+                    app:cardCornerRadius="30dp"
+                    android:clipChildren="false"
+                    android:clipToOutline="false"
+                    android:clipToPadding="false"
+                    android:backgroundTint="?android:attr/colorBackground"
+                    app:cardBackgroundColor="?attr/colorPrimaryFixedDim"
+                    app:cardElevation="1dp"
+                    app:cardUseCompatPadding="true"
+                    app:cardPreventCornerOverlap="false"
+                    app:strokeColor="@color/transparent"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/HelpButton"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            style="@style/Widget.Material3.CardView.Elevated"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:layout_marginEnd="15dp"
+                            android:layout_margin="3dp"
+                            android:foreground="?attr/selectableItemBackgroundBorderless"
+                            app:cardCornerRadius="30dp"
+                            app:strokeColor="@color/ios_button_border"
+                            app:strokeWidth="1dp">
+
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_samsung_info"
+                                app:tint="@color/ios_icon" />
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:clickable="true"
+                            android:focusable="true"
+                            style="@style/Widget.Material3.CardView.Elevated"
+                            android:foreground="?attr/selectableItemBackgroundBorderless"
+                            app:cardCornerRadius="20dp"
+                            android:layout_marginEnd="25dp"
+                            android:layout_marginStart="3dp"
+                            app:strokeColor="@color/ios_button_border"
+                            app:strokeWidth="1dp">
+                            <!-- Count text -->
+                            <com.google.android.material.textview.MaterialTextView
+                                android:id="@+id/tv_images_count"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/_0"
+                                android:textSize="15sp"
+                                android:gravity="center"
+                                android:layout_gravity="center"
+                                android:textAlignment="center"
+                                android:textColor="?attr/actionMenuTextColor"
+                                android:fontFamily="@font/roboto_slab_bold"
+                                android:letterSpacing="0.01"
+                                android:layout_marginEnd="0dp" />
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <!-- Add button -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/ll_add_image"
+                            android:layout_width="45dp"
+                            android:layout_height="45dp"
+                            android:layout_margin="3dp"
+                            style="@style/Widget.Material3.CardView.Elevated"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:foreground="?attr/selectableItemBackgroundBorderless"
+                            app:cardCornerRadius="30dp"
+                            app:strokeWidth="1dp">
+
+                            <androidx.appcompat.widget.AppCompatImageView
+                                android:id="@+id/add_icon"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_samsung_image"
+                                app:tint="@color/ios_icon" />
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+
+
+                <!-- Outlined card for the carousel -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/card_images"
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    app:cardBackgroundColor="@color/transparent"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp"
+                    android:visibility="gone"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Large">
+
+                    <!-- replace ViewPager2 with RecyclerView -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/vp_images"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:overScrollMode="never"
+                        android:nestedScrollingEnabled="false"
+                        android:scrollbars="horizontal"
+                        android:fadeScrollbars="true"
+                        android:scrollbarStyle="outsideOverlay"
+                        android:clipToPadding="true"
+                        android:clipChildren="true"/>
+
+
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+
+            <!-- NOTE FIELD -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:hint="@string/edit_note"
+                app:hintTextColor="?attr/colorOnSurfaceVariant"
+                app:boxBackgroundMode="outline"
+                app:boxStrokeColor="?attr/colorOutline"
+                app:boxStrokeWidth="1dp"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small">
+
+                <AutoCompleteTextView
+                    android:id="@+id/edit_note"
+                    style="@style/EditTextStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@android:color/transparent"
+                    android:gravity="top|start"
+                    android:minLines="40"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp"
+                    android:textAppearance="?attr/textAppearanceBodyLarge"
+                    android:inputType="textMultiLine|textCapSentences|textAutoCorrect|textEnableTextConversionSuggestions"
+                    android:imeOptions="actionDone"
+                    tools:ignore="Autofill,LabelFor" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</LinearLayout>
+
+

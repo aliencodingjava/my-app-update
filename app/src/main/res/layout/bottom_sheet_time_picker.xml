@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/timePickerDialog"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:backgroundTint="@color/box_alert_update"
+    android:background="@drawable/bottom_sheet_background"
+    android:padding="16dp">
+
+    <!-- Title and Time Display in the Same Row -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp">
+
+        <TextView
+            android:id="@+id/title_time_picker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/select_time"
+            android:layout_gravity="center"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="?attr/actionMenuTextColor"
+            android:gravity="center"
+            android:shadowColor="@color/neon_blue"
+            android:shadowDx="0"
+            android:shadowDy="0"
+            android:shadowRadius="8"
+            android:padding="8dp"/>
+
+        <TextView
+            android:id="@+id/timeDisplay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|end"
+            android:gravity="center"
+            android:fontFamily="monospace"
+            android:minWidth="90dp"
+            android:padding="8dp"
+            android:shadowColor="@color/neon_blue"
+            android:shadowRadius="8"
+            android:text="00:00:00"
+            android:layout_marginEnd="10dp"
+            android:textColor="?attr/colorControlNormal"
+            android:textSize="16sp"
+            tools:ignore="HardcodedText" />
+    </FrameLayout>
+
+    <!-- Futuristic TimePicker -->
+    <FrameLayout
+        android:id="@+id/timePickerFrame"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_backround"
+        android:elevation="2dp"
+        android:padding="8dp">
+
+      <TimePicker
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:id="@+id/custom_time_picker"
+          android:gravity="center_horizontal"
+          android:layout_gravity="center"
+          android:background="@drawable/glassmorphism_background"
+          android:timePickerMode="spinner">
+
+      </TimePicker>
+
+
+        <!-- Error Message for Past Time Selection -->
+        <TextView
+            android:id="@+id/tv_time_error"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/selected_time_is_in_the_past_please_choose_a_future_time"
+            android:textSize="14sp"
+            android:textColor="@color/red"
+            android:fontFamily="@font/roboto_slab_variable_font_wght"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="8dp"
+            android:padding="8dp"
+            android:visibility="gone"/> <!-- Initially hidden -->
+
+        <!-- Success Message for Reminder Set -->
+        <TextView
+            android:id="@+id/tv_time_success"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/reminder_set_successfully_for_your_note"
+            android:textSize="14sp"
+            android:textColor="@color/green"
+            android:fontFamily="@font/roboto_slab_variable_font_wght"
+            android:gravity="center"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"
+            android:layout_gravity="bottom"
+            android:padding="8dp"
+            android:visibility="gone"/> <!-- Initially hidden -->
+
+    </FrameLayout>
+
+    <!-- FABs at the Bottom -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_gravity="center_horizontal|center_vertical"
+        android:gravity="center"
+        android:paddingTop="12dp">
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_oui_close"
+            style="@style/NoShadowFAB"
+            android:contentDescription="@string/cancel"
+            app:backgroundTint="@color/red"
+            app:tint="@color/white"/>
+
+        <Space
+            android:layout_width="50dp"
+            android:layout_height="wrap_content"/>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_set_reminder"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_oui_text_check_on"
+            style="@style/NoShadowFAB"
+            android:contentDescription="@string/set_reminder"
+            app:backgroundTint="@color/green"
+            app:tint="@color/white"/>
+    </LinearLayout>
+
+</LinearLayout>

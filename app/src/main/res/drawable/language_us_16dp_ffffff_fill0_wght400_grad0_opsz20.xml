@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:tint="?attr/colorOnBackground"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+
+    <path
+        android:fillColor="@color/box_contact_expand"
+        android:pathData="M216,672q-33,0 -52.5,-19.5T144,600v-312h72v312h144v-312h72v312q0,33 -19.5,52.5T360,672L216,672ZM600,672q-33,0 -52.5,-19.5T528,600v-24h72v24h144v-84L600,516q-33,0 -52.5,-19.5T528,444v-84q0,-33 19.5,-52.5T600,288h144q33,0 52.5,19.5T816,360v24h-72v-24L600,360v84h144q33,0 52.5,19.5T816,516v84q0,33 -19.5,52.5T744,672L600,672Z" />
+
+</vector>

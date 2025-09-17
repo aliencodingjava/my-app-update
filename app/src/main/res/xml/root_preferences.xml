@@ -1,0 +1,160 @@
+<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <androidx.preference.PreferenceCategory
+        app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
+        app:title="@string/new_features">
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            app:allowDividerBelow="true"
+            app:buttonTint="?android:attr/colorEdgeEffect"
+            app:buttonCompat="@style/Widget.Material3.CompoundButton.RadioButton"
+            app:icon="@drawable/baseline_cloud_sync_24"
+            app:key="sync"
+            app:title="@string/sync_title" />
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            app:icon="@drawable/system_update_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            app:key="check_for_updates"
+            app:title="Check for Updates" />
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            app:dependency="sync"
+            app:icon="@drawable/baseline_downloading_24"
+            app:key="attachment"
+            app:summaryOn="@string/attachment_summary_on"
+            app:title="@string/attachment_title" />
+
+    </androidx.preference.PreferenceCategory>
+
+
+
+    <androidx.preference.PreferenceCategory
+        app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
+        app:title="@string/feature_released">
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            app:allowDividerBelow="true"
+            app:icon="@drawable/memory_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            app:key="app_version"
+            app:selectable="false"
+            app:summary=""
+            app:title="JacFlights Device architecture" />
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            app:allowDividerBelow="true"
+            app:icon="@drawable/description_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            app:key="changelog"
+            app:selectable="true"
+            app:summary="Release Date: "
+            app:title="Changelog" />
+
+    </androidx.preference.PreferenceCategory>
+
+
+
+    <androidx.preference.PreferenceCategory
+        app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
+        app:title="User Feedback &amp; Engagement">
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            app:icon="@drawable/notification_add_fill1_wght400_grad0_opsz24"
+            app:key="email_signup"
+            app:title="Sign Up for Notifications" />
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            app:icon="@drawable/star_rate_half_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            app:key="rate_us"
+            app:title="@string/rate_us_title" />
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            app:icon="@drawable/baseline_share_24"
+            app:key="share_app"
+            app:title="@string/share_app_title" />
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            app:icon="@drawable/baseline_feedback_24"
+            app:key="send_feedback"
+            app:title="@string/send_feedback_title" />
+
+    </androidx.preference.PreferenceCategory>
+
+
+
+    <androidx.preference.PreferenceCategory
+        app:icon="@drawable/ic_oui_text_setting"
+        app:title="General Settings">
+
+        <Preference
+            app:icon="@drawable/language_24dp_ffffff_fill0_wght400_grad0_opsz24"
+            app:key="language"
+            app:summary="Select your preferred language"
+            app:title="Language" />
+
+
+    </androidx.preference.PreferenceCategory>
+
+
+
+    <androidx.preference.PreferenceCategory
+        app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
+        app:title="About">
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            android:icon="@drawable/license_24dp_undefined_fill0_wght400_grad0_opsz24"
+            android:selectable="true"
+            app:key="license"
+            app:summary="View open-source licenses"
+            app:title="Licenses" />
+
+
+        <androidx.preference.Preference
+            android:selectable="true"
+            app:icon="@drawable/ic_oui_work_private"
+            app:key="privacy_policy"
+            app:summary="View our privacy policy"
+            app:title="Privacy Policy" />
+
+    </androidx.preference.PreferenceCategory>
+
+
+</androidx.preference.PreferenceScreen>

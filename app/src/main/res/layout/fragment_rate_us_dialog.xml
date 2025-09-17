@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:fillViewport="true"
+    android:background="@drawable/bottom_sheet_background"
+    android:padding="16dp"
+    android:theme="@style/modalbottomsheet">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="12dp"
+            android:backgroundTint="@color/bottom_bar">
+
+            <ImageView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/bottomsheetlogo"
+                android:contentDescription="@string/card_view_icon" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:text="@string/rate_us"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:paddingEnd="0dp"
+                android:paddingStart="12dp" />
+
+            <ImageView
+                android:id="@+id/fabSend"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_oui_message_send"
+                android:contentDescription="@string/card_view_icon" />
+
+        </LinearLayout>
+
+        <!-- Donut Progress -->
+        <com.github.lzyzsd.circleprogress.DonutProgress
+            android:id="@+id/donutProgress"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginTop="16dp"
+            app:donut_finished_color="@color/material_yellow"
+            app:donut_unfinished_color="@color/box_alert_update"
+            app:donut_max="100"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@drawable/btn_ripple"
+            app:donut_progress="0"
+            app:donut_text_size="18sp"
+            app:donut_text_color="?android:attr/colorForeground" />
+
+        <!-- RatingBar -->
+        <me.zhanghai.android.materialratingbar.MaterialRatingBar
+            android:id="@+id/ratingBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            app:mrb_progressTint="@color/material_yellow"
+            app:mrb_secondaryProgressTint="@color/material_yellow"
+            android:numStars="5"
+            android:rating="0" />
+
+        <!-- Ratings Breakdown Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="10dp"
+            app:cardCornerRadius="12dp"
+            app:strokeWidth="0dp"
+            app:cardElevation="3dp"
+            app:cardBackgroundColor="@color/box_qrcode">
+
+            <LinearLayout
+                android:id="@+id/rate_us_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="10dp">
+
+                <!-- Star rows from 5 to 1 -->
+                <!-- Each star row block -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:text="@string/_5_stars"
+                        android:drawablePadding="8dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="0dp"
+                        app:drawableLeftCompat="@drawable/kid_star_fill1_wght400_grad0_opsz24" />
+
+                    <androidx.core.widget.ContentLoadingProgressBar
+                        android:id="@+id/fiveStarProgressBar"
+                        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="12dp"
+                        android:layout_weight="3"
+                        android:max="100"
+                        android:progress="0"
+                        android:layout_marginHorizontal="8dp"
+                        android:progressDrawable="@drawable/progress_bar_rating_round_shape"
+                        android:progressBackgroundTint="@color/box_alert_update" />
+
+                    <TextView
+                        android:id="@+id/fiveStarCountTextView"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="@string/_0" />
+                </LinearLayout>
+
+                <!-- Repeat above block for 4, 3, 2, 1 stars -->
+                <!-- 4 stars -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:text="@string/_4_stars"
+                        android:drawablePadding="8dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="0dp"
+                        app:drawableLeftCompat="@drawable/kid_star_fill1_wght400_grad0_opsz24" />
+
+                    <androidx.core.widget.ContentLoadingProgressBar
+                        android:id="@+id/fourStarProgressBar"
+                        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="12dp"
+                        android:layout_weight="3"
+                        android:max="100"
+                        android:progress="0"
+                        android:layout_marginHorizontal="8dp"
+                        android:progressDrawable="@drawable/progress_bar_rating_round_shape"
+                        android:progressBackgroundTint="@color/box_alert_update" />
+
+                    <TextView
+                        android:id="@+id/fourStarCountTextView"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="@string/_0" />
+                </LinearLayout>
+
+                <!-- 3 stars -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:text="@string/_3_stars"
+                        android:drawablePadding="8dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="0dp"
+                        app:drawableLeftCompat="@drawable/kid_star_fill1_wght400_grad0_opsz24" />
+
+                    <androidx.core.widget.ContentLoadingProgressBar
+                        android:id="@+id/threeStarProgressBar"
+                        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="12dp"
+                        android:layout_weight="3"
+                        android:max="100"
+                        android:progress="0"
+                        android:layout_marginHorizontal="8dp"
+                        android:progressDrawable="@drawable/progress_bar_rating_round_shape"
+                        android:progressBackgroundTint="@color/box_alert_update" />
+
+                    <TextView
+                        android:id="@+id/threeStarCountTextView"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="@string/_0" />
+                </LinearLayout>
+
+                <!-- 2 stars -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="5dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:text="@string/_2_stars"
+                        android:drawablePadding="8dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="0dp"
+                        app:drawableLeftCompat="@drawable/kid_star_fill1_wght400_grad0_opsz24" />
+
+                    <androidx.core.widget.ContentLoadingProgressBar
+                        android:id="@+id/twoStarProgressBar"
+                        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="12dp"
+                        android:layout_weight="3"
+                        android:max="100"
+                        android:progress="0"
+                        android:layout_marginHorizontal="8dp"
+                        android:progressDrawable="@drawable/progress_bar_rating_round_shape"
+                        android:progressBackgroundTint="@color/box_alert_update" />
+
+                    <TextView
+                        android:id="@+id/twoStarCountTextView"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="@string/_0" />
+                </LinearLayout>
+
+                <!-- 1 star -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:text="@string/_1_star"
+                        android:drawablePadding="8dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="0dp"
+                        app:drawableLeftCompat="@drawable/kid_star_fill1_wght400_grad0_opsz24" />
+
+                    <androidx.core.widget.ContentLoadingProgressBar
+                        android:id="@+id/oneStarProgressBar"
+                        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="12dp"
+                        android:layout_weight="3"
+                        android:max="100"
+                        android:progress="0"
+                        android:layout_marginHorizontal="8dp"
+                        android:progressDrawable="@drawable/progress_bar_rating_round_shape"
+                        android:progressBackgroundTint="@color/box_alert_update" />
+
+                    <TextView
+                        android:id="@+id/oneStarCountTextView"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="@string/_0" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Submit Button -->
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:clipToPadding="false"
+            android:clipChildren="false">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/submitButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/btn_ripple"
+                style="@style/Widget.Material3.Button.ElevatedButton"
+                android:clickable="true"
+                android:focusable="true"
+                android:fontFamily="@font/my_custom_font"
+                android:gravity="center"
+                android:letterSpacing="0.1"
+                android:text="@string/submit"
+                android:textAllCaps="false"
+                android:textColor="?attr/actionMenuTextColor"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                tools:ignore="TextContrastCheck,TouchTargetSizeCheck" />
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

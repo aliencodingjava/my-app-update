@@ -1,0 +1,55 @@
+<resources>
+    <attr name="colorButton" format="color" />
+    <attr name="bottomAppBarColor" format="color" />
+    <attr name="bottomAppBarColorsplash" format="color" />
+
+    <attr name="bottomNavigationColor" format="color" />
+    <attr name="customColorDark" format="color" />
+    <attr name="colorBox" format="color" />
+    <attr name="customColor" format="color" />
+
+    <declare-styleable name="FullscreenAttrs">
+        <attr name="fullscreenBackgroundColor" format="color" />
+    </declare-styleable>
+    <declare-styleable name="modalbottomsheet">
+        <attr name="modalstyleclick" format="color" />
+    </declare-styleable>
+
+    <declare-styleable name="modalstylenointernet">
+        <attr name="nointernetstyle" format="color" />
+    </declare-styleable>
+
+    <attr name="sky_top" format="color" />
+    <attr name="sky_mid" format="color" />
+    <attr name="atmosphere" format="color" />
+    <attr name="mountain_high" format="color" />
+    <attr name="mountain_mid" format="color" />
+    <attr name="mountain_low" format="color" />
+    <attr name="foothills" format="color" />
+    <attr name="ground_high" format="color" />
+    <attr name="ground_base" format="color" />
+    <declare-styleable name="AppWidgetAttrs">
+        <attr name="appWidgetPadding" format="dimension" />
+        <attr name="appWidgetInnerRadius" format="dimension" />
+        <attr name="appWidgetRadius" format="dimension" />
+    </declare-styleable>
+
+        <declare-styleable name="ArcProgress">
+            <attr name="arc_progress" format="integer"/>
+            <attr name="arc_angle" format="float"/>
+            <attr name="arc_stroke_width" format="dimension"/>
+            <attr name="arc_max" format="integer"/>
+            <attr name="arc_unfinished_color" format="color"/>
+            <attr name="arc_finished_color" format="color"/>
+            <attr name="arc_text_size" format="dimension"/>
+            <attr name="arc_text_color" format="color"/>
+            <attr name="arc_suffix_text" format="string"/>
+            <attr name="arc_suffix_text_size" format="dimension"/>
+            <attr name="arc_suffix_text_padding" format="dimension"/>
+            <attr name="arc_bottom_text" format="string"/>
+            <attr name="arc_bottom_text_size" format="dimension"/>
+            <attr name="arc_bottom_text_padding" format="dimension"/>
+        </declare-styleable>
+
+
+</resources>

@@ -1,0 +1,645 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_marginTop="10dp">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+       android:paddingTop="10dp"
+        android:scrollbarSize="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="10dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView1"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp"
+                android:background="@drawable/placeholder_background"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung1"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="?attr/colorControlHighlight"
+                app:strokeWidth="0dp">
+
+                <!-- Image Background -->
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card1"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung1"
+                    android:scaleType="centerCrop" />
+
+                <!-- More info revealed on expansion -->
+                <LinearLayout
+                    android:id="@+id/moreInfoLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/moreInfoText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top"
+                        android:elevation="5dp"
+                        android:fontFamily="@font/fjordfont"
+                        android:gravity="center_horizontal"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="Teton Mountain, part of the Teton Range in the Rocky Mountains, is one of the most iconic mountain ranges in North America. Known for its rugged, dramatic peaks, it attracts mountaineers, skiers, and nature lovers alike. The highest peak, Grand Teton, stands at 13,775 feet (4,199 meters) and offers breathtaking views of the surrounding landscape."
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        tools:ignore="HardcodedText" />
+
+                    <!-- Add other information or UI elements here -->
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView2"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung2"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card2"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung1"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background" />
+                <!-- More info revealed on expansion -->
+                <LinearLayout
+                    android:id="@+id/card2moreInfoLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/text2moreInfoText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top"
+                        android:elevation="5dp"
+                        android:fontFamily="@font/fjordfont"
+                        android:gravity="center_horizontal"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="Jackson Hole Airport is located at the base of the Teton Mountain Range in Wyoming, USA, and serves the Jackson Hole Valley, known for its proximity to Grand Teton National Park and Yellowstone National Park. The airport has a single runway and provides access to some of the most popular ski resorts and hiking destinations in the region. Jackson Hole Airport offers a unique and scenic arrival experience, with flights flying directly over the stunning Teton Mountains."
+                        android:textColor="#000000"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        tools:ignore="HardcodedText" />
+
+                    <!-- Add other information or UI elements here -->
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView3"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung3"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card3"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung1"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background" />
+                <!-- More info revealed on expansion -->
+                <LinearLayout
+                    android:id="@+id/card3moreInfoLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/text3moreInfoText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top"
+                        android:elevation="5dp"
+                        android:fontFamily="@font/fjordfont"
+                        android:gravity="center_horizontal"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="The Sleeping Indian is a well-known mountain formation in the Teton Range, located in Jackson Hole, Wyoming. The formation gets its name from its shape, which resembles a sleeping figure lying on its back. This natural landmark is a popular subject of photography and a symbol of the region. The Sleeping Indian can be seen from various points in Jackson Hole and is a part of the stunning Teton landscape, which attracts visitors for hiking, skiing, and other outdoor activities."
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        tools:ignore="HardcodedText" />
+
+                    <!-- Add other information or UI elements here -->
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView4"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung4"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card4"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung1"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background"
+                    tools:ignore="ImageContrastCheck" />
+                <!-- More info revealed on expansion -->
+                <LinearLayout
+                    android:id="@+id/card4moreInfoLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/text4moreInfoText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top"
+                        android:elevation="5dp"
+                        android:fontFamily="@font/fjordfont"
+                        android:gravity="center_horizontal"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="Artist Bart Walter designed this sculpture to welcome visitors to the Cowboy State at the Airport. The sculpture captures the dynamic moment as horse touches earth again, and the contest between man and beast hangs in the balance. Through his research on this project, Bart went to rodeos in Wyoming to understand the essence of bronc riders and their horses and observed wild horses on the open range"
+                        android:textColor="#000000"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        tools:ignore="HardcodedText" />
+
+                    <!-- Add other information or UI elements here -->
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView5"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung5"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp" >
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card5"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung5"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background" />
+
+                <LinearLayout
+                android:id="@+id/card5moreInfoLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/text5moreInfoText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:elevation="5dp"
+                    android:fontFamily="@font/fjordfont"
+                    android:gravity="center_horizontal"
+                    android:shadowColor="@color/cameraBackgroundDay"
+                    android:shadowDx="2"
+                    android:shadowDy="2"
+                    android:shadowRadius="3"
+                    android:textColor="#000000"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView6"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung6"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp" >
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card6"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung6"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background" />
+
+                <LinearLayout
+                android:id="@+id/card6moreInfoLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/text6moreInfoText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:elevation="5dp"
+                    android:fontFamily="@font/fjordfont"
+                    android:gravity="center_horizontal"
+                    android:shadowColor="@color/cameraBackgroundDay"
+                    android:shadowDx="2"
+                    android:shadowDy="2"
+                    android:shadowRadius="3"
+                    android:text="Insert a short informative description about the photo shown in card 6."
+                    android:textColor="#000000"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    tools:ignore="HardcodedText" />
+            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView7"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung7"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp" >
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/cardBackground_card7"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/cardlung7"
+                android:scaleType="centerCrop"
+                android:src="@drawable/placeholder_background" />
+
+            <LinearLayout
+                android:id="@+id/card7moreInfoLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/text7moreInfoText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:elevation="5dp"
+                    android:fontFamily="@font/fjordfont"
+                    android:gravity="center_horizontal"
+                    android:shadowColor="@color/cameraBackgroundDay"
+                    android:shadowDx="2"
+                    android:shadowDy="2"
+                    android:shadowRadius="3"
+                    android:text="Description for card 7 goes here."
+                    android:textColor="#000000"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    tools:ignore="HardcodedText" />
+            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView8"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung8"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp" >
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card8"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung8"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background" />
+
+                <LinearLayout
+                android:id="@+id/card8moreInfoLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/text8moreInfoText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:elevation="5dp"
+                    android:fontFamily="@font/fjordfont"
+                    android:gravity="center_horizontal"
+                    android:shadowColor="@color/cameraBackgroundDay"
+                    android:shadowDx="2"
+                    android:shadowDy="2"
+                    android:shadowRadius="3"
+                    android:text="Description for card 8 goes here."
+                    android:textColor="#000000"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    tools:ignore="HardcodedText" />
+            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView9"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung9"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp" >
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/cardBackground_card9"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/cardlung9"
+                android:scaleType="centerCrop"
+                android:src="@drawable/placeholder_background" />
+
+            <LinearLayout
+                android:id="@+id/card9moreInfoLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/text9moreInfoText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:elevation="5dp"
+                    android:fontFamily="@font/fjordfont"
+                    android:gravity="center_horizontal"
+                    android:shadowColor="@color/cameraBackgroundDay"
+                    android:shadowDx="2"
+                    android:shadowDy="2"
+                    android:shadowRadius="3"
+                    android:text="Description for card 9 goes here."
+                    android:textColor="#000000"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    tools:ignore="HardcodedText" />
+            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView10"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp"
+                tools:ignore="SpeakableTextPresentCheck">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card10"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background" />
+
+                <LinearLayout
+                    android:id="@+id/card10moreInfoLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/text10moreInfoText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:elevation="5dp"
+                        android:fontFamily="@font/fjordfont"
+                        android:gravity="center_horizontal"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="Description for card 10 goes here."
+                        android:textColor="#000000"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        tools:ignore="HardcodedText" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView11"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung11"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card11"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung11"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background" />
+
+                <LinearLayout
+                    android:id="@+id/card11moreInfoLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/text11moreInfoText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:elevation="5dp"
+                        android:fontFamily="@font/fjordfont"
+                        android:gravity="center_horizontal"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="Description for card 11 goes here."
+                        android:textColor="#000000"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        tools:ignore="HardcodedText" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardView12"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:layout_marginBottom="10dp"
+                android:backgroundTint="?attr/colorControlHighlight"
+                android:clickable="true"
+                android:contentDescription="@string/cardlung12"
+                android:focusable="true"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="1dp"
+                app:rippleColor="@color/card_background_dark"
+                app:strokeWidth="0dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/cardBackground_card12"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cardlung12"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/placeholder_background" />
+
+                <LinearLayout
+                    android:id="@+id/card12moreInfoLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/text12moreInfoText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:elevation="5dp"
+                        android:fontFamily="@font/fjordfont"
+                        android:gravity="center_horizontal"
+                        android:shadowColor="@color/cameraBackgroundDay"
+                        android:shadowDx="2"
+                        android:shadowDy="2"
+                        android:shadowRadius="3"
+                        android:text="Description for card 12 goes here."
+                        android:textColor="#000000"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        tools:ignore="HardcodedText" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+
+
+        </LinearLayout>
+
+    </ScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,16 @@
+<vector xmlns:tools="http://schemas.android.com/tools"
+    android:autoMirrored="true" android:height="390dp"
+    android:viewportHeight="400" android:viewportWidth="800"
+    android:width="800dp" xmlns:android="http://schemas.android.com/apk/res/android"
+    tools:ignore="VectorRaster">
+    <path android:fillColor="#001122" android:pathData="M0,0h800v400h-800z"/>
+    <path android:fillColor="?attr/ground_base" android:pathData="M0,107L89,135L178,107L267,114L356,126L444,103L533,113L622,134L711,116L800,106L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+    <path android:fillColor="?attr/ground_high" android:pathData="M0,106L89,111L178,78L267,83L356,92L444,78L533,87L622,89L711,88L800,110L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+    <path android:fillColor="?attr/foothills" android:pathData="M0,92L89,70L178,71L267,87L356,93L444,78L533,91L622,73L711,88L800,102L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+    <path android:fillColor="?attr/mountain_low" android:pathData="M0,92L89,60L178,63L267,69L356,73L444,73L533,92L622,64L711,64L800,75L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+    <path android:fillColor="?attr/mountain_mid" android:pathData="M0,69L89,61L178,58L267,70L356,55L444,77L533,53L622,56L711,52L800,60L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+    <path android:fillColor="?attr/mountain_high" android:pathData="M0,64L89,49L178,49L267,50L356,43L444,49L533,63L622,57L711,42L800,50L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+    <path android:fillColor="?attr/atmosphere" android:pathData="M0,31L89,38L178,48L267,43L356,45L444,40L533,33L622,39L711,48L800,42L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+    <path android:fillColor="?attr/sky_mid" android:pathData="M0,34L89,26L178,25L267,18L356,23L444,20L533,34L622,18L711,21L800,32L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+    <path android:fillColor="?attr/sky_top" android:pathData="M0,11L89,17L178,10L267,15L356,12L444,21L533,20L622,22L711,19L800,14L800,0L711,0L622,0L533,0L444,0L356,0L267,0L178,0L89,0L0,0Z"/>
+</vector>

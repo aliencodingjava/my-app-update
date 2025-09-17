@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:id="@+id/dialog_search_view"
+    android:backgroundTint="@color/box_contact_expand"
+    android:background="@drawable/rounded_bottom_app_bar"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <androidx.appcompat.widget.SearchView
+        android:id="@+id/material_search_view"
+        android:layout_width="match_parent"
+        android:layout_height="57dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_gravity="top"
+        android:layout_marginTop="0dp"
+        app:layout_anchorGravity="bottom"
+        android:animateLayoutChanges="false"
+        android:backgroundTint="@color/color_ok_update_alert"
+        app:searchHintIcon="@drawable/ic_oui_contact"
+        android:textAppearance="@color/gray"
+        android:layout_marginBottom="30dp"
+        android:background="@drawable/rounded_search_background"
+        app:closeIconSize="24dp" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

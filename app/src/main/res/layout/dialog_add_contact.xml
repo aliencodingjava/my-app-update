@@ -1,0 +1,241 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:backgroundTint="?attr/colorSurface"
+    android:background="@drawable/bottom_rounded_corners_cardview"
+    android:paddingTop="5dp"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="0dp">
+
+    <!-- Fixed Top Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingBottom="0dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/cancelButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp"
+            android:text="@string/cancel"
+            android:textColor="?android:attr/colorEdgeEffect"
+            style="@style/Widget.Material3.Button.ElevatedButton"
+            android:textSize="16sp"
+            tools:ignore="TouchTargetSizeCheck" />
+
+        <TextView
+            android:id="@+id/titleText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/add_contact"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/saveButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp"
+            android:text="@string/done"
+            style="@style/Widget.Material3.Button.ElevatedButton"
+            android:textColor="@android:color/holo_red_light"
+            android:textSize="16sp"
+            tools:ignore="TouchTargetSizeCheck,TouchTargetSizeCheck" />
+    </LinearLayout>
+
+    <!-- Fixed Photo Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="3dp"
+        android:layout_marginBottom="12dp">
+
+        <FrameLayout
+            android:id="@+id/photoSelectorArea"
+            android:layout_width="140dp"
+            android:layout_height="140dp"
+            android:clickable="true"
+            android:focusable="true"
+            tools:ignore="UselessParent">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                app:cardCornerRadius="70dp"
+                app:strokeColor="@android:color/holo_green_dark"
+                app:strokeWidth="1dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <ImageView
+                        android:id="@+id/iconImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/update_contact"
+                        android:scaleType="centerCrop"
+                        tools:ignore="ImageContrastCheck" />
+
+                    <TextView
+                        android:id="@+id/iconInitials"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:textSize="50sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/actionMenuTextColor"
+                        android:visibility="gone"
+                        android:backgroundTint="@color/box_alert_update"
+                        android:background="@drawable/button_shape" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 🖉 Edit Icon in Top-Right -->
+            <ImageView
+                android:id="@+id/editPhotoIcon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="end|bottom"
+                android:layout_margin="6dp"
+                android:padding="6dp"
+                android:elevation="2dp"
+                style="@style/RoundedEditText"
+                android:src="@drawable/ic_oui_edit"
+                android:contentDescription="@string/edit"
+                app:tint="?attr/colorControlNormal" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Scrollable Form Area Only -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <EditText
+                android:id="@+id/edit_name"
+                style="@style/RoundedEditText"
+                android:autofillHints=""
+                android:textColor="?attr/actionMenuTextColor"
+                android:hint="@string/name"
+                android:drawablePadding="10dp"
+                android:drawableStart="@drawable/ic_oui_samsung_account"
+                android:inputType="textPersonName|textCapWords"
+                android:imeOptions="actionNext" />
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_marginBottom="10dp"
+                android:layout_height="wrap_content">
+                <EditText
+                    android:id="@+id/edit_phone"
+                    style="@style/RoundedEditText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:autofillHints=""
+                    android:layout_marginBottom="0dp"
+                    android:hint="@string/phone"
+                    android:inputType="phone"
+                    android:drawableStart="@drawable/baseline_local_phone_24"
+                    android:drawablePadding="10dp"
+                    android:textColor="?attr/actionMenuTextColor"
+                    android:digits="0123456789+"
+                    android:textDirection="ltr"
+                    android:includeFontPadding="false"
+                    android:gravity="center_vertical"
+                    android:imeOptions="actionNext" />
+                <ImageView
+                    android:id="@+id/flag_end"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_marginEnd="12dp"
+                    android:layout_centerVertical="true"                    android:scaleType="fitCenter"
+                    android:visibility="gone"
+                    android:adjustViewBounds="true"
+
+                    android:src="@drawable/account_circle_24dp_ffffff_fill1_profile"
+                    android:contentDescription="@string/add_to_calendar" />
+            </RelativeLayout>
+
+            <EditText
+                android:id="@+id/edit_email"
+                style="@style/RoundedEditText"
+                android:autofillHints=""
+                android:textColor="?attr/actionMenuTextColor"
+                android:hint="@string/email"
+                android:drawablePadding="10dp"
+                android:drawableStart="@drawable/baseline_email_24"
+                android:inputType="textEmailAddress"
+                android:imeOptions="actionNext" />
+
+
+            <EditText
+                android:id="@+id/edit_address"
+                style="@style/RoundedEditText"
+                android:autofillHints=""
+                android:textColor="?attr/actionMenuTextColor"
+                android:hint="@string/address_title"
+                android:drawablePadding="10dp"
+                android:drawableStart="@drawable/baseline_map_24"
+                android:inputType="textPostalAddress"
+                android:maxLines="2"
+                android:imeOptions="actionNext" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_marginBottom="10dp"
+                android:layout_height="wrap_content">
+
+                <EditText
+                    android:id="@+id/edit_birthday"
+                    style="@style/RoundedEditText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="0dp"
+                    android:autofillHints=""
+                    android:clickable="true"
+                    android:focusable="false"
+                    android:hint="@string/birthday"
+                    android:inputType="none"
+                    android:drawableStart="@drawable/celebration_24dp_ffffff_fill1_wght400_grad0_opsz24"
+                    android:drawablePadding="10dp"
+                    android:textColor="?attr/actionMenuTextColor" />
+
+                <ImageView
+                    android:id="@+id/calendarIcon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_marginEnd="12dp"
+                    android:layout_centerVertical="true"
+                    android:visibility="gone"
+                    android:src="@drawable/notification_add_fill1_wght400_grad0_opsz24"
+                    android:contentDescription="@string/add_to_calendar"
+                    app:tint="@color/gray" />
+            </RelativeLayout>
+
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

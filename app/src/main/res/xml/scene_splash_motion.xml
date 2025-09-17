@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MotionScene xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- COLLAPSED -->
+    <ConstraintSet android:id="@+id/collapsed">
+        <Constraint
+            android:id="@id/cardView2"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/guideline50"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:elevation="4dp"
+            app:roundPercent="0.00"/>
+
+        <Constraint android:id="@id/test_xml"
+            android:alpha="1.0"
+            android:translationY="0dp"
+            android:scaleX="1.0"
+            android:scaleY="1.0"/>
+
+        <Constraint android:id="@id/bottomlayout"
+            android:alpha="1.0"
+            android:translationY="0dp"/>
+    </ConstraintSet>
+
+    <!-- EXPANDED -->
+    <ConstraintSet android:id="@+id/expanded">
+        <Constraint
+            android:id="@id/cardView2"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:elevation="16dp"
+            app:roundPercent="0.02"/>
+
+        <Constraint android:id="@id/test_xml"
+            android:alpha="0.4"
+            android:translationY="-6dp"
+            android:scaleX="0.988"
+            android:scaleY="0.988"/>
+
+        <Constraint android:id="@id/bottomlayout"
+            android:alpha="0.0"
+            android:translationY="10dp"/>
+    </ConstraintSet>
+
+    <!-- EXPAND: M3 Spatial Slow (Emphasized Decelerate) -->
+    <Transition
+        android:id="@+id/t_expand"
+        app:constraintSetStart="@id/collapsed"
+        app:constraintSetEnd="@id/expanded"
+        app:duration="520"
+        app:motionInterpolator="cubic(0.05, 0.70, 0.10, 1.00)">
+
+        <KeyFrameSet>
+
+            <!-- gentle position overshoot then undershoot for micro spring -->
+            <KeyPosition
+                app:motionTarget="@id/cardView2"
+                app:framePosition="92"
+                app:percentY="1.008"
+                app:percentX="0.0"/>
+            <KeyPosition
+                app:motionTarget="@id/cardView2"
+                app:framePosition="98"
+                app:percentY="0.996"
+                app:percentX="0.0"/>
+
+            <!-- subtle scale spring (no looping) -->
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="92"
+                android:scaleX="1.006" android:scaleY="1.006"/>
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="98"
+                android:scaleX="0.998" android:scaleY="0.998"/>
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="100"
+                android:scaleX="1.0" android:scaleY="1.0"/>
+
+            <!-- elevation + corners ease in -->
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="50"
+                android:elevation="12dp" app:roundPercent="0.05"/>
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="100"
+                android:elevation="16dp" app:roundPercent="0.02"/>
+
+            <!-- background parallax + dim -->
+            <KeyAttribute app:motionTarget="@id/test_xml" app:framePosition="60"
+                android:translationY="-6dp" android:scaleX="0.988" android:scaleY="0.988" android:alpha="0.55"/>
+            <KeyAttribute app:motionTarget="@id/bottomlayout" app:framePosition="60"
+                android:translationY="10dp" android:alpha="0.15"/>
+
+        </KeyFrameSet>
+    </Transition>
+
+    <!-- COLLAPSE: M3 Spatial Slow (Emphasized Accelerate) -->
+    <Transition
+        android:id="@+id/t_collapse"
+        app:constraintSetStart="@id/expanded"
+        app:constraintSetEnd="@id/collapsed"
+        app:duration="360"
+        app:motionInterpolator="cubic(0.30, 0.00, 0.80, 0.15)">
+
+        <KeyFrameSet>
+
+            <!-- micro spring back: brief undershoot then settle -->
+            <KeyPosition
+                app:motionTarget="@id/cardView2"
+                app:framePosition="12"
+                app:percentY="-0.006"
+                app:percentX="0.0"/>
+            <KeyPosition
+                app:motionTarget="@id/cardView2"
+                app:framePosition="20"
+                app:percentY="0.003"
+                app:percentX="0.0"/>
+
+            <!-- scale squeeze/relax (very small) -->
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="12"
+                android:scaleX="0.998" android:scaleY="0.998"/>
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="20"
+                android:scaleX="1.002" android:scaleY="1.002"/>
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="100"
+                android:scaleX="1.0" android:scaleY="1.0"/>
+
+            <!-- corners & elevation relax by end -->
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="0"
+                app:roundPercent="0.02" android:elevation="16dp"/>
+            <KeyAttribute app:motionTarget="@id/cardView2" app:framePosition="100"
+                app:roundPercent="0.00" android:elevation="4dp"/>
+
+            <!-- background returns -->
+            <KeyAttribute app:motionTarget="@id/test_xml" app:framePosition="25"
+                android:alpha="0.85" android:translationY="-2dp" android:scaleX="0.995" android:scaleY="0.995"/>
+            <KeyAttribute app:motionTarget="@id/bottomlayout" app:framePosition="25"
+                android:alpha="0.65" android:translationY="6dp"/>
+
+            <KeyAttribute app:motionTarget="@id/test_xml" app:framePosition="100"
+                android:alpha="1.0" android:translationY="0dp" android:scaleX="1.0" android:scaleY="1.0"/>
+            <KeyAttribute app:motionTarget="@id/bottomlayout" app:framePosition="100"
+                android:alpha="1.0" android:translationY="0dp"/>
+
+        </KeyFrameSet>
+    </Transition>
+
+</MotionScene>

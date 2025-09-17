@@ -1,0 +1,29 @@
+<!-- res/drawable/countdown_gradient.xml -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Background layer -->
+    <item android:id="@+id/background">
+        <shape android:shape="rectangle">
+            <solid android:color="#30000000" />
+            <corners android:radius="50dp" />
+        </shape>
+    </item>
+
+    <!-- Foreground gradient fill (used for ClipDrawable level) -->
+    <item android:id="@+id/fill">
+        <clip android:gravity="left">
+            <shape android:shape="rectangle">
+                <gradient
+                    android:type="linear"
+                    android:angle="0"
+                    android:startColor="#FFFFFF"
+                    android:centerColor="#FFEB3B"
+                    android:endColor="#F44336"
+                    android:useLevel="true"
+                    android:centerX="0.5" />
+                <corners android:radius="50dp" />
+            </shape>
+        </clip>
+    </item>
+
+</layer-list>

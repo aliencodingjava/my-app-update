@@ -1,0 +1,18 @@
+<!-- res/layout/test_xml.xml -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingBottom="0dp">
+
+    <!-- Single ComposeView, pinned to bottom by the include in activity_splash.xml -->
+    <!-- Bottom bar host -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:padding="0dp"
+        android:clipToPadding="false" />
+
+</FrameLayout>

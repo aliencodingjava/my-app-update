@@ -1,0 +1,26 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background layer (Battery outline) -->
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="40dp" android:height="16dp"/>
+            <solid android:color="@color/black"/>
+            <corners android:radius="30dp"/>
+        </shape>
+    </item>
+
+    <!-- Foreground layer (Battery fill) -->
+    <item android:id="@id/fill">
+        <clip android:clipOrientation="horizontal" android:gravity="left">
+            <shape android:shape="rectangle">
+                <size
+                    android:width="25dp"/>
+                android:height="2dp"/>
+                <solid android:color="@color/black"/>
+                <corners android:radius="30dp"/>
+            </shape>
+        </clip>
+    </item>
+
+    <!-- Icon layer -->
+    <item android:drawable="@drawable/fullscreen_16dp_ffffff_fill0_wght400_grad0_opsz20" android:gravity="center"/>
+</layer-list>

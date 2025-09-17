@@ -1,0 +1,10 @@
+<layer-list xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    tools:keep="@drawable/bottom_rounded_corners_cardview">
+    <item android:right="0dp" android:left="0dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/box_alert_update" />
+            <corners android:topLeftRadius="12dp" android:topRightRadius="12dp" android:bottomLeftRadius="0dp" android:bottomRightRadius="0dp" />
+        </shape>
+    </item>
+</layer-list>

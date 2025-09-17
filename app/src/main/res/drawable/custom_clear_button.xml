@@ -1,0 +1,6 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="?attr/colorControlHighlight" />  <!-- Background color -->
+    <size android:width="20dp" android:height="20dp" />  <!-- Button size -->
+    <corners android:radius="40dp" />  <!-- Make it round -->
+</shape>

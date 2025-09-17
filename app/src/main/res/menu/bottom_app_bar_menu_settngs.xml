@@ -1,0 +1,30 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="ExtraText">
+    <item
+        android:id="@+id/search_button"
+        android:icon="@drawable/ic_oui_search"
+        android:orderInCategory="10"
+        android:title="@string/search"
+        android:contentDescription="@string/search"
+        app:showAsAction="ifRoom"
+        app:actionViewClass="androidx.appcompat.widget.SearchView" />
+
+    <item
+        android:id="@+id/qrcode"
+        android:title="@string/qrcode"
+        android:icon="@drawable/ic_oui_qr_code_scanner"
+        android:orderInCategory="20"
+        android:contentDescription="@string/scan_qr_code"
+        app:showAsAction="ifRoom|withText" />
+
+    <item
+        android:id="@+id/feedback"
+        android:title="@string/feedback"
+        android:icon="@drawable/ic_oui_message_send"
+        android:orderInCategory="30"
+        android:contentDescription="@string/send_feedback"
+        app:showAsAction="ifRoom|withText" />
+
+</menu>

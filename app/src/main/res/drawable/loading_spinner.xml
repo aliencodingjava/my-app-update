@@ -1,0 +1,16 @@
+<!-- res/drawable/loading_spinner.xml -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="ring">
+            <size
+                android:width="60dp"
+                android:height="60dp"
+                android:thickness="6dp"/>
+            <gradient
+                android:type="sweep"
+                android:startColor="#FF6200EE"
+                android:endColor="#00FFFFFF"
+                android:useLevel="false"/>
+        </shape>
+    </item>
+</layer-list>

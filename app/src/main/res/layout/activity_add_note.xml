@@ -1,0 +1,313 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:windowSoftInputMode="adjustResize"
+    android:background="?attr/colorOnSecondary"
+    android:padding="0dp">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/save_note"
+        app:titleTextColor="?attr/actionMenuTextColor"
+        android:background="?attr/colorOnSecondary"
+        app:title="Add Note"
+        app:navigationIcon="@drawable/baseline_arrow_back_ios_24"
+        app:navigationContentDescription="Back">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_save"
+            style="@style/Widget.Material3.Button.ElevatedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center|end"
+            android:minWidth="64dp"
+            android:text="@string/save_note"
+            app:cardBackgroundColor="?attr/colorPrimaryFixed"
+            android:contentDescription="@string/save_note"
+            android:tooltipText="@string/save"
+            android:textColor="?attr/colorOnSecondaryContainer"
+            android:layout_marginEnd="6dp"/>
+
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <!-- Additional Options Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="?android:attr/colorBackgroundCacheHint"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:elevation="2dp">
+
+        <!-- Add Image Button -->
+        <LinearLayout
+            android:id="@+id/ll_add_image"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginEnd="5dp"
+            android:layout_marginStart="5dp"
+            android:background="@drawable/btn_ripple"
+            android:backgroundTint="?android:attr/colorBackground"
+            android:clickable="true"
+            android:focusable="true">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:background="@drawable/bg_strip_gradient"
+                android:tint="@color/box_alert_update"
+                android:src="@drawable/ic_oui_add"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/add_photo"
+                android:textSize="12sp"
+                android:textColor="?attr/actionMenuTextColor" />
+
+            <TextView
+                android:id="@+id/tv_images_count"
+                android:layout_width="wrap_content"
+                android:layout_height="18dp"
+                android:minWidth="18dp"
+                android:gravity="center"
+                android:text="@string/_0"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:layout_marginStart="6dp"
+                android:visibility="visible"
+                android:textColor="@android:color/white"
+                android:background="@drawable/new_badge_bg"/>
+
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="24dp"
+            android:background="?attr/actionMenuTextColor"
+            android:alpha="0.3"
+            android:layout_gravity="center_vertical" />
+
+        <!-- Set Reminder Button -->
+        <!-- Set Reminder Button -->
+        <LinearLayout
+            android:id="@+id/ll_set_reminder"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:layout_marginEnd="5dp"
+            android:layout_marginStart="5dp"
+            android:backgroundTint="?android:attr/colorBackground"
+            android:background="@drawable/btn_ripple"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_oui_alarm"
+                android:layout_marginEnd="0dp"
+                app:tint="?attr/actionMenuTextColor" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/reminder"
+                android:textSize="12sp"
+                android:textColor="?attr/actionMenuTextColor" />
+
+            <!-- the little check/radio on the right -->
+            <com.google.android.material.radiobutton.MaterialRadioButton
+                android:id="@+id/rb_reminder"
+                style="@style/Widget.Material3.CompoundButton.RadioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:focusable="false"
+                android:clickable="false"
+                android:checked="false"/>
+        </LinearLayout>
+
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="24dp"
+            android:background="?attr/actionMenuTextColor"
+            android:alpha="0.3"
+            android:layout_gravity="center_vertical" />
+
+        <!-- Priority Button -->
+        <LinearLayout
+            android:id="@+id/info_Note"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginEnd="5dp"
+            android:layout_marginStart="5dp"
+            android:backgroundTint="?android:attr/colorBackground"
+            android:background="@drawable/btn_ripple"
+            android:clickable="true"
+            android:focusable="true">
+
+
+            <ImageView
+                android:id="@+id/HelpButton"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="0dp"
+                android:src="@drawable/ic_oui_info"
+                android:layout_marginEnd="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/feedback_rules"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                android:elevation="4dp"
+                app:tint="?attr/colorOnSurface" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/info"
+                android:textSize="12sp"
+                android:textColor="?attr/actionMenuTextColor" />
+            <View
+                android:id="@+id/dot_info"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_dot_info"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Note Content Area -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="1dp"
+        android:layout_marginEnd="1dp"
+        android:background="?attr/colorSurface"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Note Title Input (Optional) -->
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/note_title_optional"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="?attr/actionMenuTextColor"
+                android:background="@android:color/transparent"
+                android:gravity="center"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:maxLength="60"
+                android:imeOptions="actionNext"
+                android:inputType="textCapSentences|textNoSuggestions"
+
+                android:layout_marginBottom="8dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?attr/actionMenuTextColor"
+                android:alpha="0.2"
+                android:layout_marginBottom="1dp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_images"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/transparent"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Large">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_images"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:overScrollMode="never"
+                    android:nestedScrollingEnabled="false"
+                    android:scrollbars="horizontal"
+                    android:fadeScrollbars="true"
+                    android:scrollbarStyle="outsideOverlay"
+                    android:clipToPadding="true"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"/>
+
+            </com.google.android.material.card.MaterialCardView>
+
+
+            <!-- Main Note Content -->
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_note"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="start|top"
+                android:isScrollContainer="true"
+                android:maxLength="500000"
+                android:focusableInTouchMode="true"
+                android:importantForAutofill="yes"
+                android:hint="Write your note here..."
+                android:inputType="textMultiLine|textCapSentences"
+                android:minLines="12"
+                android:background="@android:color/transparent"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:textAppearance="?attr/textAppearanceBody1"
+                android:textColor="?attr/actionMenuTextColor"
+                android:scrollbars="vertical"
+                android:overScrollMode="always"
+                android:lineSpacingExtra="4dp"
+                tools:ignore="HardcodedText" />
+
+            <!-- Spacer for better scrolling -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="100dp" />
+
+        </LinearLayout>
+
+
+    </androidx.core.widget.NestedScrollView>
+
+
+</LinearLayout>

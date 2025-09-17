@@ -1,0 +1,7 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:startColor="#00000000"
+    android:endColor="@color/box_alert_update"
+    android:angle="0"/>
+</shape>
+

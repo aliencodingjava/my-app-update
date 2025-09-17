@@ -1,0 +1,46 @@
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight"> <!-- Ripple color -->
+
+    <item>
+        <inset
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:insetTop="10dp"
+            android:insetBottom="10dp">
+
+            <layer-list>
+                <!-- Background Shape -->
+                <item>
+                    <shape android:shape="oval"> <!-- Oval ripple shape -->
+                        <solid android:color="@color/arrow_down" />
+                        <size
+                            android:width="0dp"
+                            android:height="0dp" />
+                    </shape>
+                </item>
+
+                <!-- Main Shape -->
+                <item>
+                    <shape android:shape="rectangle">
+                        <solid android:color="?android:attr/colorForegroundInverse" />                        <corners
+                        android:topLeftRadius="20dp"
+                        android:topRightRadius="20dp"
+                        android:bottomLeftRadius="20dp"
+                        android:bottomRightRadius="20dp" />
+                        <size
+                            android:width="0dp"
+                            android:height="0dp" /> <!-- Set height for visibility -->
+                    </shape>
+                </item>
+
+                <!-- Arrow Icon with Padding -->
+                <item
+                    android:drawable="@drawable/bottom_panel_close_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                    android:top="0.1dp"
+                    android:bottom="0.1dp"
+                    android:left="9dp"
+                    android:right="9dp" />
+            </layer-list>
+        </inset>
+    </item>
+</ripple>

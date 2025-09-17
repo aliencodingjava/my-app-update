@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <!-- Search item -->
+    <item
+        android:id="@+id/action_search"
+        android:title="Search"
+        android:icon="@drawable/ic_oui_list_search"
+        app:showAsAction="ifRoom"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"
+        android:theme="@style/CustomSearchViewStyle"
+        tools:ignore="HardcodedText" />
+
+    <item
+        android:id="@+id/add_contact"
+        android:title="@string/add_contact"
+        android:icon="@drawable/person_add_24dp_ffffff_fill0_wght400_grad0_opsz24"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/import_contacts"
+        android:title="@string/add_contact"
+        android:icon="@drawable/ic_oui_import"
+        app:showAsAction="ifRoom" />
+
+</menu>

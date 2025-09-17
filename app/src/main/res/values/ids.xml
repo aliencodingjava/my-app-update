@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="cardView1" type="id" />
+    <item name="cardView2" type="id" />
+    <item name="cardView3" type="id" />
+    <item name="cardView4" type="id" />
+    <item name="cardView5" type="id" />
+    <item name="cardView6" type="id" />
+    <item name="cardView7" type="id" />
+    <item name="cardView8" type="id" />
+    <item name="cardView9" type="id" />
+    <item name="status_animator" type="id" />
+    <item name="status_blink_animator" type="id" />
+    <item name="nav_logout" type="id" />
+
+</resources>
