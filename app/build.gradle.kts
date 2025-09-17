@@ -55,8 +55,8 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 31
         targetSdk = 36
-        versionCode = 216
-        versionName = "0.2.212"
+        versionCode = 217
+        versionName = "0.2.213"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "RELEASE_DATE", "\"Sep-17-2025\"")
 
