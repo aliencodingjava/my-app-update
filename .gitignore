@@ -46,3 +46,8 @@ app/release/
 app/src/main/java/com/flights/studio/SupabaseProfileUploader.kt
 # Supabase keys
 SupabaseManager.kt
+# Firebase / secrets
+
+
+# Logs & outputs
+app/functions/firebase-debug.log
