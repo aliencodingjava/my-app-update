@@ -21,7 +21,7 @@
         android:layout_marginBottom="3dp"
         android:layout_marginTop="3dp"
         app:strokeColor="@android:color/transparent"
-        android:backgroundTint="@color/bottom_bar"
+        android:backgroundTint="@color/box_alert_update"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

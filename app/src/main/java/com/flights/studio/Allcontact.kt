@@ -9,6 +9,8 @@ data class AllContact(
     val email: String?,
     val address: String?,
     val color: Int,
-    var photoUri: String?
+    var photoUri: String?,
+    val birthday: String?,
+    val flag: String? = null,
+    val regionCode: String? = null
 ) : Serializable
-

@@ -1,0 +1,5 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#80FFD700"/> <!-- 🟡 50% Transparent Gold -->
+    <corners android:radius="20dp"/> <!-- Keep the rounded corners -->
+</shape>

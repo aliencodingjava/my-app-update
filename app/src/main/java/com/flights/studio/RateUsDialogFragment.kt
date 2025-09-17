@@ -17,10 +17,12 @@ import android.widget.ProgressBar
 import android.widget.RatingBar
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.github.lzyzsd.circleprogress.DonutProgress
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -60,7 +62,7 @@ class RateUsDialogFragment : BottomSheetDialogFragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View? {
         return inflater.inflate(R.layout.fragment_rate_us_dialog, container, false)
 
@@ -71,62 +73,59 @@ class RateUsDialogFragment : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Find the feedback image view and set up its click listener
-        val feedbackSendImageView = view.findViewById<ImageView>(R.id.feedback_send)
-        feedbackSendImageView.setOnClickListener {
-            // Open the feedback dialog
-            val feedbackDialog = FeedbackDialogFragment()
-            feedbackDialog.show(childFragmentManager, "FeedbackDialog")
-        }
 
 
         view.background = ContextCompat.getDrawable(requireContext(), R.drawable.bottom_sheet_background)
 
-        // Initialize views
+        // ✅ Initialize SharedPreferences first
+        submitCountPref = requireActivity().getSharedPreferences("RateUsSubmitCount", Context.MODE_PRIVATE)
+
+        // ✅ Initialize ALL views, including btnSubmit
         initializeViews(view)
 
-        // Fetch and display the current ratings from Firebase
+        // ✅ Now it’s safe to update the state
+        updateSubmitButtonState()
+
+        // ✅ Then fetch data
         fetchAndDisplayRatings()
 
-        // Initialize SharedPreferences
+        val fabSend = view.findViewById<ImageView>(R.id.fabSend)
+        fabSend.setOnClickListener {
+            dismiss() // ✅ Close the rating dialog
+            FeedbackBottomSheet().show(parentFragmentManager, "FeedbackDialog")
+        }
 
-        submitCountPref =
-            requireActivity().getSharedPreferences("RateUsSubmitCount", Context.MODE_PRIVATE)
 
-        // Check the submission count and update button state
-        updateSubmitButtonState()
-// Set up the RatingBar listener
+        // ✅ Setup feedback button
+        view.findViewById<MaterialButton>(R.id.submitButton).setOnClickListener {
+            FeedbackBottomSheet().show(childFragmentManager, "FeedbackDialog")
+        }
+
+        // ✅ Setup RatingBar
         ratingBar.setOnRatingBarChangeListener { _, rating, _ ->
-            // Calculate the donut progress value
-            val maxRating = 26f  // Assuming the RatingBar is out of 26 stars
-            val progressValue = (rating / maxRating) * 100  // Scale it to a 0-100 range
-
-            // Set progress to DonutProgress and display it
+            val progressValue = (rating / 26f) * 100
             donutProgress.setProgressWithAnimation(progressValue, 1000)
             donutProgress.text = String.format(Locale.US, "%.1f", rating)
         }
         btnSubmit.setOnClickListener {
             val submitCount = submitCountPref.getInt("submitCount", 0)
-            val rating = ratingBar.rating.toInt() // Get the current rating value
+            val rating = ratingBar.rating.toInt()
 
-            // Check if a rating has been selected (rating > 0)
             if (rating > 0) {
                 if (submitCount < 3) {
                     submitRating(rating)
-                    val newSubmitCount = submitCount + 1
-                    submitCountPref.edit().putInt("submitCount", newSubmitCount).apply()
+                    submitCountPref.edit { putInt("submitCount", submitCount + 1) }
                     updateSubmitButtonState()
                 } else {
                     updateSubmitButtonState()
                 }
             } else {
-                // If no rating has been selected, show a Snackbar message prompting the user to select a rating
-                val snackbar = Snackbar.make(requireView(), "Please select a rating before submitting.", Snackbar.LENGTH_SHORT)
-                snackbar.show()
-                requireView().postDelayed({ snackbar.dismiss() }, 1800)
+                Snackbar.make(requireView(), "Please select a rating before submitting.", Snackbar.LENGTH_SHORT).apply {
+                    show()
+                    requireView().postDelayed({ dismiss() }, 1800)
+                }
             }
         }
-
     }
 
     // Add this function to disable or enable the RatingBar
@@ -207,18 +206,17 @@ class RateUsDialogFragment : BottomSheetDialogFragment() {
         if (totalRatings > 0) {
             // Define the maximum expected count for scaling and max progress
             val maxExpectedCount = 200
-            val maxProgress = 100
-
 
             // Calculate scale factor based on the maximum expected count
             val scaleFactor = totalRatings.coerceAtMost(maxExpectedCount).toFloat() / maxExpectedCount
 
             // Update ProgressBars with scaled percentage of each rating type
-            fiveStarProgressBar.progress = calculateProgress(fiveStarCount, totalRatings, maxProgress, scaleFactor)
-            fourStarProgressBar.progress = calculateProgress(fourStarCount, totalRatings, maxProgress, scaleFactor)
-            threeStarProgressBar.progress = calculateProgress(threeStarCount, totalRatings, maxProgress, scaleFactor)
-            twoStarProgressBar.progress = calculateProgress(twoStarCount, totalRatings, maxProgress, scaleFactor)
-            oneStarProgressBar.progress = calculateProgress(oneStarCount, totalRatings, maxProgress, scaleFactor)
+            fiveStarProgressBar.progress = calculateProgress(fiveStarCount, totalRatings, scaleFactor)
+            fourStarProgressBar.progress = calculateProgress(fourStarCount, totalRatings, scaleFactor)
+            threeStarProgressBar.progress = calculateProgress(threeStarCount, totalRatings, scaleFactor)
+            twoStarProgressBar.progress = calculateProgress(twoStarCount, totalRatings, scaleFactor)
+            oneStarProgressBar.progress = calculateProgress(oneStarCount, totalRatings, scaleFactor)
+
 
             // Calculate average rating as a weighted average
             val weightedSum = (5 * fiveStarCount + 4 * fourStarCount + 3 * threeStarCount + 2 * twoStarCount + 1 * oneStarCount)
@@ -246,9 +244,11 @@ class RateUsDialogFragment : BottomSheetDialogFragment() {
         return if (totalRatings > 0) (count.toFloat() / totalRatings.toFloat()) * 100 else 0f
     }
 
-    private fun calculateProgress(count: Int, totalRatings: Int, maxProgress: Int, scaleFactor: Float): Int {
-        return ((count.toFloat() / totalRatings) * maxProgress * scaleFactor).toInt()
+    private fun calculateProgress(count: Int, totalRatings: Int, scaleFactor: Float): Int {
+        return ((count.toFloat() / totalRatings) * 100 * scaleFactor).toInt()
     }
+
+
     private fun resetProgressBarsAndDonut() {
         // Reset all progress bars and the donut progress
         fiveStarProgressBar.progress = 0
@@ -271,7 +271,7 @@ class RateUsDialogFragment : BottomSheetDialogFragment() {
             override fun onComplete(
                 error: DatabaseError?,
                 committed: Boolean,
-                currentData: DataSnapshot?
+                currentData: DataSnapshot?,
             ) {
                 if (committed) {
                     val snackbar = Snackbar.make(
@@ -323,15 +323,16 @@ class RateUsDialogFragment : BottomSheetDialogFragment() {
                 val behavior = BottomSheetBehavior.from(it)
                 behavior.state = BottomSheetBehavior.STATE_EXPANDED
                 behavior.skipCollapsed = true
-                behavior.isFitToContents = false
+                behavior.isFitToContents = true // ✅ this is key
                 behavior.isDraggable = true
 
-                // Make the BottomSheet cover the full screen
-                it.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-                it.requestLayout()
+                // ❌ DO NOT force height to match_parent
+                // it.layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT  ← remove this
+                // it.requestLayout()
             }
         }
         return dialog
     }
+
 
 }

@@ -1,34 +1,16 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.Test" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="itemIconTint">@color/selector_item_color</item>
-        <item name="android:statusBarColor">@color/lightStatusBarColor</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.Material</item>
+        <item name="switchPreferenceCompatStyle">@style/Preference.SwitchPreferenceCompat.Material
+        </item>
 
     </style>
 
-    <style name="Preference.SwitchPreferenceCompat" parent="@style/Preference.SwitchPreferenceCompat.Material"
-        tools:ignore="ResourceCycle">
+    <style name="Preference.SwitchPreferenceCompat" parent="@style/Preference.SwitchPreferenceCompat.Material" tools:ignore="ResourceCycle">
         <item name="widgetLayout">@layout/preference_switch</item>
     </style>
 
-    <style name="PhotoTheme.Theme" parent="Base.Theme.Test">
-        <item name="android:statusBarColor">@color/darkPhotoStatusBarColor</item>
-        <item name="android:windowLightStatusBar">true</item>
-
-        <item name="sky_top">@color/night_sky_top</item>
-        <item name="sky_mid">@color/night_sky_mid</item>
-        <item name="atmosphere">@color/night_atmosphere</item>
-        <item name="mountain_high">@color/night_mountain_high</item>
-        <item name="mountain_mid">@color/night_mountain_mid</item>
-        <item name="mountain_low">@color/night_mountain_low</item>
-        <item name="foothills">@color/night_foothills</item>
-        <item name="ground_high">@color/night_ground_high</item>
-        <item name="ground_base">@color/night_ground_base</item>
-
-
-    </style>
     <!-- Theme for SplashActivity in Dark Theme -->
     <style name="SplashTheme" parent="Base.Theme.Test">
         <item name="android:statusBarColor">@color/darkSplashStatusBarColor</item>
@@ -36,16 +18,6 @@
         <item name="colorBox">@color/colorBoxDark</item>
         <item name="colorButton">@color/button_color_dark</item>
         <item name="bottomAppBarColor">@color/colorBoxDark</item>
-
-        <item name="sky_top">@color/night_sky_top</item>
-        <item name="sky_mid">@color/night_sky_mid</item>
-        <item name="atmosphere">@color/night_atmosphere</item>
-        <item name="mountain_high">@color/night_mountain_high</item>
-        <item name="mountain_mid">@color/night_mountain_mid</item>
-        <item name="mountain_low">@color/night_mountain_low</item>
-        <item name="foothills">@color/night_foothills</item>
-        <item name="ground_high">@color/night_ground_high</item>
-        <item name="ground_base">@color/night_ground_base</item>
 
     </style>
 
@@ -56,6 +28,7 @@
         <item name="colorBox">@color/colorBoxDark</item>
         <item name="bottomAppBarColor">@color/colorBoxDark</item>
     </style>
+
     <style name="NoIconToolbar" parent="Widget.MaterialComponents.Toolbar">
         <item name="android:icon">@null</item>
         <item name="android:logo">@null</item>
@@ -64,7 +37,6 @@
     <style name="Theme.Test" parent="Base.Theme.Test">
         <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
         <item name="bottomAppBarColor">@color/darkBottomAppBarColor</item>
-        <item name="bottomNavigationColor">@color/darkBottomNavigationColor</item>
 
     </style>
 
@@ -84,11 +56,18 @@
 
     </style>
     <!-- res/values-night/styles.xml (Dark Theme) -->
-        <style name="AllContactsActivity.Theme" parent="Base.Theme.Test">
-            <item name="android:windowLightStatusBar">false</item>
-            <item name="android:textSize">14sp</item>
+    <style name="AllContactsActivity.Theme" parent="Base.Theme.Test">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:textSize">14sp</item>
 
-        </style>
+    </style>
+
+    <style name="AllNotesActivity.Theme" parent="Base.Theme.Test">
+        <item name="android:textSize">14sp</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+
+    </style>
 
 
     <style name="modalstylenointernet" parent="Theme.Test">
@@ -96,20 +75,51 @@
     </style>
 
 
-
     <style name="modalbottomsheet" parent="Theme.Test">
         <item name="modalstyleclick">@color/modalstyleclicklight</item>
         <item name="cornerSize">12dp</item>
     </style>
 
+
+    <!-- Define custom style for contact text views -->
+    <style name="ContactItemText" parent="Base.Theme.Test">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">?attr/actionMenuTextColor</item>
+        <item name="android:lineSpacingExtra">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+    </style>
+
+    <!-- Style for smaller text (for email and address) -->
+    <style name="ContactItemTextSmall" parent="Base.Theme.Test">
+        <item name="android:textSize">9sp</item> <!-- Smaller text size -->
+        <item name="android:textColor">?attr/actionMenuTextColor</item>
+        <item name="android:lineSpacingExtra">2dp
+        </item> <!-- Optional: Adjust line spacing for smaller text -->
+        <item name="android:paddingBottom">2dp</item> <!-- Optional: Reduce bottom padding -->
+    </style>
+
+
+    <!-- Style for contact item layout -->
+    <style name="ContactItemLayout">
+        <item name="android:padding">12dp</item>
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+    </style>
+
+    <color name="colorOnSecondary">#332D41</color>
+
     <color name="card_background">#1C1D23</color>
+    <color name="note_selected">#3F1A22</color>
 
     <color name="text_color_alert">#FEF7FF</color>
     <color name="message_color_alert">#FEF7FF</color>
     <color name="box_alert_update">#1C1D23</color>
     <color name="box_contact_expand">#0D1B2A</color>
+    <color name="box_floating_bar">#0D1B2A</color>
+
 
     <color name="box_qrcode">#131318</color>
+    <color name="box_timer_transparent">#90131318</color>
+
     <color name="contacts_card">#1A2C3E</color>
 
     <color name="arrow_down">#000000</color>
@@ -141,16 +151,17 @@
 
     <style name="SnackbarText" parent="TextAppearance.MaterialComponents.Body1">
         <item name="android:textSize">15sp</item> <!-- Adjust the text size as needed -->
-        <item name="android:textColor">@color/box_alert_update</item> <!-- Set your desired text color -->
+        <item name="android:textColor">@color/box_alert_update
+        </item> <!-- Set your desired text color -->
 
     </style>
 
 
     <style name="OpenTheme" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/ic_launcher_placeholder</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_placeholder</item>
         <item name="android:windowBackground">@color/darkSplashStatusBarColor</item>
         <item name="android:windowFullscreen">false</item>
-        <item name="android:windowSplashScreenIconBackgroundColor" tools:targetApi="s">@android:color/transparent</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="android:windowAnimationStyle">@null</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowContentOverlay">@null</item>
@@ -178,6 +189,7 @@
         <item name="borderWidth">0dp</item> <!-- Ensure there’s no border/stroke -->
         <item name="strokeColor">@null</item> <!-- Ensure no stroke color is applied -->
     </style>
+
     <style name="fab_set_Lic_pr_con" parent="Widget.MaterialComponents.FloatingActionButton">
         <item name="elevation">2dp</item>
         <item name="backgroundTint">@color/color_success</item>
@@ -185,6 +197,7 @@
         <item name="borderWidth">0dp</item> <!-- Ensure there’s no border/stroke -->
         <item name="strokeColor">@null</item> <!-- Ensure no stroke color is applied -->
     </style>
+
     <style name="NoShadowFABCallCancel" parent="Widget.MaterialComponents.FloatingActionButton">
         <item name="elevation">1dp</item>
         <item name="backgroundTint">@android:color/holo_red_dark</item>
@@ -197,8 +210,10 @@
     <style name="CustomShapeAppearance" parent="ShapeAppearance.MaterialComponents.SmallComponent">
         <item name="cornerFamily">rounded</item> <!-- Rounded corners -->
         <item name="cornerSize">30dp</item> <!-- Adjust the corner size for a less rounded look -->
-        <item name="shapeAppearanceOverlay">@style/CustomShapeOverlay</item> <!-- Add an optional overlay if needed -->
+        <item name="shapeAppearanceOverlay">@style/CustomShapeOverlay
+        </item> <!-- Add an optional overlay if needed -->
     </style>
+
     <style name="NoShadow_front_fab" parent="Widget.MaterialComponents.FloatingActionButton">
         <item name="elevation">0dp</item>
         <item name="backgroundTint">@android:color/holo_green_light</item>
@@ -207,6 +222,7 @@
         <item name="strokeColor">@null</item> <!-- Ensure no stroke color is applied -->
         <item name="shapeAppearanceOverlay">@style/CustomShapeAppearance_fab</item>
     </style>
+
     <style name="CustomShapeAppearance_fab" parent="ShapeAppearance.MaterialComponents.SmallComponent">
         <item name="cornerFamily">rounded</item> <!-- Rounded corners -->
         <item name="cornerSize">18dp</item> <!-- Adjust the corner size for a less rounded look -->
@@ -230,5 +246,15 @@
     <style name="TransparentBottomSheet" parent="Widget.Design.BottomSheet.Modal">
         <item name="android:background">@android:color/transparent</item>
     </style>
+    <color name="ios_circle_bg">#2C2C2E</color>
+    <color name="ios_pill_bg">#3A3A3C</color>
+    <color name="ios_pill_stroke">#26FFFFFF</color>  <!-- ~15% white -->
+    <color name="ios_icon">#E6E6E6</color>
+    <color name="ios_ripple">#33FFFFFF</color>
+    <color name="ios_blur_background">@color/ios_blur_background_dark</color>
+    <color name="ios_border">@color/ios_border_dark</color>
+    <color name="ios_primary_text">@color/ios_primary_text_dark</color>
+    <color name="ios_button_background">@color/ios_button_background_dark</color>
+    <color name="ios_button_border">@color/ios_button_border_dark</color>
 
 </resources>

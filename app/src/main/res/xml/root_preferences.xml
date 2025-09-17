@@ -1,13 +1,5 @@
 <androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-    <androidx.preference.PreferenceCategory
-        app:icon="@drawable/page_info_fill1_wght400_grad0_opsz24"
-        app:title="@string/settings_header">
-
-
-    <androidx.preference.Preference
-        android:layout="@layout/preference_spacer"
-        android:selectable="false" />
 
     <androidx.preference.PreferenceCategory
         app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
@@ -20,6 +12,8 @@
         <CheckBoxPreference
             android:defaultValue="false"
             app:allowDividerBelow="true"
+            app:buttonTint="?android:attr/colorEdgeEffect"
+            app:buttonCompat="@style/Widget.Material3.CompoundButton.RadioButton"
             app:icon="@drawable/baseline_cloud_sync_24"
             app:key="sync"
             app:title="@string/sync_title" />
@@ -29,7 +23,7 @@
             android:selectable="false" />
 
         <androidx.preference.Preference
-            app:icon="@drawable/baseline_file_download_24"
+            app:icon="@drawable/system_update_24dp_ffffff_fill1_wght400_grad0_opsz24"
             app:key="check_for_updates"
             app:title="Check for Updates" />
 
@@ -47,15 +41,10 @@
 
     </androidx.preference.PreferenceCategory>
 
-    <!-- Second Spacer -->
-    <androidx.preference.Preference
-        android:layout="@layout/preference_spacer"
-        android:selectable="false"
-        app:allowDividerAbove="false"
-        app:allowDividerBelow="false" />
+
 
     <androidx.preference.PreferenceCategory
-        app:icon="@drawable/baseline_new_releases_24"
+        app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
         app:title="@string/feature_released">
         <androidx.preference.Preference
             android:layout="@layout/custom_preference_item"
@@ -63,7 +52,7 @@
 
         <androidx.preference.Preference
             app:allowDividerBelow="true"
-            app:icon="@drawable/baseline_info_24"
+            app:icon="@drawable/memory_24dp_ffffff_fill1_wght400_grad0_opsz24"
             app:key="app_version"
             app:selectable="false"
             app:summary=""
@@ -75,7 +64,7 @@
 
         <androidx.preference.Preference
             app:allowDividerBelow="true"
-            app:icon="@drawable/baseline_info_24"
+            app:icon="@drawable/description_24dp_ffffff_fill1_wght400_grad0_opsz24"
             app:key="changelog"
             app:selectable="true"
             app:summary="Release Date: "
@@ -83,12 +72,7 @@
 
     </androidx.preference.PreferenceCategory>
 
-    <!-- Third Spacer -->
-    <androidx.preference.Preference
-        android:layout="@layout/preference_spacer"
-        android:selectable="false"
-        app:allowDividerAbove="false"
-        app:allowDividerBelow="false" />
+
 
     <androidx.preference.PreferenceCategory
         app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
@@ -107,7 +91,7 @@
             android:selectable="false" />
 
         <androidx.preference.Preference
-            app:icon="@drawable/baseline_addchart_24"
+            app:icon="@drawable/star_rate_half_24dp_ffffff_fill1_wght400_grad0_opsz24"
             app:key="rate_us"
             app:title="@string/rate_us_title" />
 
@@ -130,9 +114,7 @@
 
     </androidx.preference.PreferenceCategory>
 
-    <androidx.preference.Preference
-        android:layout="@layout/preference_spacer"
-        android:selectable="false" />
+
 
     <androidx.preference.PreferenceCategory
         app:icon="@drawable/ic_oui_text_setting"
@@ -148,9 +130,6 @@
     </androidx.preference.PreferenceCategory>
 
 
-    <androidx.preference.Preference
-        android:layout="@layout/preference_spacer"
-        android:selectable="false" />
 
     <androidx.preference.PreferenceCategory
         app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
@@ -167,9 +146,6 @@
             app:summary="View open-source licenses"
             app:title="Licenses" />
 
-        <androidx.preference.Preference
-            android:layout="@layout/custom_preference_item"
-            android:selectable="false" />
 
         <androidx.preference.Preference
             android:selectable="true"
@@ -180,10 +156,5 @@
 
     </androidx.preference.PreferenceCategory>
 
-    <androidx.preference.Preference
-        android:layout="@layout/preference_spacer"
-        android:selectable="false" />
-
-    </androidx.preference.PreferenceCategory>
 
 </androidx.preference.PreferenceScreen>

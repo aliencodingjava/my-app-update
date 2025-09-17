@@ -1,41 +1,104 @@
-# --- Preserve RateUsDialogFragment and other related fragments ---
--keep class com.flights.studio.RateUsDialogFragment { *; }
--keep class com.flights.studio.FeedbackDialogFragment { *; }
+######################################
+# ✅ CORE FRAGMENTS (only what you use)
+######################################
+-keep class com.flights.studio.RateUsDialogFragment
+-keep class com.flights.studio.FeedbackBottomSheet
 
-# --- Preserve Material Design components ---
--keep class com.google.android.material.bottomsheet.BottomSheetDialogFragment { *; }
--keep class com.google.android.material.** { *; }
+######################################
+# ✅ BottomSheet base (safe)
+######################################
+-keep class com.google.android.material.bottomsheet.BottomSheetDialogFragment
+-dontwarn com.google.android.material.**
 
-# --- Preserve DonutProgress and custom animations ---
--keep class com.github.lzyzsd.circleprogress.DonutProgress { *; }
+######################################
+# ✅ Jetpack Compose (consumer rules exist; just quiet warnings)
+######################################
+-dontwarn androidx.compose.**
+-dontwarn kotlin.**
+-dontwarn org.jetbrains.annotations.**
 
-# --- Preserve Firebase database references and models ---
--keep class com.google.firebase.** { *; }
+######################################
+# ✅ LiquidGlass (avoid any reflection stripping)
+######################################
+-keep class com.kyant.liquidglass.** { *; }
+-dontwarn com.kyant.liquidglass.**
+
+######################################
+# ✅ Glide (v4) — minimal & correct
+######################################
+# Keep the generated module & your AppGlideModule
+-keep class * extends com.bumptech.glide.module.AppGlideModule
+-keep class * extends com.bumptech.glide.module.LibraryGlideModule
+
+# Common enums used via reflection
+-keep public enum com.bumptech.glide.load.ImageHeaderParser$** { *; }
+
+# Basic classes + silence
+-keep class com.bumptech.glide.Glide
+-keep class com.bumptech.glide.RequestManager
+-dontwarn com.bumptech.glide.**
+
+######################################
+# ✅ BigImageViewer (and its Glide loader)
+######################################
+-keep class com.github.piasy.** { *; }
+-dontwarn com.github.piasy.**
+
+######################################
+# ✅ (Optional) Coil (if you use it anywhere)
+######################################
+-dontwarn coil.**
+-dontwarn coil3.**
+
+######################################
+# ✅ Firebase (only if reflection used)
+######################################
 -dontwarn com.google.firebase.**
+-keep class com.google.firebase.** { *; }
 
-# --- Preserve annotations used in your project ---
--keep class android.annotation.SuppressLint
--dontwarn android.annotation.SuppressLint
+######################################
+# ✅ Ktor & Supabase
+######################################
+-dontwarn io.ktor.**
+-dontwarn io.github.jan.supabase.**
 
-# --- Preserve methods and fields referenced in XML layouts ---
+######################################
+# ✅ Kotlin Serialization
+######################################
+-dontwarn kotlinx.serialization.**
+-keep class kotlinx.serialization.** { *; }
+
+######################################
+# ✅ View XML onClick methods
+######################################
 -keepclassmembers class * {
-    @android.view.View$OnClickListener <methods>;
+    public void *(android.view.View);
 }
 
-# --- General rules to avoid stripping dynamically used methods/classes ---
--keepclassmembers class ** {
-    *;
-}
-
-# --- Preserve Parcelable classes (if used in arguments) ---
+######################################
+# ✅ Parcelable
+######################################
 -keepclassmembers class * implements android.os.Parcelable {
     public static final android.os.Parcelable$Creator *;
 }
 
-# --- Avoid warnings for missing classes ---
--dontwarn com.google.android.material.**
--dontwarn com.google.firebase.**
--dontwarn javax.annotation.**
+######################################
+# ✅ Reflection / annotations
+######################################
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes InnerClasses
+-assumenosideeffects class kotlin.jvm.internal.Intrinsics {
+    public static void check*(...);
+}
 
-# --- Debugging ProGuard Issues (optional logging tools) ---
--keep class android.util.Log { *; }
+######################################
+# ✅ Logging strip (safe & effective for APK size)
+######################################
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+}

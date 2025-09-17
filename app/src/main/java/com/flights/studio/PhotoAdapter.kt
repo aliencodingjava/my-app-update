@@ -1,10 +1,18 @@
 package com.flights.studio
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.flights.studio.databinding.ItemPhotoCarouselBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class PhotoAdapter(
     private val photos: List<String>,
@@ -26,13 +34,43 @@ class PhotoAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(photoUrl: String) {
-            Glide.with(binding.root.context)
-                .load(photoUrl)
+            val context = binding.root.context
+            val fileName = photoUrl.substringAfterLast("/")
+            val localFile = File(context.filesDir, fileName)
+            val localPath = localFile.absolutePath
+
+            val imageToLoad = if (localFile.exists()) localPath else photoUrl
+
+            Glide.with(context)
+                .load(imageToLoad)
                 .placeholder(R.drawable.placeholder_background)
                 .into(binding.carouselImageView)
 
+            // Save image if not already cached
+            if (!localFile.exists()) {
+                downloadAndSaveImage(photoUrl, localFile)
+            }
+
             binding.carouselImageView.setOnClickListener {
-                onPhotoClick(photoUrl)
+                onPhotoClick(imageToLoad)
+            }
+        }
+
+        private fun downloadAndSaveImage(url: String, outputFile: File) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val connection = URL(url).openConnection() as HttpURLConnection
+                    connection.connectTimeout = 5000
+                    connection.readTimeout = 5000
+                    connection.inputStream.use { input ->
+                        FileOutputStream(outputFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    Log.d("PhotoAdapter", "Saved image to ${outputFile.absolutePath}")
+                } catch (e: Exception) {
+                    Log.e("PhotoAdapter", "Error saving image: ${e.message}")
+                }
             }
         }
     }

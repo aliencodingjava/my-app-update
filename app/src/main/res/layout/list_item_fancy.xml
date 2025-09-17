@@ -1,0 +1,66 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/list_item_container"
+    android:layout_width="match_parent"
+    android:layout_height="72dp"
+    android:layout_marginVertical="4dp"
+    android:background="@drawable/bg_widget_row"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- accent strip -->
+    <LinearLayout
+        android:id="@+id/strip"
+        android:layout_width="4dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_strip_gradient"
+        android:clickable="false"
+        android:focusable="false"
+        android:orientation="horizontal" />
+
+    <!-- content row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:clickable="false"
+        android:focusable="false">
+
+        <!-- icon -->
+        <android.widget.ImageView
+            android:id="@+id/icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="12dp"
+            android:tint="#FFFFFFFF"
+            android:src="@drawable/baseline_local_phone_24"
+            android:clickable="false"
+            android:focusable="false" />
+
+        <!-- label -->
+        <TextView
+            android:id="@+id/text_flight_info"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:textColor="#F6F8FA"
+            android:clickable="false"
+            android:focusable="false" />
+
+        <!-- chevron -->
+        <android.widget.ImageView
+            android:id="@+id/chevron"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="12dp"
+            android:tint="#80FFFFFF"
+            android:src="@drawable/chevron_right_24dp_000000_fill0_wght400_grad0_opsz24"
+            android:clickable="false"
+            android:focusable="false" />
+    </LinearLayout>
+</FrameLayout>

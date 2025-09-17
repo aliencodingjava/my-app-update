@@ -1,39 +1,46 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:padding="0dp"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:layout_marginStart="3dp"
+    android:layout_marginEnd="3dp">
 
     <!-- Background View for Deleting Animation -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/delete_background"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="center"
-        app:cardBackgroundColor="@color/red"
-        android:alpha="0"
+        android:layout_gravity="center_vertical"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/green"
+        app:cardCornerRadius="8dp"
         app:strokeColor="@color/transparent"
-        android:layout_marginBottom="1dp"
-        app:strokeWidth="0dp"
-        android:layout_marginStart="3dp"
-        android:layout_marginEnd="3dp"
-        android:layout_marginTop="1dp"
-        app:cardCornerRadius="5dp"
-        android:visibility="gone">
+        app:strokeWidth="0dp">
 
         <TextView
             android:id="@+id/delete_text"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_gravity="end|center"
-            android:elevation="1dp"
-            android:fontFamily="@font/roboto_slab_extra_bold"
+            android:layout_marginEnd="15dp"
+            android:contentDescription="Swipe left to delete"
+            android:fontFamily="@font/merri_weather_sans_italic_variable_font_wght"
+            android:gravity="center"
+            android:maxLines="1"
             android:text="SWIPE LEFT TO DELETE..."
-            android:layout_marginEnd="5dp"
+            android:textAlignment="center"
+            android:textColor="?android:attr/colorForegroundInverse"
             android:textSize="12sp"
             android:textStyle="bold"
-            android:textColor="@color/material_yellow"
+            android:tooltipText="@string/delete_contact"
+            app:drawableEndCompat="@drawable/person_remove_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            app:drawableTint="?android:attr/colorForegroundInverse"
             tools:ignore="HardcodedText" />
+
     </com.google.android.material.card.MaterialCardView>
 
     <!-- Combined Contact Card -->
@@ -41,16 +48,10 @@
         android:id="@+id/combined_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="3dp"
-        android:layout_marginEnd="3dp"
-        android:layout_marginBottom="0dp"
         app:cardCornerRadius="0dp"
         app:cardElevation="0dp"
-        app:strokeWidth="0dp"
-        app:rippleColor="@color/transparent"
-        android:foreground="?android:attr/selectableItemBackground"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        app:strokeColor="@color/transparent">
+        app:strokeColor="@color/transparent"
+        app:strokeWidth="0dp">
 
         <!-- Single ConstraintLayout to handle all inner content -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -66,12 +67,11 @@
                 android:layout_height="wrap_content"
                 android:background="@color/box_alert_update"
                 android:padding="8dp"
-                app:rippleColor="@color/transparent"
-                app:strokeColor="@color/transparent"
-                app:strokeWidth="0dp"
-                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent">
+                app:layout_constraintTop_toTopOf="parent"
+                app:strokeColor="@color/transparent"
+                app:strokeWidth="0dp">
 
                 <!-- Icon Image (invisible by default) -->
                 <androidx.appcompat.widget.AppCompatImageView
@@ -80,11 +80,11 @@
                     android:layout_height="40dp"
                     android:layout_marginStart="5dp"
                     android:layout_marginEnd="10dp"
-                    android:src="@drawable/my_photo"
                     android:contentDescription="@string/icon_image"
+                    android:src="@drawable/my_photo"
+                    app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
                     tools:visibility="gone" />
 
                 <!-- Initials -->
@@ -96,11 +96,11 @@
                     android:layout_marginEnd="10dp"
                     android:gravity="center"
                     android:text=""
-                    android:textSize="14sp"
                     android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    app:layout_constraintBottom_toBottomOf="@id/iconImage"
                     app:layout_constraintStart_toEndOf="@id/iconImage"
-                    app:layout_constraintTop_toTopOf="@id/iconImage"
-                    app:layout_constraintBottom_toBottomOf="@id/iconImage" />
+                    app:layout_constraintTop_toTopOf="@id/iconImage" />
 
                 <!-- Name TextView -->
                 <TextView
@@ -109,15 +109,15 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"
                     android:layout_marginEnd="10dp"
-                    android:maxLines="1"
                     android:ellipsize="end"
-                    android:text="@string/name"
-                    android:textSize="14sp"
                     android:gravity="start"
-                    app:layout_constraintStart_toEndOf="@id/iconInitials"
+                    android:maxLines="1"
+                    android:text=""
+                    android:textSize="14sp"
+                    app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toStartOf="@id/expand_collapse_icon"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent" />
+                    app:layout_constraintStart_toEndOf="@id/iconInitials"
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <!-- Expand/Collapse Icon -->
                 <ImageView
@@ -125,13 +125,13 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="10dp"
+                    android:contentDescription="@string/expand_collapse"
                     android:elevation="3dp"
                     android:rotation="180"
-                    android:src="@drawable/expand_circle_up_24dp_ffffff_fill1_wght400_grad0_opsz24"
-                    android:contentDescription="@string/expand_collapse"
+                    android:src="@drawable/expand_circle_down_24dp_ffffff_fill1_wght400_grad0_opsz24"
+                    app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"
                     app:tint="?attr/colorAccent" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
@@ -141,36 +141,61 @@
                 android:id="@+id/expandable_content"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:paddingStart="15dp"
-                android:paddingEnd="15dp"
-                android:paddingTop="15dp"
+                android:elevation="1dp"
+                android:paddingStart="20dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="20dp"
                 android:visibility="gone"
-                android:elevation="6dp"
-                app:layout_constraintTop_toBottomOf="@id/collapsing_text_container"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent">
+                app:layout_constraintTop_toBottomOf="@id/collapsing_text_container"
+                tools:ignore="VisualLintBounds">
+
                 <View
                     android:id="@+id/expandableOverlay"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:background="@android:color/transparent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintBottom_toBottomOf="parent"/>
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
                 <!-- Phone Field -->
                 <TextView
                     android:id="@+id/text_phone"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="@string/phone"
                     android:hint="@string/phone"
-                    android:textSize="15sp"
-                    android:paddingTop="10dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:includeFontPadding="false"
+                    android:paddingTop="15dp"
                     android:paddingBottom="10dp"
-                    app:layout_constraintTop_toTopOf="parent"
+                    android:text="@string/phone"
+                    android:textSize="12sp"
+                    app:layout_constrainedWidth="true"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintEnd_toStartOf="@id/flag_end"
+                    app:layout_goneMarginEnd="0dp"
+                    app:layout_constraintTop_toTopOf="parent" />
+                <ImageView
+                    android:id="@+id/flag_end"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:visibility="gone"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitCenter"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_oui_contact"
+                    android:contentDescription="@string/flag"
+                    app:layout_constraintStart_toEndOf="@id/text_phone"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@id/text_phone"
+                    app:layout_constraintBottom_toBottomOf="@id/text_phone"
+                    app:layout_constrainedHeight="true" />
+
 
                 <!-- Divider -->
                 <View
@@ -179,23 +204,24 @@
                     android:layout_height="1dp"
                     android:layout_marginBottom="8dp"
                     android:background="?attr/colorControlActivated"
-                    app:layout_constraintTop_toBottomOf="@id/text_phone"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintTop_toBottomOf="@id/text_phone" />
 
                 <!-- Email Field -->
                 <TextView
                     android:id="@+id/text_email"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="@string/email"
                     android:hint="@string/email"
-                    android:textSize="15sp"
-                    android:paddingTop="10dp"
+                    android:maxLines="1"
+                    android:paddingTop="15dp"
                     android:paddingBottom="10dp"
-                    app:layout_constraintTop_toBottomOf="@id/divider1"
+                    android:text="@string/email"
+                    android:textSize="12sp"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintTop_toBottomOf="@id/divider1" />
 
                 <!-- Divider -->
                 <View
@@ -204,23 +230,28 @@
                     android:layout_height="1dp"
                     android:layout_marginBottom="8dp"
                     android:background="?attr/colorControlActivated"
-                    app:layout_constraintTop_toBottomOf="@id/text_email"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintTop_toBottomOf="@id/text_email" />
 
                 <!-- Address Field -->
                 <TextView
                     android:id="@+id/text_address"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="@string/address_title"
+                    android:ellipsize="end"
                     android:hint="@string/address_title"
-                    android:textSize="15sp"
-                    android:paddingTop="10dp"
+                    android:maxLines="2"
+                    android:paddingTop="15dp"
                     android:paddingBottom="10dp"
-                    app:layout_constraintTop_toBottomOf="@id/divider2"
+                    android:singleLine="true"
+                    android:text="@string/address_title"
+                    android:textColor="?android:textColorPrimary"
+                    android:textSize="12sp"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintTop_toBottomOf="@id/divider2" />
+
 
                 <!-- Divider -->
                 <View
@@ -229,104 +260,152 @@
                     android:layout_height="1dp"
                     android:layout_marginBottom="10dp"
                     android:background="?attr/colorControlActivated"
-                    app:layout_constraintTop_toBottomOf="@id/text_address"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintTop_toBottomOf="@id/text_address" />
+
+                <!-- Birthday Field -->
+                <TextView
+                    android:id="@+id/text_birthday"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/birthday"
+                    android:paddingTop="15dp"
+                    android:paddingBottom="10dp"
+                    android:text="@string/birthday"
+                    android:textSize="15sp"
+                    android:textColor="?android:textColorPrimary"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/divider3" />
+
+                <ImageView
+                    android:id="@+id/birthday_icon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginTop="15dp"
+                    android:layout_marginEnd="4dp"
+                    android:contentDescription="@string/birthday_reminder"
+                    android:src="@drawable/notifications_active_24dp_ffffff_fill1_wght400_grad0_opsz24"
+                    android:visibility="gone"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="@id/text_birthday"
+                    app:tint="@color/green" />
+
+                <!-- Divider -->
+                <View
+                    android:id="@+id/divider_birthday"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="10dp"
+                    android:background="?attr/colorControlActivated"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/text_birthday" />
 
                 <!-- Action Buttons Container -->
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/action_buttons_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="10dp"
-                    app:layout_constraintTop_toBottomOf="@id/divider3"
+                    android:paddingTop="0dp"
+                    android:paddingBottom="0dp"
+                    android:clipChildren="false"
+                    android:clipToOutline="false"
+                    android:clipToPadding="false"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent">
-
-                    <!-- Color Selector (Left) -->
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:id="@+id/color_selector"
-                        android:layout_width="wrap_content"
-                        android:layout_height="40dp"
-                        android:layout_marginStart="10dp"
-                        android:elevation="2dp"
-                        android:background="@drawable/circle_shape"
-                        app:layout_constraintEnd_toStartOf="@id/fab_call"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintBottom_toBottomOf="parent"/>
+                    app:layout_constraintTop_toBottomOf="@id/divider_birthday">
 
                     <!-- Call Button -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/fab_call"
+                        style="@style/Widget.Material3.Button.ElevatedButton"
                         android:layout_width="60dp"
-                        android:layout_height="40dp"
-                        android:elevation="1dp"
-                        app:icon="@drawable/ic_oui_phone_outline"
-                        app:strokeWidth="0dp"
-                        android:pointerIcon="cell"
+                        android:layout_height="48dp"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
+                        android:contentDescription="@string/make_a_call"
+                        app:icon="@drawable/baseline_local_phone_24"
                         app:iconGravity="textEnd"
-                        android:layout_marginStart="8dp"
-                        style="?attr/borderlessButtonStyle"
-                        app:layout_constraintStart_toEndOf="@id/color_selector"
-                        app:layout_constraintEnd_toStartOf="@id/fab_update"
+                        app:iconPadding="0dp"
+                        android:clipToOutline="false"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintHorizontal_chainStyle="packed"
-                        tools:ignore="SmallSp" />
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/fab_update" />
 
                     <!-- Edit Button -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/fab_update"
+                        style="@style/Widget.Material3.Button.ElevatedButton"
                         android:layout_width="60dp"
-                        android:layout_height="40dp"
-                        android:elevation="1dp"
-                        app:icon="@drawable/ic_oui_compose_edit"
+                        android:layout_height="48dp"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
+                        android:contentDescription="@string/edit_contact"
                         android:gravity="center"
+                        app:icon="@drawable/ic_oui_edit"
                         app:iconGravity="textEnd"
-                        app:strokeWidth="0dp"
-                        android:layout_marginStart="8dp"
-                        style="?attr/buttonBarButtonStyle"
-                        app:layout_constraintStart_toEndOf="@id/fab_call"
-                        app:layout_constraintEnd_toStartOf="@id/fab_delete"
+                        app:iconPadding="0dp"
+                        android:clipToOutline="false"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintHorizontal_chainStyle="packed"
-                        tools:ignore="SmallSp" />
+                        app:layout_constraintStart_toEndOf="@id/fab_call"
+                        app:layout_constraintEnd_toStartOf="@id/fab_delete" />
 
                     <!-- Delete Button -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/fab_delete"
+                        style="@style/Widget.Material3.Button.ElevatedButton"
                         android:layout_width="60dp"
-                        android:layout_height="40dp"
-                        android:elevation="1dp"
+                        android:layout_height="48dp"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
+                        android:contentDescription="@string/delete_contact"
+                        app:icon="@drawable/delete_24dp_ffffff_fill1_wght400_grad0_opsz24"
                         app:iconGravity="textEnd"
-                        app:icon="@drawable/ic_oui_delete_outline"
-                        app:strokeWidth="0dp"
-                        style="?attr/borderlessButtonStyle"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginEnd="8dp"
-                        app:layout_constraintStart_toEndOf="@id/fab_update"
-                        app:layout_constraintEnd_toStartOf="@id/holo_color_selector"
+                        app:iconPadding="0dp"
+                        android:clipToOutline="false"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintHorizontal_chainStyle="packed"
-                        tools:ignore="SmallSp" />
-
-                    <!-- Color Selector (Right) -->
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:id="@+id/holo_color_selector"
-                        android:layout_width="wrap_content"
-                        android:layout_height="40dp"
-                        android:layout_marginEnd="10dp"
-                        android:elevation="2dp"
-                        android:background="@drawable/holo_colors"
-                        app:layout_constraintStart_toEndOf="@id/fab_delete"
-                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/fab_update"
+                        app:layout_constraintEnd_toStartOf="@id/bubble_container" />
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:id="@+id/bubble_container"
+                        android:layout_width="60dp"
+                        android:layout_height="48dp"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
                         app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintBottom_toBottomOf="parent"/>
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/fab_delete"
+                        app:layout_constraintEnd_toEndOf="parent">
+
+                        <!-- Button and animation container in same ConstraintLayout -->
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/holoColorSelector"
+                            style="@style/Widget.Material3.Button.ElevatedButton"
+                            android:layout_width="60dp"
+                            android:layout_height="48dp"
+                            app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
+                            android:clickable="true"
+                            android:focusable="true"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toTopOf="parent"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            android:backgroundTint="?android:attr/colorActivatedHighlight"
+                            app:iconTint="@color/Softer_white"
+                            android:contentDescription="@string/select_palette_color"
+                            app:icon="@drawable/format_paint_24dp_ffffff_fill1_wght400_grad0_opsz24"
+                            app:iconPadding="0dp"
+                            app:iconGravity="textEnd" />
+
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
                 </androidx.constraintlayout.widget.ConstraintLayout>
+
 
 
             </androidx.constraintlayout.widget.ConstraintLayout>

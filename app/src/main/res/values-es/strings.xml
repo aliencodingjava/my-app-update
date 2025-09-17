@@ -97,20 +97,16 @@
         <string name="checking_for_updates">Buscando actualizaciones</string>
         <string name="app_update">Actualización de App</string>
         <string name="app_up_to_date">¡Estás al día! Tu app está actualizada.</string>
-        <string name="ok">Aceptar</string>
+    <string name="ok">Cerrar</string>
 
     <string-array name="update_messages">
         <item>&#8211; <b>Actualización Anterior:</b></item>
         <item>&#8211; Interfaz y animaciones mejoradas.</item>
         <item>&#8211; Nuevas animaciones añadidas para transiciones más fluidas.</item>
         <item>&#8211; Se ha introducido una paleta de colores para la personalización de contactos.</item>
-        <item>&#8211; Se agregó un selector de colores Holo con una interfaz moderna en BottomSheet.</item>
-        <item>&#8211; Comportamiento mejorado del BottomSheet: ahora se abre a media pantalla por defecto.</item>
-        <item>&#8211; Se corrigió un problema de la interfaz donde el BottomSheet perdía sus esquinas redondeadas después de expandirse.</item>
         <item>&#8211; Mayor estabilidad y rendimiento.</item>
         <item>&#8211; Secciones de Notas y Contactos añadidas.</item>
         <item>&#8211; Nuevas opciones de configuración de página personalizables.</item>
-        <item>&#8211; Introducción de Widget (beta) para acceso rápido.</item>
         <item>&#8211; Localización expandida (Español, Inglés).</item>
         <item>&#8211; Nueva funcionalidad para actualizar imágenes en línea.</item>
         <item>&#8211; Optimización del Modo Oscuro para mejor visibilidad.</item>
@@ -124,7 +120,8 @@
         <item>&#8211; Optimización del consumo de batería para sesiones más largas.</item>
         <item>&#8211; Mejor soporte de accesibilidad para lectores de pantalla.</item>
         <item>&#8211; Tiempos de carga más rápidos y mayor velocidad de la aplicación.</item>
-        <item>&#8211; Nuevo **Widget (Beta)** agregado para mostrar un temporizador de cuenta regresiva para la actualización automática de imágenes.</item>
+        <item>&#8211; Nuevo **Widget  agregado para mostrar un temporizador de cuenta regresiva para la actualización automática de imágenes.</item>
+        <item>&#8211; Se añadieron tarjetas a la pantalla de inicio: Accede rápidamente a las actividades en un solo lugar.</item>
         <item>&#8211; ¡Gracias por usar nuestra aplicación!</item>
     </string-array>
 
@@ -253,10 +250,10 @@
 
     <string name="lorem_ipsum_title">Lorem Ipsum</string>
     <string name="lorem_ipsum">Lorem Ipsum es simplemente un texto de marcador de posición de la industria de la impresión y la composición tipográfica. Lorem Ipsum ha sido el texto de marcador de posición estándar de la industria desde la década de 1500, cuando un impresor desconocido tomó una galera de tipos y los mezcló para hacer un libro de muestras de tipos.</string>
-    <string name="server_online">Servidor en línea</string>
-    <string name="server_offline">Servidor fuera de línea</string>
+    <string name="server_online">en línea</string>
+    <string name="server_offline">fuera de línea</string>
     <string name="clear_feedback">Borrar comentarios</string>
-    <string name="checking_status">Comprobando estado del servidor…</string>
+    <string name="checking_status">Comprobando…</string>
     <string name="title_activity_main2">MainActivity2</string>
     <string name="navigation_drawer_open">Abrir barra lateral de navegación</string>
     <string name="navigation_drawer_close">Cerrar barra lateral de navegación</string>
@@ -278,7 +275,7 @@
     <string name="Cancel">Cancelar</string>
     <string name="enter_your_feedback_here">Ingrese su retroalimentación aquí…</string>
     <string name="your_feedback_helps_us_improve">¡Su retroalimentación nos ayuda a mejorar!</string>
-    <string name="send_feedback">Enviar retroalimentación</string>
+    <string name="send_feedback">Enviar</string>
     <string name="tell_us_what_you_think">¡Cuéntenos lo que piensa!</string>
     <string name="offline_feedback">¡Envíe su retroalimentación incluso cuando el servidor esté fuera de línea; se procesará más tarde!</string>
     <string name="card1">Tarjeta 1</string>
@@ -301,7 +298,7 @@
     <string name="carousel_description">para recycleview material design3</string>
     <string name="fab_content_desc_main">FAB principal</string>
     <string name="fab_content_desc_camera">FAB cámara</string>
-    <string name="fab_content_desc_insert_photo">FAB insertar foto</string>
+    <string name="fab_content_desc_insert_photo">FAB foto</string>
     <string name="fab_content_desc_contact">FAB contacto</string>
     <string name="fab_content_desc_settings">FAB configuraciones</string>
     <string name="changelog_title">Registro de cambios para %s</string>
@@ -377,7 +374,7 @@
     <string name="edit_title">editar título</string>
     <string name="All_Notes">Todas las notas</string>
     <string name="icon_image">imagen del ícono</string>
-    <string name="add_photo">agregar foto</string>
+    <string name="add_photo">Agregar foto</string>
     <string name="updated_note_key">NOTA_ACTUALIZADA</string>
     <string name="note_position_key">POSICION_NOTA</string>
     <string name="error_loading_note">Error al cargar la nota</string>
@@ -424,8 +421,146 @@
     <string name="battery_unknown_short">--%%</string>
     <string name="select_a_color">Selecciona un color</string>
 
+    <string name="openclosefullscreen">abrir-cerrar-pantalla completa</string>
+    <string name="curb">Acera</string>
+    <string name="north">Norte</string>
+    <string name="Home">Inicio</string>
+    <string name="qr_code">Código QR</string>
+    <string name="All_contacts">todos los contactos</string>
+    <string name="Import_contacts">importar contactos</string>
+    <string name="contact_icon">Icono de contacto</string>
+    <string name="new_contacts_count">Conteo de nuevos contactos</string>
+    <string name="total_contacts">Total de contactos</string>
+    <string name="make_a_call">Hacer una llamada</string>
+    <string name="edit_contact">Editar contacto</string>
+    <string name="confirm">Confirmar</string>
+    <string name="exit_confirmation">Confirmación de salida</string>
+    <string name="test">Cargando título</string>
+    <string name="openAddNoteScreen">Todas las notas</string>
+    <string name="reminder_icon">recordatorio</string>
+    <string name="set_timer">Configurar temporizador</string>
+    <string name="open_calendar">Abrir calendario</string>
+    <string name="calendar">Calendario</string>
+    <string name="timer">Temporizador</string>
+    <string name="_100">100</string>
+    <string name="loading">Cargando…</string>
+    <string name="front">frontal</string>
+    <string name="select_time">Seleccionar hora</string>
+    <string name="set_reminder">Establecer recordatorio</string>
+    <string name="selected_time_is_in_the_past_please_choose_a_future_time">La hora seleccionada está en el pasado. Por favor, elige una hora futura.</string>
+    <string name="reminder_set_successfully_for_your_note">¡Recordatorio establecido exitosamente para tu nota!</string>
+    <string name="your_reminder_note">Tu nota de recordatorio</string>
+    <string name="curb_view">Vista de la acera</string>
+    <string name="north_view">Vista norte</string>
+    <string name="south_view">Vista sur</string>
+    <string name="time_separator">:</string>
+    <string name="drag_hint">sugerencia de arrastre</string>
+    <string name="FlightTracker">Rastreador de vuelos</string>
+    <string name="News">Noticias</string>
+    <string name="contact_count_message">Tienes %1$d contactos</string>
+    <string name="contacts_count">Contactos: %1$d</string>
+    <string name="time_in_past">La hora seleccionada está en el pasado. Por favor, elige una hora futura.</string>
+    <string name="reminder_scheduled">Recordatorio establecido para: %1$s a las %2$d:%3$d</string>
+    <string name="reminder_set_successful">¡Recordatorio establecido exitosamente para la hora seleccionada!</string>
+    <string name="done">Hecho</string>
+    <string name="update_photo">Actualizar foto</string>
+    <string name="add_to_calendar">Agregar al calendario</string>
+    <string name="select_palette_color">Selecciona una paleta predefinida</string>
+    <string name="color_name">Nombre del color</string>
+    <string name="palette_name">Nombre de la paleta</string>
+    <string name="main">Principal</string>
+    <string name="overlay">Superposición</string>
+    <string name="buttons">Botones</string>
+    <string name="label_main">Principal</string>
+    <string name="label_overlay">Superposición</string>
+    <string name="label_buttons">Botones</string>
+    <string name="label_reset">Restablecer</string>
+    <string name="add_your_first_contact">Agrega tu primer contacto</string>
+    <string name="add_your_first_note">Agrega tu primera nota</string>
+    <string name="welcome_to_jac_airport">Bienvenido al Aeropuerto JAC</string>
+    <string name="app_logo">Logo de la App</string>
+    <string name="jac_airport_logo">Logo del Aeropuerto JAC</string>
+    <string name="birthday_reminder">recordatorio de cumpleaños</string>
+    <string name="birthday">Cumpleaños</string>
+    <string name="feedback_rules_message">
+  • No usar lenguaje ofensivo ni discursos de odio\n
+  • No compartir datos personales ni hacer doxxing\n
+  • Las violaciones implican una suspensión de 60 días\n
+  • No acoso ni intimidación\n
+  • No spam, publicidad ni autopromoción
+</string>
+    <string name="add_account">Añadir cuenta</string>
+        <string name="not_logged_in">¡Bienvenid@!</string>
+        <string name="tap_to_log_in">Acceder</string>
+        <string name="profile">Imagen de perfil</string>
+        <string name="username_handle">\@%1$s</string> <!-- El placeholder %1$s se mantiene -->
+        <string name="forward_10s">Adelantar 10s</string>
+        <string name="now_playing">Reproduciendo ahora</string>
+        <string name="rewind_10s">Retroceder 10s</string>
+        <string name="play_pause">Reproducir/Pausar</string>
+        <string name="fullscreen">Pantalla completa</string>
 
+        <string name="profile_saved_successfully">Perfil guardado correctamente</string>
+        <string name="error_failed_to_save_image_permission">No se pudo guardar el acceso a la imagen. Podría no estar disponible más tarde.</string>
+        <string name="error_failed_to_load_image_permission">Error al acceder a la imagen guardada.</string>
+        <string name="error_loading_image_uri">Error al cargar la imagen guardada.</string>
 
+        <string name="validation_name_required">El nombre es obligatorio</string>
+        <string name="validation_phone_required">El teléfono es obligatorio</string>
+        <string name="validation_email_invalid">Formato de correo electrónico no válido</string>
+    <string name="logout">Cerrar sesión</string>
+    <string name="show_hide_menu">mostrar/ocultar perfil</string>
+    <string name="unknown_contact">Sin información de contacto</string>
+    <string name="edit_account">Editar perfil</string>
+    <string name="enter_valid_otp_message">Introduce el código de 6 dígitos</string>
+    <string name="verification_successful">✅ ¡Verificación exitosa!</string>
+    <string name="verification_failed">❌ Verificación fallida: %1$s</string>
+
+    <string name="title_my_profile">Mi perfil</string>
+    <string name="default_user_name">Anónimo</string>
+    <string name="label_email">Correo: %1$s</string>
+    <string name="label_bio">Biografía: %1$s</string>
+    <string name="label_birthday">Cumpleaños: %1$s</string>
+    <string name="prompt_create_profile">Por favor, crea tu perfil primero</string>
+
+    <string name="title_log_out">Cerrar sesión</string>
+    <string name="confirm_log_out">¿Seguro que deseas cerrar sesión?</string>
+    <string name="yes">Sí</string>
+    <string name="login">Iniciar sesión</string>
+    <string name="log_out">Cerrar sesión</string>
+    <string name="edit_profile">Editar perfil</string>
+    <string name="initials_settings">iniciales</string>
+    <string name="cardlung11">¡Foto!</string>
+    <string name="cardlung12">Foto12</string>
+    <string name="retry">reintentar</string>
+    <string name="video_quality">calidad de video\n</string>
+    <string name="time_zero">00:00</string>
+    <string name="general">general</string>
+    <string name="webcam_image">imagen de cámara web</string>
+    <string name="priority">Prioridad</string>
+    <string name="reminder">Recordatorio</string>
+    <string name="note_title_optional">Título de la nota (opcional • IA✨)</string>
+    <string name="view_note">Nota</string>
+    <string name="_1">1</string>
+    <string name="_7">/7</string>
+
+    <string name="photo_counter_current">%1$d</string>
+    <string name="photo_counter_total">/%1$d</string>
+
+    <string name="add">añadir</string>
+    <string name="info">Info</string>
+    <string name="flag">marcar</string>
+    <string name="add_note_help_hint">nota de ayuda</string>
+    <string name="photo_counter_a11y">Foto %1$d de %2$d</string>
+
+    <string name="choose_reminder_type">Elige un recordatorio</string>
+    <string name="reminder_hint_short">Temporizador = hoy • Calendario = fecha/hora</string>
+    <string name="timer_caption_short">Hoy</string>
+    <string name="calendar_caption_short">Fecha/hora</string>
+
+    <string name="a11y_tip_available">Consejo disponible</string>
+    <string name="tip_add_title">Añade un título o deja que lo sugiramos</string>
+    <string name="images_attached">Imágenes adjuntas</string>
 
 
 

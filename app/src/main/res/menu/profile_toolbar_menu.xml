@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_edit"
+        android:icon="@drawable/manage_accounts_24dp_ffffff_fill1_wght400_grad0_opsz24"
+        android:title="@string/edit_profile"
+        app:showAsAction="ifRoom"/>
+    <item
+        android:id="@+id/action_auth"
+        android:icon="@drawable/door_open_24dp_ffffff_fill1_wght400_grad0_opsz24"
+        android:title="@string/log_out"
+        app:showAsAction="always" />
+</menu>

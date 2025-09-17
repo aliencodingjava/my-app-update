@@ -9,4 +9,8 @@
     <item name="cardView7" type="id" />
     <item name="cardView8" type="id" />
     <item name="cardView9" type="id" />
+    <item name="status_animator" type="id" />
+    <item name="status_blink_animator" type="id" />
+    <item name="nav_logout" type="id" />
+
 </resources>

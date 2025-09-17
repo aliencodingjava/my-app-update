@@ -11,8 +11,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
+import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -33,11 +33,13 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AppCompatActivity
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+import androidx.core.graphics.toColorInt
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -45,6 +47,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.bumptech.glide.Glide
 import com.flights.studio.databinding.ActivityScrollingSettingsBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -66,8 +69,7 @@ import java.util.concurrent.TimeUnit
 
 
 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-class SettingsActivity : AppCompatActivity() {
-
+class SettingsActivity : LocaleActivity() {
     companion object {
         private const val REQUEST_CODE_PERMISSIONS = 101
         private const val PREF_INSTALLATION_DATE = "installation_date"
@@ -78,6 +80,8 @@ class SettingsActivity : AppCompatActivity() {
     private var currentApkUrl: String? = null
     private lateinit var networkConnectivityHelper: NetworkConnectivityHelper
     private lateinit var binding: ActivityScrollingSettingsBinding
+    private lateinit var userPrefs: UserPreferencesManager
+
 
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -90,10 +94,11 @@ class SettingsActivity : AppCompatActivity() {
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_scrolling_settings)
 
+        binding = ActivityScrollingSettingsBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        // Initialize your networkConnectivityHelper
+        userPrefs = UserPreferencesManager(this)
         networkConnectivityHelper = NetworkConnectivityHelper(this)
 
         val apkUrl = intent.getStringExtra("apkUrl")
@@ -115,15 +120,14 @@ class SettingsActivity : AppCompatActivity() {
 
         // If installation date is not saved, save the current date as the installation date
         if (installationDate == 0L) {
-            val editor = prefs.edit()
-            val newCurrentDate = System.currentTimeMillis() // Renamed variable to newCurrentDate
-            editor.putLong(PREF_INSTALLATION_DATE, newCurrentDate)
-            editor.apply()
+            prefs.edit {
+                val newCurrentDate =
+                    System.currentTimeMillis() // Renamed variable to newCurrentDate
+                putLong(PREF_INSTALLATION_DATE, newCurrentDate)
+            }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            checkAndRequestPermissions()
-        }
+        checkAndRequestPermissions()
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
@@ -131,56 +135,99 @@ class SettingsActivity : AppCompatActivity() {
                 .commitNow()
         }
 
-
-        binding = ActivityScrollingSettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-
-
+        // 5) Wire up the NavigationRail
         val navRail = findViewById<NavigationRailView>(R.id.navigation_rail)
-
         navRail.menu.findItem(R.id.nav_settings).isChecked = true
-
-        navRail.setOnItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.nav_home -> {
-                    goToHomeScreen()
-                    true
-                }
-
-                R.id.nav_contacts -> {
-                    goToContactScreen()
-                    true
-                }
-
-                R.id.nav_settings -> {
-                    // Stay on SettingsActivity
-                    true
-                }
-
-                R.id.nav_search -> {
-                    openSearchView()
-                    true
-                }
-
-                R.id.nav_qr_code -> {
-                    openQRCodeScanner()
-                    true
-                }
-
-                R.id.nav_feedback -> {
-                    showFeedbackDialog()
-                    true
-                }
-                R.id.nav_info -> {
-                    showItemListDialog()
-                    true
-                }
-
-                else -> false
+        navRail.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home     -> { goToHomeScreen();      true }
+                R.id.nav_contacts -> { goToContactScreen();   true }
+                R.id.nav_settings -> true  // stay here
+                R.id.nav_search   -> { openSearchView();      true }
+                R.id.nav_qr_code  -> { openQRCodeScanner();   true }
+                R.id.nav_feedback -> { showFeedbackDialog();  true }
+                R.id.nav_info     -> { showItemListDialog();  true }
+                else              -> false
             }
         }
+        refreshRailAvatar()
+
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                finish()
+                overridePendingTransition(R.anim.enter_animation, de.dlyt.yanndroid.samsung.R.anim.abc_tooltip_exit)
+            }
+        })
+
+
     }
+
+    override fun onPostResume() {
+        super.onPostResume()
+
+        if (com.flights.studio.ui.AppLanguageManager.consumeBlinkNext()) {
+            val content = findViewById<View>(R.id.content_frame) ?: return
+            // hardware layer for smooth fade (optional)
+            content.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            content.alpha = 0f
+            content.animate()
+                .alpha(1f)
+                .setDuration(140)
+                .withEndAction { content.setLayerType(View.LAYER_TYPE_NONE, null) }
+                .start()
+        }
+    }
+
+
+    private fun refreshRailAvatar() {
+        val navRail = findViewById<NavigationRailView>(R.id.navigation_rail)
+        val header  = navRail.headerView!!
+        val imgView = header.findViewById<ImageView>(R.id.iconImage)
+        val initialsTv = header.findViewById<TextView>(R.id.iconInitials)
+
+        userPrefs.getUserPhotoUri()?.let { uri ->
+            initialsTv.visibility = View.GONE
+            imgView.visibility     = View.VISIBLE
+
+            Glide.with(this)
+                .load(uri)
+                .centerCrop()    // ← fill the card’s rounded rect
+                .into(imgView)
+        } ?: run {
+            imgView.visibility     = View.GONE
+            initialsTv.visibility = View.VISIBLE
+
+            val initials = userPrefs.userName
+                .orEmpty()
+                .split(Regex("\\s+"))
+                .filter { it.isNotBlank() }
+                .map { it[0].uppercaseChar() }
+                .take(2)
+                .joinToString("")
+
+            if (initials.isNotEmpty()) {
+                initialsTv.text = initials
+            } else {
+                // fallback logo
+                initialsTv.visibility = View.GONE
+                imgView.visibility     = View.VISIBLE
+                imgView.setImageResource(R.drawable.rt_text_logo_jac)
+            }
+
+            (initialsTv.background as? GradientDrawable)
+                ?.setColor(ContextCompat.getColor(this, R.color.box_alert_update))
+        }
+
+        header.setOnClickListener {
+            startActivity(Intent(this, ProfileDetailsActivity::class.java))
+        }
+    }
+    override fun onResume() {
+        super.onResume()
+        refreshRailAvatar()
+    }
+
 
     private fun openSearchView() {
         val parentView = findViewById<ViewGroup>(android.R.id.content)
@@ -203,7 +250,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val searchText = searchView.findViewById<android.widget.EditText>(androidx.appcompat.R.id.search_src_text)
         searchText.setTextColor(android.graphics.Color.GRAY) // ✅ Adjust text color
-        searchText.setHintTextColor(android.graphics.Color.parseColor("#B3FFFFFF")) // ✅ Hint color
+        searchText.setHintTextColor("#B3FFFFFF".toColorInt()) // ✅ Hint color
 
         val searchDialog = BottomSheetDialog(this).apply {
             setContentView(rootLayout)
@@ -301,8 +348,8 @@ class SettingsActivity : AppCompatActivity() {
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
     private fun showFeedbackDialog() {
-        val feedbackDialog = FeedbackDialogFragment()
-        feedbackDialog.show(supportFragmentManager, "FeedbackDialog")
+        val feedbackBottomSheet = FeedbackBottomSheet()
+        feedbackBottomSheet.show(supportFragmentManager, "FeedbackBottomSheet")
     }
 
     private fun filterSettings(query: String) {
@@ -325,9 +372,9 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun saveUpdateDate(context: Context, updateDate: String) {
         val sharedPreferences = context.getSharedPreferences("MyPrefs", MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        editor.putString("updateDate", updateDate)
-        editor.apply()
+        sharedPreferences.edit {
+        putString("updateDate", updateDate)
+        }
     }
 
 
@@ -345,13 +392,6 @@ class SettingsActivity : AppCompatActivity() {
 
             else -> super.onOptionsItemSelected(item)
         }
-    }
-    override fun onBackPressed() {
-        super.onBackPressed()
-        val intent = Intent(this, SplashActivity::class.java)
-        startActivity(intent)
-        finish()
-        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
 
 
@@ -406,7 +446,7 @@ class SettingsActivity : AppCompatActivity() {
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
-        grantResults: IntArray
+        grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_STORAGE_PERMISSION) {
@@ -506,9 +546,9 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun saveLastCheckedVersion(versionCode: Int) {
         val sharedPref = getSharedPreferences("your_shared_prefs_name", MODE_PRIVATE)
-        val editor = sharedPref.edit()
-        editor.putInt("last_checked_version", versionCode)
-        editor.apply()
+        sharedPref.edit {
+            putInt("last_checked_version", versionCode)
+        }
     }
 
     @SuppressLint("InflateParams")
@@ -730,45 +770,6 @@ class SettingsActivity : AppCompatActivity() {
         }
 
 
-        // Update internet strength in the dialog
-        fun updateInternetStrength() {
-            val connectionStrength = getConnectionStrength(this@SettingsActivity)
-
-            internetStrengthText.text = when (connectionStrength) {
-                ConnectionStrength.STRONG -> "Internet Strength: Strong"
-                ConnectionStrength.MODERATE -> "Internet Strength: Moderate"
-                ConnectionStrength.WEAK -> "Internet Strength: Weak"
-                ConnectionStrength.NONE -> "No Internet Connection"
-            }
-
-            // Update the icon based on internet strength
-            val drawableRes = when (connectionStrength) {
-                ConnectionStrength.STRONG -> R.drawable.signal_wifi_4_bar_24dp_ffffff_fill0_wght400_grad0_opsz24
-                ConnectionStrength.MODERATE -> R.drawable.network_wifi_3_bar_24dp_ffffff_fill0_wght400_grad0_opsz24
-                ConnectionStrength.WEAK -> R.drawable.network_wifi_2_bar_24dp_ffffff_fill0_wght400_grad0_opsz24
-                ConnectionStrength.NONE -> R.drawable.signal_wifi_bad_24dp_ffffff_fill0_wght400_grad0_opsz24
-            }
-            internetStrengthIcon.setImageResource(drawableRes)
-        }
-
-        // Call it initially
-        updateInternetStrength()
-
-
-        // Optionally, schedule periodic updates if needed
-        val handler = Handler(Looper.getMainLooper())
-        val runnable = object : Runnable {
-            override fun run() {
-                updateInternetStrength()
-                handler.postDelayed(this, 1000) // Update every 5 seconds
-            }
-        }
-        handler.post(runnable)
-
-        // Ensure the handler stops when the dialog is dismissed
-        downloadDialog.setOnDismissListener {
-            handler.removeCallbacks(runnable)
-        }
 
 
 
@@ -781,43 +782,39 @@ class SettingsActivity : AppCompatActivity() {
                     progressBar,
                     progressText,
                     speedTextView,
-
+                    internetStrengthText,
+                    internetStrengthIcon
                 )
 
                 withContext(Dispatchers.Main) {
                     // Animate the CardView (scale up first)
                     ObjectAnimator.ofFloat(cardView, "scaleX", 1f, 1.1f).apply {
-                        duration = 800 // Animation duration for scaling up
+                        duration = 800
                         start()
                     }
                     ObjectAnimator.ofFloat(cardView, "scaleY", 1f, 1.1f).apply {
-                        duration = 500 // Animation duration for scaling up
+                        duration = 500
                         start()
                     }
 
-                    // After scaling up, apply rocket-like zoom-out (quick shrink to infinite)
+                    // After scaling up, apply rocket-like zoom-out
                     Handler(Looper.getMainLooper()).postDelayed({
-                        // Rocket-like zoom-out (shrink to infinite, scale down to 0)
-                        ObjectAnimator.ofFloat(cardView, "scaleX", 1.1f, 0f).apply {  // Scale to a large value (shrink effect)
-                            duration = 500 // Quick zoom-out (shrink to infinite)
+                        ObjectAnimator.ofFloat(cardView, "scaleX", 1.1f, 0f).apply {
+                            duration = 500
                             start()
                         }
                         ObjectAnimator.ofFloat(cardView, "scaleY", 1.1f, 0f).apply {
-                            duration = 500 // Quick zoom-out (shrink to infinite)
+                            duration = 500
                             start()
                         }
 
                         Handler(Looper.getMainLooper()).postDelayed({
-                            // Dismiss the download dialog
                             downloadDialog.dismiss()
-
-                            // Show the install option bottom sheet
                             showInstallOptionBottomSheet(uri)
-                        }, 500) // Wait for 500ms after zoom-out before dismissing the dialog
-                    }, 1500) // Wait for 1.5 seconds after scaling before starting the zoom-out (rocket-like)
+                        }, 500)
+                    }, 1500)
                 }
             } catch (_: Exception) {
-                // Handle any errors (no logs, just display error message)
                 withContext(Dispatchers.Main) {
                     downloadDialog.dismiss()
                     showErrorDialog("Download failed. Please try again.")
@@ -832,28 +829,33 @@ class SettingsActivity : AppCompatActivity() {
         STRONG, MODERATE, WEAK, NONE
     }
 
-
     fun getConnectionStrength(context: Context): ConnectionStrength {
-        val connectivityManager =
-            context.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return ConnectionStrength.NONE
-        val networkCapabilities =
-            connectivityManager.getNetworkCapabilities(network) ?: return ConnectionStrength.NONE
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        val activeNetwork = cm?.activeNetworkInfo
 
-        return when {
-            networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
-                ConnectionStrength.STRONG
-            }
+        Log.d("ConnectionStrength", "Active Network: ${activeNetwork?.typeName}") // Debug log
 
-            networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
-                ConnectionStrength.MODERATE
+        return if (activeNetwork != null) {
+            when (activeNetwork.type) {
+                ConnectivityManager.TYPE_WIFI -> {
+                    Log.d("ConnectionStrength", "Wi-Fi detected") // Debug log
+                    ConnectionStrength.STRONG // Wi-Fi
+                }
+                ConnectivityManager.TYPE_MOBILE -> {
+                    Log.d("ConnectionStrength", "Cellular detected") // Debug log
+                    ConnectionStrength.MODERATE // Cellular
+                }
+                else -> {
+                    Log.d("ConnectionStrength", "Other connection type") // Debug log
+                    ConnectionStrength.NONE
+                }
             }
-
-            else -> {
-                ConnectionStrength.WEAK
-            }
+        } else {
+            Log.d("ConnectionStrength", "No active network") // Debug log
+            ConnectionStrength.WEAK
         }
     }
+
 
     @SuppressLint("SetTextI18n", "DefaultLocale")
     private suspend fun downloadApkWithProgress(
@@ -861,7 +863,8 @@ class SettingsActivity : AppCompatActivity() {
         progressBar: ProgressBar,
         progressText: TextView,
         speedTextView: TextView,
-
+        internetStrengthText: TextView,
+        internetStrengthIcon: ImageView,
     ): Uri {
         val connection = URL(apkUrl).openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
@@ -888,22 +891,30 @@ class SettingsActivity : AppCompatActivity() {
             val progress = (total * 100 / fileLength).toInt()
             val timeLeft = calculateTimeLeft(total, fileLength, startTime)
 
-
             // Calculate download speed (MB/sec)
             val elapsedTime = (System.currentTimeMillis() - startTime) / 1000.0 // in seconds
-            val downloadSpeed =
-                if (elapsedTime > 0) total / 1024.0 / 1024.0 / elapsedTime else 0.0 // MB/sec
+            val downloadSpeed = if (elapsedTime > 0) total / 1024.0 / 1024.0 / elapsedTime else 0.0 // MB/sec
             val totalDownloaded = total / 1024.0 / 1024.0 // in MB
 
-            // Update progress, download speed, and total downloaded size on the main thread
+            // Check if the device is on Wi-Fi or Cellular connection
+            val connectionStrength = getConnectionStrength(internetStrengthText.context)
+
+            // Update progress, download speed, total downloaded size, and update the speed icon on the main thread
             withContext(Dispatchers.Main) {
                 progressBar.progress = progress
                 progressText.text = "$progress% ($timeLeft left)"
-                speedTextView.text = String.format(
-                    "%.2f MB (%.2f MB/sec)",
-                    totalDownloaded,
-                    downloadSpeed
-                ) // Display both
+                speedTextView.text = String.format("%.2f MB (%.2f MB/sec)", totalDownloaded, downloadSpeed)
+
+                // Check if the connection is Wi-Fi or Cellular and update the icon accordingly
+                if (connectionStrength == ConnectionStrength.STRONG || connectionStrength == ConnectionStrength.MODERATE) {
+                    if (isWifiConnected(internetStrengthText.context)) {
+                        // Wi-Fi connection, update the Wi-Fi icon
+                        updateWifiSpeedIcon(downloadSpeed, internetStrengthText, internetStrengthIcon)
+                    } else {
+                        // Mobile connection, update the Cellular icon
+                        updateCellularSpeedIcon(downloadSpeed, internetStrengthText, internetStrengthIcon)
+                    }
+                }
             }
             output.write(data, 0, count)
         }
@@ -911,11 +922,62 @@ class SettingsActivity : AppCompatActivity() {
         output.flush()
         output.close()
         input.close()
-        withContext(Dispatchers.Main) {
-
-        }
 
         return uri
     }
+
+    // Function to check if device is connected to Wi-Fi
+    private fun isWifiConnected(context: Context): Boolean {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        val activeNetwork = cm?.activeNetworkInfo
+        return activeNetwork?.type == ConnectivityManager.TYPE_WIFI
+    }
+
+
+
+
+    private fun updateWifiSpeedIcon(
+        downloadSpeed: Double,
+        internetStrengthText: TextView,
+        internetStrengthIcon: ImageView,
+    ) {
+        val (strengthLabel, drawableRes) = when {
+            downloadSpeed < 0.5 -> Pair("Very Weak", R.drawable.network_wifi_1_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)        // 1 bar (Very Weak)
+            downloadSpeed < 1.0 -> Pair("Weak", R.drawable.network_wifi_2_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)            // 2 bars (Weak)
+            downloadSpeed < 2.0 -> Pair("Moderate", R.drawable.network_wifi_3_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)        // 3 bars (Moderate)
+            downloadSpeed < 3.0 -> Pair("Good", R.drawable.signal_wifi_4_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)            // 4 bars (Good)
+            else -> Pair("Strong", R.drawable.signal_wifi_4_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)                     // 4 bars (Strong)
+        }
+
+        // Set the text and icon for Wi-Fi
+        internetStrengthText.text = internetStrengthText.context.getString(R.string.internet_strength, strengthLabel)
+        internetStrengthIcon.setImageResource(drawableRes)
+        internetStrengthIcon.visibility = View.VISIBLE  // Show the Wi-Fi icon
+    }
+
+    private fun updateCellularSpeedIcon(
+        downloadSpeed: Double,
+        internetStrengthText: TextView,
+        internetStrengthIcon: ImageView,
+    ) {
+        val (strengthLabel, drawableRes) = when {
+            downloadSpeed < 0.2 -> Pair("No Internet", R.drawable.signal_cellular_connected_no_internet_0_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)  // 0 bars
+            downloadSpeed < 0.5 -> Pair("Weak", R.drawable.signal_cellular_1_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)         // 1 bar
+            downloadSpeed < 1.0 -> Pair("Moderate", R.drawable.signal_cellular_2_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)     // 2 bars
+            downloadSpeed < 1.5 -> Pair("Good", R.drawable.signal_cellular_3_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)         // 3 bars
+            downloadSpeed < 2.0 -> Pair("Strong", R.drawable.signal_cellular_4_bar_24dp_ffffff_fill0_wght400_grad0_opsz24)       // 4 bars
+            downloadSpeed < 5.0 -> Pair("Very Strong", R.drawable._g_mobiledata_24dp_ffffff_fill0_wght400_grad0_opsz24)  // 5 bars (Very Strong)
+            else -> Pair("5G", R.drawable._g_24dp_ffffff_fill0_wght400_grad0_opsz24)                                     // 5G icon for speeds > 5MB
+        }
+
+        // Set the text and icon for cellular network
+        internetStrengthText.text = internetStrengthText.context.getString(R.string.internet_strength, strengthLabel)
+        internetStrengthIcon.setImageResource(drawableRes)
+        internetStrengthIcon.visibility = View.VISIBLE  // Show the cellular icon
+    }
+
+
+
+
 
 }

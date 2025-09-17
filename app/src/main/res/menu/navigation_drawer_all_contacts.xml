@@ -6,39 +6,42 @@
     <group android:checkableBehavior="single">
         <item
             android:id="@+id/nav_home"
-            android:icon="@drawable/new_home"
+            android:icon="@drawable/ic_oui_home"
             android:title="@string/Home" />
         <item
             android:id="@+id/nav_contacts"
-            android:icon="@drawable/new_contact"
+            android:icon="@drawable/contact_page_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/Contact" />
         <item
             android:id="@+id/nav_all_contacts"
-            android:icon="@drawable/new_allccontacts"
+            android:icon="@drawable/groups_2_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/All_contacts" />
 
         <item
             android:id="@+id/nav_settings"
-            android:icon="@drawable/new_settings"
+            android:icon="@drawable/settings_account_box_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/menu_settings" />
+
+        <item
+            android:id="@+id/openAddNoteScreen"
+            android:icon="@drawable/book_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            android:title="@string/openAddNoteScreen" />
     </group>
+
     <!-- New "Add Contact" button -->
     <group android:checkableBehavior="single">
 
-    <item
-        android:id="@+id/nav_add_contact"
-        android:icon="@drawable/new_add_contact"
-        android:title="@string/add_contact" />
+
 
     <!-- New "Import Contacts" button -->
     <item
         android:id="@+id/nav_import_contacts"
-        android:icon="@drawable/new_import"
+        android:icon="@drawable/import_contacts_24dp_ffffff_fill1_wght400_grad0_opsz24"
         android:title="@string/Import_contacts" />
     <item
         android:id="@+id/action_search"
         android:title="Search"
-        android:icon="@drawable/new_search"
+        android:icon="@drawable/person_search_24dp_ffffff_fill1_wght400_grad0_opsz24"
         tools:ignore="HardcodedText" />
 
     </group>

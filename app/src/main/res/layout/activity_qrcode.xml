@@ -62,7 +62,7 @@
             android:layout_height="200dp"
             android:layout_gravity="center"
             android:contentDescription="@string/qrcode"
-            android:src="@drawable/bing_generated_qrcode" />
+            android:src="@drawable/appv172bing_generated_qrcode" />
     </com.google.android.material.card.MaterialCardView>
 
 

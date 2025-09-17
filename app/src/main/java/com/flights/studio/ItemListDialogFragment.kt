@@ -4,7 +4,6 @@ import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -14,6 +13,7 @@ import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.flights.studio.databinding.FragmentItemListDialogListDialogBinding
@@ -81,7 +81,8 @@ class ItemListDialogFragment : BottomSheetDialogFragment() {
         val snackbar = Snackbar.make(rootView, "Drive safely and stay focused.", Snackbar.LENGTH_LONG)
         snackbar.view.findViewById<TextView>(com.google.android.material.R.id.snackbar_text)?.setTextAppearance(R.style.SnackbarText)
         snackbar.setAction("Open Maps") {
-            val gmmIntentUri = Uri.parse("geo:43.603207,-110.736018?q=43.603207,-110.736018(Jackson Hole Airport)")
+            val gmmIntentUri =
+                "geo:43.603207,-110.736018?q=43.603207,-110.736018(Jackson Hole Airport)".toUri()
             val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
                 setPackage("com.google.android.apps.maps")
             }
@@ -99,11 +100,11 @@ class ItemListDialogFragment : BottomSheetDialogFragment() {
 
 
     private fun dialPhoneNumber(phoneNumber: String) {
-        startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phoneNumber")))
+        startActivity(Intent(Intent.ACTION_DIAL, "tel:$phoneNumber".toUri()))
     }
 
     private fun sendEmail(emailAddress: String) {
-        startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$emailAddress")))
+        startActivity(Intent(Intent.ACTION_SENDTO, "mailto:$emailAddress".toUri()))
     }
 
     private inner class ItemAdapter(private val items: List<String>, private val itemClick: (Int) -> Unit) : RecyclerView.Adapter<ItemAdapter.ViewHolder>() {

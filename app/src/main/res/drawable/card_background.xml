@@ -2,12 +2,13 @@
     <!-- Background layer -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@color/bottom_bar" />
+            <solid android:color="@color/box_qrcode" />
             <corners
                 android:topLeftRadius="12dp"
                 android:topRightRadius="12dp"
                 android:bottomLeftRadius="0dp"
                 android:bottomRightRadius="0dp" />
         </shape>
+
     </item>
 </layer-list>

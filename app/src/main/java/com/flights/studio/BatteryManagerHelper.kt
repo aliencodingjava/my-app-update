@@ -5,9 +5,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.util.Log
 
 class BatteryManagerHelper(private val context: Context) {
 
+    // Flag to track registration state
+    private var isReceiverRegistered = false
+
+    // Battery receiver
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
@@ -22,11 +27,27 @@ class BatteryManagerHelper(private val context: Context) {
     var onBatteryStatusUpdated: ((Int, Boolean) -> Unit)? = null
 
     fun startMonitoring() {
-        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        context.registerReceiver(batteryReceiver, filter)
+        if (!isReceiverRegistered) {
+            val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+            try {
+                context.registerReceiver(batteryReceiver, filter)
+                isReceiverRegistered = true
+                Log.d("BatteryManagerHelper", "Battery receiver registered")
+            } catch (e: Exception) {
+                Log.e("BatteryManagerHelper", "Error registering battery receiver: ${e.message}")
+            }
+        }
     }
 
     fun stopMonitoring() {
-        context.unregisterReceiver(batteryReceiver)
+        if (isReceiverRegistered) {
+            try {
+                context.unregisterReceiver(batteryReceiver)
+                Log.d("BatteryManagerHelper", "Battery receiver unregistered")
+            } catch (e: IllegalArgumentException) {
+                Log.e("BatteryManagerHelper", "Receiver not registered: ${e.message}")
+            }
+            isReceiverRegistered = false
+        }
     }
 }

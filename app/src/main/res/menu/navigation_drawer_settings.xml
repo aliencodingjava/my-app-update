@@ -7,40 +7,40 @@
 
         <item
             android:id="@+id/nav_home"
-            android:icon="@drawable/new_home"
+            android:icon="@drawable/ic_oui_home"
             android:title="@string/Home" />
 
         <item
             android:id="@+id/nav_contacts"
-            android:icon="@drawable/new_contact"
+            android:icon="@drawable/contact_page_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/Contact" />
 
 
         <!-- Search Button -->
         <item
             android:id="@+id/nav_search"
-            android:icon="@drawable/new_search"
+            android:icon="@drawable/action_key_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/search" />
         <item
             android:id="@+id/nav_settings"
-            android:icon="@drawable/new_settings"
+            android:icon="@drawable/settings_account_box_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/menu_settings" />
 
         <!-- QR Code Scanner -->
         <item
             android:id="@+id/nav_qr_code"
-            android:icon="@drawable/new_qrcode"
+            android:icon="@drawable/qr_code_2_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/qr_code" />
 
         <!-- Feedback -->
         <item
             android:id="@+id/nav_feedback"
-            android:icon="@drawable/new_feedback"
+            android:icon="@drawable/report_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/feedback" />
 
         <item
             android:id="@+id/nav_info"
-            android:icon="@drawable/new_info"
+            android:icon="@drawable/contact_emergency_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="@string/contact_info" />
 
     </group>

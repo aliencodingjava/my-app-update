@@ -13,38 +13,13 @@
         <item name="widgetLayout">@layout/preference_switch</item>
     </style>
 
-    <style name="PhotoTheme.Theme" parent="Base.Theme.Test">
-        <item name="android:statusBarColor">@color/lightPhotoStatusBarColor</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="bottomAppBarColor">@color/lightBottomAppBarColor</item>
-
-        <item name="sky_top">@color/day_sky_top</item>
-        <item name="sky_mid">@color/day_sky_mid</item>
-        <item name="atmosphere">@color/day_atmosphere</item>
-        <item name="mountain_high">@color/day_mountain_high</item>
-        <item name="mountain_mid">@color/day_mountain_mid</item>
-        <item name="mountain_low">@color/day_mountain_low</item>
-        <item name="foothills">@color/day_foothills</item>
-        <item name="ground_high">@color/day_ground_high</item>
-        <item name="ground_base">@color/day_ground_base</item>
-
-    </style>
 
     <style name="SplashTheme" parent="Base.Theme.Test">
         <item name="android:statusBarColor">@color/lightSplashStatusBarColor</item>
         <item name="colorButton">@color/button_color_light</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="bottomAppBarColor">@color/lightBottomAppBarColor</item>
         <item name="colorBox">@color/colorBoxLight</item>
-        <item name="sky_top">@color/day_sky_top</item>
-        <item name="sky_mid">@color/day_sky_mid</item>
-        <item name="atmosphere">@color/day_atmosphere</item>
-        <item name="mountain_high">@color/day_mountain_high</item>
-        <item name="mountain_mid">@color/day_mountain_mid</item>
-        <item name="mountain_low">@color/day_mountain_low</item>
-        <item name="foothills">@color/day_foothills</item>
-        <item name="ground_high">@color/day_ground_high</item>
-        <item name="ground_base">@color/day_ground_base</item>
 
     </style>
 
@@ -65,7 +40,6 @@
     <style name="Theme.Test" parent="Base.Theme.Test">
         <item name="bottomAppBarColor">@color/lightBottomAppBarColor</item>
         <item name="bottomNavigationColor">@color/lightBottomNavigationColor</item>
-        <item name="android:statusBarColor">@color/lightStatusBarColor</item>
 
 
     </style>
@@ -83,12 +57,17 @@
     </style>
 
     <style name="AllContactsActivity.Theme" parent="Base.Theme.Test">
-    <item name="android:textSize">14sp</item>
-    <item name="android:windowLightStatusBar">true</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:windowLightStatusBar">true</item>
 
 
     </style>
 
+    <style name="AllNotesActivity.Theme" parent="Base.Theme.Test">
+        <item name="android:textSize">12sp</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+    </style>
 
 
     <style name="modalstylenointernet" parent="Theme.Test">
@@ -100,24 +79,38 @@
         <item name="modalstyleclick">@color/modalstyleclickdark</item>
     </style>
 
+    <color name="colorOnSecondary">#FFFFFF</color>
 
     <color name="text_color_alert">#141218</color>
     <color name="message_color_alert">#141218</color>
-    <color name="box_alert_update">#FEF7FF</color>
+    <color name="box_alert_update">#FFFFFF</color>
+    <color name="note_selected">#FAD1D1</color>
+
     <color name="contacts_card">@color/white</color>
 
     <color name="box_qrcode">#EBEDEF</color>
+    <color name="box_timer_transparent">#90EBEDEF</color>
+
     <color name="box_contact_expand">#FFFFFF</color>
 
+    <color name="box_floating_bar">#0D1B2A</color>
+
+    <color name="glass_background">#AAFFFFFF</color>
+    <color name="glass_shadow">#66000000</color>
+    <color name="neon_blue">#00FFFF</color>
+    <color name="neon_red">#FF0033</color>
+    <color name="neon_green">#33FF00</color>
+    <color name="fab_ripple">#FFFF00</color>
 
     <color name="arrow_down">#81d4fa</color>
 
     <color name="selected_note_color">#80FFD700</color>
+    <color name="glass_blur_overlay">#80FFFFFF</color>
 
     <color name="item_card_day_night">#81d4fa</color>
     <color name="right_arrow">#FF32302A</color>
     <color name="bottom_bar">#81D4FA</color>
-    <color name="bottom_sheet">#81d4fa</color>
+    <color name="bottom_sheet">#E8F4FF</color>
     <color name="button_main_card">#CC81d4fa</color>
 
     <color name="ripple_Color">#FF32302A</color>
@@ -134,8 +127,13 @@
     <color name="ripple_color">#80FF5722</color>
     <color name="gray">#D3D3D3</color>
     <color name="soft_blue">#D0E8FF</color>  <!-- Light blue with a soft effect -->
+    <color name="Softer_white">#FFFFFF</color>
     <color name="soft_purple">#E0D1FF</color>  <!-- Light purple for smooth transition -->
-
+    <color name="soft_red">#FAD1D1</color>
+    <color name="enabled_tint">#FF0000</color> <!-- Example: Red -->
+    <color name="disabled_tint">#808080</color> <!-- Example: Gray -->
+    <color name="delete_icon_color">#D32F2F</color> <!-- A strong red -->
+    <color name="delete_icon_disabled_color">#BDBDBD</color> <!-- A gray for disabled state -->
 
 
     <style name="FullscreenContainer" parent="Theme.Test">
@@ -153,12 +151,12 @@
 
 
     <style name="OpenTheme" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">
+        <item name="android:windowSplashScreenAnimatedIcon">
             @drawable/windowsdayanimationicon
         </item>
         <item name="android:windowBackground">@android:color/white</item>
         <item name="android:windowFullscreen">false</item>
-        <item name="android:windowSplashScreenIconBackgroundColor" tools:targetApi="s">
+        <item name="android:windowSplashScreenIconBackgroundColor">
             @android:color/transparent
         </item>
         <item name="android:windowAnimationStyle">@null</item>
@@ -199,6 +197,7 @@
         <item name="strokeColor">@null</item> <!-- Ensure no stroke color is applied -->
         <item name="shapeAppearanceOverlay">@style/CustomShapeAppearance</item>
     </style>
+
     <style name="fab_set_Lic_pr_con" parent="Widget.MaterialComponents.FloatingActionButton">
         <item name="elevation">2dp</item>
         <item name="backgroundTint">@color/color_success</item>
@@ -259,15 +258,14 @@
     </style>
 
     <!-- Define a theme that uses the above style -->
-    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="cornerSize">12dp</item> <!-- Additional customization for the overlay -->
-
         <item name="materialCardViewStyle">@style/RoundedCardViewStyle</item>
     </style>
 
     <style name="CustomBottomSheetAnimation">
-        <item name="android:windowEnterAnimation">@anim/slide_in_bottom</item>
-        <item name="android:windowExitAnimation">@anim/slide_out_bottom</item>
+        <item name="android:windowEnterAnimation">@anim/zoom_in</item>
+        <item name="android:windowExitAnimation">@anim/zoom_out</item>
     </style>
 
     <color name="holo_yellow_light">#ffffcc00</color>
@@ -281,8 +279,8 @@
 
 
     <style name="Theme.Test.AppBarOverlay" parent="ThemeOverlay.AppCompat.DayNight.ActionBar">
-        <item name="android:background">@color/bottom_bar</item> <!-- Background color -->
-        <item name="colorPrimary">@color/bottom_bar</item> <!-- Background for Toolbar/AppBar -->
+        <item name="android:background">@color/box_qrcode</item> <!-- Background color -->
+        <item name="colorPrimary">@color/box_qrcode</item> <!-- Background for Toolbar/AppBar -->
         <item name="android:windowLightStatusBar">false</item>
 
     </style>
@@ -296,6 +294,7 @@
     <style name="TransparentBottomSheet" parent="Widget.Design.BottomSheet.Modal">
         <item name="android:background">@android:color/transparent</item>
     </style>
+
     <style name="CustomPreferenceStyle" parent="Preference">
         <item name="android:layout">@layout/custom_preference_item</item>
         <item name="android:selectable">false</item>
@@ -303,20 +302,22 @@
 
 
     <!-- Define custom style for contact text views -->
-    <style name="ContactItemText" parent="TextAppearance.AppCompat.Body1">
-        <item name="android:textSize">16sp</item>
+    <style name="ContactItemText" parent="Base.Theme.Test">
+        <item name="android:textSize">9sp</item>
         <item name="android:textColor">?attr/actionMenuTextColor</item>
         <item name="android:lineSpacingExtra">4dp</item>
         <item name="android:paddingBottom">4dp</item>
     </style>
 
     <!-- Style for smaller text (for email and address) -->
-    <style name="ContactItemTextSmall" parent="TextAppearance.AppCompat.Body2">
-        <item name="android:textSize">11sp</item> <!-- Smaller text size -->
+    <style name="ContactItemTextSmall" parent="Base.Theme.Test">
+        <item name="android:textSize">9sp</item> <!-- Smaller text size -->
         <item name="android:textColor">?attr/actionMenuTextColor</item>
-        <item name="android:lineSpacingExtra">2dp</item> <!-- Optional: Adjust line spacing for smaller text -->
+        <item name="android:lineSpacingExtra">2dp
+        </item> <!-- Optional: Adjust line spacing for smaller text -->
         <item name="android:paddingBottom">2dp</item> <!-- Optional: Reduce bottom padding -->
     </style>
+
 
     <!-- Style for contact item layout -->
     <style name="ContactItemLayout">
@@ -325,14 +326,12 @@
     </style>
 
 
-
     <style name="EditTextStyle" parent="Widget.MaterialComponents.TextInputEditText.OutlinedBox">
         <item name="android:textColor">?attr/actionMenuTextColor</item>
         <item name="android:textColorHint">#808080</item>
         <item name="android:textSize">16sp</item>
         <item name="android:padding">8dp</item>
     </style>
-
 
 
     <style name="TransparentDialog" parent="Theme.AppCompat.Light.Dialog.Alert">
@@ -357,9 +356,12 @@
         <item name="cornerSizeBottomLeft">0dp</item>
         <item name="cornerSizeBottomRight">0dp</item>
     </style>
+
     <style name="CustomBottomSheetDialog" parent="Theme.Design.Light.BottomSheetDialog">
-        <item name="android:windowExitAnimation">@anim/slide_down</item>  <!-- Define this animation in your anim resources -->
+        <item name="android:windowExitAnimation">@anim/slide_down
+        </item>  <!-- Define this animation in your anim resources -->
     </style>
+
     <style name="CustomSearchViewStyle" parent="Widget.AppCompat.SearchView">
         <!-- Customize background, icons, hint, etc. -->
         <item name="queryBackground">@drawable/custom_search_background</item>
@@ -367,6 +369,39 @@
         <item name="closeIcon">@drawable/ic_oui_close</item>
         <item name="queryHint">Search contacts...</item>
     </style>
+
+    <style name="CardGlowStyle">
+        <!-- Base color for the card -->
+        <item name="android:background">@drawable/card_background_shape</item>
+
+    </style>
+
+    <style name="Theme.YourApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your theme here -->
+    </style>
+    <color name="ios_circle_bg">#F2F2F7</color>
+    <color name="ios_pill_bg">#EDEDEF</color>
+    <color name="ios_pill_stroke">#26000000</color>  <!-- ~15% black -->
+    <color name="ios_icon">#6B6B6B</color>
+    <color name="ios_ripple">#1A000000</color>
+
+    <style name="Theme.Glass" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" >true</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar" >true</item>
+        <item name="android:enforceStatusBarContrast" >false</item>
+        <item name="android:enforceNavigationBarContrast" >false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" >always</item>
+    </style>
+
+    <style name="FadeActivityAnimation">
+        <item name="android:activityOpenEnterAnimation">@anim/fade_in</item>
+        <item name="android:activityOpenExitAnimation">@anim/fade_out</item>
+        <item name="android:activityCloseEnterAnimation">@anim/fade_in</item>
+        <item name="android:activityCloseExitAnimation">@anim/fade_out</item>
+    </style>
+
 
 
 </resources>

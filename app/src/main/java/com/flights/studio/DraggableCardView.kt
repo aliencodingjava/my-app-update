@@ -70,8 +70,8 @@ class DraggableCardView(context: Context, attrs: AttributeSet) : MaterialCardVie
 
     // Zoom-in effect: Scale the card up
     private fun zoomIn(v: android.view.View) {
-        val scaleX = 1.2f // 20% zoom in
-        val scaleY = 1.2f // 20% zoom in
+        val scaleX = 1.1f // 10% zoom in
+        val scaleY = 1.1f // 10% zoom in
         v.animate()
             .scaleX(scaleX)
             .scaleY(scaleY)

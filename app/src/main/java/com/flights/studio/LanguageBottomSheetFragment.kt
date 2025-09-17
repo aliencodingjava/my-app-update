@@ -1,3 +1,4 @@
+
 package com.flights.studio
 
 import android.os.Bundle
@@ -5,72 +6,57 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.RadioGroup
-import androidx.appcompat.app.AppCompatActivity
-import androidx.preference.PreferenceManager
+import com.flights.studio.ui.AppLanguageManager
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import java.util.Locale
+import com.google.android.material.button.MaterialButton
 
 class LanguageBottomSheetFragment : BottomSheetDialogFragment() {
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        return inflater.inflate(R.layout.bottom_sheet_language, container, false)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(
+            STYLE_NORMAL,
+            com.google.android.material.R.style.ThemeOverlay_Material3_BottomSheetDialog
+        )
     }
 
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View = inflater.inflate(R.layout.bottom_sheet_language, container, false)
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
         val radioGroup = view.findViewById<RadioGroup>(R.id.languageRadioGroup)
+        val confirmButton = view.findViewById<MaterialButton>(R.id.confirmButton)
 
-        // Ensure English is the default language
-        val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        val savedLanguage = sharedPreferences.getString("language", "en") ?: "en"
-
-        // Pre-select the saved language in the radio group
-        when (savedLanguage) {
+        when (AppLanguageManager.currentLanguageTag(requireContext())) {
             "en" -> radioGroup.check(R.id.radioEnglish)
             "es" -> radioGroup.check(R.id.radioSpanish)
         }
 
-        // Handle language selection
-        radioGroup.setOnCheckedChangeListener { _, checkedId ->
-            val selectedLanguage = when (checkedId) {
+        confirmButton.setOnClickListener {
+            val selected = when (radioGroup.checkedRadioButtonId) {
                 R.id.radioEnglish -> "en"
                 R.id.radioSpanish -> "es"
-                else -> "en"
+                else -> AppLanguageManager.DEFAULT_LANGUAGE_TAG
+            }
+            val current = AppLanguageManager.currentLanguageTag(requireContext())
+            if (selected == current) {
+                dismiss(); return@setOnClickListener
             }
 
-            // Save the selected language and apply changes
-            saveLanguage(selectedLanguage)
-            applyLocale(selectedLanguage)
-            dismiss()
+            // LanguageBottomSheetFragment (unchanged)
+            AppLanguageManager.persistLanguage(requireContext(), selected)
+
+            val fm = requireActivity().supportFragmentManager
+            fm.beginTransaction()
+                .replace(R.id.content_frame, SettingsFragment())
+                .commitNowAllowingStateLoss()
+
+            dismissAllowingStateLoss()
+            requireActivity().recreate()
+
+
         }
-    }
 
-    private fun saveLanguage(languageCode: String) {
-        // Save the selected language in SharedPreferences
-        val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        sharedPreferences.edit().putString("language", languageCode).apply()
-    }
-
-    private fun applyLocale(languageCode: String) {
-        val locale = Locale(languageCode)
-        Locale.setDefault(locale)
-
-        val activity = requireActivity() as AppCompatActivity
-
-        // Update the activity configuration with the new locale
-        val resources = activity.resources
-        val config = resources.configuration
-        config.setLocale(locale)
-        config.setLayoutDirection(locale)
-
-        activity.createConfigurationContext(config)
-
-        // Recreate the activity to fully apply the new language
-        activity.recreate()
     }
 }

@@ -1,12 +1,12 @@
 package com.flights.studio
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.net.toUri
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
@@ -28,7 +28,7 @@ class CallConfirmationBottomSheetFragment : BottomSheetDialogFragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View? {
         return inflater.inflate(R.layout.fragment_call_confirmation_bottom_sheet, container, false)
     }
@@ -36,32 +36,33 @@ class CallConfirmationBottomSheetFragment : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Access the FloatingActionButton using findViewById
         val fab = view.findViewById<FloatingActionButton>(R.id.btn_call)
-
-        val phoneNumber = arguments?.getString(PHONE_NUMBER_KEY) ?: return
-
-        // Set the text for the call message
-        view.findViewById<TextView>(R.id.call_message).text =
-            getString(R.string.confirm_call_message, phoneNumber)
-
-
         val btnCancel = view.findViewById<FloatingActionButton>(R.id.btn_cancel)
+        val phoneNumber = arguments?.getString(PHONE_NUMBER_KEY) ?: return
+        val messageView = view.findViewById<TextView>(R.id.call_message)
 
-        // Set up the onClick listener for the call button
+        // Dynamic message based on area code
+        val message = if (phoneNumber.startsWith("307")) {
+            "Do you want to call Jackson Hole Airport at $phoneNumber?"
+        } else {
+            getString(R.string.confirm_call_message, phoneNumber)
+        }
+
+        messageView.text = message
+
         fab.setOnClickListener {
             makePhoneCall(phoneNumber)
         }
 
-        // Set up the onClick listener for the cancel button
         btnCancel.setOnClickListener {
-            dismiss() // Close the bottom sheet
+            dismiss()
         }
     }
 
+
     private fun makePhoneCall(phoneNumber: String) {
         val intent = Intent(Intent.ACTION_DIAL).apply {
-            data = Uri.parse("tel:$phoneNumber")
+            data = "tel:$phoneNumber".toUri()
         }
         startActivity(intent)
         dismiss() // Optionally close the bottom sheet after making the call

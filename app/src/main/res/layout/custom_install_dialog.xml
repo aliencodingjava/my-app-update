@@ -20,7 +20,7 @@
         android:layout_marginBottom="2dp"
         android:layout_marginTop="5dp"
         app:strokeColor="@android:color/transparent"
-        android:backgroundTint="@color/bottom_bar"
+        android:backgroundTint="@color/box_alert_update"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -82,11 +82,11 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/button_cancel"
+            style="@style/Widget.Material3.Button.ElevatedButton"
             android:layout_width="0dp"
             android:layout_height="40dp"
             android:layout_weight="1"
             android:background="@drawable/btn_ripple"
-            android:backgroundTint="?attr/modalstyleclick"
             android:clickable="true"
             android:focusable="true"
             android:fontFamily="@font/my_custom_font"
@@ -103,11 +103,12 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/install"
+            style="@style/Widget.Material3.Button.ElevatedButton"
+            android:background="@drawable/btn_ripple"
             android:layout_width="0dp"
             android:layout_height="40dp"
             android:layout_weight="1"
-            android:background="@drawable/btn_ripple"
-            android:backgroundTint="?attr/modalstyleclick"
+            android:textColor="?android:attr/colorMultiSelectHighlight"
             android:clickable="true"
             android:focusable="true"
             android:paddingStart="0dp"

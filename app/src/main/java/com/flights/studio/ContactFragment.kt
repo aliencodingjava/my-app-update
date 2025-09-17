@@ -3,7 +3,6 @@ package com.flights.studio
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.drawable.LayerDrawable
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -14,6 +13,7 @@ import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import com.google.android.material.snackbar.Snackbar
@@ -36,7 +36,7 @@ class ContactFragment : PreferenceFragmentCompat() {
 
         findPreference<Preference>("email")?.setOnPreferenceClickListener {
             val email = "mailto:info@jhairport.org"
-            val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(email))
+            val emailIntent = Intent(Intent.ACTION_SENDTO, email.toUri())
             startActivity(emailIntent)
             true
         }
@@ -81,7 +81,8 @@ class ContactFragment : PreferenceFragmentCompat() {
 
             // Set the button click listener
             snackbarButton.setOnClickListener {
-                val gmmIntentUri = Uri.parse("geo:43.603207,-110.736018?q=43.603207,-110.736018(Jackson Hole Airport)")
+                val gmmIntentUri =
+                    "geo:43.603207,-110.736018?q=43.603207,-110.736018(Jackson Hole Airport)".toUri()
                 val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
                     setPackage("com.google.android.apps.maps")
                 }
@@ -114,7 +115,7 @@ class ContactFragment : PreferenceFragmentCompat() {
 
     private fun setClickListener(key: String, emailAddress: String) {
         findPreference<Preference>(key)?.setOnPreferenceClickListener {
-            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$emailAddress"))
+            val intent = Intent(Intent.ACTION_SENDTO, "mailto:$emailAddress".toUri())
             startActivity(intent)
             true
         }

@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
@@ -14,6 +15,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.core.text.HtmlCompat
 import androidx.preference.CheckBoxPreference
 import androidx.preference.Preference
@@ -44,7 +46,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
         applyIconBackgrounds()
 
     }
-
 
 
     private fun setupPreferenceListeners() {
@@ -126,14 +127,21 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
 
     private fun setupLanguagePreference() {
-        val languagePreference = findPreference<Preference>("language")
-        languagePreference?.setOnPreferenceClickListener {
-            val bottomSheet = LanguageBottomSheetFragment()
-            bottomSheet.show(parentFragmentManager, "LanguageBottomSheet")
+        // inside setupLanguagePreference()
+        findPreference<Preference>("language")?.setOnPreferenceClickListener {
+            LanguageBottomSheetFragment()
+                .show(requireActivity().supportFragmentManager, "LanguageBottomSheet")
             true
         }
+
     }
 
+    // in SettingsFragment
+    override fun onGetLayoutInflater(savedInstanceState: Bundle?): LayoutInflater {
+        val base = super.onGetLayoutInflater(savedInstanceState)
+        val lang = com.flights.studio.ui.AppLanguageManager.currentLanguageTag(base.context)
+        return base.cloneInContext(LocaleUtils.wrap(base.context, lang))
+    }
 
 
 
@@ -142,7 +150,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     private fun sendFeedbackEmail() {
         val mailto = "mailto:megan.jenkins@jhairport.org?subject=" + Uri.encode("User Experience Feedback for JH AirTracker")
-        val emailIntent = Intent(Intent.ACTION_VIEW, Uri.parse(mailto))
+        val emailIntent = Intent(Intent.ACTION_VIEW, mailto.toUri())
         try {
             startActivity(emailIntent)
         } catch (_: Exception) {
@@ -161,7 +169,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun shareApp() {
         val sendIntent = Intent().apply {
             action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, "0.2.150: https://tinyurl.com/2e8zrjw7")
+            putExtra(Intent.EXTRA_TEXT, "0.2.194: https://tinyurl.com/ydtxf7ad")
             type = "text/plain"
         }
         startActivity(Intent.createChooser(sendIntent, null))
@@ -182,24 +190,42 @@ class SettingsFragment : PreferenceFragmentCompat() {
         &#8211; <b>Previous Update:</b><br/>
         General improvements and enhancements.<br/><br/>
         
+        &#8211; <b>Introducing a New Color Palette System:</b><br/>
+        Customize your experience with themed palettes for cards, overlays, and action buttons — over 50 vibrant combinations to choose from.<br/><br/>
+
+        
+        &#8211; <b>Quick timer setup:</b><br/>
+        Type “calendar” or “clock” beneath any note to schedule a timer notification.<br/><br/>
+
+        
+        &#8211; <b>Redesigned Feedback:</b><br/>
+        Improved visual design and user experience.<br/><br/>
+        
+        &#8211; <b>Instant Ban/Unban Alerts:</b><br/>
+        Receive immediate updates when your feedback access is restricted or restored.<br/><br/>
+
+        &#8211; <b>Keep It Respectful:</b><br/>
+        Please ensure all feedback is constructive and courteous.<br/><br/>
+
+        
         &#8211; <b>Added Notes:</b><br/>
         A new section to capture and organize ideas.<br/><br/>
+        
+        &#8211; <b>under the notes you want to create timer notification:</b><br/>
+        just write calendar or clock under the notes you want to create timer notification.<br/><br/>
+        
+        &#8211; <b>Added Cards to home screen:</b><br/>
+        Quickly access activities in one place.<br/><br/>
         
         &#8211; <b>Added Contact:</b><br/>
         Quickly access contact details in one place.<br/><br/>
         
         &#8211; <b>Enhanced UI &amp; Animations:</b><br/>
         Improved design with smoother transitions.<br/><br/>
-        
-        &#8211; <b>New Color Palette:</b><br/>
-        Introduced a color picker and holo color options for better customization.<br/><br/>
     
         &#8211; <b>Optimized Performance:</b><br/>
         Faster loading times and reduced memory usage.<br/><br/>
-    
-        &#8211; <b>Updated Bottom Sheet Behavior:</b><br/>
-        Improved bottom sheet interactions with better usability.<br/><br/>
-        
+
         &#8211; <b>New Card Designs:</b><br/>
         Introduced dynamic expand/collapse functionality.<br/><br/>
         
@@ -209,10 +235,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
         &#8211; <b>Advanced Page Settings:</b><br/>
         New options for customizing your experience.<br/><br/>
         
-        &#8211; <b>Widget (Beta):</b><br/>
+        &#8211; <b>Widget:</b><br/>
         A quick-access widget for essential features.<br/><br/>
         
-        &#8211; <b>Redesigned Settings:</b><br/>
+        &#8211; <b>Redesigned the App:</b><br/>
         Improved layout and preferences for better customization.<br/><br/>
         
         &#8211; <b>Stability &amp; Performance:</b><br/>
@@ -220,9 +246,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
         
         &#8211; <b>Share Button:</b><br/>
         Added to contact cards for easier sharing.<br/><br/>
-        
-        &#8211; <b>Localization Expanded:</b><br/>
-        Added translation support for Spanish.<br/><br/>
         
         &#8211; <b>Countdown Timer:</b><br/>
         Added functionality to refresh images online.<br/><br/>
@@ -271,22 +294,27 @@ class SettingsFragment : PreferenceFragmentCompat() {
     }
 
     private fun showInitialAlertDialog() {
-        val context = requireContext()
-        val customLayout = layoutInflater.inflate(R.layout.custom_dialog_layout, null)
-        customLayout.findViewById<TextView>(R.id.Checking).setTextColor(ContextCompat.getColor(context, R.color.text_color_alert))
-        customLayout.findViewById<TextView>(R.id.checking_for_updates).setTextColor(ContextCompat.getColor(context, R.color.message_color_alert))
+        val ctx = requireActivity() // <- use Activity context / inflater
 
-        val dialogBuilder = AlertDialog.Builder(context)
-        dialogBuilder.setView(customLayout)
-        dialogBuilder.setCancelable(false)
+        // Inflate with the Activity's inflater so Material theme is present
+        val customLayout = ctx.layoutInflater.inflate(R.layout.custom_dialog_layout, null)
 
-        val alertDialog = dialogBuilder.create()
+        customLayout.findViewById<TextView>(R.id.Checking)
+            .setTextColor(ContextCompat.getColor(ctx, R.color.text_color_alert))
+        customLayout.findViewById<TextView>(R.id.checking_for_updates)
+            .setTextColor(ContextCompat.getColor(ctx, R.color.message_color_alert))
+
+        val alertDialog = AlertDialog.Builder(ctx)
+            .setView(customLayout)
+            .setCancelable(false)
+            .create()
+
         alertDialog.window?.setBackgroundDrawableResource(R.drawable.dialog_background)
         alertDialog.show()
 
-        (requireActivity() as? SettingsActivity)?.checkForUpdates(alertDialog)
-
+        (activity as? SettingsActivity)?.checkForUpdates(alertDialog)
     }
+
 
     private fun setIconBackground(preference: Preference?, drawableRes: Int) {
         preference?.icon?.let { icon ->
@@ -329,6 +357,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             category.isVisible = visibleCategories.contains(category)
         }
     }
+
 
     private fun setupChangelogReleaseDate() {
         val changelogPreference = findPreference<Preference>("changelog")

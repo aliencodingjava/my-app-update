@@ -1,339 +1,551 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="0dp"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_marginTop="2dp">
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardviewsplash"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="0dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp"
         app:layout_constraintTop_toTopOf="parent"
-        android:gravity="center_horizontal"
-        android:orientation="horizontal"
-        app:cardCornerRadius="0dp"
-        app:strokeColor="@color/transparent"
-        app:strokeWidth="0dp">
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_percent="0.75">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginTop="10dp"
-            android:backgroundTint="?android:attr/windowBackground"
-            android:padding="10dp">
+            android:background="@drawable/gradient_overlay"
+            android:padding="5dp">
 
-            <!-- Card 1 -->
-            <FrameLayout
-                android:id="@+id/card1Frame"
+            <!-- Existing Cards -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card1"
                 android:layout_width="0dp"
-                android:layout_height="125dp"
-                android:layout_margin="10dp"
-                android:layout_marginTop="10dp"
-                android:layout_marginEnd="0dp"
-                android:background="@drawable/checking_for_updates_backround"
-                android:elevation="0dp"
-                android:padding="2dp"
-                app:layout_constraintEnd_toStartOf="@+id/card2Frame"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp"
+                app:rippleColor="@color/material_yellow"
+                android:backgroundTint="@color/neon_red"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/card1"
+                app:layout_constraintEnd_toStartOf="@id/card2"
+                android:layout_margin="4dp">
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="92dp"
-                    android:transitionName="card_transition"
-                    app:cardBackgroundColor="?attr/colorButtonNormal"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="4dp"
-                    app:rippleColor="@color/material_yellow"
-                    app:strokeColor="@color/transparent"
-                    app:strokeWidth="0.1dp">
+                    android:layout_height="match_parent">
 
-                    <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:contentDescription="@string/image1"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/welcome" />
-                </com.google.android.material.card.MaterialCardView>
+                <!-- BLURRED BACKGROUND ONLY -->
+                <com.flights.studio.BlurCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:backgroundTint="@color/neon_red"
+                    app:strokeColor="@color/neon_blue"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="4dp"
+                    android:alpha="0.3" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="1.5"
+                    android:scaleY="1.5"
+                    android:tint="@color/neon_blue"
+                    android:src="@drawable/play_arrow_24dp_ffffff_fill1_wght400_grad0_opsz24" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom|center_horizontal"
-                    android:layout_marginBottom="1dp"
-                    android:elevation="1dp"
-                    android:gravity="center">
-
-                    <TextView
-                        android:id="@+id/welcome"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center|bottom"
-                        android:background="@drawable/text_card_background"
-                        android:drawablePadding="4dp"
-                        android:elevation="1dp"
-                        android:gravity="center"
-                        android:paddingHorizontal="10dp"
-                        android:paddingVertical="4dp"
-                        android:text="@string/card_1"
-                        android:textAlignment="center"
-                        android:textAppearance="@style/TextAppearance.Widget.SmallText"
-                        android:textColor="?attr/actionMenuTextColor"
-                        app:drawableStartCompat="@drawable/accessibility_new_16dp_ffffff_fill0_wght400_grad0_opsz20"
-                        tools:ignore="TextContrastCheck" />
-                </LinearLayout>
-            </FrameLayout>
-
-            <!-- Card 2 -->
-            <FrameLayout
-                android:id="@+id/card2Frame"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card2"
                 android:layout_width="0dp"
-                android:layout_height="125dp"
-                android:layout_margin="10dp"
-                android:layout_marginStart="0dp"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/checking_for_updates_backround"
-                android:padding="2dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:rippleColor="@color/material_yellow"
+                android:backgroundTint="@color/actionbarwebsitestandart"
+                app:strokeWidth="0dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@id/card1"
+                app:layout_constraintEnd_toStartOf="@id/card3"
+                android:layout_margin="4dp">
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                <!-- BLURRED BACKGROUND ONLY -->
+                <com.flights.studio.BlurCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:backgroundTint="@color/actionbarwebsitestandart"
+                    app:strokeColor="@color/neon_blue"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="4dp"
+                    android:alpha="0.3" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="1.2"
+                    android:scaleY="1.2"
+                    android:tint="@color/neon_blue"
+                    android:src="@drawable/ic_oui_news" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card3"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:rippleColor="@color/material_yellow"
+                android:backgroundTint="@color/actionbarwebsitestandart"
+                app:strokeWidth="0dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@id/card2"
+                app:layout_constraintEnd_toStartOf="@id/card4"
+                android:layout_margin="4dp">
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                <!-- BLURRED BACKGROUND ONLY -->
+                <com.flights.studio.BlurCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:backgroundTint="@color/actionbarwebsitestandart"
+
+                    app:strokeColor="@color/neon_blue"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="4dp"
+                    android:alpha="0.3" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:rotation="90"
+                    android:scaleX="1.2"
+                    android:scaleY="1.2"
+                    android:tint="@color/neon_blue"
+                    android:src="@drawable/flight_24dp_ffffff_fill0_wght400_grad0_opsz24" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card4"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:rippleColor="@color/material_yellow"
+                android:backgroundTint="@color/actionbarwebsitestandart"
+                app:strokeWidth="0dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@id/card3"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@+id/card1Frame"
-                app:layout_constraintTop_toTopOf="parent">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/card2"
+                android:layout_margin="4dp">
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="92dp"
-                    android:transitionName="card_transition"
-                    app:cardBackgroundColor="?attr/colorButtonNormal"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="4dp"
-                    app:rippleColor="@color/material_yellow"
-                    app:strokeColor="@color/transparent"
-                    app:strokeWidth="0.1dp">
+                    android:layout_height="match_parent">
 
-                    <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:contentDescription="@string/image2"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/inside" />
-                </com.google.android.material.card.MaterialCardView>
+                <!-- BLURRED BACKGROUND ONLY -->
+                <com.flights.studio.BlurCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:backgroundTint="@color/actionbarwebsitestandart"
+                    app:strokeColor="@color/neon_blue"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="4dp"
+                    android:alpha="0.3" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleX="1.2"
+                    android:scaleY="1.2"
+                    android:tint="@color/neon_blue"
+                    android:src="@drawable/travel_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                    android:scaleType="center"/>
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom|center_horizontal"
-                    android:layout_marginBottom="1dp"
-                    android:elevation="1dp"
-                    android:gravity="center">
-
-                    <androidx.appcompat.widget.AppCompatTextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="bottom|center_horizontal"
-                        android:background="@drawable/text_card_background"
-                        android:drawableStart="@drawable/brand_awareness_16dp_ffffff_fill0_wght400_grad0_opsz20"
-                        android:drawablePadding="6dp"
-                        android:elevation="1dp"
-                        android:gravity="center"
-                        android:paddingHorizontal="10dp"
-                        android:paddingVertical="3dp"
-                        android:text="@string/card_2"
-                        android:textAlignment="center"
-                        android:textAppearance="@style/TextAppearance.Widget.SmallText"
-                        android:textColor="?attr/actionMenuTextColor"
-                        app:fontFamily="@font/roboto_regular"
-                        tools:ignore="TextContrastCheck" />
-                </LinearLayout>
-            </FrameLayout>
-
-            <!-- Card 3 -->
-            <FrameLayout
-                android:id="@+id/card3Frame"
+            <!-- New Cards -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card5"
                 android:layout_width="0dp"
-                android:layout_height="125dp"
-                android:layout_margin="10dp"
-                android:layout_marginTop="64dp"
-                android:background="@drawable/checking_for_updates_backround"
-                android:padding="2dp"
-                app:layout_constraintEnd_toStartOf="@+id/card4Frame"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:rippleColor="@color/material_yellow"
+                android:backgroundTint="@color/actionbarwebsitebluelight"
+                app:strokeWidth="0dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card1"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/card1Frame">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/card3"
+                app:layout_constraintEnd_toStartOf="@id/card6"
+                android:layout_margin="4dp">
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="92dp"
-                    android:transitionName="card_transition"
-                    app:cardBackgroundColor="?attr/colorButtonNormal"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="4dp"
-                    app:rippleColor="@color/material_yellow"
-                    app:strokeColor="@color/transparent"
-                    app:strokeWidth="0.1dp">
+                    android:layout_height="match_parent">
 
-                    <ImageView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_horizontal"
-                        android:layout_marginTop="5dp"
-                        android:background="@drawable/ic_oui_airplane_mode"
-                        android:backgroundTint="@color/white"
-                        android:contentDescription="@string/thelitleairplane"
-                        android:elevation="4dp"
-                        android:rotation="50"
-                        android:scaleX="0.8"
-                        android:scaleY="0.8"
-                        tools:ignore="ImageContrastCheck">
+                <!-- BLURRED BACKGROUND ONLY -->
+                <com.flights.studio.BlurCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:backgroundTint="@color/actionbarwebsiteBlue"
+                    app:strokeColor="@color/neon_blue"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="4dp"
+                    android:alpha="0.3" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="1.2"
+                    android:scaleY="1.2"
+                    android:tint="@color/neon_blue"
+                    android:src="@drawable/ic_oui_qr_code" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                    </ImageView>
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_vertical|center_horizontal"
-                        android:layout_marginTop="0dp"
-                        android:layout_marginBottom="15dp"
-                        android:elevation="5dp"
-                        android:focusable="true"
-                        android:fontFamily="@font/montecarlo_regular"
-                        android:gravity="center_horizontal"
-                        android:importantForAccessibility="yes"
-                        android:shadowColor="@color/cameraBackgroundDay"
-                        android:shadowDx="2"
-                        android:shadowDy="2"
-                        android:shadowRadius="3"
-                        android:text="@string/Experience"
-                        android:textAlignment="center"
-                        android:textColor="@color/white"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:transitionName="adventureText">
-
-                    </TextView>
-
-                    <TextView
-                        android:id="@+id/adventure_text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_vertical|center_horizontal"
-                        android:layout_marginTop="10dp"
-                        android:elevation="5dp"
-                        android:fontFamily="@font/fjordfont"
-                        android:gravity="center_horizontal"
-                        android:importantForAccessibility="yes"
-                        android:shadowColor="@color/cameraBackgroundDay"
-                        android:shadowDx="2"
-                        android:shadowDy="2"
-                        android:shadowRadius="3"
-                        android:text="@string/adventure"
-                        android:textAlignment="center"
-                        android:textColor="@color/white"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:transitionName="adventureText">
-
-                    </TextView>
-
-                    <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:contentDescription="@string/image3"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/frontairport" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom|center_horizontal"
-                    android:layout_marginBottom="1dp"
-                    android:elevation="1dp"
-                    android:gravity="center">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="bottom|center_horizontal"
-                        android:background="@drawable/text_card_background"
-                        android:drawablePadding="4dp"
-                        android:elevation="1dp"
-                        android:gravity="center"
-                        android:paddingHorizontal="10dp"
-                        android:paddingVertical="4dp"
-                        android:text="@string/flights"
-                        android:textAlignment="center"
-                        android:textAppearance="@style/TextAppearance.Widget.SmallText"
-                        android:textColor="?attr/actionMenuTextColor"
-                        app:drawableStartCompat="@drawable/travel_16dp_ffffff_fill0_wght400_grad0_opsz20"
-                        tools:ignore="TextContrastCheck" />
-                </LinearLayout>
-            </FrameLayout>
-
-            <!-- Card 4 -->
-            <FrameLayout
-                android:id="@+id/card4Frame"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card6"
                 android:layout_width="0dp"
-                android:layout_height="125dp"
-                android:layout_margin="10dp"
-                android:layout_marginStart="0dp"
-                android:layout_marginTop="40dp"
-                android:background="@drawable/checking_for_updates_backround"
-                android:padding="2dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@+id/card3Frame"
-                app:layout_constraintTop_toBottomOf="@+id/card2Frame">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/card4"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:rippleColor="@color/material_yellow"
+                android:backgroundTint="@color/night_foothills"
+                app:strokeWidth="0dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card2"
+                app:layout_constraintStart_toEndOf="@id/card5"
+                app:layout_constraintEnd_toStartOf="@id/card7"
+                android:layout_margin="4dp">
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="92dp"
-                    android:transitionName="card_transition"
-                    app:cardBackgroundColor="?attr/colorButtonNormal"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="4dp"
-                    app:rippleColor="@color/material_yellow"
-                    app:strokeColor="@color/transparent"
-                    app:strokeWidth="0.1dp">
+                    android:layout_height="match_parent">
 
-                    <ImageView
+                <!-- BLURRED BACKGROUND ONLY -->
+                <com.flights.studio.BlurCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:backgroundTint="@color/night_foothills"
+                    app:strokeColor="@color/neon_blue"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="4dp"
+                    android:alpha="0.3" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="1.2"
+                    android:scaleY="1.2"
+                    android:tint="@color/neon_blue"
+                    android:src="@drawable/settings_account_box_24dp_ffffff_fill1_wght400_grad0_opsz24" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card7"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp"
+                app:rippleColor="@color/material_yellow"
+                app:cardBackgroundColor="@color/color_ok_update_alert"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card3"
+                app:layout_constraintStart_toEndOf="@id/card6"
+                app:layout_constraintEnd_toStartOf="@id/card8"
+                android:layout_margin="4dp">
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                <!-- BLURRED BACKGROUND ONLY -->
+                <com.flights.studio.BlurCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:backgroundTint="@color/color_ok_update_alert"
+                    app:strokeColor="@color/neon_blue"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="4dp"
+                    android:alpha="0.3" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="1.2"
+                    android:scaleY="1.2"
+                    android:tint="@color/neon_blue"
+                    android:src="@drawable/groups_2_24dp_ffffff_fill1_wght400_grad0_opsz24" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card8"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:rippleColor="@color/material_yellow"
+                app:cardBackgroundColor="@color/color_ok_update_alert"
+                app:strokeWidth="0dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card4"
+                app:layout_constraintStart_toEndOf="@id/card7"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_margin="4dp">
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                <!-- BLURRED BACKGROUND ONLY -->
+                <com.flights.studio.BlurCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:backgroundTint="@color/color_ok_update_alert"
+                    app:strokeColor="@color/neon_blue"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="4dp"
+                    android:alpha="0.3" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleX="1.2"
+                    android:scaleY="1.2"
+                    android:tint="@color/neon_blue"
+                    android:src="@drawable/book_24dp_ffffff_fill1_wght400_grad0_opsz24"
+                    android:scaleType="center"/>
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+
+            <!-- Top Row (New) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card13"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                android:backgroundTint="@color/box_qrcode"
+                app:strokeWidth="3dp"
+                app:strokeColor="@color/neon_blue"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card9"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/card14"
+                android:layout_margin="4dp">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="0.5"
+                    android:scaleY="0.5"
+                    android:src="@drawable/fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card14"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                android:backgroundTint="@color/box_qrcode"
+                app:strokeWidth="3dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card10"
+                app:layout_constraintStart_toEndOf="@id/card13"
+                app:layout_constraintEnd_toStartOf="@id/card15"
+                android:layout_margin="4dp">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="0.5"
+                    android:scaleY="0.5"
+                    android:src="@drawable/fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card15"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                android:backgroundTint="@color/box_qrcode"
+                app:strokeWidth="3dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card11"
+                app:layout_constraintStart_toEndOf="@id/card14"
+                app:layout_constraintEnd_toStartOf="@id/card16"
+                android:layout_margin="4dp">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="0.5"
+                    android:scaleY="0.5"
+                    android:src="@drawable/fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card16"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                android:backgroundTint="@color/box_qrcode"
+                app:strokeWidth="3dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card12"
+                app:layout_constraintStart_toEndOf="@id/card15"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_margin="4dp">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="0.5"
+                    android:scaleY="0.5"
+                    android:src="@drawable/fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card9"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_margin="4dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                app:strokeWidth="0dp"
+                android:backgroundTint="@color/box_floating_bar"
+                app:rippleColor="@color/material_yellow"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card5"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/card10">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <!-- BLURRED BACKGROUND ONLY -->
+                    <com.flights.studio.BlurCardView
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:contentDescription="@string/image4"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/airport" />
-                </com.google.android.material.card.MaterialCardView>
+                        android:backgroundTint="@color/box_floating_bar"
+                        app:strokeColor="@color/neon_blue"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="4dp"
+                        android:alpha="0.3" />
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="bottom|center_horizontal"
-                    android:layout_marginBottom="1dp"
-                    android:elevation="1dp"
-                    android:gravity="center">
+                    <!-- SHARP FOREGROUND -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="vertical"
+                        android:gravity="center">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center|bottom|center_horizontal"
-                        android:background="@drawable/text_card_background"
-                        android:drawablePadding="10dp"
-                        android:elevation="1dp"
-                        android:gravity="center"
-                        android:paddingHorizontal="15dp"
-                        android:paddingVertical="4dp"
-                        android:text="@string/card_4"
-                        android:textAppearance="@style/TextAppearance.Widget.SmallText"
-                        android:textColor="?attr/actionMenuTextColor"
-                        app:drawableStartCompat="@drawable/travel_16dp_ffffff_fill0_wght400_grad0_opsz20"
-                        tools:ignore="TextContrastCheck" />
-                </LinearLayout>
-            </FrameLayout>
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:id="@+id/icon_inside_card9"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:scaleType="center"
+                            android:tint="@color/neon_blue"
+                            android:src="@drawable/account_circle_24dp_ffffff_fill1_profile" />
+
+                        <TextView
+                            android:id="@+id/text_inside_card9"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="-5dp"
+                            android:text="@string/title_my_profile"
+                            android:textSize="11sp"
+                            android:textColor="@android:color/white"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card10"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                android:backgroundTint="@color/box_qrcode"
+                app:strokeWidth="3dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card6"
+                app:layout_constraintStart_toEndOf="@id/card9"
+                app:layout_constraintEnd_toStartOf="@id/card11"
+                android:layout_margin="4dp">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="0.5"
+                    android:scaleY="0.5"
+                    android:src="@drawable/fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card11"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                android:backgroundTint="@color/box_qrcode"
+                app:strokeWidth="3dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card7"
+                app:layout_constraintStart_toEndOf="@id/card10"
+                app:layout_constraintEnd_toStartOf="@id/card12"
+                android:layout_margin="4dp">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="0.5"
+                    android:scaleY="0.5"
+                    android:src="@drawable/fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card12"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp"
+                android:backgroundTint="@color/box_qrcode"
+                app:strokeWidth="3dp"
+                app:layout_constraintHeight_percent="0.2"
+                app:layout_constraintBottom_toTopOf="@id/card8"
+                app:layout_constraintStart_toEndOf="@id/card11"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_margin="4dp">
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="center"
+                    android:scaleX="0.5"
+                    android:scaleY="0.5"
+                    android:src="@drawable/fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24" />
+            </com.google.android.material.card.MaterialCardView>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-
     </com.google.android.material.card.MaterialCardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

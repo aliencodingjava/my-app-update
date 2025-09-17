@@ -1,7 +1,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_backround"
+    android:background="@drawable/glassmorphism_background"
     android:orientation="vertical">
 
     <!-- Title Layout -->
@@ -9,11 +9,12 @@
 
     <!-- Your existing RelativeLayout with ListView -->
     <RelativeLayout
-        android:background="@drawable/widget_backround"
         style="@style/Widget.Test.AppWidget.Container"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:background="@drawable/bg_card_glass"
+
         android:theme="@style/Theme.Test.AppWidgetContainer">
 
         <ListView
@@ -23,7 +24,6 @@
             android:layout_margin="8dp"
             android:divider="@android:color/transparent"
             android:dividerHeight="8dp"
-            android:padding="8dp"
-            android:background="@android:color/transparent" />
+            android:padding="8dp" />
     </RelativeLayout>
 </LinearLayout>

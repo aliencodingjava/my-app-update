@@ -1,5 +1,4 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Background layer (Battery outline) -->
     <item>
         <shape android:shape="rectangle">
             <size android:width="40dp" android:height="20dp"/> <!-- Set the full size of the drawable to 16dp by 16dp -->
@@ -8,12 +7,11 @@
         </shape>
     </item>
 
-    <!-- Foreground layer (Battery fill) -->
     <item android:id="@id/fill">
         <clip android:clipOrientation="horizontal" android:gravity="left">
             <shape android:shape="rectangle">
                 <size
-                    android:width="25dp"/>
+                    android:width="0dp"/>
                 android:height="2dp"/>
                 <solid android:color="#FFFFFF"/> <!-- White fill color -->
                 <corners android:radius="30dp"/> <!-- Rounded corners -->

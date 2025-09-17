@@ -2,95 +2,82 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    xmlns:tools="http://schemas.android.com/tools"
     android:fitsSystemWindows="true"
-    android:background="@color/bottom_bar"
+    android:elevation="1dp"
+    android:background="@color/box_qrcode"
     android:layout_height="match_parent">
 
-    <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/app_bar"
-        app:logo="@drawable/contact_logo_topbar"
-        android:layout_width="match_parent"
-        android:background="@color/bottom_bar"
-
-        android:layout_height="@dimen/app_bar_height"
-        app:layout_scrollFlags="scroll|enterAlways|snap">
-
-
-    <com.google.android.material.appbar.CollapsingToolbarLayout
-        android:id="@+id/toolbar_layout"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:elevation="5dp"
-        app:collapsedTitleTextAppearance="@style/TextAppearance.MaterialComponents.Headline5"
-        android:background="@color/bottom_bar"
-        app:expandedTitleGravity="center"
-        app:expandedTitleTextAppearance="@style/TextAppearance.MaterialComponents.Headline4"
-        app:layout_scrollFlags="scroll|exitUntilCollapsed|snap"
-        app:title="@string/All_Notes"
-        app:titleCollapseMode="scale"
-
-        app:toolbarId="@+id/toolbar">
-    <!-- App Bar -->
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:elevation="4dp"
-        app:layout_collapseMode="pin"
-        app:contentScrim="@color/bottom_bar"
-        >
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/logo"
-        style="@style/fab_set_Lic_pr_con"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="@dimen/fab_margin"
-        android:contentDescription="@string/toolbar_logo"
-        app:fabCustomSize="40dp"
-        app:backgroundTint="?attr/colorControlActivated"
-        app:layout_anchorGravity="center|start"
-        app:srcCompat="@drawable/ic_oui_notes"
-        tools:ignore="ImageContrastCheck,DuplicateSpeakableTextCheck" />
-    </com.google.android.material.appbar.MaterialToolbar>
-    </com.google.android.material.appbar.CollapsingToolbarLayout>
-
-    </com.google.android.material.appbar.AppBarLayout>
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:cardElevation="0dp"
         app:strokeWidth="0dp"
-       android:layout_marginStart="3dp"
-        android:layout_marginEnd="3dp"
-        app:cardCornerRadius="1dp"
-        android:backgroundTint="?attr/colorControlHighlight"
+        android:layout_marginTop="0dp"
+       android:layout_marginStart="80dp"
+        android:layout_marginEnd="5dp"
+        android:layout_marginBottom="5dp"
+        app:cardCornerRadius="12dp"
+        android:backgroundTint="@color/box_qrcode"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
     <!-- Notes List -->
+        <TextView
+            android:id="@+id/empty_note_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/add_your_first_note"
+            android:textSize="20sp"
+            android:fontFamily="@font/roboto_slab_extra_bold"
+            android:textColor="?attr/actionMenuTextColor"
+            android:backgroundTint="@android:color/transparent"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="78dp"
+            android:visibility="visible" />
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_notes"
-
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="0dp"
         android:paddingStart="3dp"
         android:paddingEnd="3dp"
-        android:background="@android:color/transparent"
+        android:paddingBottom="0dp"
+        android:layout_marginBottom="0dp" />
 
-        />
+
     </com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.navigationrail.NavigationRailView
+        android:id="@+id/navigation_rail"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        app:itemTextColor="?attr/actionMenuTextColor"
+        app:menu="@menu/navigation_drawer_all_notes"
+        app:labelVisibilityMode="unlabeled"
+        app:itemIconSize="30dp"
+        android:keyboardNavigationCluster="true"
+        android:keepScreenOn="true"
+        app:fastScrollEnabled="true"
+        android:contentDescription="@string/nav_header_desc"
+        android:soundEffectsEnabled="true"
+        android:background="@color/box_qrcode"
+        app:itemTextAppearanceActive="@style/SmallTextAppearanceActive"
+        app:itemTextAppearanceInactive="@style/SmallTextAppearanceInactive"/>
 
-    <!-- Floating Action Button -->
+
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
-        style="@style/Widget.MaterialComponents.FloatingActionButton"
+        style="@style/ShapeAppearanceOverlay.Material3.FloatingActionButton"
         android:id="@+id/fab_add_note"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
+        android:backgroundTint="@color/box_contact_expand"
         android:contentDescription="@string/add_note"
-        app:srcCompat="@drawable/ic_oui_compose_edit"
-        app:backgroundTint="?attr/colorControlActivated" />
+        app:tint="@color/red"
+        app:elevation="2dp"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="12dp"
+        android:layout_marginBottom="70dp"
+        app:srcCompat="@drawable/add_notes_24dp_ffffff_fill1_wght400_grad0_opsz24" />
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>

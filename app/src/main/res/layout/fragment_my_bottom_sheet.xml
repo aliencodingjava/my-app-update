@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/rounded_newbottomsheet_flat_bottom"
     android:gravity="center_horizontal"
     android:orientation="horizontal"
     android:paddingBottom="0dp"
@@ -34,6 +34,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="20dp"
+        android:backgroundTint="@color/box_qrcode"
+        android:background="@drawable/frame_background"
         android:gravity="center_horizontal"
         tools:context=".YourActivity">
 
@@ -119,7 +121,7 @@
         android:layout_height="match_parent"
         android:layout_marginTop="99dp"
         android:layout_marginBottom="0dp"
-        android:background="@color/bottom_bar"
+        android:background="@color/box_qrcode"
         android:nestedScrollingEnabled="true"
         android:overScrollMode="ifContentScrolls">
 
@@ -134,14 +136,11 @@
         <androidx.appcompat.widget.AppCompatTextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/bottom_bar"
-            android:fontFamily="@font/fjordfont"
+            android:background="@color/box_qrcode"
+            android:fontFamily="@font/merri_weather_sans_italic_variable_font_wght"
             android:gravity="center_horizontal"
             android:orientation="horizontal"
-            android:shadowColor="@color/cameraBackgroundDay"
-            android:shadowDx="2"
-            android:shadowDy="2"
-            android:shadowRadius="3"
+            android:textSize="16sp"
             android:text="Teton Mountain: A Majestic Landmark"
             android:textColor="?attr/actionMenuTextColor"
             tools:ignore="HardcodedText">

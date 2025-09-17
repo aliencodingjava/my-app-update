@@ -7,7 +7,7 @@
     tools:ignore="VectorRaster">
   <path
       android:pathData="M0,0h1000v1900h-1000z"
-      android:fillColor="@color/bottom_bar"/>
+      android:fillColor="@color/box_qrcode"/>
   <path
       android:pathData="M0,1128L143,1314L286,1396L429,1296L571,1370L714,1373L857,1328L1000,1135L1000,1901L857,1901L714,1901L571,1901L429,1901L286,1901L143,1901L0,1901Z"
       android:fillColor="#871400"/>

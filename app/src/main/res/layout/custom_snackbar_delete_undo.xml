@@ -1,22 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/custom_snackbar_layout"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:elevation="6dp"
+    android:background="@color/box_alert_update"
+    android:elevation="0dp"
+    android:layout_margin="0dp"
     android:padding="0dp">
+<androidx.appcompat.widget.LinearLayoutCompat
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:elevation="0dp"
+    android:layout_margin="0dp"
+    android:padding="0dp"
+    android:layout_gravity="center_horizontal|center_vertical">
 
     <TextView
         android:id="@+id/snackbar_text"
         android:layout_width="0dp"
         android:layout_weight="1"
+        android:maxLines="1"
         android:layout_height="wrap_content"
-        android:text="0 contacts deleted"
+        android:text="0 removed"
         android:layout_marginStart="8dp"
-        android:textColor="@color/black"
+        android:textColor="?attr/colorAccent"
         android:textSize="14sp"
         tools:ignore="HardcodedText" />
 
@@ -26,22 +37,26 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/undo"
+        android:textColor="?attr/colorAccent"
+
         app:rippleColor="@color/material_yellow"
         app:icon="@drawable/ic_oui_undo"
-        app:iconTint="@color/black"
-        android:textSize="12sp"
-        android:textColor="@color/black" />
+        app:iconTint="?attr/colorAccent"
+        android:textSize="12sp" />
 
     <com.google.android.material.button.MaterialButton
-        style="@style/Widget.AppCompat.Button.Borderless"
         android:id="@+id/btn_delete"
+        style="@style/Widget.AppCompat.Button.Borderless"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
         android:text="@string/delete"
-        app:rippleColor="@color/material_yellow"
+        android:textColor="@color/red"
         android:textSize="12sp"
         app:icon="@drawable/ic_oui_delete"
         app:iconTint="@color/red"
-        android:textColor="@color/red"
-        android:layout_marginStart="8dp"/>
-</LinearLayout>
+        app:rippleColor="@color/material_yellow"
+        tools:ignore="TextContrastCheck" />
+</androidx.appcompat.widget.LinearLayoutCompat>
+
+</FrameLayout>

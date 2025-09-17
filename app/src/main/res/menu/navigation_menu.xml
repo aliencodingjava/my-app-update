@@ -1,7 +1,10 @@
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <!-- Title for the first section -->
     <group android:id="@+id/group1" android:title="@string/main_section">
+
+
         <item
             android:id="@+id/nav_welcome"
             android:title="@string/welcome"

@@ -1,36 +1,109 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/bottom_sheet_background"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="24dp"
+    tools:context=".LanguageBottomSheetFragment">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/select_language"
-        android:textAppearance="?attr/textAppearanceHeadline6"
-        android:layout_gravity="center_horizontal"
-        android:paddingBottom="16dp" />
-
-    <RadioGroup
-        android:id="@+id/languageRadioGroup"
+    <!-- Title with modern text appearance -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="horizontal"
+        android:gravity="center">
 
-        <RadioButton
-            android:id="@+id/radioEnglish"
-            android:layout_width="wrap_content"
+        <androidx.appcompat.widget.AppCompatImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:tint="?android:attr/colorForeground"
+            android:src="@drawable/language_24dp_ffffff_fill0_wght400_grad0_opsz24"
+            android:layout_marginEnd="8dp"/>
+
+        <com.google.android.material.textview.MaterialTextView
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="@string/english" />
+            android:layout_weight="1"
+            android:text="@string/select_language"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="?android:textColorPrimary"
+            android:gravity="center"
+            android:paddingBottom="5dp"/>
+    </LinearLayout>
 
-        <RadioButton
-            android:id="@+id/radioSpanish"
-            android:layout_width="wrap_content"
+
+    <!-- Language selection with radio buttons -->
+    <androidx.appcompat.widget.LinearLayoutCompat
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="50dp"
+        android:layout_gravity="center_horizontal"
+        android:spacing="0dp">
+
+        <RadioGroup
+
+            android:id="@+id/languageRadioGroup"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/spanish" />
+            android:orientation="vertical"
+            android:layout_gravity="center_horizontal">
 
-    </RadioGroup>
-</LinearLayout>
+            <com.google.android.material.radiobutton.MaterialRadioButton
+                android:id="@+id/radioEnglish"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/english"
+                android:textColor="?android:textColorPrimary"
+                app:icon="@drawable/language_us_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                app:buttonTint="?android:attr/colorForeground"
+                android:background="@drawable/btn_ripple"
+                android:padding="12dp"
+                android:textSize="16sp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp"
+                android:drawableStart="@drawable/language_us_16dp_ffffff_fill0_wght400_grad0_opsz20" />
+
+            <com.google.android.material.radiobutton.MaterialRadioButton
+                android:id="@+id/radioSpanish"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/spanish"
+                android:textColor="?android:textColorPrimary"
+                app:icon="@drawable/language_spanish_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                app:buttonTint="?android:attr/colorForeground"
+                android:background="@drawable/btn_ripple"
+                android:padding="12dp"
+                android:textSize="16sp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp"
+
+                android:drawableStart="@drawable/language_spanish_16dp_ffffff_fill0_wght400_grad0_opsz20" />
+
+        </RadioGroup>
+    </androidx.appcompat.widget.LinearLayoutCompat>
+
+    <!-- Modern Material Button to confirm language selection -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/confirmButton"
+        style="@style/Widget.Material3.Button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_marginTop="190dp"
+        app:background="@drawable/btn_ripple"
+        app:backgroundTint="@color/box_alert_update"
+        android:textStyle="normal"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:text="@string/confirm"
+        android:textAllCaps="true"
+        android:textColor="?attr/actionMenuTextColor"
+        app:cornerRadius="16dp"
+        app:elevation="9dp" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

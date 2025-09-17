@@ -3,7 +3,11 @@ package com.flights.studio
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.ActivityOptions
+import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -14,11 +18,18 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.ScaleAnimation
+import android.widget.ImageView
 import android.widget.LinearLayout
+import androidx.core.view.isGone
+import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import com.flights.studio.databinding.FragmentMyBottomSheetBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.card.MaterialCardView
+import java.io.File
+import java.io.FileOutputStream
 
 class CustomBottomSheetFooter : BottomSheetDialogFragment() {
 
@@ -27,10 +38,9 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        savedInstanceState: Bundle?,
     ): View {
         _binding = FragmentMyBottomSheetBinding.inflate(inflater, container, false)
-        setupBottomSheet()
         return binding.root
     }
 
@@ -129,6 +139,8 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
 
     override fun onStart() {
         super.onStart()
+        setupBottomSheet()
+
         setupDialogProperties()
     }
 
@@ -175,7 +187,7 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
     private fun dpToPx(): Int {
         return TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
-            80f,
+            95f,
             resources.displayMetrics
         ).toInt()
     }
@@ -201,71 +213,141 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
             includedLayout.findViewById<MaterialCardView>(R.id.cardView6),
             includedLayout.findViewById<MaterialCardView>(R.id.cardView7),
             includedLayout.findViewById<MaterialCardView>(R.id.cardView8),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView9)
+            includedLayout.findViewById<MaterialCardView>(R.id.cardView9),
+            includedLayout.findViewById<MaterialCardView>(R.id.cardView10),
+            includedLayout.findViewById<MaterialCardView>(R.id.cardView11),
+            includedLayout.findViewById<MaterialCardView>(R.id.cardView12)
         )
 
-        cardViews.forEach { cardView ->
+        val imageNames = listOf(
+            "airport.jpg",
+            "entrance.jpg",
+            "frontairport.jpg",
+            "thehorse.jpg",
+            "front.jpg",
+            "indiansleeping1.jpg",
+            "inside.jpg",
+            "outside.jpg",
+            "photojack_1.jpg",
+            "photojack_2.jpg",
+            "terminalinside.jpg",
+            "20221115_153340.jpg"
+        )
+
+
+
+        val supabaseBaseUrl = "https://gdvhiudodnqdqhkyghsk.supabase.co/storage/v1/object/public/carousel-photos"
+
+        cardViews.forEachIndexed { index, cardView ->
+            val imageName = imageNames.getOrNull(index) ?: return@forEachIndexed
+            val imageUrl = "$supabaseBaseUrl/$imageName"
+
+            // ✅ THIS IS THE KEY FIX — get the ImageView INSIDE the card
+            val imageView = cardView.findViewById<ImageView>(imageViewIds[index])
+            loadOrDownloadCardBackground(requireContext(), imageView, imageName, imageUrl)
+
             cardView.setOnClickListener {
                 val moreInfoLayout = cardView.findViewById<LinearLayout>(R.id.moreInfoLayout)
                 val card2MoreInfoLayout = cardView.findViewById<LinearLayout>(R.id.card2moreInfoLayout)
                 val card3MoreInfoLayout = cardView.findViewById<LinearLayout>(R.id.card3moreInfoLayout)
                 val card4MoreInfoLayout = cardView.findViewById<LinearLayout>(R.id.card4moreInfoLayout)
 
-
-
-                // Toggle between expanded and collapsed states
                 val currentHeight = cardView.layoutParams.height
-                val newHeight = if (currentHeight == dpToPxForCard(70)) {
-                    dpToPxForCard(300) // Expand to 300dp
-                } else {
-                    dpToPxForCard(70) // Collapse back to 70dp
+                val newHeight = if (currentHeight == dpToPxForCard(70)) dpToPxForCard(300) else dpToPxForCard(70)
+
+                ValueAnimator.ofInt(currentHeight, newHeight).apply {
+                    duration = 300
+                    addUpdateListener {
+                        cardView.layoutParams.height = it.animatedValue as Int
+                        cardView.requestLayout()
+                    }
+                    start()
                 }
 
-                // Animate the height change
-                val anim = ValueAnimator.ofInt(currentHeight, newHeight)
-                anim.addUpdateListener { valueAnimator ->
-                    val params = cardView.layoutParams
-                    params.height = valueAnimator.animatedValue as Int
-                    cardView.layoutParams = params
-                }
-                anim.duration = 300 // Duration of the animation
-                anim.start()
-
-                // Show or hide the extra information (more info layout)
-                if (moreInfoLayout != null) {
-                    if (moreInfoLayout.visibility == View.GONE) {
-                        moreInfoLayout.visibility = View.VISIBLE
-                    } else {
-                        moreInfoLayout.visibility = View.GONE
-                    }
+                fun toggleVisibility(view: View?) {
+                    view?.visibility = if (view.isGone) View.VISIBLE else View.GONE
                 }
 
-                if (card2MoreInfoLayout != null) {
-                    if (card2MoreInfoLayout.visibility == View.GONE) {
-                        card2MoreInfoLayout.visibility = View.VISIBLE
-                    } else {
-                        card2MoreInfoLayout.visibility = View.GONE
-                    }
-                }
-                if (card3MoreInfoLayout != null) {
-                    if (card3MoreInfoLayout.visibility == View.GONE) {
-                        card3MoreInfoLayout.visibility = View.VISIBLE
-                    } else {
-                        card3MoreInfoLayout.visibility = View.GONE
-                    }
-                }
-                if (card4MoreInfoLayout != null) {
-                    if (card4MoreInfoLayout.visibility == View.GONE) {
-                        card4MoreInfoLayout.visibility = View.VISIBLE
-                    } else {
-                        card4MoreInfoLayout.visibility = View.GONE
-                    }
-                }
+                toggleVisibility(moreInfoLayout)
+                toggleVisibility(card2MoreInfoLayout)
+                toggleVisibility(card3MoreInfoLayout)
+                toggleVisibility(card4MoreInfoLayout)
             }
 
-            setZoomEffect(cardView) // Keep the zoom effect on the card view
+            setZoomEffect(cardView)
         }
     }
+    private val imageViewIds = listOf(
+        R.id.cardBackground_card1,
+        R.id.cardBackground_card2,
+        R.id.cardBackground_card3,
+        R.id.cardBackground_card4,
+        R.id.cardBackground_card5,
+        R.id.cardBackground_card6,
+        R.id.cardBackground_card7,
+        R.id.cardBackground_card8,
+        R.id.cardBackground_card9,
+        R.id.cardBackground_card10,
+        R.id.cardBackground_card11,
+        R.id.cardBackground_card12
+    )
+
+    private fun loadOrDownloadCardBackground(context: Context, imageView: ImageView, fileName: String, url: String) {
+        val file = File(context.filesDir, fileName)
+
+        if (file.exists()) {
+            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+            imageView.setImageBitmap(bitmap)
+        } else {
+            Glide.with(context)
+                .asBitmap()
+                .load(url)
+                .into(object : CustomTarget<Bitmap>() {
+                    override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
+                        try {
+                            // Save original file first
+                            FileOutputStream(file).use { out ->
+                                resource.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                            }
+
+                            // Decode from saved file (so EXIF is preserved)
+                            val rotatedBitmap = decodeAndCorrectOrientation(file)
+                            imageView.setImageBitmap(rotatedBitmap)
+
+                        } catch (e: Exception) {
+                            Log.e("ImageSave", "Error saving or correcting image $fileName", e)
+                            imageView.setImageBitmap(resource) // fallback
+                        }
+                    }
+
+
+                    override fun onLoadCleared(placeholder: Drawable?) {}
+                })
+        }
+    }
+
+    private fun decodeAndCorrectOrientation(file: File): Bitmap {
+        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+        val exif = androidx.exifinterface.media.ExifInterface(file)
+
+        return when (exif.getAttributeInt(
+            androidx.exifinterface.media.ExifInterface.TAG_ORIENTATION,
+            androidx.exifinterface.media.ExifInterface.ORIENTATION_NORMAL
+        )) {
+            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_90 -> rotateBitmap(bitmap, 90f)
+            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_180 -> rotateBitmap(bitmap, 180f)
+            androidx.exifinterface.media.ExifInterface.ORIENTATION_ROTATE_270 -> rotateBitmap(bitmap, 270f)
+            else -> bitmap
+        }
+    }
+
+    private fun rotateBitmap(src: Bitmap, angle: Float): Bitmap {
+        val matrix = android.graphics.Matrix()
+        matrix.postRotate(angle)
+        return Bitmap.createBitmap(src, 0, 0, src.width, src.height, matrix, true)
+    }
+
+
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setZoomEffect(cardView: MaterialCardView) {

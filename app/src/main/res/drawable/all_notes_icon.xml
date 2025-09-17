@@ -1,12 +1,12 @@
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
-    android:color="?attr/colorControlHighlight"> <!-- Ripple color -->
+    android:color="@color/material_yellow"> <!-- Ripple color -->
 
     <item>
         <inset
             android:insetLeft="0dp"
             android:insetRight="0dp"
-            android:insetTop="10dp"
-            android:insetBottom="10dp">
+            android:insetTop="0dp"
+            android:insetBottom="0dp">
 
             <layer-list>
                 <!-- Background Shape -->
@@ -22,12 +22,12 @@
                 <!-- Main Shape -->
                 <item>
                     <shape android:shape="rectangle">
-                        <solid android:color="@color/arrow_down" />
+                        <solid android:color="@color/black" />
                         <corners
-                            android:topLeftRadius="20dp"
-                            android:topRightRadius="20dp"
-                            android:bottomLeftRadius="20dp"
-                            android:bottomRightRadius="20dp" />
+                            android:topLeftRadius="0dp"
+                            android:topRightRadius="0dp"
+                            android:bottomLeftRadius="0dp"
+                            android:bottomRightRadius="0dp" />
                         <size
                             android:width="40dp"
                             android:height="0dp" /> <!-- Set height for visibility -->
@@ -37,8 +37,7 @@
                 <!-- Arrow Icon with Padding -->
                 <item
                 android:drawable="@drawable/edit_note_24dp_ffffff_fill0_wght400_grad0_opsz24"
-                    android:top="0.1dp"
-                    android:bottom="0.1dp"
+
                     android:left="9dp"
                     android:right="9dp" />
             </layer-list>

@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
-import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -27,6 +26,8 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+import androidx.core.graphics.drawable.toDrawable
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -108,15 +109,14 @@ class DownloadAndInstall : AppCompatActivity() {
 
         // If installation date is not saved, save the current date as the installation date
         if (installationDate == 0L) {
-            val editor = prefs.edit()
-            val newCurrentDate = System.currentTimeMillis() // Renamed variable to newCurrentDate
-            editor.putLong(PREF_INSTALLATION_DATE, newCurrentDate)
-            editor.apply()
+            prefs.edit {
+                val newCurrentDate =
+                    System.currentTimeMillis() // Renamed variable to newCurrentDate
+                putLong(PREF_INSTALLATION_DATE, newCurrentDate)
+            }
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            checkAndRequestPermissions()
-        }
+        checkAndRequestPermissions()
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
@@ -131,9 +131,9 @@ class DownloadAndInstall : AppCompatActivity() {
 
     private fun saveUpdateDate(context: Context, updateDate: String) {
         val sharedPreferences = context.getSharedPreferences("MyPrefs", MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        editor.putString("updateDate", updateDate)
-        editor.apply()
+        sharedPreferences.edit {
+            putString("updateDate", updateDate)
+        }
     }
 
 
@@ -167,7 +167,7 @@ class DownloadAndInstall : AppCompatActivity() {
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
-        grantResults: IntArray
+        grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_STORAGE_PERMISSION) {
@@ -267,9 +267,9 @@ class DownloadAndInstall : AppCompatActivity() {
 
     private fun saveLastCheckedVersion(versionCode: Int) {
         val sharedPref = getSharedPreferences("your_shared_prefs_name", MODE_PRIVATE)
-        val editor = sharedPref.edit()
-        editor.putInt("last_checked_version", versionCode)
-        editor.apply()
+        sharedPref.edit {
+            putInt("last_checked_version", versionCode)
+        }
     }
 
     @SuppressLint("InflateParams")
@@ -336,32 +336,33 @@ class DownloadAndInstall : AppCompatActivity() {
         currentApkUrl = apkUrl
         showDownloadProgressDialog()
 
-        // Check for internet connection
-        if (!networkConnectivityHelper.isNetworkAvailable()) {
-            showErrorDialog("No internet connection.")
+        // Check for storage permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                REQUEST_STORAGE_PERMISSION
+            )
             dismissProgressDialog(success = false)
             return
         }
 
-        // Check for storage permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                // Request storage permission if not granted
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                    REQUEST_STORAGE_PERMISSION
-                )
-                dismissProgressDialog(success = false)
-                return
-            }
-        }
-
         lifecycleScope.launch(Dispatchers.IO) {
+            // 1) Suspend & get current connectivity
+            val hasInternet = networkConnectivityHelper.isInternetAvailableFast()
+            if (!hasInternet) {
+                withContext(Dispatchers.Main) {
+                    showErrorDialog("No internet connection.")
+                    dismissProgressDialog(success = false)
+                }
+                return@launch
+            }
+
             try {
                 Log.d("DownloadAPK", "Starting download from: $apkUrl")
 
@@ -373,9 +374,12 @@ class DownloadAndInstall : AppCompatActivity() {
 
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                     when (connection.responseCode) {
-                        HttpURLConnection.HTTP_NOT_FOUND -> throw IOException("File not found on server (404)")
-                        HttpURLConnection.HTTP_INTERNAL_ERROR -> throw IOException("Server error (500)")
-                        else -> throw IOException("HTTP response code: ${connection.responseCode}")
+                        HttpURLConnection.HTTP_NOT_FOUND ->
+                            throw IOException("File not found on server (404)")
+                        HttpURLConnection.HTTP_INTERNAL_ERROR ->
+                            throw IOException("Server error (500)")
+                        else ->
+                            throw IOException("HTTP response code: ${connection.responseCode}")
                     }
                 }
 
@@ -514,11 +518,11 @@ class DownloadAndInstall : AppCompatActivity() {
         progressDialog = dialogBuilder.create()
 
         // Apply the animation style directly to the AlertDialog
-        progressDialog.window?.attributes?.windowAnimations =
-            com.google.android.material.R.style.Animation_AppCompat_DropDownUp
+        progressDialog.window?.attributes?.windowAnimations = R.style.DialogSlideUpDown
+
 
         progressDialog.window?.setBackgroundDrawable(
-            ColorDrawable(ContextCompat.getColor(this, R.color.box_alert_update))
+            ContextCompat.getColor(this, R.color.box_alert_update).toDrawable()
         ) // For setting dialog background color programmatically
 
         progressDialog.show()
@@ -582,17 +586,15 @@ class DownloadAndInstall : AppCompatActivity() {
         }
 
         // Step 3: Set window animations (ensure the `DialogAnimation` style is defined in styles.xml)
-        alertDialog.window?.attributes?.windowAnimations =
-            com.google.android.material.R.style.Animation_AppCompat_DropDownUp
+        alertDialog.window?.attributes?.windowAnimations = R.style.DialogSlideUpDown
+
 
         // Step 4: Set the background drawable for the AlertDialog window.
         alertDialog.window?.setBackgroundDrawable(
-            ColorDrawable(
-                ContextCompat.getColor(
-                    this,
-                    R.color.box_alert_update
-                )
-            )
+            ContextCompat.getColor(
+                this,
+                R.color.box_alert_update
+            ).toDrawable()
         )
 
         // Step 5: Show the dialog.

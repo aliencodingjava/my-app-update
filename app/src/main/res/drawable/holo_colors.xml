@@ -1,27 +1,36 @@
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Background layer (Battery outline) -->
-    <item>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight"> <!-- or #33000000 for semi-transparent ripple -->
+
+    <item android:id="@android:id/mask">
         <shape android:shape="rectangle">
-            <size android:width="16dp" android:height="16dp"/> <!-- Set the full size of the drawable to 16dp by 16dp -->
-            <solid android:color="#90FFFF00"/>
-            <corners android:radius="30dp"/> <!-- Rounded rectangle for oval appearance -->
+            <solid android:color="@color/holo_yellow_light"/> <!-- Optional mask, white makes full ripple visible -->
         </shape>
     </item>
 
-    <!-- Foreground layer (Battery fill) -->
-    <item android:id="@id/fill">
-        <clip android:clipOrientation="horizontal" android:gravity="left">
-            <shape android:shape="rectangle">
-                <size
-                    android:width="25dp"/>
-                android:height="2dp"/>
+    <item>
+        <layer-list>
+            <!-- Background -->
+            <item>
+                <shape android:shape="rectangle">
+                    <size android:width="16dp" android:height="16dp"/>
+                    <solid android:color="@color/box_qrcode"/>
+                    <corners android:radius="30dp"/>
+                </shape>
+            </item>
 
-                <solid android:color="#FFFFFF"/> <!-- White fill color -->
-                <corners android:radius="30dp"/> <!-- Rounded corners -->
-            </shape>
-        </clip>
+            <!-- Foreground Fill -->
+            <item android:id="@+id/fill">
+                <clip android:clipOrientation="horizontal" android:gravity="left">
+                    <shape android:shape="rectangle">
+                        <size android:width="25dp"/>
+                        <solid android:color="?attr/actionMenuTextColor"/>
+                        <corners android:radius="30dp"/>
+                    </shape>
+                </clip>
+            </item>
+
+            <!-- Icon -->
+            <item android:drawable="@drawable/palette_24dp_ffffff_fill1_wght400_grad0_opsz24" android:gravity="center"/>
+        </layer-list>
     </item>
-
-    <!-- Icon layer -->
-    <item android:drawable="@drawable/format_color_fill_16dp_ffffff_fill0_wght400_grad0_opsz20" android:gravity="center"/>
-</layer-list>
+</ripple>

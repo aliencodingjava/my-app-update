@@ -6,15 +6,49 @@
       <GradleProjectSettings>
         <option name="testRunner" value="CHOOSE_PER_TEST" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleJvm" value="17" />
+        <option name="gradleJvm" value="jbr-21" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/Auth" />
+            <option value="$PROJECT_DIR$/Functions" />
+            <option value="$PROJECT_DIR$/Postgrest" />
+            <option value="$PROJECT_DIR$/Realtime" />
+            <option value="$PROJECT_DIR$/Storage" />
+            <option value="$PROJECT_DIR$/Supabase" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/bom" />
+            <option value="$PROJECT_DIR$/plugins" />
+            <option value="$PROJECT_DIR$/plugins/ApolloGraphQL" />
+            <option value="$PROJECT_DIR$/plugins/Coil3Integration" />
+            <option value="$PROJECT_DIR$/plugins/CoilIntegration" />
+            <option value="$PROJECT_DIR$/plugins/ComposeAuth" />
+            <option value="$PROJECT_DIR$/plugins/ComposeAuthUI" />
+            <option value="$PROJECT_DIR$/plugins/ImageLoaderIntegration" />
+            <option value="$PROJECT_DIR$/sample" />
+            <option value="$PROJECT_DIR$/sample/chat-demo-mpp" />
+            <option value="$PROJECT_DIR$/sample/chat-demo-mpp/android" />
+            <option value="$PROJECT_DIR$/sample/chat-demo-mpp/common" />
+            <option value="$PROJECT_DIR$/sample/chat-demo-mpp/desktop" />
+            <option value="$PROJECT_DIR$/sample/chat-demo-mpp/ios" />
+            <option value="$PROJECT_DIR$/sample/chat-demo-mpp/web" />
+            <option value="$PROJECT_DIR$/sample/file-upload" />
+            <option value="$PROJECT_DIR$/sample/file-upload/android" />
+            <option value="$PROJECT_DIR$/sample/file-upload/common" />
+            <option value="$PROJECT_DIR$/sample/file-upload/desktop" />
+            <option value="$PROJECT_DIR$/sample/multi-factor-auth" />
+            <option value="$PROJECT_DIR$/sample/multi-factor-auth/android" />
+            <option value="$PROJECT_DIR$/sample/multi-factor-auth/common" />
+            <option value="$PROJECT_DIR$/sample/multi-factor-auth/desktop" />
+            <option value="$PROJECT_DIR$/sample/multi-factor-auth/web" />
+            <option value="$PROJECT_DIR$/serializers" />
+            <option value="$PROJECT_DIR$/serializers/Jackson" />
+            <option value="$PROJECT_DIR$/serializers/Moshi" />
+            <option value="$PROJECT_DIR$/test-common" />
           </set>
         </option>
-        <option name="resolveExternalAnnotations" value="false" />
       </GradleProjectSettings>
     </option>
+    <option name="parallelModelFetch" value="true" />
   </component>
 </project>

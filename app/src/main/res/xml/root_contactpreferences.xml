@@ -22,7 +22,7 @@
         <Preference
             android:key="custom_note"
             android:title="Add a Note"
-            android:icon="@drawable/ic_oui_notes"
+            android:icon="@drawable/note_add_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:summary="Tap to add a custom note"
             android:onClick="openNoteScreen"/>
 
@@ -32,15 +32,12 @@
 
         <androidx.preference.Preference
             android:key="all_contacts"
-            android:icon="@drawable/ic_oui_contact"
+            android:icon="@drawable/groups_2_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="All Contacts"
             android:summary="View and manage all your contacts"
             android:selectable="true" />
 
-        <!-- Spacer after Phone Number -->
-        <androidx.preference.Preference
-            android:layout="@layout/preference_spacer"
-            android:selectable="false" />
+
 
         <androidx.preference.Preference
             android:key="email"
@@ -59,14 +56,12 @@
             android:selectable="false" />
         <androidx.preference.Preference
             android:key="pobox"
-            android:icon="@drawable/local_post_office_fill0_wght400_grad0_opsz24"
+            app:enableCopying="true"
+            android:selectable="true"
+            android:icon="@drawable/local_post_office_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="PO Box"
             android:summary="@string/PO_Box_n159Jackson_WY_n83001" />
 
-        <!-- Spacer after PO Box -->
-        <androidx.preference.Preference
-            android:layout="@layout/preference_spacer"
-            android:selectable="false" />
 
     </androidx.preference.PreferenceCategory>
 
@@ -80,7 +75,7 @@
             android:selectable="false" />
         <androidx.preference.Preference
             android:key="operations"
-            android:icon="@drawable/manage_accounts_fill0_wght400_grad0_opsz24"
+            android:icon="@drawable/contact_mail_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:title="Airport Operations" />
         <androidx.preference.Preference
             android:layout="@layout/custom_preference_item"
@@ -93,7 +88,7 @@
             android:layout="@layout/custom_preference_item"
             android:selectable="false" />
         <androidx.preference.Preference
-            android:icon="@drawable/baseline_hub_24"
+            android:icon="@drawable/diversity_3_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:key="human_resources"
             android:title="Human Resources" />
         <androidx.preference.Preference
@@ -101,12 +96,9 @@
             android:selectable="false" />
 
         <androidx.preference.Preference
-            android:icon="@drawable/baseline_contact_support_24"
+            android:icon="@drawable/table_chart_view_24dp_ffffff_fill1_wght400_grad0_opsz24"
             android:key="customer_experience"
             android:title="Customer Experience" />
-        <androidx.preference.Preference
-            android:layout="@layout/preference_spacer"
-            android:selectable="false" />
 
     </androidx.preference.PreferenceCategory>
 

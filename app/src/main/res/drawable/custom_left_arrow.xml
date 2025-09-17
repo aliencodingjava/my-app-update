@@ -36,7 +36,7 @@
 
                 <!-- Arrow Icon with Padding -->
                 <item
-                    android:drawable="@drawable/ic_oui_arrow_left"
+                    android:drawable="@drawable/ic_oui_keyboard_arrow_left"
                     android:top="0.1dp"
                     android:bottom="0.1dp"
                     android:left="9dp"

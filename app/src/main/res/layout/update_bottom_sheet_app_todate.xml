@@ -19,8 +19,8 @@
         android:layout_marginStart="13dp"
         android:layout_marginBottom="2dp"
         android:layout_marginTop="5dp"
+        android:backgroundTint="@color/box_alert_update"
         app:strokeColor="@android:color/transparent"
-        android:backgroundTint="@color/bottom_bar"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -110,10 +110,12 @@
         <!-- OK Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnOk"
+            style="@style/Widget.Material3.CardView.Elevated"
             android:layout_width="match_parent"
             android:layout_height="40dp"
             android:background="@drawable/btn_ripple"
-            android:backgroundTint="?attr/modalstyleclick"
+            app:backgroundTint="@color/box_qrcode"
+            android:textColor="?attr/actionMenuTextColor"
             android:clickable="true"
             android:focusable="true"
             android:text="@string/ok"

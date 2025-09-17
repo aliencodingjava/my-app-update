@@ -1,12 +1,8 @@
 package com.flights.studio
 
-import android.Manifest
 import android.animation.ObjectAnimator
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Rect
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MenuItem
@@ -16,12 +12,10 @@ import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
-import android.widget.Toast
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.core.content.ContextCompat
+import androidx.core.graphics.toColorInt
 import com.flights.studio.databinding.ActivityAllContactsBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -31,40 +25,11 @@ import com.google.android.material.navigationrail.NavigationRailView
 class AllContactsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAllContactsBinding
-    private var selectedContactPosition: Int = -1
+//    private var selectedContactPosition: Int = -1
     private var allContactsFragment: AllContactsFragment? = null // Reference to the fragment
-
-
-    // Media picker for Android 14+ (Selected Photos Access)
-    private val pickMediaLauncher =
-        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
-            if (uri != null) {
-                updateContactPhoto(uri) // Call with the selected URI
-            } else {
-                Toast.makeText(this, "No image selected", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-
-    // Permission launcher for Android 13 and below
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (isGranted) {
-                pickImageLauncher.launch("image/*")
-            } else {
-                Toast.makeText(this, "Storage permission denied", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-    // Image picker for Android 13 and below
-    private val pickImageLauncher =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            if (uri != null) {
-                updateContactPhoto(uri) // Call with the selected URI
-            } else {
-                Toast.makeText(this, "Image selection canceled", Toast.LENGTH_SHORT).show()
-            }
-        }
+    private var isSearchDialogVisible = false
+    private var currentSearchView: androidx.appcompat.widget.SearchView? = null
+    private var wasFilteringBeforeDismiss = false
 
 
 
@@ -72,10 +37,40 @@ class AllContactsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_all_contacts)
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    // Case 1: Search dialog is open and query isn't empty → clear search
+                    isSearchDialogVisible && currentSearchView?.query?.isNotEmpty() == true -> {
+                        currentSearchView?.setQuery("", false)
+                        allContactsFragment?.filterContacts("") // Reset list
+                        wasFilteringBeforeDismiss = false
+                    }
 
+                    // Case 2: Search dialog was dismissed but results still filtered → show all
+                    !isSearchDialogVisible && wasFilteringBeforeDismiss -> {
+                        allContactsFragment?.filterContacts("") // Show all contacts
+                        wasFilteringBeforeDismiss = false
+                    }
+
+                    // ✅ Case 3: Nothing left → finish the activity and apply exit animation
+                    else -> {
+                        finish()
+                        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                    }
+                }
+            }
+        })
+
+
+        window.decorView.alpha = 1.0f
 
         binding = ActivityAllContactsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        binding.navAddContact?.setOnClickListener {
+            allContactsFragment?.showAddContactBottomSheet()
+        }
 
         // Load fragment correctly and store reference
         if (savedInstanceState == null) {
@@ -88,15 +83,6 @@ class AllContactsActivity : AppCompatActivity() {
                 supportFragmentManager.findFragmentById(R.id.container) as? AllContactsFragment
 
         }
-
-
-//            supportActionBar?.setDisplayShowTitleEnabled(false)
-//            setSupportActionBar(findViewById(R.id.toolbar))
-//        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-//        supportActionBar?.setHomeButtonEnabled(true)
-//
-//        val drawable = AppCompatResources.getDrawable(this, R.drawable.layered_arrow)
-//        supportActionBar?.setHomeAsUpIndicator(drawable)
 
 
         val navRail = findViewById<NavigationRailView>(R.id.navigation_rail)
@@ -124,10 +110,13 @@ class AllContactsActivity : AppCompatActivity() {
                     true
                 }
 
-                R.id.nav_add_contact -> {
-                    allContactsFragment?.showAddContactBottomSheet() // ✅ Fix: Call "Add Contact"
+                R.id.openAddNoteScreen -> {
+                    startActivity(Intent(this, AllNotesActivity::class.java))
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                    finish()
                     true
                 }
+
 
                 R.id.nav_import_contacts -> {
                     allContactsFragment?.showImportConfirmationDialog() // ✅ Fix: Call "Import Contacts"
@@ -148,13 +137,11 @@ class AllContactsActivity : AppCompatActivity() {
     private fun goToHomeScreen() {
         startActivity(Intent(this, SplashActivity::class.java))
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-        finish()
     }
 
     private fun goToContactScreen() {
         startActivity(Intent(this, Contact::class.java))
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-        finish()
     }
 
     private fun goToSettingsScreen() {
@@ -175,10 +162,6 @@ class AllContactsActivity : AppCompatActivity() {
         }
     }
 
-    override fun onBackPressed() {
-        super.onBackPressed()
-        goToContactScreen()
-    }
 
     private fun openSearchView() {
         val parentView = findViewById<ViewGroup>(android.R.id.content)
@@ -191,9 +174,10 @@ class AllContactsActivity : AppCompatActivity() {
             false
         ) as CoordinatorLayout
 
-        // ✅ Get the SearchView from XML
-        val searchView =
-            rootLayout.findViewById<androidx.appcompat.widget.SearchView>(R.id.material_search_view)
+        val searchView = rootLayout.findViewById<androidx.appcompat.widget.SearchView>(R.id.material_search_view)
+        currentSearchView = searchView
+        isSearchDialogVisible = true
+
 
         // ✅ Ensure SearchView is ready
         searchView.isIconified = false // ✅ Expand it immediately
@@ -206,7 +190,7 @@ class AllContactsActivity : AppCompatActivity() {
         val searchText =
             searchView.findViewById<android.widget.EditText>(androidx.appcompat.R.id.search_src_text)
         searchText.setTextColor(android.graphics.Color.GRAY) // ✅ Adjust text color
-        searchText.setHintTextColor(android.graphics.Color.parseColor("#B3FFFFFF")) // ✅ Hint color
+        searchText.setHintTextColor("#B3FFFFFF".toColorInt()) // ✅ Hint color
 
         val searchDialog = BottomSheetDialog(this).apply {
             setContentView(rootLayout)
@@ -242,26 +226,33 @@ class AllContactsActivity : AppCompatActivity() {
 
         searchDialog.show()
 
+        searchDialog.setOnDismissListener {
+            isSearchDialogVisible = false
+            currentSearchView = null
+        }
+
         val animator = ObjectAnimator.ofFloat(searchView, "translationY", 0f, 30f).apply {
             duration = 200
             interpolator = DecelerateInterpolator()
         }
         animator.start()
 
-
         searchView.setOnQueryTextListener(object :
             androidx.appcompat.widget.SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                query?.let { performSearch(it) } // ✅ This is where it is used!
-                searchDialog.dismiss()
+                query?.let { performSearch(it) }
                 return true
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                newText?.let { allContactsFragment?.filterContacts(it) }
+                newText?.let {
+                    wasFilteringBeforeDismiss = it.isNotEmpty() // 🔥 Track filter state
+                    allContactsFragment?.filterContacts(it)
+                }
                 return true
             }
         })
+
 
         val closeButton =
             searchView.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)
@@ -299,56 +290,6 @@ class AllContactsActivity : AppCompatActivity() {
         fragment?.filterContacts(query)
     }
 
-
-    /**
-     * Launch the appropriate image picker based on Android version.
-     */
-    fun launchImagePicker(position: Int) {
-        selectedContactPosition = position
-
-        when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> {
-                // Android 14+: Use PickVisualMedia for Selected Photos Access
-                pickMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }
-
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
-                // Android 13: Request READ_MEDIA_IMAGES permission
-                if (ContextCompat.checkSelfPermission(
-                        this,
-                        Manifest.permission.READ_MEDIA_IMAGES
-                    ) == PackageManager.PERMISSION_GRANTED
-                ) {
-                    pickImageLauncher.launch("image/*")
-                } else {
-                    requestPermissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
-                }
-            }
-
-            else -> {
-                // Android 12 and below: Request READ_EXTERNAL_STORAGE permission
-                if (ContextCompat.checkSelfPermission(
-                        this,
-                        Manifest.permission.READ_EXTERNAL_STORAGE
-                    ) == PackageManager.PERMISSION_GRANTED
-                ) {
-                    pickImageLauncher.launch("image/*")
-                } else {
-                    requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
-                }
-            }
-        }
-    }
-
-
-    /**
-     * Update the contact's photo with the selected URI.
-     */
-    private fun updateContactPhoto(uri: Uri) {
-        val fragment =
-            supportFragmentManager.findFragmentById(R.id.container) as? AllContactsFragment
-        fragment?.updateContactPhoto(selectedContactPosition, uri)
-    }
 
 
 }

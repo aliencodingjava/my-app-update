@@ -5,18 +5,21 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_gravity="center_horizontal"
-    android:elevation="20dp"
+    android:elevation="2dp"
     android:padding="10dp">
 
     <FrameLayout
         android:id="@+id/frameLayout"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="24dp"
         android:layout_gravity="center"
         android:clipChildren="false"
         android:clipToPadding="false"
         android:elevation="0dp"
         android:padding="0dp"
+        android:scaleY="0.9"
+        android:scaleX="0.9"
+        android:background="@color/transparent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -28,9 +31,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="0dp"
-            app:cardBackgroundColor="@color/bottom_bar"
+            app:cardBackgroundColor="@color/green"
             app:cardCornerRadius="30dp"
-            app:cardElevation="1dp"
+            app:cardElevation="0dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -40,11 +43,12 @@
             tools:ignore="TouchTargetSizeCheck">
 
             <FrameLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="match_parent"
+                android:layout_height="24dp"
                 android:layout_gravity="start"
-                android:elevation="7dp"
-                android:gravity="center">
+                android:elevation="4dp"
+                android:visibility="visible"
+                tools:ignore="TextSizeCheck">
                 <!-- Countdown MaterialCardView -->
                 <androidx.appcompat.widget.AppCompatTextView
                     android:id="@+id/countdownTextView"
@@ -55,9 +59,9 @@
                     android:drawableStart="@drawable/time_auto_16dp_ffffff_fill0_wght400_grad0_opsz20"
                     android:drawablePadding="4dp"
                     android:drawableTint="@color/black"
-                    android:elevation="7dp"
                     android:gravity="center"
-                    android:paddingHorizontal="13dp"
+                    android:letterSpacing="0"
+                    android:paddingHorizontal="17dp"
                     android:paddingVertical="4dp"
                     android:text="@string/_01_30"
                     android:textAppearance="@style/TextAppearance.Widget.SmallText"
@@ -66,38 +70,34 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
-                <FrameLayout
-                    android:layout_width="wrap_content"
+                <androidx.appcompat.widget.AppCompatTextView
+                    android:id="@+id/refreshingInTextView"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="30dp"
+                    android:layout_gravity="end|top"
+                    android:layout_marginEnd="8dp"
                     android:layout_marginTop="1dp"
-                    android:elevation="7dp">
+                    android:drawableStart="@drawable/avg_pace_16dp_ffffff_fill0_wght400_grad0_opsz20"
+                    android:drawableTint="@color/black"
+                    android:gravity="center"
+                    android:letterSpacing="0"
+                    android:text="@string/refreshing_in_default"
+                    android:textColor="@color/black"
+                    android:textSize="5sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="@id/countdownTextView"
+                    tools:ignore="SmallSp,TextContrastCheck" />
 
-                    <androidx.appcompat.widget.AppCompatTextView
-                        android:id="@+id/refreshingInTextView"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:drawableStart="@drawable/avg_pace_16dp_ffffff_fill0_wght400_grad0_opsz20"
-                        android:drawableTint="@color/black"
-                        android:elevation="7dp"
-                        android:gravity="center"
-                        android:text="@string/refreshing_in_default"
-                        android:textColor="@color/black"
-                        android:textSize="4sp"
-                        android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="@id/countdownTextView"
-                        tools:ignore="SmallSp,TextContrastCheck" />
-                </FrameLayout>
 
             </FrameLayout>
 
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="24dp"
                 android:layout_gravity="start"
-                android:elevation="4dp"
+                android:elevation="3dp"
                 android:gravity="center">
                 <!-- Current Time TextView -->
                 <androidx.appcompat.widget.AppCompatTextView
@@ -110,92 +110,62 @@
                     android:drawableStart="@drawable/schedule_16dp_ffffff_fill0_wght400_grad0_opsz20"
                     android:drawablePadding="4dp"
                     android:drawableTint="@color/black"
-                    android:elevation="4dp"
                     android:gravity="center"
                     android:paddingHorizontal="0dp"
                     android:paddingVertical="4dp"
                     android:paddingStart="80dp"
                     android:paddingEnd="10dp"
+                    android:letterSpacing="0"
                     android:text="@string/jan_26_2025_17_18_00"
                     android:textAppearance="@style/TextAppearance.Widget.SmallText"
                     android:textStyle="bold"
+                    app:autoSizeTextType="none"
+                    android:textScaleX="1"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     tools:ignore="RtlSymmetry,SmallSp,VisualLintOverlap" />
             </LinearLayout>
 
+
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start"
-                android:elevation="3dp"
+                android:layout_height="24dp"
+                android:elevation="2dp"
                 android:gravity="center">
 
                 <androidx.appcompat.widget.AppCompatTextView
                     android:id="@+id/battery_info"
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    android:layout_gravity="start"
+                    android:layout_gravity="end"
                     android:layout_marginStart="0dp"
-                    android:layout_marginEnd="5dp"
+                    android:layout_marginEnd="0dp"
                     android:background="@drawable/battery_info_background"
                     android:drawableStart="@drawable/battery_icon"
                     android:drawablePadding="4dp"
-                    android:elevation="3dp"
-                    android:fontFamily="@font/roboto_sla_blight"
                     android:gravity="center"
                     android:maxLines="1"
+                    android:text="@string/_100"
                     android:paddingHorizontal="10dp"
                     android:paddingVertical="4dp"
-                    android:paddingStart="220dp"
+                    android:paddingStart="215dp"
                     android:textAppearance="@style/TextAppearance.Widget.SmallText"
                     android:textColor="?attr/colorOnSecondaryFixed"
                     android:textSize="9sp"
+                    android:maxWidth="300dp"
                     android:textStyle="bold"
+                    android:letterSpacing="0"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     tools:ignore="RtlSymmetry,SmallSp,VisualLintOverlap" />
+
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start"
-                android:clickable="false"
-                android:elevation="2dp"
-                android:focusable="false"
-                android:gravity="center">
-
-                <androidx.appcompat.widget.AppCompatTextView
-                    android:id="@+id/open_close_full_screen"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="start"
-                    android:layout_marginStart="0dp"
-                    android:background="@drawable/ripple_expand_fullscreen"
-                    android:clickable="true"
-                    android:contentDescription="@string/openclosefullscreen"
-                    android:drawableStart="@drawable/new_expand_button"
-                    android:drawablePadding="4dp"
-                    android:elevation="2dp"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:maxLines="1"
-                    android:paddingHorizontal="280dp"
-                    android:paddingVertical="4dp"
-                    android:paddingEnd="5dp"
-                    android:textSize="9sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    tools:ignore="RtlSymmetry,SmallSp,VisualLintOverlap,TouchTargetSizeCheck" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="24dp"
                 android:layout_gravity="start"
                 android:elevation="6dp"
                 android:gravity="center">
@@ -209,13 +179,13 @@
                     android:drawableStart="@drawable/published_with_changes_16dp_ffffff_fill0_wght400_grad0_opsz20"
                     android:drawablePadding="4dp"
                     android:drawableTint="@color/black"
-                    android:elevation="6dp"
                     android:gravity="center"
                     android:paddingHorizontal="0dp"
                     android:paddingVertical="4dp"
                     android:paddingStart="10dp"
                     android:paddingEnd="10dp"
                     android:text="@string/refreshing"
+                    android:letterSpacing="0"
                     android:textAppearance="@style/TextAppearance.Widget.SmallText"
                     android:textColor="@color/black"
                     android:visibility="gone"
@@ -230,7 +200,7 @@
 
             <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="24dp"
                 android:layout_gravity="start"
                 android:elevation="6dp"
                 android:gravity="center">
@@ -244,13 +214,13 @@
                     android:drawableStart="@drawable/signal_disconnected_16dp_ffffff_fill0_wght400_grad0_opsz20"
                     android:drawablePadding="4dp"
                     android:drawableTint="@color/black"
-                    android:elevation="6dp"
                     android:gravity="center"
                     android:paddingHorizontal="0dp"
                     android:paddingVertical="4dp"
                     android:paddingStart="10dp"
                     android:paddingEnd="10dp"
                     android:text="@string/no_internet"
+                    android:letterSpacing="0"
                     android:textAppearance="@style/TextAppearance.Widget.SmallText"
                     android:textColor="@color/black"
                     android:visibility="gone"
@@ -266,12 +236,4 @@
         </com.google.android.material.card.MaterialCardView>
     </FrameLayout>
 
-    <androidx.constraintlayout.widget.Group
-        android:id="@+id/group"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
-        app:layout_constraintBottom_toTopOf="@+id/frameLayout"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/frameLayout" />
 </androidx.constraintlayout.widget.ConstraintLayout>

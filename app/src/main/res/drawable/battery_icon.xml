@@ -1,10 +1,13 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Background layer (Battery outline) -->
+
+    <!-- Background layer (Battery outline with outer stroke effect) -->
     <item>
         <shape android:shape="rectangle">
-            <size android:width="16dp" android:height="16dp"/> <!-- Set the full size of the drawable to 16dp by 16dp -->
-            <solid android:color="#50000000"/> <!-- Semi-transparent black for background -->
-            <corners android:radius="30dp"/> <!-- Rounded rectangle for oval appearance -->
+            <size android:width="16dp" android:height="16dp"/>
+            <solid android:color="#50000000"/> <!-- Semi-transparent black background -->
+            <stroke android:width="0.5dp" android:color="#0D1B2A"/> <!-- ✅ Thicker Stroke -->
+            <padding android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp"/>
+            <corners android:topLeftRadius="100dp" android:bottomLeftRadius="100dp" android:topRightRadius="100dp" android:bottomRightRadius="100dp"/>
         </shape>
     </item>
 
@@ -12,15 +15,19 @@
     <item android:id="@id/fill">
         <clip android:clipOrientation="horizontal" android:gravity="left">
             <shape android:shape="rectangle">
-                <size
-                    android:width="25dp"/>
-                android:height="2dp"/>
-                <solid android:color="#FFFFFF"/> <!-- White fill color -->
-                <corners android:radius="30dp"/> <!-- Rounded corners -->
+                <size android:width="25dp"/>
+                <solid android:color="@color/box_floating_bar"/> <!-- Fill color -->
+                <corners android:topLeftRadius="100dp" android:bottomLeftRadius="100dp" android:topRightRadius="100dp" android:bottomRightRadius="100dp"/>
             </shape>
         </clip>
     </item>
 
     <!-- Icon layer -->
-    <item android:drawable="@drawable/charger_16dp_ffffff_fill0_wght400_grad0_opsz20" android:gravity="center"/>
+    <item android:drawable="@drawable/charger_16dp_ffffff_fill0_wght400_grad0_opsz20"
+        android:id="@+id/charger_icon"
+        android:top="2dp"
+        android:bottom="2dp"
+        android:start="2dp"
+        android:alpha="0"
+        android:gravity="start"/>
 </layer-list>

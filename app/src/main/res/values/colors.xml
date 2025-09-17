@@ -12,8 +12,35 @@
     <color name="iconColor">@color/box_alert_update</color>
     <color name="LightbottomAppBarColorsplash">#FFFFFF</color>
     <color name="white">#FFFFFF</color>
-
     <color name="lightBottomNavigationColor">#FBE9E7</color>
+    <!-- your existing colors… -->
+    <color name="bar_default">#888888</color>    <!-- neutral grey -->
+
+    <!-- new pastel palette -->
+    <color name="soft_violet"> #D1C4E9</color>  <!-- lavender -->
+    <color name="soft_yellow"> #FFF9C4</color>  <!-- pale yellow -->
+    <color name="soft_white">  #FFFFFF</color>  <!-- pure white -->
+    <color name="soft_green">  #C8E6C9</color>  <!-- mint green -->
+    <color name="chip_background">#EEEEEE</color>
+    <color name="chip_selected_background">#FFF59D</color>
+    <color name="chip_stroke_color">#BDBDBD</color>
+    <color name="md3_chip_background">#EEEEEE</color> <!-- Surface variant -->
+    <color name="md3_chip_stroke">#CAC4D0</color>     <!-- Outline -->
+    <color name="md3_chip_text">#1C1B1F</color>       <!-- On surface -->
+    <color name="md3_chip_selected">#D0BCFF</color>   <!-- Primary container -->
+
+
+
+    <color name="input_digit_color">#FF4081</color>    <!-- accent for digits -->
+    <color name="input_row1_color">#2196F3</color>    <!-- blue for QWERTY row -->
+    <color name="input_row2_color">#FFEB3B</color>    <!-- yellow for ASDF row -->
+    <color name="input_row3_color">#F44336</color>    <!-- red for ZXCV row -->
+    <!-- a soft, semi‑opaque blue → -->
+    <color name="siri_glow_start">#80FF00FF</color>
+    <!-- a lighter mid‑tone -->
+    <color name="siri_glow_mid">#40FF00FF</color>
+    <!-- fully transparent to fade out -->
+    <color name="siri_glow_end">#0000FF</color>
     <!-- Default light theme color -->
     <!-- Default dark theme color -->
 
@@ -100,9 +127,15 @@
 
     <color name="icon_enabled">#FF4081</color> <!-- Example active color -->
     <color name="icon_disabled">#B0BEC5</color> <!-- Example inactive color -->
-
-
-
-
+    <color name="ios_blur_background">#F2F2F7</color>
+    <color name="ios_blur_background_dark">#1C1C1E</color>
+    <color name="ios_border">#C6C6C8</color>
+    <color name="ios_border_dark">#38383A</color>
+    <color name="ios_primary_text">#000000</color>
+    <color name="ios_primary_text_dark">#FFFFFF</color>
+    <color name="ios_button_background">#FFFFFF</color>
+    <color name="ios_button_background_dark">#2C2C2E</color>
+    <color name="ios_button_border">#E5E5EA</color>
+    <color name="ios_button_border_dark">#48484A</color>
 
 </resources>

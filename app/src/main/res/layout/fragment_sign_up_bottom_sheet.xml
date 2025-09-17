@@ -14,13 +14,13 @@
         android:layout_width="match_parent"
         android:layout_height="45dp"
         app:cardCornerRadius="10dp"
-        app:cardElevation="5dp"
+        app:cardElevation="1dp"
         android:layout_marginEnd="13dp"
         android:layout_marginStart="13dp"
         android:layout_marginBottom="3dp"
         android:layout_marginTop="3dp"
         app:strokeColor="@android:color/transparent"
-        android:backgroundTint="@color/bottom_bar"
+        android:backgroundTint="@color/box_alert_update"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -92,13 +92,22 @@
         android:inputType="textEmailAddress"
         android:autofillHints="emailAddress"
         tools:ignore="VisualLintTextFieldSize" />
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="5dp"
+        android:layout_gravity="end"
+        android:gravity="end"
+        android:clipToPadding="false"
+        android:clipChildren="false">
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/submitButton"
         android:layout_width="wrap_content"
-        android:layout_height="45dp"
+        android:layout_height="wrap_content"
         android:background="@drawable/btn_ripple"
-        android:backgroundTint="?attr/modalstyleclick"
+        style="@style/Widget.Material3.Button.ElevatedButton"
         android:clickable="true"
         android:focusable="true"
         android:fontFamily="@font/my_custom_font"
@@ -106,8 +115,9 @@
         android:letterSpacing="0.1"
         android:text="@string/submit"
         android:textAllCaps="false"
-        android:textColor="@color/box_alert_update"
+        android:textColor="?attr/actionMenuTextColor"
         android:textSize="15sp"
         android:textStyle="bold"
         tools:ignore="TextContrastCheck,TouchTargetSizeCheck" />
+    </LinearLayout>
 </LinearLayout>

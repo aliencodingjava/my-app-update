@@ -8,7 +8,6 @@
     android:fitsSystemWindows="true"
     android:paddingTop="0dp">
 
-
     <!-- Your content goes here -->
 
     <com.google.android.material.card.MaterialCardView
@@ -16,26 +15,30 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginStart="80dp"
-        android:layout_marginEnd="0dp"
-        android:clipToOutline="true"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="5dp"
+        android:layout_marginBottom="5dp"
+        android:backgroundTint="@color/box_qrcode"
+        app:cardCornerRadius="12dp"
         app:cardElevation="0dp"
-        android:backgroundTint="@color/card_background"
+        app:strokeWidth="0dp">
 
-        app:strokeWidth="0dp" />
-
+    </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.navigationrail.NavigationRailView
         android:id="@+id/navigation_rail"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:layout_gravity="center|start"
-        android:animateLayoutChanges="false"
+        android:layout_gravity="center|start|top"
         android:background="@color/box_qrcode"
-        app:itemIconSize="40dp"
+        app:itemIconSize="30dp"
+        app:headerLayout="@layout/rail_header"
         app:itemIconTint="?attr/colorControlNormal"
         app:itemTextAppearanceActive="@style/SmallTextAppearanceActive"
         app:itemTextAppearanceInactive="@style/SmallTextAppearanceInactive"
         app:itemTextColor="?attr/actionMenuTextColor"
         app:labelVisibilityMode="unlabeled"
         app:menu="@menu/navigation_drawer_settings" />
+
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

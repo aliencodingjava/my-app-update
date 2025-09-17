@@ -13,11 +13,16 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.FileProvider
+import androidx.core.graphics.createBitmap
 import com.google.android.material.button.MaterialButton
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -31,6 +36,12 @@ class QRCodeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_qrcode)
+        onBackPressedDispatcher.addCallback(this) {
+            finish()
+            overridePendingTransition(R.anim.enter_animation, de.dlyt.yanndroid.samsung.R.anim.abc_tooltip_exit)
+        }
+
+
 
         setSupportActionBar(findViewById(R.id.toolbar))
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -66,27 +77,23 @@ class QRCodeActivity : AppCompatActivity() {
                 qrCodeBitmap?.let { shareImage(it) }
             }
         }
+
+
     }
+
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
-                onBackPressed()
                 finish()
-                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                overridePendingTransition(R.anim.enter_animation, de.dlyt.yanndroid.samsung.R.anim.abc_tooltip_exit)
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
     }
 
-    override fun onBackPressed() {
-        super.onBackPressed()
-        val intent = Intent(this, SettingsActivity::class.java)
-        startActivity(intent)
-        finish()
-        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-    }
+
 
 
     // Prepare the QR code bitmap
@@ -108,7 +115,7 @@ class QRCodeActivity : AppCompatActivity() {
 
     // Capture the content of a View as a Bitmap
     private fun captureViewAsBitmap(view: View): Bitmap {
-        val bitmap = Bitmap.createBitmap(view.measuredWidth, view.measuredHeight, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(view.measuredWidth, view.measuredHeight)
         val canvas = Canvas(bitmap)
         view.draw(canvas)
         return bitmap

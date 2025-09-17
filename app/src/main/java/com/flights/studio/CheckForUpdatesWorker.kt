@@ -25,15 +25,14 @@ class CheckForUpdatesWorker(
                 val latestVersionCode = jsonObject.getInt("versionCode")
                 val apkUrl = jsonObject.getString("apkUrl")
                 val currentVersionCode = getAppVersionCode(applicationContext)
-                val lastCheckedVersion = getLastCheckedVersion(applicationContext)
+                val lastCheckedVersion = getLastCheckedVersion(applicationContext, apkUrl)
 
                 if (latestVersionCode > currentVersionCode && latestVersionCode != lastCheckedVersion) {
                     // Update available, show bottom sheet
                     showUpdateBottomSheet(applicationContext, apkUrl)
-                    saveLastCheckedVersion(applicationContext, latestVersionCode)
+                    saveLastCheckedVersion(applicationContext, apkUrl, latestVersionCode)
                     Result.success()
                 } else {
-                    // No update available, return success
                     Result.success()
                 }
             } catch (_: Exception) {
@@ -45,23 +44,21 @@ class CheckForUpdatesWorker(
     private fun getAppVersionCode(context: Context): Long {
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            packageInfo.longVersionCode // For API level 28 and above (newer version)
+            packageInfo.longVersionCode
         } else {
-            @Suppress("DEPRECATION") // Suppress the deprecation warning for older versions
-            packageInfo.versionCode.toLong() // For below API level 28 (older version)
+            @Suppress("DEPRECATION")
+            packageInfo.versionCode.toLong()
         }
     }
 
-
-
-    private fun getLastCheckedVersion(context: Context): Int {
-        val sharedPreferences = context.getSharedPreferences("your_shared_prefs_name", Context.MODE_PRIVATE)
-        return sharedPreferences.getInt("last_checked_version", 0)
+    private fun getLastCheckedVersion(context: Context, apkUrl: String): Int {
+        val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+        return prefs.getInt("last_checked_version_${apkUrl.hashCode()}", 0)
     }
 
-    private fun saveLastCheckedVersion(context: Context, version: Int) {
-        val sharedPreferences = context.getSharedPreferences("your_shared_prefs_name", Context.MODE_PRIVATE)
-        sharedPreferences.edit().putInt("last_checked_version", version).apply()
+    private fun saveLastCheckedVersion(context: Context, apkUrl: String, version: Int) {
+        val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putInt("last_checked_version_${apkUrl.hashCode()}", version).apply()
     }
 
     private fun showUpdateBottomSheet(context: Context, apkUrl: String) {
@@ -72,5 +69,4 @@ class CheckForUpdatesWorker(
         }
         context.startActivity(intent)
     }
-
 }

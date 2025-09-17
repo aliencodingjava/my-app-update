@@ -64,7 +64,7 @@
             android:layout_marginTop="40dp"
             android:layout_gravity="center_horizontal"
             android:contentDescription="@string/qrcode"
-            android:src="@drawable/bing_generated_qrcode" />
+            android:src="@drawable/appv172bing_generated_qrcode" />
 
     </com.google.android.material.card.MaterialCardView>
 

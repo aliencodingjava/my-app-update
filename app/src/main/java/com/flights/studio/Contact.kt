@@ -12,6 +12,7 @@ class Contact : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_contact)
+        window.decorView.alpha = 1.0f
 
         val navRail = findViewById<NavigationRailView>(R.id.navigation_rail)
 

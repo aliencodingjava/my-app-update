@@ -1,0 +1,47 @@
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="?attr/colorControlHighlight"> <!-- Ripple color -->
+
+    <item>
+        <inset
+            android:insetLeft="0dp"
+            android:insetRight="0dp"
+            android:insetTop="10dp"
+            android:insetBottom="10dp">
+
+            <layer-list>
+                <!-- Background Shape -->
+                <item>
+                    <shape android:shape="oval"> <!-- Oval ripple shape -->
+                        <solid android:color="@color/white" />
+                        <size
+                            android:width="40dp"
+                            android:height="0dp" />
+                    </shape>
+                </item>
+
+                <!-- Main Shape -->
+                <item>
+                    <shape android:shape="rectangle">
+                        <solid android:color="@color/black" />
+                        <corners
+                            android:topLeftRadius="20dp"
+                            android:topRightRadius="20dp"
+                            android:bottomLeftRadius="20dp"
+                            android:bottomRightRadius="20dp" />
+                        <size
+                            android:width="40dp"
+                            android:height="0dp" /> <!-- Set height for visibility -->
+                    </shape>
+                </item>
+
+                <!-- Arrow Icon with Padding -->
+                <item
+                    android:drawable="@drawable/ic_oui_calendar"
+                    android:top="0.1dp"
+                    android:bottom="0.1dp"
+                    android:left="9dp"
+                    android:right="9dp" />
+            </layer-list>
+        </inset>
+    </item>
+</ripple>

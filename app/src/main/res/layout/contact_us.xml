@@ -2,8 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="3dp"
-    android:background="@android:color/transparent">
+    android:background="@color/box_qrcode"
+    android:padding="3dp">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -13,36 +13,35 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@drawable/bottom_sheet_background"
-            android:padding="10dp"
             android:layout_marginTop="0dp"
             android:clipToPadding="false"
-            android:elevation="6dp">
+            android:elevation="6dp"
+            android:orientation="vertical"
+            android:padding="10dp">
 
             <!-- Title Section -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="16dp">
+                android:orientation="horizontal">
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="32dp"
                     android:layout_height="32dp"
+                    android:layout_marginEnd="8dp"
                     android:src="@drawable/ic_oui_contact"
-                    android:tint="?attr/colorPrimary"
-                    android:layout_marginEnd="8dp" />
+                    android:tint="?attr/colorPrimary" />
 
                 <TextView
                     android:id="@+id/contactUsTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/contact_us"
+                    android:textColor="?attr/actionMenuTextColor"
                     android:textSize="24sp"
-                    android:textStyle="bold"
-                    android:textColor="?attr/actionMenuTextColor" />
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <!-- Description -->
@@ -50,75 +49,75 @@
                 android:id="@+id/contactUsDescription"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/although_the_jackson_hole_airport_is_the_busiest_airport_in_wyoming_the_small_size_affords_the_traveling_public_with_a_more_intimate_traveling_experience_any_questions_and_concerns_are_met_with_smiles_and_immediate_assistance_if_you_have_any_questions_or_comments_you_d_like_to_share_please_click_on_the_appropriate_category_to_e_mail_the_appropriate_airport_representative_thanks_n_npeople_helping_people_n_nwe_care_about_your_travel_experience_please_share_your_feedback_by_filling_out_the_short_form_below_with_your_help_the_airport_can_address_concerns_award_staff_members_who_go_above_and_beyond_or_contact_stakeholders_airlines_rental_car_companies_concessionaires_on_your_behalf"
-                android:textSize="16sp"
-                android:lineSpacingExtra="4dp"
                 android:layout_marginBottom="16dp"
+                android:lineSpacingExtra="4dp"
+                android:text="@string/although_the_jackson_hole_airport_is_the_busiest_airport_in_wyoming_the_small_size_affords_the_traveling_public_with_a_more_intimate_traveling_experience_any_questions_and_concerns_are_met_with_smiles_and_immediate_assistance_if_you_have_any_questions_or_comments_you_d_like_to_share_please_click_on_the_appropriate_category_to_e_mail_the_appropriate_airport_representative_thanks_n_npeople_helping_people_n_nwe_care_about_your_travel_experience_please_share_your_feedback_by_filling_out_the_short_form_below_with_your_help_the_airport_can_address_concerns_award_staff_members_who_go_above_and_beyond_or_contact_stakeholders_airlines_rental_car_companies_concessionaires_on_your_behalf"
                 android:textColor="?attr/actionMenuTextColor"
+                android:textSize="16sp"
                 tools:ignore="VisualLintLongText" />
 
             <!-- Divider -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="?attr/colorAccent"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="16dp"
+                android:background="?attr/colorAccent" />
 
             <!-- Phone Section -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="16dp">
+                android:orientation="horizontal">
 
                 <androidx.appcompat.widget.AppCompatImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
+                    android:layout_marginEnd="8dp"
                     android:src="@drawable/ic_oui_phone"
-                    android:tint="?attr/colorPrimary"
-                    android:layout_marginEnd="8dp" />
+                    android:tint="?attr/colorPrimary" />
 
                 <TextView
                     android:id="@+id/contactUsPhone"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/phone_307_733_7682"
-                    android:textSize="16sp"
-                    android:textColor="?attr/actionMenuTextColor" />
+                    android:textColor="?attr/actionMenuTextColor"
+                    android:textSize="16sp" />
             </LinearLayout>
 
             <!-- Divider -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="?attr/colorAccent"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="16dp"
+                android:background="?attr/colorAccent" />
 
             <!-- Email Section -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="16dp">
+                android:orientation="horizontal">
 
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:src="@drawable/ic_oui_email"
-                        android:tint="?attr/colorPrimary"
-                        android:layout_marginEnd="8dp" />
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginEnd="8dp"
+                    android:src="@drawable/ic_oui_email"
+                    android:tint="?attr/colorPrimary" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/email_addresses"
-                        android:layout_gravity="center"
-                        android:textAlignment="center"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/actionMenuTextColor" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="@string/email_addresses"
+                    android:textAlignment="center"
+                    android:textColor="?attr/actionMenuTextColor"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
 
             </LinearLayout>
 
@@ -137,37 +136,37 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="?attr/colorAccent"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="16dp"
+                android:background="?attr/colorAccent" />
 
 
             <!-- Address Section -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="16dp">
+                android:layout_marginBottom="16dp"
+                android:orientation="vertical">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
                     <androidx.appcompat.widget.AppCompatImageView
                         android:layout_width="24dp"
                         android:layout_height="24dp"
+                        android:layout_marginEnd="8dp"
                         android:src="@drawable/ic_oui_location"
-                        android:tint="?attr/colorPrimary"
-                        android:layout_marginEnd="8dp" />
+                        android:tint="?attr/colorPrimary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/address_title"
+                        android:textColor="?attr/actionMenuTextColor"
                         android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="?attr/actionMenuTextColor" />
+                        android:textStyle="bold" />
 
                 </LinearLayout>
 
@@ -175,11 +174,11 @@
                     android:id="@+id/contactUsAddress"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/address"
-                    android:textSize="16sp"
-                    android:lineSpacingExtra="4dp"
                     android:layout_marginTop="8dp"
-                    android:textColor="?attr/actionMenuTextColor" />
+                    android:lineSpacingExtra="4dp"
+                    android:text="@string/address"
+                    android:textColor="?attr/actionMenuTextColor"
+                    android:textSize="16sp" />
             </LinearLayout>
         </LinearLayout>
 

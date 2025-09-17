@@ -2,85 +2,137 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingTop="0dp"
     android:elevation="1dp"
     android:fitsSystemWindows="true"
     android:background="@color/box_qrcode">
 
-        <!-- FrameLayout (Below Toolbar) -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/container"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginStart="80dp"
-            android:layout_marginEnd="0dp"
-            android:clipToOutline="true"
-            app:cardElevation="0dp"
-            android:backgroundTint="@color/card_background"
-            app:strokeWidth="0dp"
-            />
 
+
+        <!-- FrameLayout (Below Toolbar) -->
+
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="80dp"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="5dp"
+        android:layout_marginBottom="5dp"
+        android:backgroundTint="@color/box_qrcode"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        app:strokeWidth="0dp">
+        <!-- Add this TextView inside the MaterialCardView -->
+        <TextView
+            android:id="@+id/empty_contact_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="78dp"
+            android:backgroundTint="@android:color/transparent"
+            android:fontFamily="@font/roboto_slab_extra_bold"
+            android:text="@string/add_your_first_contact"
+            android:textColor="?attr/actionMenuTextColor"
+            android:textSize="20sp"
+            android:visibility="visible" />
+
+
+    </com.google.android.material.card.MaterialCardView>
 
     <com.google.android.material.navigationrail.NavigationRailView
-        android:id="@+id/navigation_rail"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_gravity="start"
-        app:itemTextColor="?attr/actionMenuTextColor"
-        app:menu="@menu/navigation_drawer_all_contacts"
-        app:labelVisibilityMode="unlabeled"
-        app:itemIconSize="40dp"
-        android:background="@color/box_qrcode"
-        app:itemIconTint="?attr/colorControlNormal"
-        app:itemTextAppearanceActive="@style/SmallTextAppearanceActive"
-        app:itemTextAppearanceInactive="@style/SmallTextAppearanceInactive">
-
-
-
-        <androidx.appcompat.widget.LinearLayoutCompat
-            android:id="@+id/nav_contact_count_container"
+            android:id="@+id/navigation_rail"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:layout_marginTop="470dp"
-            android:layout_gravity="center_horizontal">
+            android:layout_height="match_parent"
+            app:itemTextColor="?attr/actionMenuTextColor"
+            app:menu="@menu/navigation_drawer_all_contacts"
+            app:labelVisibilityMode="unlabeled"
+            app:itemIconSize="30dp"
+            android:keyboardNavigationCluster="true"
+            android:keepScreenOn="true"
+            app:fastScrollEnabled="true"
+            android:layout_gravity="start"
+            android:contentDescription="@string/nav_header_desc"
+            android:soundEffectsEnabled="true"
+            android:background="@color/box_qrcode"
+            app:itemTextAppearanceActive="@style/SmallTextAppearanceActive"
+            app:itemTextAppearanceInactive="@style/SmallTextAppearanceInactive">
 
 
-        <TextView
-            android:id="@+id/nav_contact_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:maxLines="1"
-            android:text="999"
-            android:textStyle="normal"
-            android:background="@drawable/rounded_total_count_contacts"
-            android:elevation="1dp"
-            android:backgroundTint="@color/holo_yellow_light"
-            android:paddingHorizontal="20dp"
-            android:textAlignment="center"
-            android:textSize="13sp"
-            android:textColor="@color/message_color_alert"
-            android:gravity="center"
-            android:contentDescription="@string/new_contacts_count" />
-            <!-- New TextView to show the contact count message -->
-            <TextView
-                android:id="@+id/contact_count_message"
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <!-- Contact Count Section -->
+            <LinearLayout
+                android:id="@+id/nav_contact_count_container"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:maxLines="1"
-                android:textStyle="normal"
-                android:textColor="?attr/actionMenuTextColor"
                 android:gravity="center"
-                android:textSize="11sp"
-                android:text="@string/total_contacts"
-                android:layout_marginTop="10dp"
-                android:visibility="visible" />
-    </androidx.appcompat.widget.LinearLayoutCompat>
+                android:orientation="vertical"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintVertical_bias="0.6">
+
+                <TextView
+                    android:id="@+id/nav_contact_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/rounded_total_count_contacts"
+                    android:backgroundTint="@color/holo_yellow_light"
+                    android:contentDescription="@string/new_contacts_count"
+                    android:elevation="1dp"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:paddingHorizontal="20dp"
+                    android:text="999"
+                    android:textAlignment="center"
+                    android:textColor="@color/message_color_alert"
+                    android:textSize="11sp"
+                    android:textStyle="normal"
+                    tools:ignore="HardcodedText" />
+
+                <TextView
+                    android:id="@+id/contact_count_message"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:text="@string/total_contacts"
+                    android:textColor="?attr/actionMenuTextColor"
+                    android:textSize="9sp"
+                    android:textStyle="normal"
+                    android:visibility="visible"
+                    tools:ignore="SmallSp" />
+            </LinearLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
 
-</com.google.android.material.navigationrail.NavigationRailView>
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/nav_add_contact"
+                style="@style/ShapeAppearanceOverlay.Material3.FloatingActionButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:layout_marginStart="12dp"
+                android:layout_marginBottom="70dp"
+                android:backgroundTint="@color/box_contact_expand"
+                android:contentDescription="@string/add_note"
+                app:tint="@color/red"
+                app:elevation="2dp"
+                app:srcCompat="@drawable/person_add_24dp_ffffff_fill1_wght400_grad0_opsz24" />
+
+
+
+    </com.google.android.material.navigationrail.NavigationRailView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

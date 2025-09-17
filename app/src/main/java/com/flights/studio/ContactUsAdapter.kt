@@ -2,20 +2,20 @@ package com.flights.studio
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.recyclerview.widget.RecyclerView
 import com.flights.studio.databinding.ItemContact2Binding
 
 class ContactUsAdapter(
     private val contacts: List<AllContactus>,
     private val context: Context,
-    private val onMapClick: (latitude: Double, longitude: Double, label: String) -> Unit
+    private val onMapClick: (latitude: Double, longitude: Double, label: String) -> Unit,
 
-) : RecyclerView.Adapter<ContactUsAdapter.ContactViewHolder>() {
+    ) : RecyclerView.Adapter<ContactUsAdapter.ContactViewHolder>() {
 
     // A list to track expanded state for each item
     private val expandedStates = MutableList(contacts.size) { false }
@@ -75,7 +75,7 @@ class ContactUsAdapter(
             // Handle Email action
             binding.textEmail.setOnClickListener {
                 if (!contact.email.isNullOrBlank()) {
-                    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${contact.email}"))
+                    val intent = Intent(Intent.ACTION_SENDTO, "mailto:${contact.email}".toUri())
                     context.startActivity(Intent.createChooser(intent, "Send Email"))
                 } else {
                     Toast.makeText(context, "No email address available", Toast.LENGTH_SHORT).show()
@@ -85,7 +85,7 @@ class ContactUsAdapter(
             // Handle Phone TextView click action
             binding.textPhone.setOnClickListener {
                 if (contact.phone.isNotBlank()) {
-                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${contact.phone}"))
+                    val intent = Intent(Intent.ACTION_DIAL, "tel:${contact.phone}".toUri())
                     context.startActivity(intent)
                 } else {
                     Toast.makeText(context, "No phone number available", Toast.LENGTH_SHORT).show()
@@ -96,7 +96,7 @@ class ContactUsAdapter(
             binding.smsButton.setOnClickListener {
                 if (contact.phone.isNotBlank()) {
                     val smsIntent = Intent(Intent.ACTION_VIEW).apply {
-                        data = Uri.parse("smsto:${contact.phone}")
+                        data = "smsto:${contact.phone}".toUri()
                         putExtra("sms_body", "Hello, this is a test message.")
                     }
                     context.startActivity(smsIntent)

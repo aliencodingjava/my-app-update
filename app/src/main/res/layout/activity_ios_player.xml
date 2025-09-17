@@ -1,0 +1,230 @@
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/iosRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black"
+    android:fitsSystemWindows="false">
+
+    <!-- 1️⃣ Content to be blurred -->
+    <eightbitlab.com.blurview.BlurTarget
+        android:id="@+id/target"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
+            android:id="@+id/youtube_player_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:autoPlay="true"
+            app:videoId="xR9tE01Z8oY" />
+
+        <View
+            android:id="@+id/videoTouchBlocker"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:alpha="1"
+            android:background="@android:color/black"
+            android:clickable="true"
+            android:focusable="true"
+            android:importantForAccessibility="no" />
+
+
+    </eightbitlab.com.blurview.BlurTarget>
+    <!-- 🔒 Transparent overlay to block interaction with the video -->
+
+
+    <!-- 🔄 Optional loading spinner -->
+    <ProgressBar
+        android:id="@+id/playerLoading"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:indeterminateTint="@android:color/white"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+
+    <!-- ✅ BlurView must be OUTSIDE of BlurTarget -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/playstopBlurView"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginBottom="15dp"
+        android:background="@drawable/animated_gradient"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clickable="false"
+            android:focusable="false">
+
+            <!-- 🔁 CLOSE BUTTON (hidden by default) -->
+            <ImageView
+                android:id="@+id/closeButton"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center_vertical|start"
+                android:layout_marginStart="10dp"
+                android:clickable="true"
+                android:contentDescription="@string/close"
+                android:focusable="true"
+                android:src="@drawable/baseline_close_24"
+                android:visibility="gone"
+                app:tint="@android:color/white" />
+
+            <!-- ▶️ PLAY/PAUSE TOGGLE (shown by default) -->
+            <ImageView
+                android:id="@+id/playToggle"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center_vertical|start"
+                android:layout_marginStart="10dp"
+                android:clickable="true"
+                android:contentDescription="@string/play_pause"
+                android:focusable="true"
+                android:src="@drawable/ic_oui_control_play"
+                android:visibility="visible"
+                app:tint="@android:color/white"
+                tools:ignore="TouchTargetSizeCheck" />
+
+            <!-- ⏳ PROGRESS BAR -->
+            <SeekBar
+                android:id="@+id/videoProgressBar"
+                style="@style/Widget.AppCompat.SeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="9dp"
+                android:layout_gravity="center_vertical"
+                android:layout_marginStart="50dp"
+                android:layout_marginEnd="80dp"
+                android:indeterminate="false"
+                android:max="100"
+                android:progress="0" />
+
+            <!-- ⏱ CURRENT TIME -->
+            <TextView
+                android:id="@+id/timeCurrent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical|start"
+                android:layout_marginStart="65dp"
+                android:layout_marginTop="15dp"
+                android:text="0:00"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                tools:ignore="HardcodedText" />
+
+
+            <!-- ⏱ TOTAL DURATION -->
+            <TextView
+                android:id="@+id/timeTotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical|end"
+                android:layout_marginTop="15dp"
+                android:layout_marginEnd="95dp"
+                android:text="0:00"
+                android:textColor="@android:color/white"
+                android:textSize="11sp"
+                tools:ignore="HardcodedText" />
+
+
+            <!-- ⚙️ QUALITY TOGGLE -->
+            <ImageView
+                android:id="@+id/qualityToggle"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center_vertical|end"
+                android:layout_marginEnd="50dp"
+                android:clickable="true"
+                android:contentDescription="@string/video_quality"
+                android:focusable="true"
+                android:src="@drawable/folder_24dp_ffffff_fill1_wght400_grad0_opsz24"
+                app:tint="@android:color/white"
+                tools:ignore="TouchTargetSizeCheck" />
+
+
+            <!-- ⛶ FULLSCREEN TOGGLE -->
+            <ImageView
+                android:id="@+id/fullscreenToggle"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center_vertical|end"
+                android:layout_marginEnd="10dp"
+                android:clickable="true"
+                android:contentDescription="@string/fullscreen"
+                android:focusable="true"
+                android:src="@drawable/ic_oui_fit_to_screen"
+                app:tint="@android:color/white"
+                tools:ignore="TouchTargetSizeCheck" />
+
+
+        </FrameLayout>
+
+    </eightbitlab.com.blurview.BlurView>
+
+    <!-- 1️⃣ CONTAINER with background + constraints -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/qualityMenuFrame"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:padding="10dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginBottom="5dp"
+        android:background="@drawable/rounded_search_background"
+        android:clipToOutline="true"
+        android:elevation="0dp"
+        app:cardCornerRadius="35dp"
+        app:strokeWidth="0dp"
+        android:visibility="gone"
+        android:backgroundTint="@color/glass_blur_overlay"
+        android:outlineProvider="background"
+        app:layout_constraintBottom_toTopOf="@id/playstopBlurView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <HorizontalScrollView
+            android:id="@+id/qualityMenuScrollView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingHorizontal="6dp"
+            android:overScrollMode="never"
+            android:scrollbars="none"
+            android:clipToPadding="false"
+            android:clipChildren="false">
+
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/qualityMenuContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:chipSpacingHorizontal="8dp"
+                app:chipSpacingVertical="4dp"
+                android:layout_gravity="center_vertical"
+                android:clipChildren="false"
+                android:clipToPadding="false"/>
+
+        </HorizontalScrollView>
+    </com.google.android.material.card.MaterialCardView>
+
+
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

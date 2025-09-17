@@ -22,7 +22,6 @@
     <string name="contacts_count">Contacts: %1$d</string>
 
 
-
     <string name="contact_info">Information</string>
     <string name="contactfab">contact</string>
     <string name="webcam">webcam</string>
@@ -95,7 +94,7 @@
     <string name="human_resources_email">hr@jhairport.org</string>
     <string name="communications_customer_experience_email">megan.jenkins@jhairport.org</string>
     <string name="call_float">Call</string>
-    <string name="cancel">Close</string>
+    <string name="cancel">Cancel</string>
     <string name="confirm_call_message">Do you want to call %s?</string>
     <string name="card_view_icon">cardviewicon</string>
     <string name="opensplash">splashpage</string>
@@ -112,20 +111,32 @@
     <string name="checking_for_updates">Checking for Updates</string>
     <string name="app_update">App Update</string>
     <string name="app_up_to_date">You\'re all caught up!\nYour app is up to date.</string>
-    <string name="ok">OK</string>
+    <string name="ok">Close</string>
+
+    <string name="help">Help</string>
+    <string name="add_note_help_title">What you can do here</string>
+    <string name="add_note_help_bullets">
+        • Add images (tap **Image**)\n
+        • Reorder images: long-press a thumbnail and drag\n
+        • Remove an image: tap the × on a thumbnail\n
+        • Optional title: type it or auto-fill from note\n
+        • Write your note and tap **Save**
+</string>
+    <string name="help_add_images">Add images</string>
+    <string name="help_auto_title">Auto-fill title from note</string>
+    <string name="title_set">Title set</string>
+    <string name="type_note_first">Type your note first</string>
+
+
 
     <string-array name="update_messages">
         <item>&#8211; <b>Previous Update:</b></item>
         <item>&#8211; New animations added for smoother transitions.</item>
         <item>&#8211; Introduced a color palette for contacts customization.</item>
-        <item>&#8211; Added Holo color picker with a modern BottomSheet UI.</item>
-        <item>&#8211; Improved BottomSheet behavior: now opens half-screen by default.</item>
-        <item>&#8211; Fixed UI issue where BottomSheet lost rounded corners after expanding.</item>
         <item>&#8211; Enhanced UI and animations.</item>
         <item>&#8211; Improved stability and performance.</item>
         <item>&#8211; Added Notes and Contact sections.</item>
         <item>&#8211; New customizable Page Settings.</item>
-        <item>&#8211; Introduced Widget (beta) for quick access.</item>
         <item>&#8211; Expanded localization (Spanish, English).</item>
         <item>&#8211; Added functionality to refresh images online.</item>
         <item>&#8211; Dark Mode optimizations for better visibility.</item>
@@ -139,12 +150,10 @@
         <item>&#8211; Optimized battery usage for longer app sessions.</item>
         <item>&#8211; Improved accessibility support for screen readers.</item>
         <item>&#8211; Faster loading times and improved app speed.</item>
-        <item>&#8211; New **Widget (Beta)** added to display a countdown timer for automatic image refresh.</item>
+        <item>&#8211; New **Widget  added to display a countdown timer for automatic image refresh.</item>
+        <item>&#8211; Added Cards to home screen: Quickly access activities in one place.</item>
         <item>&#8211; Thank you for using our app!</item>
     </string-array>
-
-
-
 
 
     <string name="download_complete_title">Download Complete</string>
@@ -164,7 +173,7 @@
     <string name="carousel_description">for recycleview material design3</string>
     <string name="fab_content_desc_main">Main FAB</string>
     <string name="fab_content_desc_camera">Camera FAB</string>
-    <string name="fab_content_desc_insert_photo">Insert Photo FAB</string>
+    <string name="fab_content_desc_insert_photo">Photo FAB</string>
     <string name="fab_content_desc_contact">Contact FAB</string>
     <string name="fab_content_desc_settings">Settings FAB</string>
     <string name="changelog_title">Changelog for %s</string>
@@ -198,10 +207,15 @@
     <string name="image3">image 3</string>
     <string name="image4">image 4</string>
     <string name="grand_teton_national">Grand Teton National Park</string>
-    <string name="card_image">cardimage</string>
+    <string name="card_image">Image</string>
     <string name="confirm_call_messagebutton">call button</string>
     <string name="drive_safely_and_stay_focused">Drive safely and stay focused.</string>
     <string name="open_maps">Open Maps</string>
+    <string name="time_in_past">Selected time is in the past. Please choose a future time.</string>
+    <string name="reminder_scheduled">Reminder set for: %1$s at %2$d:%3$d</string>
+    <string name="reminder_set_successful">Reminder set successfully for your selected time!</string>
+
+
     <!-- A string for progress percentage -->
     <string name="progress_percentage">%1$d%%</string>
     <!-- A string for the progress message -->
@@ -209,16 +223,23 @@
     <string name="call_from_contact">Call</string>
     <string name="Cancelphonecall">Cancel</string>
     <string name="Cancel">Cancel</string>
-    <string name="enter_your_feedback_here">Enter your feedback here…</string>
+    <string name="enter_your_feedback_here">Your feedback matters – type here…</string>
+    <string name="ban_reason_hint" translatable="false">
+Your device is banned for submitting offensive or inappropriate feedback. Please wait until the ban expires.
+</string>
+    <string name="feedback_blocked_while_banned" translatable="false">You are banned.</string>
+    <string name="ban_status_unavailable" translatable="false">No internet.</string>
+    <string name="ban_status_error_hint" translatable="false">Offline</string>
+
+
     <string name="your_feedback_helps_us_improve">Your feedback helps us improve!</string>
-    <string name="send_feedback">Send Feedback</string>
     <string name="tell_us_what_you_think">Tell us what you think!</string>
     <string name="offline_feedback">Submit feedback even when the server is offline; it\'ll be processed later!</string>
 
-    <string name="server_online">Server Online</string>
-    <string name="server_offline">Server Offline</string>
+    <string name="server_online">Online</string>
+    <string name="server_offline">Offline</string>
     <string name="clear_feedback">Clear Feedback</string>
-    <string name="checking_status">Checking server status…</string>
+    <string name="checking_status">Checking…</string>
     <string name="title_activity_main2">MainActivity2</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
@@ -390,7 +411,7 @@
     <string name="add_note">add_note</string>
     <string name="back">back</string>
     <string name="_0_1500">0/1500</string>
-    <string name="save_note">Save Note</string>
+    <string name="save_note">Save</string>
     <string name="char_count_format">%1$d/1500</string>
     <string name="note_empty_error">Note cannot be empty!</string>
     <string name="update">update</string>
@@ -403,7 +424,7 @@
     <string name="edit_title">edit title</string>
     <string name="All_Notes">All Notes</string>
     <string name="icon_image">icon image</string>
-    <string name="add_photo">add photo</string>
+    <string name="add_photo">Add photo</string>
     <string name="updated_note_key">UPDATED_NOTE</string>
     <string name="note_position_key">NOTE_POSITION</string>
     <string name="error_loading_note">Error loading the note</string>
@@ -438,11 +459,11 @@
     <string name="share">share</string>
     <string name="edit">edit</string>
     <string name="ga_tracking_id" translatable="false">G-F0TX6S19ZQ</string>
-        <string name="opening_map_countdown">Snackbar will dismiss in 10 seconds…</string>
-        <string name="open_map_action">Open Map</string>
-        <string name="countdown_seconds">Dismissing in %1$d seconds…</string>
-        <string name="failed_to_load_map">Failed to load map. Please ensure an internet connection.</string>
-        <string name="failed_to_load_contact_us">Failed to load Contact Us content.</string>
+    <string name="opening_map_countdown">Snackbar will dismiss in 10 seconds…</string>
+    <string name="open_map_action">Open Map</string>
+    <string name="countdown_seconds">Dismissing in %1$d seconds…</string>
+    <string name="failed_to_load_map">Failed to load map. Please ensure an internet connection.</string>
+    <string name="failed_to_load_contact_us">Failed to load Contact Us content.</string>
     <string name="time" translatable="false">dismissed</string>
 
     <string name="refreshing_image" translatable="false">Refreshing Image...</string>
@@ -474,7 +495,7 @@
 
     <string name="undo" translatable="false">Undo</string>
     <!-- Use a placeholder for the message; the %1$d will be replaced with the deleted contacts count -->
-    <string name="snackbar_message" translatable="false">%1$d contacts removed</string>
+    <string name="snackbar_message" translatable="false">%1$d removed</string>
     <string name="snackbar_message_placeholder" translatable="false">0 contacts deleted</string>
     <string name="select_a_color">Select a Color</string>
     <string name="openclosefullscreen">open-close-full-screen</string>
@@ -482,11 +503,177 @@
     <string name="north">North</string>
     <string name="Home">Home</string>
     <string name="qr_code">Qr Code</string>
-    <string name="All_contacts">all contacts</string>
+    <string name="All_contacts">All contacts</string>
     <string name="Import_contacts">import contacts</string>
     <string name="contact_icon">Contact icon</string>
     <string name="new_contacts_count">New contacts count</string>
     <string name="total_contacts">Total contacts</string>
+    <string name="make_a_call">Make a call</string>
+    <string name="edit_contact">Edit contact</string>
+    <string name="add_account">Add account</string>
+    <string name="edit_account">Edit profile</string>
+
+    <string name="confirm">Confirm</string>
+    <string name="exit_confirmation">Exit Confirmation</string>
+    <string name="test">Loading title</string>
+    <string name="openAddNoteScreen">All Notes</string>
+    <string name="reminder_icon">reminder</string>
+    <string name="set_timer">Set Timer</string>
+    <string name="open_calendar">Open Calendar</string>
+    <string name="calendar">Calendar</string>
+    <string name="timer">Timer</string>
+    <string name="_100">100</string>
+    <string name="loading">Loading…</string>
+    <string name="front">front</string>
+    <string name="select_time">Select Time</string>
+    <string name="set_reminder">Set Reminder</string>
+    <string name="selected_time_is_in_the_past_please_choose_a_future_time">Selected time is in the past. Please choose a future time.</string>
+    <string name="reminder_set_successfully_for_your_note">Reminder set successfully for your note!</string>
+    <string name="your_reminder_note">Your Reminder Note</string>
+    <string name="curb_view">Curb View</string>
+    <string name="north_view">North View</string>
+    <string name="south_view">South View</string>
+    <string name="time_separator">:</string>
+    <string name="drag_hint">drag hint</string>
+    <string name="FlightTracker">Flight Tracker</string>
+    <string name="News">News</string>
+    <string name="BETA" translatable="false">BETA 1.0</string>
+    <string name="dont_send_sensitive_data" translatable="false">Don\'t send sensitive data</string>
+    <string name="feedback_all_sent" translatable="false">✅ All queued feedback sent!</string>
+    <string name="feedback_retry_later" translatable="false">⚠️ Some feedback couldn’t be sent. Will retry later.</string>
+    <string name="feedback_send_exception_error" translatable="false">❌ Error: %1$s</string>
+    <string name="feedback_queued_later" translatable="false">Feedback queued for later.</string>
+    <string name="feedback_queue_failed" translatable="false">Failed to queue feedback.</string>
+    <string name="feedback_sent_success" translatable="false">Feedback sent successfully!</string>
+    <string name="feedback_send_error" translatable="false">Feedback couldn\'t be sent. Saved for later.</string>
+    <string name="error_sending_feedback" translatable="false">Error sending feedback.</string>
+    <string name="feedback_queued_success" translatable="false">Feedback queued for later.</string>
+    <string name="feedback_queue_error" translatable="false">Failed to queue feedback: %1$s</string> <!-- %1$s will be replaced with the error message -->
+    <string name="sending_feedback" translatable="false">Sending…</string>
+    <string name="send_feedback">Send</string>
+    <string name="feedback_sent_done" translatable="false">Sent</string>
+    <string name="only_send_what_s_necessary" translatable="false">Only send what\'s necessary.</string>
+    <!-- in res/values/strings.xml -->
+    <string name="enable_click_sound" translatable="false">Tap Sound Effect</string>
+    <string name="ban_days_left" translatable="false">%1$d days left</string>
+    <string name="ban_hours_left" translatable="false">%1$d hours left</string>
+    <string name="ban_minutes_left" translatable="false">%1$d minutes left</string>
+    <string name="fcm_token_missing" translatable="false">Unable to retrieve device token. Please try again later.</string>
+
+    <string name="banned60_days" translatable="false">🚫 You are banned for 60 days.</string>
+    <string name="ban_days_full" translatable="false">%1$d days %2$02d:%3$02d:%4$02d left</string>
+    <string name="ban_hours_full" translatable="false">%1$d hour %2$02d:%3$02d left</string>
+    <string name="ban_minutes_full" translatable="false">%1$d min %2$02d sec left</string>
+    <string name="ban_seconds_only" translatable="false">%1$d sec left</string>
+    <string name="ban_expired" translatable="false">Ban expired</string>
+    <string name="feedback_rules" translatable="false">Feedback rules</string>
+    <string name="feedback_rules_message">
+  • No profanity or hate speech\n
+  • No personal data or doxxing\n
+  • Violations incur a 60‑day ban\n
+  • No harassment or bullying\n
+  • No spam, advertising, or self‑promotion
+</string>
+
+    <string name="done">Done</string>
+    <string name="birthday">Birthday</string>
+    <string name="update_photo">Update photo</string>
+    <string name="add_to_calendar">Add to Calendar</string>
+    <string name="select_palette_color">Select a predefined palette</string>
+    <string name="color_name">Color Name</string>
+    <string name="palette_name">Palette Name</string>
+    <string name="main">Main</string>
+    <string name="overlay">Overlay</string>
+    <string name="buttons">Buttons</string>
+    <string name="label_main">Main</string>
+    <string name="label_overlay">Overlay</string>
+    <string name="label_buttons">Buttons</string>
+    <string name="label_reset">Reset</string>
+    <string name="add_your_first_contact">Add your first contact</string>
+    <string name="add_your_first_note">Add your first note</string>
+    <string name="welcome_to_jac_airport">Welcome to JAC Airport</string>
+    <string name="app_logo">App Logo</string>
+    <string name="jac_airport_logo">Jac Airport Logo</string>
+    <string name="birthday_reminder">birthday reminder</string>
+    <string name="not_logged_in">Welcome!</string>
+    <string name="tap_to_log_in">Join</string>
+    <string name="profile">Profile image</string>
+    <string name="username_handle">\@%1$s</string>
+    <string name="forward_10s">Forward 10s</string>
+    <string name="now_playing">now playing</string>
+    <string name="rewind_10s">Rewind 10s</string>
+    <string name="play_pause">Play/Pause</string>
+    <string name="fullscreen">Fullscreen</string>
+
+
+        <string name="profile_saved_successfully">Profile saved successfully</string>
+        <string name="error_failed_to_save_image_permission">Could not save image access. It might not be available later.</string>
+        <string name="error_failed_to_load_image_permission">Failed to access saved image.</string>
+        <string name="error_loading_image_uri">Error loading saved image.</string>
+
+        <string name="validation_name_required">Name is required</string>
+        <string name="validation_phone_required">Phone is required</string>
+        <string name="validation_email_invalid">Invalid email format</string>
+    <string name="logout">Logout</string>
+    <string name="show_hide_menu">show hide profile</string>
+    <string name="bio" translatable="false">Bio</string>
+    <string name="nf" translatable="false">NF</string>
+
+    <!-- Add any other strings your layout uses -->
+
+
+    <string name="enter_valid_otp_message">Enter the 6-digit code sent to your email</string>
+    <string name="verification_successful">✅ Verification successful!</string>
+    <string name="verification_failed">❌ Verification failed: %1$s</string>
+
+    <string name="title_my_profile">My Profile</string>
+    <string name="default_user_name">Anonymous</string>
+    <string name="unknown_contact">No contact info</string>
+    <string name="label_email">Email: %1$s</string>
+    <string name="label_bio">Bio: %1$s</string>
+    <string name="label_birthday">Birthday: %1$s</string>
+    <string name="prompt_create_profile">Please create your profile first</string>
+    <string name="title_log_out">Log Out</string>
+    <string name="confirm_log_out">Are you sure you want to log out?</string>
+    <string name="yes">Yes</string>
+    <string name="login">Log In</string>
+    <string name="log_out">Log Out</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="initials_settings">initials</string>
+    <string name="cardlung11">Photo!!</string>
+    <string name="cardlung12">Photo12</string>
+    <string name="retry">retry</string>
+    <string name="video_quality">video quality\n</string>
+    <string name="time_zero">00:00</string>
+    <string name="general">general</string>
+    <string name="webcam_image">webcam image</string>
+    <string name="priority">Priority</string>
+    <string name="reminder">Reminder</string>
+    <string name="note_title_optional">Note Title (optional • AI✨)</string>
+    <string name="view_note">Note</string>
+    <string name="_1">1</string>
+    <string name="_7">/7</string>
+
+    <string name="photo_counter_current">%1$d</string>
+    <string name="photo_counter_total">/%1$d</string>
+    <string name="add">add</string>
+    <string name="info">Info</string>
+    <string name="flag">flag</string>
+    <string name="add_note_help_hint">help note</string>
+    <string name="photo_counter_a11y">Photo %1$d of %2$d</string>
+    <!-- strings.xml -->
+    <string name="choose_reminder_type">Choose reminder</string>
+    <string name="reminder_hint_short">Timer = today • Calendar = date/time</string>
+    <string name="timer_caption_short">Today</string>
+    <string name="calendar_caption_short">Date/time</string>
+    <!-- res/values/strings.xml -->
+    <string name="a11y_tip_available">Tip available</string>
+    <string name="tip_add_title">Add a title or let us suggest one</string>
+    <string name="images_attached">Images attached</string>
+    <string name="nav_settings">nav settings</string>
+    <string name="nav_notes">nav notes</string>
+    <string name="nav_search">nav search</string>
+    <string name="nav_delete">nav delete</string>
 
 
 </resources>
