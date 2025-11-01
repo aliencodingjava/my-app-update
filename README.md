@@ -1,8 +1,4 @@
-<a href="https://github.com/aliencodingjava/my-app-update/releases/tag/v0.2.213">
-  <img src="https://github.com/user-attachments/assets/53971440-9b73-447e-b7eb-68436d034f77" alt="Jack Flight Studio banner" width="100%">
-</a>
-
-
+<img width="7184" height="3301" alt="new layer app" src="https://github.com/user-attachments/assets/d56aae9f-1d8d-44e3-b8aa-3995f932ba98" />
 
 
 
