@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorProducer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+
+// If your Compose version doesn't ship ColorProducer, define it:
+typealias ColorProducer = () -> Color
 
 class BottomTabsScope {
 
@@ -24,7 +27,10 @@ class BottomTabsScope {
             Column(
                 modifier.then(this.modifier).height(56.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
+                verticalArrangement = Arrangement.spacedBy(
+                    2.dp,
+                    Alignment.CenterVertically
+                )
             ) {
                 icon(contentColor)
                 label(contentColor)

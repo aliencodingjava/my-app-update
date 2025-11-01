@@ -2,180 +2,146 @@ package com.flights.studio
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tanh
 
-/**
- * Different visual treatments, like in Kyant's demo:
- * - Transparent: raw glass
- * - Surface: frosted/milky white for readability
- * - Tinted: filled with a color (blue/orange pill vibes)
- */
-sealed interface LiquidStyle {
-    data object Transparent : LiquidStyle
-//    data object Surface : LiquidStyle
-//    data class Tinted(val color: Color) : LiquidStyle
-}
-
-/**
- * One self-contained "liquid glass bubble" button.
- * - Handles squish/drag physics (InteractiveHighlight)
- * - Renders glass via drawBackdrop()
- * - Applies style overlay (Surface/Tinted/etc)
- * - Shows [icon + label]
- */
 @Composable
-fun LiquidCircleButtonExactPhysics(
+fun LiquidButton(
     onClick: () -> Unit,
     @DrawableRes iconRes: Int,
     label: String,
     backdrop: LayerBackdrop,
     modifier: Modifier = Modifier,
-    tint: Color = Color(0xFF40C4FF),
-    surfaceColor: Color = Color.White.copy(alpha = 0.08f),
-    iconTintOverride: Color? = null,
-    sizeDp: Int = 72
+    isInteractive: Boolean = true,
+    tint: Color = Color.Unspecified,          // keep as requested
+    surfaceColor: Color = Color.Unspecified   // keep as requested
 ) {
-    val scope = rememberCoroutineScope()
-    val interactiveHighlight = remember(scope) {
-        InteractiveHighlight(animationScope = scope)
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
     }
 
-    val darkMode = isSystemInDarkTheme()
-
-    val baseContentColor = if (darkMode) {
-        Color.White.copy(alpha = 0.95f)
-    } else {
-        Color.Black.copy(alpha = 0.85f)
-    }
-    val contentColor = iconTintOverride ?: baseContentColor
-
-    Box(
+    Row(
         modifier
-            .then(interactiveHighlight.modifier)
-            .then(interactiveHighlight.gestureModifier)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { CircleShape },
                 effects = {
+                    // STRICT ORDER: color filter ⇒ blur ⇒ lens
                     vibrancy()
-                    blur(SoftGlassTheme.blurRadius.toPx())
-                    lens(
-                        SoftGlassTheme.lensInner.toPx(),
-                        SoftGlassTheme.lensOuter.toPx()
-                    )
+                    blur(2.dp.toPx())
+                    lens(12.dp.toPx(), 24.dp.toPx())
                 },
-                layerBlock = {
-                    val w = size.width
-                    val h = size.height
-                    val pressProgress = interactiveHighlight.pressProgress
-                    val offset = interactiveHighlight.offset
-                    val minDim = kotlin.math.min(w, h)
+                layerBlock = if (isInteractive) {
+                    {
+                        val width = size.width
+                        val height = size.height
 
-                    val baseScale = lerp(
-                        1f,
-                        1f + 4.dp.toPx() / h,
-                        pressProgress
-                    )
+                        val progress = interactiveHighlight.pressProgress
+                        val scale = lerp(1f, 1f + 4.dp.toPx() / size.height, progress)
 
-                    val k = 0.05f
-                    translationX = minDim * kotlin.math.tanh(k * offset.x / minDim)
-                    translationY = minDim * kotlin.math.tanh(k * offset.y / minDim)
+                        val maxOffset = size.minDimension
+                        val k = 0.05f
+                        val offset = interactiveHighlight.offset
+                        translationX = maxOffset * tanh(k * offset.x / maxOffset)
+                        translationY = maxOffset * tanh(k * offset.y / maxOffset)
 
-                    val maxDragScale = 4.dp.toPx() / h
-                    val angle = kotlin.math.atan2(offset.y, offset.x)
-
-                    scaleX = baseScale +
-                            maxDragScale *
-                            kotlin.math.abs(
-                                kotlin.math.cos(angle) * offset.x / size.maxDimension
-                            ) *
-                            (w / h).coerceAtMost(1f)
-
-                    scaleY = baseScale +
-                            maxDragScale *
-                            kotlin.math.abs(
-                                kotlin.math.sin(angle) * offset.y / size.maxDimension
-                            ) *
-                            (h / w).coerceAtMost(1f)
-                },
+                        val maxDragScale = 4.dp.toPx() / size.height
+                        val ang = atan2(offset.y, offset.x)
+                        scaleX = scale +
+                                maxDragScale * abs(cos(ang) * offset.x / size.maxDimension) *
+                                (width / height).fastCoerceAtMost(1f)
+                        scaleY = scale +
+                                maxDragScale * abs(sin(ang) * offset.y / size.maxDimension) *
+                                (height / width).fastCoerceAtMost(1f)
+                    }
+                } else null,
                 onDrawSurface = {
-                    if (darkMode) {
-                        // DARK THEME: your neon-tinted chip style
-                        drawRect(
-                            color = tint.copy(alpha = 0.10f),
-                            blendMode = androidx.compose.ui.graphics.BlendMode.Hue
-                        )
-                        drawRect(
-                            color = tint.copy(alpha = 0.06f)
-                        )
-                        drawRect(
-                            color = surfaceColor.copy(alpha = 0.05f)
-                        )
-                    } else {
-                        // LIGHT THEME: bright frosted acrylic / milky glass
-                        drawRect(
-                            color = Color.White.copy(alpha = 0.45f)
-                        )
-                        drawRect(
-                            color = Color.White.copy(alpha = 0.18f)
-                        )
-                        // no blue tint in light mode so it doesn't look "dirty"
+                    if (tint.isSpecified) {
+                        // same look as Kyant's catalog
+                        drawRect(tint, blendMode = BlendMode.Hue)
+                        drawRect(tint.copy(alpha = 0.75f))
+                    }
+                    if (surfaceColor.isSpecified) {
+                        drawRect(surfaceColor)
                     }
                 }
             )
+            // luminance/highlight overlay + gesture tracking (Shader on Android 13+)
+            .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
+            .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
             .clickable(
                 interactionSource = null,
-                indication = null,
+                indication = if (isInteractive) null else LocalIndication.current,
+                role = Role.Button,
                 onClick = onClick
             )
-            .size(sizeDp.dp),
-        contentAlignment = Alignment.Center
+            .height(48.dp)
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+        // Pick a readable content color: white if tint is set OR in dark theme, else black
+        val isDark = isSystemInDarkTheme()
+        val contentColor = when {
+            tint.isSpecified -> Color.White
+            isDark -> Color.White
+            else -> Color.Black
+        }
+
+// Icon
+        if (iconRes != 0) {
             Image(
-                painter = painterResource(iconRes),
+                painter = painterResource(id = iconRes),
                 contentDescription = label,
                 modifier = Modifier.size(22.dp),
                 colorFilter = ColorFilter.tint(contentColor)
             )
-
-            if (label.isNotEmpty()) {
-                Spacer(Modifier.height(3.dp))
-                BasicText(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = contentColor
-                    )
-                )
-            }
         }
+
+// Label
+        if (label.isNotEmpty()) {
+            Text(
+                text = label,
+                color = contentColor,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
     }
 }

@@ -18,10 +18,10 @@
 -dontwarn org.jetbrains.annotations.**
 
 ######################################
-# ✅ LiquidGlass (avoid any reflection stripping)
+# ✅ AndroidLiquidGlass (Backdrop)
 ######################################
--keep class com.kyant.liquidglass.** { *; }
--dontwarn com.kyant.liquidglass.**
+-keep class com.kyant.** { *; }
+-dontwarn com.kyant.**
 
 ######################################
 # ✅ Glide (v4) — minimal & correct

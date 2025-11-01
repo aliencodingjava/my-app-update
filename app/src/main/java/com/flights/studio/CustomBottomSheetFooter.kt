@@ -58,10 +58,9 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
             fab1.setOnClickListener {
                 Log.d("CustomBottomSheetFooter", "fab1 clicked")
 
-                // Ensure the exact refresh animation logic is executed
-                if (requireActivity() is SplashActivity) {
-                    (requireActivity() as SplashActivity).triggerRefreshImageAnimation()
-                }
+                // TODO: hook this up to Compose refresh later
+                // Previously:
+                // (requireActivity() as SplashActivity).triggerRefreshImageAnimation()
             }
 
             fab2.setOnClickListener { expandBottomSheetAndLoadCarousel() }
@@ -77,7 +76,7 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
 
         // Example: If you ever want to navigate to the SplashActivity (or any other activity that should clear the back stack),
         // add the following flags. You can extend this condition if needed.
-        if (destination == SplashActivity::class.java) {
+        if (destination == MainActivity::class.java) {
             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -92,7 +91,7 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
         Handler(Looper.getMainLooper()).postDelayed({
             startActivity(intent, options.toBundle())
             // If navigating to SplashActivity, finish the current activity so that it is removed from the back stack.
-            if (destination == SplashActivity::class.java) {
+            if (destination == MainActivity::class.java) {
                 requireActivity().finish()
             }
         }, 0)
@@ -205,17 +204,17 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
         val includedLayout = binding.root.findViewById<View>(R.id.new_layout_grill)
 
         val cardViews = listOf(
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView1),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView2),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView3),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView4),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView5),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView6),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView7),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView8),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView9),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView10),
-            includedLayout.findViewById<MaterialCardView>(R.id.cardView11),
+            includedLayout.findViewById(R.id.cardView1),
+            includedLayout.findViewById(R.id.cardView2),
+            includedLayout.findViewById(R.id.cardView3),
+            includedLayout.findViewById(R.id.cardView4),
+            includedLayout.findViewById(R.id.cardView5),
+            includedLayout.findViewById(R.id.cardView6),
+            includedLayout.findViewById(R.id.cardView7),
+            includedLayout.findViewById(R.id.cardView8),
+            includedLayout.findViewById(R.id.cardView9),
+            includedLayout.findViewById(R.id.cardView10),
+            includedLayout.findViewById(R.id.cardView11),
             includedLayout.findViewById<MaterialCardView>(R.id.cardView12)
         )
 

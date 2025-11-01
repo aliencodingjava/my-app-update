@@ -89,12 +89,13 @@
 
 
         <activity
-            android:name="ProfileDetailsActivity"
+            android:name=".ProfileDetailsActivity"
             android:exported="false"
             android:hardwareAccelerated="true"
             android:enableOnBackInvokedCallback="true"
             android:theme="@style/SplashTheme"
             tools:targetApi="33" />
+
 
         <activity
             android:name=".IosPlayerActivity"
@@ -201,7 +202,7 @@
             tools:ignore="DiscouragedApi,LockedOrientationActivity">
         </activity>
         <activity
-            android:name=".SplashActivity"
+            android:name=".MainActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:enableOnBackInvokedCallback="true"
@@ -251,7 +252,7 @@
 
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".SplashActivity" />
+                android:value=".MainActivity" />
         </activity>
         <activity
             android:name=".AllNotesActivity"

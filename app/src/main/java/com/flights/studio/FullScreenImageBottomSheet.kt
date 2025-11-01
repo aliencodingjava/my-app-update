@@ -5,7 +5,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.AppCompatImageView
-import androidx.core.net.toUri
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.github.chrisbanes.photoview.PhotoView
@@ -46,22 +45,22 @@ class FullScreenImageBottomSheet : BottomSheetDialogFragment() {
         val fullScreenImageView3 = view.findViewById<PhotoView>(R.id.fullscreenImageView3)
         val closeButton = view.findViewById<AppCompatImageView>(R.id.closeButton)
 
-        val imageUrl1 = arguments?.getString("IMAGE_URL_1") ?: ""
-        val imageUrl2 = arguments?.getString("IMAGE_URL_2") ?: ""
-        val imageUrl3 = arguments?.getString("IMAGE_URL_3") ?: ""
+        val imageUrl1 = arguments?.getString("IMAGE_URL_1").orEmpty()
+        val imageUrl2 = arguments?.getString("IMAGE_URL_2").orEmpty()
+        val imageUrl3 = arguments?.getString("IMAGE_URL_3").orEmpty()
 
         Glide.with(this)
-            .load("$imageUrl1?v=${System.currentTimeMillis()}".toUri())
+            .load(imageUrl1) // <-- no extra ?v here
             .transition(DrawableTransitionOptions.withCrossFade(400))
             .into(fullScreenImageView1)
 
         Glide.with(this)
-            .load("$imageUrl2?v=${System.currentTimeMillis()}".toUri())
+            .load(imageUrl2)
             .transition(DrawableTransitionOptions.withCrossFade(400))
             .into(fullScreenImageView2)
 
         Glide.with(this)
-            .load("$imageUrl3?v=${System.currentTimeMillis()}".toUri())
+            .load(imageUrl3)
             .transition(DrawableTransitionOptions.withCrossFade(400))
             .into(fullScreenImageView3)
 

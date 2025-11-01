@@ -331,7 +331,7 @@ class SettingsActivity : LocaleActivity() {
 
 
     private fun goToHomeScreen() {
-        val intent = Intent(this, SplashActivity::class.java)
+        val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
@@ -382,7 +382,7 @@ class SettingsActivity : LocaleActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
-                val intent = Intent(this, SplashActivity::class.java)
+                val intent = Intent(this, MainActivity::class.java)
                 startActivity(intent)
                 finish()
                 overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)

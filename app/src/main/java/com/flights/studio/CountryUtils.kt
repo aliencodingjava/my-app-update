@@ -27,8 +27,7 @@ object CountryUtils {
 
         return regionCode.uppercase()
             .map { char -> 0x1F1E6 + (char.code - 'A'.code) }
-            .map { codePoint -> String(Character.toChars(codePoint)) }
-            .joinToString("")
+            .joinToString("") { codePoint -> String(Character.toChars(codePoint)) }
     }
 
     fun getCountryName(regionCode: String): String {

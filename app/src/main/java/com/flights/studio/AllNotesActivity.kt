@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
@@ -149,7 +150,7 @@ class AllNotesActivity : AppCompatActivity() {
         setContent {
             MaterialTheme {
                 var isDeleteVisible by remember { mutableStateOf(false) }
-                var reminderNote by remember { mutableStateOf<String?>(null) }
+                var reminderNote by rememberSaveable { mutableStateOf<String?>(null) }
 
                 // one place for the sheet to open
                 LaunchedEffect(Unit) {
@@ -157,18 +158,27 @@ class AllNotesActivity : AppCompatActivity() {
                     setDeleteVisibleFromActivity = { active -> isDeleteVisible = active }
                 }
 
+                // --- helper functions (silence "Assigned value is never read") ---
+                fun dismissReminder() {
+                    reminderNote = null
+                }
+
+                fun openTimerForCurrent() {
+                    reminderNote?.let { openMaterialTimePickerDialog(it) }
+                    dismissReminder()
+                }
+
+                fun openCalendarForCurrent() {
+                    reminderNote?.let { openMaterialDateTimePickerDialog(it) }
+                    dismissReminder()
+                }
+
                 // ✅ Wrap everything in ReminderHost – it owns the LayerBackdrop
                 ReminderHost(
                     visible = reminderNote != null,
-                    onDismiss = { reminderNote = null },
-                    onTimer = {
-                        reminderNote?.let { openMaterialTimePickerDialog(it) }
-                        reminderNote = null
-                    },
-                    onCalendar = {
-                        reminderNote?.let { openMaterialDateTimePickerDialog(it) }
-                        reminderNote = null
-                    }
+                    onDismiss = ::dismissReminder,
+                    onTimer = ::openTimerForCurrent,
+                    onCalendar = ::openCalendarForCurrent
                 ) {
                     // 🔵 Your page content now lives inside the provider
                     Box(
@@ -219,20 +229,22 @@ class AllNotesActivity : AppCompatActivity() {
 
         // 🔄 SYNC FLOW (no XML refs)
         if (UserPreferencesManager(this).isLoggedIn) {
+            // inside onCreate(), where you start sync
             lifecycleScope.launch {
                 if (shouldSync()) {
-                    // 1) Get the authoritative snapshot first
-                    pullFromSupabaseAndReconcile()
-
-                    // 2) Push local deletes that are still pending
+                    // 1) push deletes first
                     syncAllDeletesToSupabase()
 
-                    // 3) Push local adds (ONLY those recorded as pending_adds)
+                    // 2) then push adds
                     syncPendingAddsOnly()
+
+                    // 3) now pull, reconcile, render
+                    pullFromSupabaseAndReconcile()
 
                     metaPrefs.edit { putLong("last_sync_at", now()) }
                 }
             }
+
         } else {
             loadNotesHeadless()
         }
@@ -355,7 +367,7 @@ class AllNotesActivity : AppCompatActivity() {
 
     private fun syncAllDeletesToSupabase() {
         val prefs = getSharedPreferences("notes_prefs", MODE_PRIVATE)
-        val pendingDeletes = prefs.getStringSet("pending_deletes", emptySet()) ?: return
+        val pendingDeletes = prefs.getStringSet("pending_deletes", emptySet())!!.toMutableSet()
         if (pendingDeletes.isEmpty()) return
 
         val upm = UserPreferencesManager(this)
@@ -365,22 +377,24 @@ class AllNotesActivity : AppCompatActivity() {
         val userId = session.user?.id ?: return
 
         lifecycleScope.launch(Dispatchers.IO) {
+            val stillPending = mutableSetOf<String>()
             pendingDeletes.forEach { content ->
                 try {
-                    SupabaseManager.client
-                        .postgrest
-                        .from("user_notes")
-                        .delete {
-                            filter {
-                                eq("user_id", userId)
-                                eq("content", content)
-                            }
-                        }
+                    SupabaseManager.client.postgrest.from("user_notes").delete {
+                        filter { eq("user_id", userId); eq("content", content) }
+                    }
+                    // optional: scrub id maps when delete succeeds
+                    contentToId.remove(content)?.let { idToContent.remove(it) }
+                    saveIdMaps()
                 } catch (e: Exception) {
                     Log.e("SupabaseDelete", "Failed to delete note: $content", e)
+                    stillPending.add(content)
                 }
             }
-            prefs.edit { remove("pending_deletes") } // clear after sync
+            prefs.edit {
+                if (stillPending.isEmpty()) remove("pending_deletes")
+                else putStringSet("pending_deletes", stillPending)
+            }
         }
     }
 
@@ -472,46 +486,73 @@ class AllNotesActivity : AppCompatActivity() {
         showFabBadge(null) // no-op
     }
 
+    // Make sure your upload loop NEVER uploads something in pending_deletes
     private suspend fun syncPendingAddsOnly() {
-        val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return
-        val userId  = session.user?.id ?: return
-
         val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
         val pendingAdds = sp.getStringSet("pending_adds", emptySet())!!.toMutableSet()
         if (pendingAdds.isEmpty()) return
 
-        // Fetch current remote contents once
-        val remoteRows: List<UserNote> = SupabaseManager.client
-            .postgrest
-            .from("user_notes")
-            .select { filter { eq("user_id", userId) } }
-            .decodeList()
-        val remoteContents = remoteRows.map { it.content }.toSet()
+        val pendingDeletes = sp.getStringSet("pending_deletes", emptySet())!!.toMutableSet()
 
-        // Only upload items that are truly new (and remove them from pending_adds when done)
-        val stillPending = pendingAdds.toMutableSet()
+        val remoteContents: Set<String> = fetchCurrentRemoteContents() // your existing call
+
+        val stillPending = mutableSetOf<String>()
         for (content in pendingAdds) {
-            if (content in remoteContents) {
-                stillPending.remove(content) // already exists remotely
-                continue
-            }
+            if (content in pendingDeletes) continue        // ← NEW guard
+            if (content in remoteContents) continue
             try {
-                val inserted: List<UserNote> = SupabaseManager.client
-                    .postgrest
-                    .from("user_notes")
-                    .insert(listOf(UserNote(userId = userId, content = content))) { select() }
-                    .decodeList()
-
-                if (inserted.isNotEmpty()) {
-                    stillPending.remove(content)
-                    // optional: update idToContent/contentToId with inserted.first().id
-                }
+                insertNoteToSupabase(content)              // your existing insert
             } catch (_: Exception) {
-                // keep in stillPending; will retry next sync
+                stillPending.add(content)
             }
         }
-
         sp.edit { putStringSet("pending_adds", stillPending) }
+    }
+    // Fetch current remote contents for the logged-in user
+    private suspend fun fetchCurrentRemoteContents(): Set<String> {
+        val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return emptySet()
+        val userId  = session.user?.id ?: return emptySet()
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val rows: List<UserNote> = SupabaseManager.client
+                    .postgrest
+                    .from("user_notes")
+                    .select { filter { eq("user_id", userId) } }
+                    .decodeList()
+                rows.map { it.content }.toSet()
+            } catch (e: Exception) {
+                Log.e("SupabaseSync", "fetchCurrentRemoteContents failed", e)
+                emptySet()
+            }
+        }
+    }
+
+    // Insert one note (suspend + updates local maps and pending_adds on success)
+    private suspend fun insertNoteToSupabase(content: String) {
+        val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return
+        val userId  = session.user?.id ?: return
+
+        val inserted: List<UserNote> = withContext(Dispatchers.IO) {
+            SupabaseManager.client
+                .postgrest
+                .from("user_notes")
+                .insert(listOf(UserNote(userId = userId, content = content))) { select() }
+                .decodeList()
+        }
+
+        // remove from pending_adds if it was queued
+        removePendingAdd(content)
+
+        // update id maps if Supabase returned an id
+        inserted.firstOrNull()?.let { row ->
+            row.id?.let { id ->
+                idToContent[id] = row.content
+                contentToId[row.content] = id
+                saveIdMaps()
+            }
+        }
+        Log.d("SupabaseSync", "Note inserted: ${inserted.firstOrNull()?.id}")
     }
 
 
@@ -780,8 +821,21 @@ class AllNotesActivity : AppCompatActivity() {
     private suspend fun deleteNoteFromSupabase(noteContent: String) {
         try {
             val userId = SupabaseManager.client.auth.currentUserOrNull()?.id ?: return
-            SupabaseManager.client.postgrest.from("user_notes")
-                .delete { filter { eq("user_id", userId); eq("content", noteContent) } }
+
+            // If you have an id for this content, delete by id first
+            val id = contentToId[noteContent]
+            if (id != null) {
+                SupabaseManager.client.postgrest.from("user_notes").delete {
+                    filter { eq("user_id", userId); eq("id", id) }
+                }
+                contentToId.remove(noteContent)?.let { idToContent.remove(it) }
+                saveIdMaps()
+            } else {
+                // fallback by content
+                SupabaseManager.client.postgrest.from("user_notes").delete {
+                    filter { eq("user_id", userId); eq("content", noteContent) }
+                }
+            }
             Log.d("Supabase", "✅ Deleted from Supabase: $noteContent")
         } catch (e: Exception) {
             Log.e("Supabase", "❌ Failed to delete from Supabase", e)
@@ -795,37 +849,48 @@ class AllNotesActivity : AppCompatActivity() {
                 val idx = notes.indexOf(note)
                 if (idx != -1) Triple(note, idx, notesAdapter.getUserTitle(note)) else null
             }.sortedByDescending { it.second }
+
         val imagesByNote: Map<String, List<android.net.Uri>> =
             deleted.associate { (note, _, _) -> note to NoteMediaStore.getUris(this, note) }
 
-        // 🚩 THIS is what you will actually delete (strings = note contents)
+        // 🚩 the contents you will delete
         val notesToDelete: List<String> = deleted.map { it.first }
 
         // 1) queue for server-side delete
         val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
         val pendingDeletes = sp.getStringSet("pending_deletes", emptySet())!!.toMutableSet()
-        notesToDelete.forEach { pendingDeletes.add(it) }            // <-- use notesToDelete (NOT selectedNotes)
+        notesToDelete.forEach { pendingDeletes.add(it) }
         sp.edit { putStringSet("pending_deletes", pendingDeletes) }
 
-        // 2) fire Supabase deletes
+        // 👉 NEW (A): also yank them out of pending_adds so they can't be uploaded later
+        run {
+            val pendingAdds = sp.getStringSet("pending_adds", emptySet())!!.toMutableSet()
+            var changed = false
+            notesToDelete.forEach { if (pendingAdds.remove(it)) changed = true }
+            if (changed) sp.edit { putStringSet("pending_adds", pendingAdds) }
+        }
+
+        // 2) fire Supabase deletes (no-op remotely if row not found)
         lifecycleScope.launch {
-            notesToDelete.forEach { deleteNoteFromSupabase(it) }    // <-- use notesToDelete
+            notesToDelete.forEach { deleteNoteFromSupabase(it) }
         }
 
         // 3) local cleanup (UI state, titles, flags, media, list)
         deleted.forEach { (note, _, _) ->
             notesAdapter.removeUserTitle(note)
             NotesCacheManager.cachedTitles.remove(note)
-            getSharedPreferences("reminder_badges", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
-            getSharedPreferences("reminder_flags", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
+            getSharedPreferences("reminder_badges", MODE_PRIVATE)
+                .edit { remove(note.hashCode().toString()) }
+            getSharedPreferences("reminder_flags", MODE_PRIVATE)
+                .edit { remove(note.hashCode().toString()) }
         }
 
         deleted.forEach { (_, index, _) -> notes.removeAt(index) }
         notesAdapter.submit(notes.toList())
         if (notes.isEmpty()) removeFabBadge(null)
 
-        // 4) clear new selection store
-        selectedKeys.clear()                                        // <-- clear KEYS
+        // 4) clear selection
+        selectedKeys.clear()
         isMultiSelectMode = false
         notesAdapter.clearSelection()
         setDeleteVisibleFromActivity?.invoke(false)
@@ -834,7 +899,7 @@ class AllNotesActivity : AppCompatActivity() {
         notesCount = notes.size
         updateNotePlaceholder()
 
-        // 5) Snackbar UNDO → restore list + remove from pending_deletes so we don't delete them later
+        // 5) Snackbar UNDO
         val parentView = findViewById<View>(R.id.container) ?: findViewById(android.R.id.content)
         com.google.android.material.snackbar.Snackbar
             .make(parentView, "Note deleted", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT)
@@ -845,17 +910,25 @@ class AllNotesActivity : AppCompatActivity() {
                     if (!savedTitle.isNullOrBlank()) notesAdapter.setUserTitle(note, savedTitle)
                     imagesByNote[note]?.let { uris -> NoteMediaStore.setUris(this, note, uris) }
                 }
-
                 notesAdapter.submit(notes.toList())
                 saveNotes()
                 updateNotePlaceholder()
                 showFabBadge(null)
 
-                // 🔄 pull them OUT of pending_deletes so background sync won’t delete them later
                 val sp2 = getSharedPreferences("notes_prefs", MODE_PRIVATE)
+
+                // remove from pending_deletes (you already had this)
                 val pDel2 = sp2.getStringSet("pending_deletes", emptySet())!!.toMutableSet()
                 notesToDelete.forEach { pDel2.remove(it) }
-                sp2.edit { putStringSet("pending_deletes", pDel2) }
+
+                // 👉 NEW (B): add restored notes back to pending_adds so they can (re)upload if needed
+                val pAdd2 = sp2.getStringSet("pending_adds", emptySet())!!.toMutableSet()
+                notesToDelete.forEach { pAdd2.add(it) }
+
+                sp2.edit {
+                    putStringSet("pending_deletes", pDel2)
+                    putStringSet("pending_adds", pAdd2)
+                }
 
                 selectedKeys.clear()
                 isMultiSelectMode = false
@@ -866,6 +939,7 @@ class AllNotesActivity : AppCompatActivity() {
             }
             .addCallback(object : com.google.android.material.snackbar.Snackbar.Callback() {
                 override fun onDismissed(sb: com.google.android.material.snackbar.Snackbar, event: Int) {
+                    // if UNDO wasn't pressed, finalize local cleanup
                     if (event != DISMISS_EVENT_ACTION) {
                         deleted.forEach { (note, _, _) ->
                             NoteMediaStore.deleteAllForNote(this@AllNotesActivity, note)
@@ -1219,11 +1293,13 @@ class AllNotesActivity : AppCompatActivity() {
 
     // ----------------------- Navigation helpers -----------------------
 
+    // NEW: MainActivity::class.java (Compose home / dashboard)
     private fun goToHomeScreen() {
-        startActivity(Intent(this, SplashActivity::class.java))
+        startActivity(Intent(this, MainActivity::class.java))
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         finish()
     }
+
 
     private fun goToContactScreen() {
         startActivity(Intent(this, Contact::class.java))

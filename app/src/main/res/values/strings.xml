@@ -515,6 +515,8 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
 
     <string name="confirm">Confirm</string>
     <string name="exit_confirmation">Exit Confirmation</string>
+    <string name="exit_home_screen" translatable="false">Return to Home?</string>
+
     <string name="test">Loading title</string>
     <string name="openAddNoteScreen">All Notes</string>
     <string name="reminder_icon">reminder</string>

@@ -4,10 +4,12 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     kotlin("android")                         // use the same Kotlin version as your project
-    id("org.jetbrains.kotlin.plugin.compose") version "2.2.20"   // ✅ REQUIRED
-    kotlin("kapt")
+    id("org.jetbrains.kotlin.plugin.compose") version "2.2.21"   // ✅ REQUIRED
+//    kotlin("kapt")
+    id("com.google.devtools.ksp") version "2.3.0" // ✅ KSP2 works with Kotlin 2.2.x
+
     id("com.google.gms.google-services")
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.21"
 
 }
 
@@ -150,23 +152,23 @@ android {
 
 dependencies {
     // ----- Ktor -----
-    implementation("io.ktor:ktor-client-core:3.3.0")
-    implementation("io.ktor:ktor-client-okhttp:3.3.0")
-    implementation("io.ktor:ktor-client-cio:3.3.0")
-    implementation("io.ktor:ktor-client-logging:3.3.0")
-    implementation("io.ktor:ktor-client-auth:3.3.0")
-    implementation("io.ktor:ktor-client-content-negotiation:3.3.0")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.3.0")
+    implementation("io.ktor:ktor-client-core:3.3.1")
+    implementation("io.ktor:ktor-client-okhttp:3.3.1")
+    implementation("io.ktor:ktor-client-cio:3.3.1")
+    implementation("io.ktor:ktor-client-logging:3.3.1")
+    implementation("io.ktor:ktor-client-auth:3.3.1")
+    implementation("io.ktor:ktor-client-content-negotiation:3.3.1")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.3.1")
 
     // ----- JSON / Serialization -----
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.9.0")
 
     // ----- Supabase (BOM) -----
-    implementation(platform("io.github.jan-tennert.supabase:bom:3.2.3"))
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.2.6"))
     implementation("io.github.jan-tennert.supabase:supabase-kt")
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt")
-    implementation("io.github.jan-tennert.supabase:storage-kt:3.2.3")
+    implementation("io.github.jan-tennert.supabase:storage-kt:3.2.6")
 
     // ----- AndroidX Core -----
     implementation("androidx.activity:activity:1.11.0")
@@ -178,17 +180,17 @@ dependencies {
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("androidx.gridlayout:gridlayout:1.1.0")
-    implementation("androidx.work:work-runtime-ktx:2.10.4")
+    implementation("androidx.work:work-runtime-ktx:2.11.0")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
-    implementation("androidx.camera.viewfinder:viewfinder-core:1.5.0")
-    implementation("androidx.compose.foundation:foundation-layout:1.9.1")
-    implementation("androidx.compose.material3:material3:1.3.2")
+    implementation("androidx.camera.viewfinder:viewfinder-core:1.5.1")
+    implementation("androidx.compose.foundation:foundation-layout:1.9.4")
+    implementation("androidx.compose.material3:material3:1.4.0")
 
     // ----- Jetpack Compose -----
     // Use BOM so all Compose libs match versions automatically
-    androidTestImplementation(platform("androidx.compose:compose-bom:2025.09.00"))
+    androidTestImplementation(platform("androidx.compose:compose-bom:2025.10.01"))
 
-    implementation(platform("androidx.compose:compose-bom:2025.09.00"))
+    implementation(platform("androidx.compose:compose-bom:2025.10.01"))
 
     implementation("androidx.activity:activity-compose:1.11.0")
     implementation("androidx.compose.ui:ui")
@@ -201,14 +203,15 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.compose.ui:ui-test-manifest")
 
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.3")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.3")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.9.4")
-    implementation("androidx.navigation:navigation-ui-ktx:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.4")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.9.5")
+    implementation("androidx.navigation:navigation-ui-ktx:2.9.5")
 
     // ----- Imaging -----
     implementation("com.github.bumptech.glide:glide:5.0.5")
-    kapt("com.github.bumptech.glide:compiler:5.0.5") // ⬅️ not annotationProcessor
+//    kapt("com.github.bumptech.glide:compiler:5.0.5") // ⬅️ not annotationProcessor
+    ksp("com.github.bumptech.glide:ksp:5.0.5")          // ✅ use KSP
 
     implementation("com.github.piasy:BigImageViewer:1.8.1")
     implementation("com.github.piasy:GlideImageLoader:1.8.1")
@@ -217,8 +220,8 @@ dependencies {
 
 
     // ----- YouTube -----
-    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.2")
-    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:chromecast-sender:0.31")
+    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:13.0.0")
+    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:chromecast-sender:0.32")
 
     // ----- Material & Design -----
     implementation("com.google.android.material:material:1.13.0")
@@ -232,14 +235,19 @@ dependencies {
     // Keep them only if other screens still use them.
     implementation("jp.wasabeef:blurry:4.0.1")
     implementation("com.github.Dimezis:BlurView:version-3.0.0")
+//    implementation(platform("com.google.firebase:firebase-bom:32.2.0"))
 
     // ----- Firebase -----
-    implementation(platform("com.google.firebase:firebase-bom:32.2.0"))
-    implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-database-ktx")
+//    implementation("com.google.firebase:firebase-analytics-ktx")
+//    implementation("com.google.firebase:firebase-database-ktx")
+    implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
+
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-database")
+
     implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-messaging")
-    implementation("com.google.android.gms:play-services-basement:18.8.0")
+    implementation("com.google.android.gms:play-services-basement:18.9.0")
 
     // ----- Coroutines -----
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
@@ -247,14 +255,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
 
     // ----- Utilities -----
-    implementation("com.airbnb.android:lottie:6.6.9")
+    implementation("com.airbnb.android:lottie:6.7.0")
     implementation("org.apache.commons:commons-text:1.14.0")
-    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.14")
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.17")
     implementation("io.coil-kt:coil:2.7.0")
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
     implementation("com.google.code.gson:gson:2.13.2")
-    implementation("com.squareup.okhttp3:okhttp:5.1.0")
+    implementation("com.squareup.okhttp3:okhttp:5.3.0")
     implementation("com.sun.mail:android-mail:1.6.8")
     implementation("com.sun.mail:android-activation:1.6.8")
     implementation("io.github.oneuiproject:icons:1.1.0")
@@ -281,11 +289,22 @@ dependencies {
     implementation("com.github.Yanndroid:SamsungOneUi:1.2.2")
     implementation("androidx.dynamicanimation:dynamicanimation:1.1.0")
 
-    // ----- AndroidLiquidGlass (Liquid Glass Bottom Bar) -----
-    implementation("com.github.Kyant0:AndroidLiquidGlass:1.0.0-alpha09")
-//    implementation("com.github.Kyant0.AndroidLiquidGlass:backdrop:1.0.0-alpha11")
+    // ----- AndroidLiquidGlass (Backdrop) -----
+    implementation("io.github.kyant0:backdrop:1.0.0")
+    implementation("io.github.kyant0:capsule:2.1.1")
+
 
     implementation("androidx.compose.material:material-ripple")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.github.bumptech.glide:compose:1.0.0-beta08")
+    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
+    implementation("net.engawapg.lib:zoomable:2.8.2")
+    implementation("androidx.constraintlayout:constraintlayout-compose:1.1.1")
+    implementation("androidx.compose.ui:ui:1.9.4")
+    implementation("androidx.compose.animation:animation:1.9.4")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.9.4")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.9.4")
+    runtimeOnly("androidx.compose.material:material-icons-core:1.7.8")
 
 }

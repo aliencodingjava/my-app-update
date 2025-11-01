@@ -1,12 +1,12 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="oval">
-            <solid android:color="?attr/colorControlHighlight" />
+            <solid android:color="@color/ios_ripple" />
             <size
                 android:width="100dp"
                 android:height="100dp" />
         </shape>
     </item>
-    <item android:drawable="@drawable/baseline_signal_wifi_connected_no_internet_4_24"
+    <item android:drawable="@drawable/signal_disconnected_16dp_ffffff_fill0_wght400_grad0_opsz20"
         android:gravity="center" />
 </layer-list>

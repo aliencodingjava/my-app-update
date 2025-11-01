@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.LayerBackdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -231,11 +231,13 @@ class AllContactsFragment : Fragment() {
                 badge.isVisible = true
                 badge.number = totalCount
                 badge.badgeGravity = BadgeDrawable.TOP_END
+                badge.backgroundColor = Color.RED
+                badge.badgeTextColor = Color.WHITE
 
                 // use 15dp offsets for consistent location across densities
                 val d = resources.displayMetrics.density
-                badge.horizontalOffset = (15 * d).toInt()
-                badge.verticalOffset = (15 * d).toInt()
+                badge.horizontalOffset = (12 * d).toInt()
+                badge.verticalOffset = (12 * d).toInt()
 
                 BadgeUtils.attachBadgeDrawable(badge, fab)
             } else {

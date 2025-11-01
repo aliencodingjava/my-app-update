@@ -1,5 +1,6 @@
 package com.flights.studio
 
+import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.AnimationDrawable
@@ -28,6 +29,7 @@ import androidx.core.view.isEmpty
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
@@ -119,10 +121,15 @@ class IosPlayerActivity : AppCompatActivity() {
 
         val closeButton = findViewById<ImageView>(R.id.closeButton)
         closeButton.setOnClickListener {
-            finish()
-            overridePendingTransition(0, R.anim.zoom_out)
+            showExitDialog()
         }
 
+        // intercept system back and show the same dialog
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                showExitDialog()
+            }
+        })
         val blurTarget = findViewById<BlurTarget>(R.id.target)
         playstopBlurView = findViewById(R.id.playstopBlurView)
         val windowBackground = window.decorView.background
@@ -227,13 +234,6 @@ class IosPlayerActivity : AppCompatActivity() {
             toggleFullscreenSmooth()
         }
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                finish()
-                overridePendingTransition(0, R.anim.zoom_out)
-            }
-        })
-
         WindowCompat.setDecorFitsSystemWindows(window, false)
         ViewCompat.getWindowInsetsController(window.decorView)?.apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -247,6 +247,31 @@ class IosPlayerActivity : AppCompatActivity() {
 
     }
 
+    private fun showExitDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.Home))          // e.g. "Exit?"
+            .setMessage(getString(R.string.exit_home_screen))      // e.g. "Return to Home?"
+            .setPositiveButton(getString(R.string.yes)) { _, _ ->
+                goHome()
+            }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .show()
+    }
+
+    // 🔥 SAME goHome we already wrote
+    @Suppress("DEPRECATION")
+    private fun goHome() {
+        val home = Intent(this, MainActivity::class.java).apply {
+            addFlags(
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_NEW_TASK
+            )
+        }
+        startActivity(home)
+        overridePendingTransition(0, R.anim.zoom_out)
+        finish()
+    }
 
     private fun toggleFullscreenSmooth() {
         val closeButton = findViewById<ImageView>(R.id.closeButton)

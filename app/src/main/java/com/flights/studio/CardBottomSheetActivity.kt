@@ -49,6 +49,8 @@ class CardBottomSheetActivity : AppCompatActivity() {
     private lateinit var navigationView: NavigationView
     private lateinit var userPrefsManager: UserPreferencesManager
     private lateinit var networkHelper: NetworkConnectivityHelper
+    private var returnHome = false
+
 
 
     override fun onStart() {
@@ -93,6 +95,7 @@ class CardBottomSheetActivity : AppCompatActivity() {
         setContentView(R.layout.activity_card_drawer)
 
         networkHelper = NetworkConnectivityHelper(applicationContext)
+        returnHome = intent.getBooleanExtra("RETURN_HOME", false)
 
         // Replace deprecated launchWhenStarted:
         lifecycleScope.launch {
@@ -201,7 +204,36 @@ class CardBottomSheetActivity : AppCompatActivity() {
                 loadWebContent(cardId)
             }
         }
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : androidx.activity.OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    exitScreen()
+                }
+            }
+        )
+
     }
+    @Suppress("DEPRECATION")
+
+    private fun exitScreen() {
+        if (returnHome) {
+            // jump to MainActivity and clear anything above it
+            val home = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(home)
+            overridePendingTransition(0, R.anim.zoom_out)
+            finish()
+        } else {
+            // normal behavior
+            finish()
+            overridePendingTransition(0, R.anim.zoom_out)
+        }
+    }
+
+
     private fun injectHideTriggers(view: WebView?) {
         view?.evaluateJavascript(
             """
@@ -440,10 +472,13 @@ class CardBottomSheetActivity : AppCompatActivity() {
         }
         toolbar.setOnMenuItemClickListener { menuItem ->
             if (menuItem.itemId == R.id.action_close) {
-                finish()
+                exitScreen()
                 true
-            } else false
+            } else {
+                false
+            }
         }
+
     }
 
     private fun setupNavigation(navigationView: NavigationView) {

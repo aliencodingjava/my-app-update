@@ -184,7 +184,7 @@ fun AllNotesScreen(
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 12.dp, vertical = 12.dp)
-                            .offset(y = (-55).dp),
+                            .offset(y = (-54).dp),
                         contentAlignment = Alignment.TopEnd
                     ) {
                         FloatingActionButton(
@@ -203,7 +203,7 @@ fun AllNotesScreen(
                             Badge(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
-                                    .offset(x = 6.dp, y = (-6).dp)
+                                    .offset(x = 4.dp, y = (-4).dp)
                             ) {
                                 Text(
                                     text = notesSize.toString(),

@@ -7,15 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -34,17 +26,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.LayerBackdrop
-import com.kyant.backdrop.backdrop
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.refraction
-import com.kyant.backdrop.highlight.onDrawSurfaceWithHighlight
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 
 @Composable
 fun ReminderOptionsSheetContent(
-    // Pass a Backdrop instead of LiquidGlassProviderState
-    backdrop: LayerBackdrop,
+    backdrop: Backdrop,            // rc01 type
     onDismiss: () -> Unit,
     onTimer: () -> Unit,
     onCalendar: () -> Unit,
@@ -57,27 +50,33 @@ fun ReminderOptionsSheetContent(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(sheetShape)
     ) {
-
-        // 2) Glass overlay for the sheet background (kept transparent/clear)
+        // === Glass sheet background ===
         Box(
             Modifier
                 .matchParentSize()
                 .clip(sheetShape)
-                .drawBackdrop(backdrop) {
-                    shape = sheetShape
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        // minimal processing to keep it “clear”
-                        blur(1.dp)
-                        refraction(height = 15.dp.toPx(), amount = size.minDimension)
-                    }
-                    onDrawSurfaceWithHighlight {
-                        // 0f keeps it transparent; adjust if you want a faint tint
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { sheetShape },
+                    effects = {
+                        vibrancy()
+                        blur(1.dp.toPx())
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            lens(
+                                refractionHeight = 15.dp.toPx(),
+                                refractionAmount = 56.dp.toPx(),
+                                chromaticAberration = true
+                            )
+                        }
+                    },
+                    onDrawSurface = {
+                        // 0f keeps it clear; tweak if you want tint
                         drawRect(Color.White.copy(alpha = 0f))
                     }
-                }
+                )
         )
 
-        // 3) Content
+        // === Content ===
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -98,16 +97,24 @@ fun ReminderOptionsSheetContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(headerShape)
-                    .drawBackdrop(backdrop) {
-                        shape = headerShape
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            blur(6.dp)
-                            refraction(height = 25.dp.toPx(), amount = size.minDimension)
-                        }
-                        onDrawSurfaceWithHighlight {
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { headerShape },
+                        effects = {
+                            vibrancy()
+                            blur(6.dp.toPx())
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                lens(
+                                    refractionHeight = 25.dp.toPx(),
+                                    refractionAmount = 64.dp.toPx(),
+                                    chromaticAberration = true
+                                )
+                            }
+                        },
+                        onDrawSurface = {
                             drawRect(Color.Black.copy(alpha = 0.50f)) // subtle tint
                         }
-                    }
+                    )
                     .border(1.dp, Color.White.copy(alpha = 0.08f), headerShape)
                     .padding(vertical = 16.dp, horizontal = 16.dp)
             ) {
@@ -116,11 +123,10 @@ fun ReminderOptionsSheetContent(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     val iconTint = if (isSystemInDarkTheme()) Color.Green else Color.Green
-                    // 🔔 Bell icon
                     Image(
                         painter = painterResource(id = R.drawable.add_alert_24dp_ffffff_fill1_wght400_grad0_opsz24),
                         contentDescription = stringResource(R.string.choose_reminder_type),
-                        colorFilter = ColorFilter.tint(iconTint),   // tint applied
+                        colorFilter = ColorFilter.tint(iconTint),
                         modifier = Modifier
                             .size(32.dp)
                             .padding(bottom = 8.dp)
@@ -132,9 +138,7 @@ fun ReminderOptionsSheetContent(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
-
                     Spacer(Modifier.height(4.dp))
-
                     Text(
                         text = stringResource(id = R.string.reminder_hint_short),
                         style = MaterialTheme.typography.bodySmall,
@@ -178,24 +182,22 @@ fun ReminderOptionsSheetContent(
 @Preview(showBackground = true, showSystemUi = true, name = "Reminder Sheet Preview")
 @Composable
 fun ReminderOptionsSheetContentPreview() {
-    // 1) Create a provider with a background color (dark here; tweak as you like)
-    val backdrop = com.kyant.backdrop.rememberLayerBackdrop(
-        backgroundColor = Color(0xFF0E0E10)
-    )
+    // rc01: create the backdrop state (no backgroundColor arg)
+    val backdrop: Backdrop = rememberLayerBackdrop()
 
     Box(Modifier.fillMaxWidth()) {
-        // 2) Writer layer: draw your fancy background INTO the provider
+        // Writer layer: the content to be sampled by glass
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(380.dp) // preview height; adjust
-                .backdrop(backdrop)           // <-- writes to the LayerBackdrop
-                .background(Color(0xFF0E0E10)) // base behind the writer
+                .height(380.dp)
+                .layerBackdrop(backdrop as LayerBackdrop)              // was .backdrop(...)
+                .background(Color(0xFF0E0E10))       // opaque base
         ) {
             GlassBackdrop(Modifier.matchParentSize())
         }
 
-        // 3) Foreground: your sheet using the same provider
+        // Foreground: the sheet using the same backdrop
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
@@ -210,8 +212,6 @@ fun ReminderOptionsSheetContentPreview() {
         }
     }
 }
-
-
 
 @Composable
 fun GlassBackdrop(modifier: Modifier = Modifier) {
@@ -263,12 +263,10 @@ fun GlassBackdrop(modifier: Modifier = Modifier) {
     }
 }
 
-
-
-
+// === Option Card ===
 @Composable
 private fun GlassOptionCard(
-    backdrop: LayerBackdrop,
+    backdrop: Backdrop,           // rc01 type
     title: String,
     caption: String,
     iconRes: Int,
@@ -280,21 +278,32 @@ private fun GlassOptionCard(
     Box(
         modifier = modifier
             .clip(cardShape)
-            .drawBackdrop(backdrop) {
-                shape = cardShape
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    blur(4.dp)
-                    refraction(height = 15.dp.toPx(), amount = size.minDimension)
-                }
-                onDrawSurfaceWithHighlight {
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { cardShape },
+                effects = {
+                    vibrancy()
+                    blur(4.dp.toPx())
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        lens(
+                            refractionHeight = 15.dp.toPx(),
+                            refractionAmount = 56.dp.toPx(),
+                            chromaticAberration = true
+                        )
+                    }
+                },
+                onDrawSurface = {
                     drawRect(Color.Blue.copy(alpha = 0.50f))
                 }
-            }
+            )
             .border(1.dp, Color.White.copy(alpha = 0.06f), cardShape)
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -323,4 +332,3 @@ private fun GlassOptionCard(
         }
     }
 }
-

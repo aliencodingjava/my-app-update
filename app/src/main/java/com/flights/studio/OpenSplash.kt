@@ -204,7 +204,7 @@ class OpenSplash : AppCompatActivity() {
 
     private fun launchNext() {
         startActivity(
-            Intent(this, SplashActivity::class.java),
+            Intent(this, MainActivity::class.java),
             ActivityOptionsCompat.makeCustomAnimation(
                 this,
                 android.R.anim.fade_in,

@@ -1,5 +1,6 @@
 package com.flights.studio
 
+import android.content.Intent
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -8,6 +9,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,11 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,7 +29,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -40,19 +37,15 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.capsule.ContinuousRoundedRectangle
 
-/**
- * ===== 1) Inner glass content (no ModalBottomSheet chrome) =====
- *
- * this is basically your old FlightsMenuLiquidSheet body from :contentReference[oaicite:2]{index=2}
- * BUT without drawing its own fullscreen scrim.
- *
- * we also keep the same blur/vibrancy/lens stack you used.
- */
 @Composable
 fun FlightsMenuLiquidSheetContent(
     backdrop: LayerBackdrop,
-    onSelectOption: (String) -> Unit
+    notesCount: Int,
+    contactsCount: Int,
+    isOnline: Boolean = true,          // you can pass real values later
+    pendingSyncCount: Int = 0          // how many unsynced local changes
 ) {
+    val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
 
     // sheet background tint
@@ -65,11 +58,7 @@ fun FlightsMenuLiquidSheetContent(
         if (isDark) Color.White.copy(alpha = 0.92f)
         else Color(0xFF111111)
 
-    val exitTextColor =
-        if (isDark) Color(0xFFFF6B6B)
-        else Color(0xFFB00020)
-
-    // dark mode "lift"
+    // "lift" glow in dark mode
     val liftTextMod =
         if (isDark) Modifier.graphicsLayer(blendMode = BlendMode.Plus)
         else Modifier
@@ -80,7 +69,7 @@ fun FlightsMenuLiquidSheetContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 6.dp, vertical = 8.dp)
             .clip(sheetShapeRound)
             .drawBackdrop(
                 backdrop = backdrop,
@@ -88,13 +77,13 @@ fun FlightsMenuLiquidSheetContent(
                 effects = {
                     vibrancy()
                     if (isDark) {
-                        blur(12.dp.toPx())
+                        blur(8.dp.toPx())
                     } else {
-                        blur(16.dp.toPx())
+                        blur(9.dp.toPx())
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         lens(
-                            refractionHeight = 25.dp.toPx(),
+                            refractionHeight = 13.dp.toPx(),
                             refractionAmount = 30.dp.toPx(),
                             chromaticAberration = true
                         )
@@ -105,146 +94,334 @@ fun FlightsMenuLiquidSheetContent(
                     drawRect(sheetSurfaceColor)
                 }
             )
-            // consume taps so taps inside don't fall through
+            // block touch from passing through
             .clickable(
                 interactionSource = null,
                 indication = null
-            ) { /* no-op */ }
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) { }
+            .padding(horizontal = 0.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // little handle
+        // ───── grab handle ─────
         Box(
             modifier = Modifier
-                .align(Alignment.CenterHorizontally)
                 .size(width = 36.dp, height = 4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(Color.White.copy(alpha = if (isDark) 0.45f else 0.35f))
-        )
-
-        Spacer(Modifier.height(4.dp))
-
-        // Profile row
-        BasicText(
-            text = "Profile",
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(liftTextMod)
-                .clickable(
-                    interactionSource = null,
-                    indication = null
-                ) {
-                    onSelectOption("profile")
-                }
-                .padding(vertical = 12.dp),
-            style = TextStyle(
-                color = mainTextColor,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-
-        // Settings row
-        BasicText(
-            text = "Settings",
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(liftTextMod)
-                .clickable(
-                    interactionSource = null,
-                    indication = null
-                ) {
-                    onSelectOption("settings")
-                }
-                .padding(vertical = 12.dp),
-            style = TextStyle(
-                color = mainTextColor,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-        )
-
-        // Exit row
-        BasicText(
-            text = "Exit App",
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(
-                    interactionSource = null,
-                    indication = null
-                ) {
-                    onSelectOption("exit")
-                }
-                .padding(vertical = 12.dp),
-            style = TextStyle(
-                color = exitTextColor,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
+                .background(
+                    Color.White.copy(alpha = if (isDark) 0.45f else 0.35f)
+                )
         )
 
         Spacer(Modifier.height(12.dp))
+
+        // ───── stats chip (Notes / Contacts) ─────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    if (isDark) {
+                        Color(0xFF000000).copy(alpha = 0.35f)
+                    } else {
+                        Color(0xFFFFFFFF).copy(alpha = 0.28f)
+                    }
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                // LEFT HALF: Notes (tappable)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(
+                            interactionSource = null,
+                            indication = null
+                        ) {
+                            // open notes screen
+                            context.startActivity(
+                                Intent(context, AllNotesActivity::class.java)
+                            )
+                        }
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        // label
+                        BasicText(
+                            text = "Notes",
+                            modifier = liftTextMod,
+                            style = TextStyle(
+                                color = mainTextColor.copy(alpha = 0.6f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        )
+                        // value
+                        BasicText(
+                            text = notesCount.toString(),
+                            modifier = liftTextMod,
+                            style = TextStyle(
+                                color = mainTextColor,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = (-0.25).sp
+                            )
+                        )
+                    }
+                }
+
+                // RIGHT HALF: Contacts (tappable)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(
+                            interactionSource = null,
+                            indication = null
+                        ) {
+                            // open contacts screen
+                            context.startActivity(
+                                Intent(context, AllContactsActivity::class.java)
+                            )
+                        },
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        // label
+                        BasicText(
+                            text = "Contacts",
+                            modifier = liftTextMod,
+                            style = TextStyle(
+                                color = mainTextColor.copy(alpha = 0.6f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        )
+                        // value
+                        BasicText(
+                            text = contactsCount.toString(),
+                            modifier = liftTextMod,
+                            style = TextStyle(
+                                color = mainTextColor,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = (-0.25).sp
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // ───── sync status pill ─────
+        // We always show this, but we style it differently if offline or pending.
+        val pillBgColor = when {
+            !isOnline -> if (isDark) Color(0xFFFF4D4D).copy(alpha = 0.18f)
+            else       Color(0xFFFF4D4D).copy(alpha = 0.14f)
+            pendingSyncCount > 0 -> if (isDark) Color(0xFFFFC107).copy(alpha = 0.20f)
+            else       Color(0xFFFFC107).copy(alpha = 0.16f)
+            else -> if (isDark) Color(0xFF00FF88).copy(alpha = 0.18f)
+            else       Color(0xFF00AA55).copy(alpha = 0.16f)
+        }
+
+        val pillLabel = when {
+            !isOnline -> "Offline"
+            pendingSyncCount > 0 -> "Offline changes pending"
+            else -> "Synced"
+        }
+
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 14.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(pillBgColor)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            BasicText(
+                text = pillLabel,
+                style = TextStyle(
+                    color = mainTextColor.copy(alpha = 0.9f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // ───── quick action list ─────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    if (isDark) Color(0xFF000000).copy(alpha = 0.25f)
+                    else Color(0xFFFFFFFF).copy(alpha = 0.22f)
+                )
+        ) {
+            SheetRowButton(
+                label = "Open Notes",
+                textColor = mainTextColor,
+                isLast = false,
+                onClick = {
+                    context.startActivity(
+                        Intent(context, AllNotesActivity::class.java)
+                    )
+                }
+            )
+
+            SheetRowButton(
+                label = "Open Contacts",
+                textColor = mainTextColor,
+                isLast = false,
+                onClick = {
+                    context.startActivity(
+                        Intent(context, AllContactsActivity::class.java)
+                    )
+                }
+            )
+
+            SheetRowButton(
+                label = "Settings",
+                textColor = mainTextColor,
+                isLast = true,
+                onClick = {
+                    context.startActivity(
+                        Intent(context, SettingsActivity::class.java)
+                    )
+                }
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
     }
 }
 
-/**
- * ===== 2) The modal bottom sheet wrapper =====
- *
- * same idea as ReminderOptionsSheetModal you gave me:
- * - rememberModalBottomSheetState(skipPartiallyExpanded = true)
- * - scrimColor = semi black
- * - containerColor = transparent so OUR blur card is visible
- *
- * we play sound on open, and we handle back press by passing onDismiss.
- *
- * you call THIS from your screen.
- */
-@OptIn(ExperimentalMaterial3Api::class)
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+fun FlightsMenuLiquidSheetContentPreview() {
+    FlightsMenuLiquidSheetContent(
+        backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop(),
+        notesCount = 123,
+        contactsCount = 45,
+        isOnline = true,
+        pendingSyncCount = 0
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+fun FlightsMenuLiquidSheetContentPendingSyncPreview() {
+    FlightsMenuLiquidSheetContent(
+        backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop(),
+        notesCount = 123,
+        contactsCount = 45,
+        isOnline = true,
+        pendingSyncCount = 3
+    )
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun FlightsMenuLiquidSheetModalPreview() {
+    FlightsMenuLiquidSheetModal(
+        backdrop = com.kyant.backdrop.backdrops.rememberLayerBackdrop(),
+        visible = true,
+        onDismissRequest = {},
+        notesCount = 123,
+        contactsCount = 45
+    )
+}
+
+
+@Composable
+private fun SheetRowButton(
+    label: String,
+    textColor: Color,
+    isLast: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = null,
+                indication = null
+            ) { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        BasicText(
+            text = label,
+            style = TextStyle(
+                color = textColor,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
+        )
+    }
+
+    if (!isLast) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(textColor.copy(alpha = 0.08f))
+        )
+    }
+}
+
+
+
+// ⬇️ ADD THIS RIGHT AFTER SheetRowButton
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun FlightsMenuLiquidSheetModal(
-    backdrop: Backdrop,
+    backdrop: LayerBackdrop,
     visible: Boolean,
     onDismissRequest: () -> Unit,
-    onSelectOption: (String) -> Unit
+    notesCount: Int,
+    contactsCount: Int
 ) {
     val context = LocalContext.current
 
-    // play the "open sheet" sound when visible becomes true
-    LaunchedEffect(visible) {
+    androidx.compose.runtime.LaunchedEffect(visible) {
         if (visible) {
             playSheetOpenSound(context, R.raw.confirm)
         }
     }
 
-    // if not visible, don't emit anything
     if (!visible) return
 
-    val sheetState = rememberModalBottomSheetState(
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
 
-    // hardware back should also dismiss
-    BackHandler {
-        onDismissRequest()
-    }
+    BackHandler { onDismissRequest() }
 
-    ModalBottomSheet(
+    androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        // make M3 sheet chrome invisible so our glass is the actual panel
         containerColor = Color.Transparent,
         dragHandle = null,
         tonalElevation = 0.dp,
-        // scrim like ReminderOptionsSheetModal (0.35f)
         scrimColor = Color.Black.copy(alpha = 0.35f)
     ) {
-        // our glass body
         FlightsMenuLiquidSheetContent(
-            backdrop = backdrop as LayerBackdrop,
-            onSelectOption = { which ->
-                onSelectOption(which)
-            }
+            backdrop = backdrop,
+            notesCount = notesCount,
+            contactsCount = contactsCount,
+            isOnline = true,
+            pendingSyncCount = 0
         )
     }
 }
+

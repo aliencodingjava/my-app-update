@@ -47,7 +47,7 @@ class ReminderActivity : AppCompatActivity() {
         // Set up the Home button to navigate back to home (SplashActivity in this example)
         val homeButton: ImageButton = findViewById(R.id.homeButton)
         homeButton.setOnClickListener {
-            val homeIntent = Intent(this, SplashActivity::class.java).apply {
+            val homeIntent = Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             startActivity(homeIntent)

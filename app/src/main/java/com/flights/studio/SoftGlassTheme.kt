@@ -8,14 +8,16 @@ import androidx.compose.ui.unit.dp
  * Change one value here and all buttons (top bar, grid, bottom bar) update automatically.
  */
 object SoftGlassTheme {
-    val tint = Color(0xFF4DA4FF).copy(alpha = 0.25f)
-    val surface = Color.White.copy(alpha = 0.08f)
+    // Deep royal glass hue (indigo family)
+    val tint = Color(0x0000BFA5).copy(alpha = 0.25f)
+
+    // icon/text color on glass
     val icon = Color.White.copy(alpha = 0.92f)
 
-    // make the blur actually visible:
-    val blurRadius = 8.dp
+    // gentle blur
+    val blurRadius = 9.dp
 
-    // stronger lens
-    val lensInner = 20.dp
-    val lensOuter = 40.dp
+    // refraction halo strength
+    val lensInner = 16.dp
+    val lensOuter = 32.dp
 }

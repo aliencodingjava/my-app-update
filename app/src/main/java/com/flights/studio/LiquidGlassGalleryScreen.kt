@@ -52,12 +52,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.kyant.backdrop.backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.refraction
-import com.kyant.backdrop.highlight.onDrawSurfaceWithHighlight
-import com.kyant.backdrop.rememberLayerBackdrop
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -69,8 +69,8 @@ fun LiquidGlassGalleryScreen(
     onClose: () -> Unit,
     bottomBar: @Composable (() -> Unit)? = null,
 ) {
-    // α11 provider
-    val bottomTabsBackdrop = rememberLayerBackdrop(null)
+    // rc01 provider
+    val bottomTabsBackdrop = rememberLayerBackdrop()
 
     // Pager
     val safeCount = imageUrls.size.coerceAtLeast(1)
@@ -99,28 +99,60 @@ fun LiquidGlassGalleryScreen(
         }
     }
 
-    // Fixed foreground (old API feel) — readability comes from surface scrim
+    // Foreground color for text/icons on glass
     val uiOnGlass = Color.White
 
-    // Glass modifiers (α11): non-zero blur, sensible refraction, surface scrim
-    val pillGlass = Modifier.drawBackdrop(bottomTabsBackdrop) {
-        shape = CircleShape
-        blur(2.dp)
-        refraction(height = 12.dp.toPx(), amount = 56.dp.toPx())
-        onDrawSurfaceWithHighlight { drawRect(Color.Black.copy(alpha = 0.24f)) }
-    }
-    val iconButtonGlass = Modifier.drawBackdrop(bottomTabsBackdrop) {
-        shape = CircleShape
-        blur(2.dp)
-        refraction(height = 10.dp.toPx(), amount = 48.dp.toPx())
-        onDrawSurfaceWithHighlight { drawRect(Color.Black.copy(alpha = 0.26f)) }
-    }
-    val bottomBarGlass = Modifier.drawBackdrop(bottomTabsBackdrop) {
-        shape = RoundedCornerShape(16.dp)
-        blur(2.dp)
-        refraction(height = 14.dp.toPx(), amount = 64.dp.toPx())
-        onDrawSurfaceWithHighlight { drawRect(Color.Black.copy(alpha = 0.22f)) }
-    }
+    // ===== Glass styles (rc01): vibrancy + blur + lens(refraction) + surface scrim =====
+    val pillGlass = Modifier.drawBackdrop(
+        backdrop = bottomTabsBackdrop,
+        shape = { CircleShape },
+        effects = {
+            vibrancy()
+            blur(2.dp.toPx())
+            lens(
+                refractionHeight = 12.dp.toPx(),
+                refractionAmount = 56.dp.toPx(),
+                chromaticAberration = true
+            )
+        },
+        onDrawSurface = {
+            drawRect(Color.Black.copy(alpha = 0.24f))
+        }
+    )
+
+    val iconButtonGlass = Modifier.drawBackdrop(
+        backdrop = bottomTabsBackdrop,
+        shape = { CircleShape },
+        effects = {
+            vibrancy()
+            blur(2.dp.toPx())
+            lens(
+                refractionHeight = 10.dp.toPx(),
+                refractionAmount = 48.dp.toPx(),
+                chromaticAberration = true
+            )
+        },
+        onDrawSurface = {
+            drawRect(Color.Black.copy(alpha = 0.26f))
+        }
+    )
+
+    val bottomBarGlass = Modifier.drawBackdrop(
+        backdrop = bottomTabsBackdrop,
+        shape = { RoundedCornerShape(16.dp) },
+        effects = {
+            vibrancy()
+            blur(2.dp.toPx())
+            lens(
+                refractionHeight = 14.dp.toPx(),
+                refractionAmount = 64.dp.toPx(),
+                chromaticAberration = true
+            )
+        },
+        onDrawSurface = {
+            drawRect(Color.Black.copy(alpha = 0.22f))
+        }
+    )
 
     // OUTER container translated as a whole
     Box(
@@ -132,13 +164,12 @@ fun LiquidGlassGalleryScreen(
                 translationY = y
             }
     ) {
-        // Provider MUST wrap the background you want to sample
+        // Background provider: apply layerBackdrop to the content that should be sampled
         Box(
             Modifier
-                .backdrop(bottomTabsBackdrop)
+                .layerBackdrop(bottomTabsBackdrop)
                 .fillMaxSize()
         ) {
-
             HorizontalPager(
                 state = pagerState,
                 flingBehavior = fling,
@@ -275,7 +306,6 @@ private fun LiquidGlassGalleryScreenPreview() {
         bottomBar = { Text("Bottom bar content") }
     )
 }
-
 
 /** ripple-less clickable helper */
 fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =

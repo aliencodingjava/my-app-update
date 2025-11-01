@@ -51,11 +51,13 @@ class Contact : AppCompatActivity() {
         }
     }
 
+    // NEW: MainActivity::class.java (Compose home / dashboard)
     private fun goToHomeScreen() {
-        val intent = Intent(this, SplashActivity::class.java)
-        startActivity(intent)
+        startActivity(Intent(this, MainActivity::class.java))
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        finish()
     }
+
 
     private fun goToAllContactsScreen() {
         val intent = Intent(this, AllContactsActivity::class.java)

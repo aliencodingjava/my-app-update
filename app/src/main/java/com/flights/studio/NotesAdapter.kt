@@ -472,7 +472,7 @@ class NotesAdapter(
         titlePrefs.edit { putString("map", com.google.gson.Gson().toJson(userTypedTitles)) }
     }
 
-    inner class NoteViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+    class NoteViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val noteTextView: TextView = view.findViewById(R.id.tv_note)
         val editIcon: ImageView = view.findViewById(R.id.expandCollapseIcon)
         val reminderIcon: AppCompatImageView = view.findViewById(R.id.reminderIcon)
