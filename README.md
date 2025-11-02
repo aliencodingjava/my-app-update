@@ -1,4 +1,4 @@
-<img width="7184" height="3301" alt="new layer app" src="https://github.com/user-attachments/assets/1aa5a305-3ebb-41f6-af96-251e474e2d7f" />
+<img width="7184" height="3301" alt="new layer clean" src="https://github.com/user-attachments/assets/d189186b-dbc8-4bff-97c2-4dde258a4c9b" />
 
 # ✈️ Jack Flight Studio
 
