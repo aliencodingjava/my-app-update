@@ -39,4 +39,27 @@
   <li><strong>Glide</strong> image caching</li>
 </ul>
 
+<hr>
+
+<div align="center">
+  <h3>🙏 Credits &amp; Thanks</h3>
+  <p>
+    Glass effects are powered by
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass"><strong>AndroidLiquidGlass</strong></a>
+    by <a href="https://github.com/Kyant0">@Kyant0</a>. Thank you for the awesome library!
+  </p>
+  <p>
+    <a href="https://github.com/Kyant0">
+      <img src="https://github.com/Kyant0.png?size=96" width="72" height="72" alt="@Kyant0 avatar">
+    </a>
+  </p>
+  <p>
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass">
+      <img alt="Stars" src="https://img.shields.io/github/stars/Kyant0/AndroidLiquidGlass?style=social">
+    </a>
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass">
+      <img alt="Repo" src="https://img.shields.io/badge/AndroidLiquidGlass-visit%20repo-blueviolet">
+    </a>
+  </p>
+</div>
 
