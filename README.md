@@ -41,25 +41,41 @@
 
 <hr>
 
+<hr>
+
 <div align="center">
   <h3>🙏 Credits &amp; Thanks</h3>
   <p>
     Glass effects are powered by
     <a href="https://github.com/Kyant0/AndroidLiquidGlass"><strong>AndroidLiquidGlass</strong></a>
-    by <a href="https://github.com/Kyant0">@Kyant0</a>. Thank you for the awesome library!
+    by <a href="https://github.com/Kyant0"><strong>@Kyant0</strong></a>.
   </p>
+
+  <!-- "Love" actions -->
+  <p>
+    <!-- Star the repo -->
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass" title="Star AndroidLiquidGlass">
+      <img alt="Star" src="https://img.shields.io/github/stars/Kyant0/AndroidLiquidGlass?style=social">
+    </a>
+    <!-- Follow the author -->
+    <a href="https://github.com/Kyant0" title="Follow @Kyant0 on GitHub">
+      <img alt="Follow @Kyant0" src="https://img.shields.io/badge/Follow-@Kyant0-181717?logo=github&logoColor=white">
+    </a>
+    <!-- Watch updates -->
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass/subscription" title="Watch for updates">
+      <img alt="Watch updates" src="https://img.shields.io/badge/Watch-updates-1f6feb?logo=github&logoColor=white">
+    </a>
+    <!-- Say thanks (opens a prefilled issue) -->
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass/issues/new?title=Thanks%20for%20AndroidLiquidGlass&body=%F0%9F%92%99%20Thanks%20for%20AndroidLiquidGlass!%20It%20helped%20me%20with%20...">
+      <img alt="Say thanks" src="https://img.shields.io/badge/Say%20thanks-%F0%9F%92%9A-blueviolet">
+    </a>
+  </p>
+
   <p>
     <a href="https://github.com/Kyant0">
       <img src="https://github.com/Kyant0.png?size=96" width="72" height="72" alt="@Kyant0 avatar">
     </a>
   </p>
-  <p>
-    <a href="https://github.com/Kyant0/AndroidLiquidGlass">
-      <img alt="Stars" src="https://img.shields.io/github/stars/Kyant0/AndroidLiquidGlass?style=social">
-    </a>
-    <a href="https://github.com/Kyant0/AndroidLiquidGlass">
-      <img alt="Repo" src="https://img.shields.io/badge/AndroidLiquidGlass-visit%20repo-blueviolet">
-    </a>
-  </p>
 </div>
+
 
