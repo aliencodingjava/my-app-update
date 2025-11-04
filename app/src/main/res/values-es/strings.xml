@@ -561,7 +561,24 @@
     <string name="a11y_tip_available">Consejo disponible</string>
     <string name="tip_add_title">Añade un título o deja que lo sugiramos</string>
     <string name="images_attached">Imágenes adjuntas</string>
-    <string name="tap_to_enter">Tap to enter</string>
+    <string name="help">Ayuda</string>
+    <string name="add_note_help_title">Qué puedes hacer aquí</string>
+    <string name="add_note_help_bullets">
+        • Agrega imágenes (toca **Imagen**)\n
+        • Reordena imágenes: mantén presionada una miniatura y arrástrala\n
+        • Elimina una imagen: toca la × en una miniatura\n
+        • Título opcional: escríbelo o complétalo automáticamente desde la nota\n
+        • Escribe tu nota y toca **Guardar**
+</string>
+
+    <string name="help_add_images">Agregar imágenes</string>
+    <string name="help_auto_title">Autocompletar título desde la nota</string>
+    <string name="title_set">Título establecido</string>
+    <string name="type_note_first">Escribe primero tu nota</string>
+    <string name="nav_settings">Configuración</string>
+    <string name="nav_notes">Notas</string>
+    <string name="nav_search">Buscar</string>
+    <string name="nav_delete">Eliminar</string>
 
 
 </resources>
