@@ -561,8 +561,7 @@
     <string name="a11y_tip_available">Consejo disponible</string>
     <string name="tip_add_title">Añade un título o deja que lo sugiramos</string>
     <string name="images_attached">Imágenes adjuntas</string>
-
-
+    <string name="tap_to_enter">Tap to enter</string>
 
 
 </resources>

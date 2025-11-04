@@ -31,6 +31,7 @@ import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import kotlin.math.abs
@@ -54,6 +55,7 @@ fun LiquidButton(
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
+    val isDark = isSystemInDarkTheme()
 
     Row(
         modifier
@@ -61,10 +63,36 @@ fun LiquidButton(
                 backdrop = backdrop,
                 shape = { CircleShape },
                 effects = {
-                    // STRICT ORDER: color filter ⇒ blur ⇒ lens
                     vibrancy()
-                    blur(2.dp.toPx())
-                    lens(12.dp.toPx(), 24.dp.toPx())
+                    if (isDark) {
+                        // dark: crisp specular, moderate blur
+                        blur(4.dp.toPx())
+                        lens(
+                            refractionHeight = 8.dp.toPx(),
+                            refractionAmount = 48.dp.toPx(),
+                            depthEffect = true,
+                            chromaticAberration = false
+                        )
+                        colorControls(
+                            brightness = 0.0f,
+                            contrast = 1.0f,
+                            saturation = 1.9f
+                        )
+                    } else {
+                        // light: stronger lens pop, lighter blur (keeps detail under)
+                        blur(0.dp.toPx())
+                        lens(
+                            refractionHeight = 8.dp.toPx(),
+                            refractionAmount = 48.dp.toPx(),
+                            depthEffect = true,
+                            chromaticAberration = false
+                        )
+                        colorControls(
+                            brightness = 0.0f,
+                            contrast = 1.0f,
+                            saturation = 1.9f
+                        )
+                    }
                 },
                 layerBlock = if (isInteractive) {
                     {

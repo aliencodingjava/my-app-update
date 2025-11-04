@@ -1,9 +1,5 @@
 package com.flights.studio
 
-// NEW
-
-// NEW
-
 import android.graphics.Bitmap
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -21,11 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
@@ -141,12 +135,15 @@ fun LiquidGlassExpandButton(
     val luminance = remember { Animatable(0.5f) }
 
     val initialFg = if (!isSystemInDarkTheme()) Color.Black else Color.White
-    var targetContentColor by remember { mutableStateOf(initialFg) }
-    val contentColor by animateColorAsState(
-        targetValue = targetContentColor,
+    // explicit state (no 'by' delegate)
+    val targetContentColor = remember { mutableStateOf(initialFg) }
+
+// animated read (note the trailing `.value`)
+    val contentColor = animateColorAsState(
+        targetValue = targetContentColor.value,
         animationSpec = tween(450),
         label = "contentColor"
-    )
+    ).value
 
     LaunchedEffect(adaptiveLuminance) {
         if (!adaptiveLuminance) return@LaunchedEffect
@@ -170,10 +167,11 @@ fun LiquidGlassExpandButton(
             }
 
             luminance.animateTo(avg, tween(450))
-            // flip text to black on bright bg, white on dark
-            if (avg > 0.5f) Color.Black else Color.White
+            // drive only the text color
+            targetContentColor.value = if (avg > 0.5f) Color.Black else Color.White
         }
     }
+
 
     Row(
         modifier

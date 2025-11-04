@@ -1,5 +1,6 @@
 package com.flights.studio
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -23,6 +25,7 @@ import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousCapsule
@@ -34,12 +37,12 @@ import kotlin.math.tanh
 
 @Composable
 fun TopBarLiquidIconButton(
-    iconRes: Int,
+    @DrawableRes iconRes: Int,
     backdrop: LayerBackdrop,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isInteractive: Boolean = true,
-    iconTint: Color = Color.White.copy(alpha = 0.95f)
+    tint: Color = Color.Unspecified, // <- use this as the actual tint
 ) {
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -53,10 +56,34 @@ fun TopBarLiquidIconButton(
                 backdrop = backdrop,
                 shape = { ContinuousCapsule },
                 effects = {
-                    // STRICT ORDER: color filter ⇒ blur ⇒ lens
                     vibrancy()
-                    blur(2.dp.toPx())
-                    lens(12.dp.toPx(), 24.dp.toPx())
+                    if (isDark) {
+                        blur(1.dp.toPx())
+                        lens(
+                            refractionHeight = 8.dp.toPx(),
+                            refractionAmount = 38.dp.toPx(),
+                            depthEffect = true,
+                            chromaticAberration = false
+                        )
+                        colorControls(
+                            brightness = 0.0f,
+                            contrast = 1.0f,
+                            saturation = 1.9f
+                        )
+                    } else {
+                        blur(0.dp.toPx())
+                        lens(
+                            refractionHeight = 8.dp.toPx(),
+                            refractionAmount = 38.dp.toPx(),
+                            depthEffect = true,
+                            chromaticAberration = false
+                        )
+                        colorControls(
+                            brightness = 0.0f,
+                            contrast = 1.0f,
+                            saturation = 1.9f
+                        )
+                    }
                 },
                 layerBlock = if (isInteractive) {
                     {
@@ -83,7 +110,6 @@ fun TopBarLiquidIconButton(
                     }
                 } else null,
                 onDrawSurface = {
-                    // use the captured boolean; no composable calls here
                     val base = if (isDark) 0.10f else 0.06f
                     drawRect(Color.White.copy(alpha = base))
                     if (!isDark) {
@@ -93,9 +119,7 @@ fun TopBarLiquidIconButton(
                         )
                     }
                 }
-
             )
-            // luminance/highlight overlay + gesture tracking (Shader on Android 13+)
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
             .clickable(
@@ -112,7 +136,7 @@ fun TopBarLiquidIconButton(
         Image(
             painter = painterResource(iconRes),
             contentDescription = null,
-            colorFilter = ColorFilter.tint(iconTint)
+            colorFilter = if (tint.isSpecified) ColorFilter.tint(tint) else null
         )
     }
 }

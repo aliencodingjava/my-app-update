@@ -48,6 +48,11 @@ class OpenSplash : AppCompatActivity() {
         logo = findViewById(R.id.logo)
         textView = findViewById(R.id.welcome_text)
 
+        logo.setOnClickListener {
+            exitJob?.cancel()
+            exitSequence()
+        }
+
         startEntrance()
     }
 

@@ -9,13 +9,13 @@ import androidx.compose.ui.unit.dp
  */
 object SoftGlassTheme {
     // Deep royal glass hue (indigo family)
-    val tint = Color(0x0000BFA5).copy(alpha = 0.25f)
+    val tint = Color(0xFF00BFA5).copy(alpha = 0.25f)
 
     // icon/text color on glass
     val icon = Color.White.copy(alpha = 0.92f)
 
     // gentle blur
-    val blurRadius = 9.dp
+    val blurRadius = 2.dp
 
     // refraction halo strength
     val lensInner = 16.dp

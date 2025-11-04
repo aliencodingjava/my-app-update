@@ -188,20 +188,15 @@ dependencies {
 
     // ----- Jetpack Compose -----
     // Use BOM so all Compose libs match versions automatically
-    androidTestImplementation(platform("androidx.compose:compose-bom:2025.10.01"))
-
-    implementation(platform("androidx.compose:compose-bom:2025.10.01"))
+//    androidTestImplementation(platform("androidx.compose:compose-bom:2025.10.01"))
+//
+//    implementation(platform("androidx.compose:compose-bom:2025.10.01"))
 
     implementation("androidx.activity:activity-compose:1.11.0")
-    implementation("androidx.compose.ui:ui")
+
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
 
-    // Tooling / Tests (use BOM-managed versions → no version strings here)
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.compose.ui:ui-test-manifest")
 
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.9.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.4")
@@ -210,6 +205,7 @@ dependencies {
 
     // ----- Imaging -----
     implementation("com.github.bumptech.glide:glide:5.0.5")
+    implementation("com.google.android.gms:play-services-contextmanager:9.4.0")
 //    kapt("com.github.bumptech.glide:compiler:5.0.5") // ⬅️ not annotationProcessor
     ksp("com.github.bumptech.glide:ksp:5.0.5")          // ✅ use KSP
 
@@ -242,11 +238,11 @@ dependencies {
 //    implementation("com.google.firebase:firebase-database-ktx")
     implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
 
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-analytics:23.0.0")
+    implementation("com.google.firebase:firebase-database:22.0.1")
 
-    implementation("com.google.firebase:firebase-storage")
-    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-storage:22.0.1")
+    implementation("com.google.firebase:firebase-messaging:25.0.1")
     implementation("com.google.android.gms:play-services-basement:18.9.0")
 
     // ----- Coroutines -----
@@ -255,7 +251,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
 
     // ----- Utilities -----
-    implementation("com.airbnb.android:lottie:6.7.0")
+    implementation("com.airbnb.android:lottie:6.7.1")
     implementation("org.apache.commons:commons-text:1.14.0")
     implementation("com.googlecode.libphonenumber:libphonenumber:9.0.17")
     implementation("io.coil-kt:coil:2.7.0")
@@ -301,10 +297,18 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("net.engawapg.lib:zoomable:2.8.2")
     implementation("androidx.constraintlayout:constraintlayout-compose:1.1.1")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.9.4")
+    implementation("androidx.compose.ui:ui-graphics:1.9.4")
     implementation("androidx.compose.ui:ui:1.9.4")
     implementation("androidx.compose.animation:animation:1.9.4")
     implementation("androidx.compose.ui:ui-tooling-preview:1.9.4")
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.4")
     runtimeOnly("androidx.compose.material:material-icons-core:1.7.8")
+
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
 
 }

@@ -2,9 +2,9 @@ package com.flights.studio
 
 import android.os.Build
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,34 +18,37 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.paint
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tanh
+
 
 data class GlassBtn(
     val id: String,
@@ -63,9 +66,9 @@ fun FlightsGlassScreen(
     onMenu: () -> Unit,
     onOpenCard: (String) -> Unit,
     showTopArea: Boolean = true,
+    isInteractive: Boolean = true,
     backdropOverride: LayerBackdrop? = null,
-    tint: Color = Color(0xFF00BFA5), // same teal-green you set there
-    surfaceColor: Color = Color.White.copy(alpha = 0.08f),
+    surfaceColor: Color = Color.Unspecified,
 ) {
 
 
@@ -75,6 +78,12 @@ fun FlightsGlassScreen(
 
 
         drawContent()
+    }
+
+    val isDark = isSystemInDarkTheme()
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
     }
 
     val view = LocalView.current
@@ -173,8 +182,7 @@ fun FlightsGlassScreen(
                 tabs = FlightsTab.entries,
                 selectedTabState = selectedTab,
                 backdrop = backdrop,
-
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1.0f)
             ) { tab ->
                 when (tab) {
                     FlightsTab.Curb -> BottomTab(
@@ -221,86 +229,101 @@ fun FlightsGlassScreen(
                 }
             }
 
-            // FAB bubble with same liquid glass
-            var pressed by remember { mutableStateOf(false) }
-            val sx by animateFloatAsState(
-                targetValue = if (pressed) 1f else 0f,
-                animationSpec = spring(dampingRatio = 0.5f, stiffness = 300f),
-                label = "fab_sx"
-            )
-            val sy by animateFloatAsState(
-                targetValue = if (pressed) 1f else 0f,
-                animationSpec = spring(dampingRatio = 0.5f, stiffness = 600f),
-                label = "fab_sy"
-            )
-
             Box(
                 modifier = Modifier
-                    .size(64.dp)
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                pressed = true
-                                val released = try {
-                                    tryAwaitRelease()
-                                } finally {
-                                    pressed = false
-                                }
-                                if (released) {
-                                    tick()
-                                    onFullScreen()
-                                }
-                            }
-                        )
-                    }
-                    .drawWithContent {
-                        translate(0f, lerp(0f, 4.dp.toPx(), sy)) {
-                            this@drawWithContent.drawContent()
-                        }
-                    }
-                    .graphicsLayer {
-                        scaleX = lerp(1f, 0.9f, sx)
-                        scaleY = lerp(1f, 0.9f, sy)
-                    }
+                    .size(66.dp)
                     .drawBackdrop(
                         backdrop = backdrop,
                         shape = { CircleShape },
                         effects = {
                             vibrancy()
-                            blur(SoftGlassTheme.blurRadius.toPx())
-                            lens(
-                                SoftGlassTheme.lensInner.toPx(),
-                                SoftGlassTheme.lensOuter.toPx()
-                            )
+                            if (isDark) {
+                                // dark: crisp specular, moderate blur
+                                blur(1.dp.toPx())
+                                lens(
+                                    refractionHeight = 8.dp.toPx(),
+                                    refractionAmount = 38.dp.toPx(),
+                                    depthEffect = true,
+                                    chromaticAberration = false
+                                )
+                                colorControls(
+                                    brightness = 0.0f,
+                                    contrast = 1.0f,
+                                    saturation = 1.5f
+                                )
+                            } else {
+                                // light: stronger lens pop, lighter blur (keeps detail under)
+                                blur(0.dp.toPx())
+                                lens(
+                                    refractionHeight = 8.dp.toPx(),
+                                    refractionAmount = 48.dp.toPx(),
+                                    depthEffect = true,
+                                    chromaticAberration = false
+                                )
+                                colorControls(
+                                    brightness = 0.0f,
+                                    contrast = 1.00f,
+                                    saturation = 1.5f
+                                )
+                            }
                         },
+                        layerBlock = if (isInteractive) {
+                            {
+                                // same interactive “lift / squish”
+                                val width = size.width
+                                val height = size.height
+                                val progress = interactiveHighlight.pressProgress
+                                val scale = lerp(1f, 1f + 2.dp.toPx() / size.height, progress)
+                                val maxOffset = size.minDimension
+                                val k = 0.05f
+                                val offset = interactiveHighlight.offset
+                                translationX = maxOffset * tanh(k * offset.x / maxOffset)
+                                translationY = maxOffset * tanh(k * offset.y / maxOffset)
+                                val maxDragScale = 2.dp.toPx() / size.height
+                                val ang = atan2(offset.y, offset.x)
+                                scaleX = scale +
+                                        maxDragScale * abs(cos(ang) * offset.x / size.maxDimension) *
+                                        (width / height).fastCoerceAtMost(1f)
+                                scaleY = scale +
+                                        maxDragScale * abs(sin(ang) * offset.y / size.maxDimension) *
+                                        (height / width).fastCoerceAtMost(1f)
+                            }
+                        } else null,
                         onDrawSurface = {
-                            // stronger tint overlay — visually more vibrant
-                            drawRect(
-                                color = tint.copy(alpha = 0.25f),
-                                blendMode = BlendMode.Hue
-                            )
-
-                            // a second semi-transparent overlay for depth
-                            drawRect(
-                                color = tint.copy(alpha = 0.12f)
-                            )
-
-                            // faint milky layer for diffusion
-                            drawRect(
-                                color = surfaceColor.copy(alpha = 0.18f)
-                            )
+                            // subtle frost by theme unless overridden
+                            if (surfaceColor.isSpecified) {
+                                drawRect(surfaceColor)
+                            } else {
+                                drawRect(
+                                    if (isDark) Color.White.copy(alpha = 0.10f)
+                                    else Color.White.copy(alpha = 0.28f)
+                                )
+                            }
                         }
+                    )
+                    // give InteractiveHighlight pixels + gestures (masked by the clip)
+                    .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
+                    .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
 
-                    ),
+                    // no ripple, just tap
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        tick()
+                        onFullScreen()
+                    },
                 contentAlignment = Alignment.Center
             ) {
+                val iconTint = if (isDark) Color.White else Color(0xFF111111)
                 Box(
                     Modifier.paint(
                         painterResource(R.drawable.fullscreen_24dp_46152f_fill1_wght400_grad0_opsz24),
-                        colorFilter = ColorFilter.tint(Color.Black)
+                        colorFilter = ColorFilter.tint(iconTint)
                     )
                 )
             }
+
         }
     }
 }
@@ -386,3 +409,5 @@ fun GlassButtonsGrid(
 
 
 }
+
+

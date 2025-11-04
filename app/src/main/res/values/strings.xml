@@ -512,7 +512,6 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
     <string name="edit_contact">Edit contact</string>
     <string name="add_account">Add account</string>
     <string name="edit_account">Edit profile</string>
-
     <string name="confirm">Confirm</string>
     <string name="exit_confirmation">Exit Confirmation</string>
     <string name="exit_home_screen" translatable="false">Return to Home?</string>
@@ -599,6 +598,8 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
     <string name="birthday_reminder">birthday reminder</string>
     <string name="not_logged_in">Welcome!</string>
     <string name="tap_to_log_in">Join</string>
+    <string name="Enter_here">Tap to enter</string>
+
     <string name="profile">Profile image</string>
     <string name="username_handle">\@%1$s</string>
     <string name="forward_10s">Forward 10s</string>
