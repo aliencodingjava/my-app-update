@@ -1,43 +1,81 @@
-<img width="7184" height="3301" alt="new layer app" src="https://github.com/user-attachments/assets/1aa5a305-3ebb-41f6-af96-251e474e2d7f" />
+<img width="7184" height="3301" alt="new layer clean" src="https://github.com/user-attachments/assets/073ae083-5a9e-47f8-bed0-286fc3832fcd" />
 
-# ✈️ Jack Flight Studio
+<div align="center">
+  <h1>✈️ Jack Flight Studio</h1>
+  <p>
+    <a href="#status"><img alt="Status" src="https://img.shields.io/badge/status-stable-brightgreen"></a>
+    <a href="#tech-stack"><img alt="Android" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white"></a>
+    <a href="#tech-stack"><img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-%E2%9C%93-7F52FF?logo=kotlin&logoColor=white"></a>
+    <a href="#tech-stack"><img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack%20Compose-%E2%9C%93-4285F4?logo=jetpackcompose&logoColor=white"></a>
+    <a href="#tech-stack"><img alt="Supabase" src="https://img.shields.io/badge/Supabase-%E2%9C%93-3FCF8E?logo=supabase&logoColor=white"></a>
+  </p>
+  <p><strong>Jack Flight Studio</strong> is an Android app for tracking flights in real time and managing travel notes.<br>
+  Built with Jetpack Compose and a custom <strong>LiquidGlass</strong> design for a smooth, modern experience.</p>
+</div>
 
-[![Status](https://img.shields.io/badge/status-alpha-orange)](#status)
-[![Platform](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](#getting-started)
-[![Kotlin](https://img.shields.io/badge/Kotlin-✓-7F52FF?logo=kotlin&logoColor=white)](#tech-stack)
-[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-✓-4285F4?logo=jetpackcompose&logoColor=white)](#tech-stack)
-[![Supabase](https://img.shields.io/badge/Supabase-✓-3FCF8E?logo=supabase&logoColor=white)](#tech-stack)
+<hr>
 
-**Jack Flight Studio** is an Android app for tracking flights in real time and managing travel notes.  
-Built with Jetpack Compose and a custom **LiquidGlass** design, it delivers a smooth, modern experience.
+<h2 id="status">🚥 Status</h2>
+<p><strong>Stable:</strong> ready for everyday use. Ongoing updates focus on performance, UX polish, and new features without breaking core workflows.</p>
 
-> [!NOTE]
-> Still in **alpha** — features and UI are evolving.
+<hr>
 
----
+<h2>✨ Features</h2>
+<ul>
+  <li>Live flight tracking with dynamic map and search</li>
+  <li>Personal notes and reminders synced with Supabase</li>
+  <li>Beautiful glass-blur UI powered by AndroidLiquidGlass</li>
+  <li>Dark &amp; light themes with adaptive colors</li>
+</ul>
 
-<a id="status"></a>
-## 🚥 Status
-Alpha testing. Core screens and LiquidGlass UI are in place; more features and polish are coming.
+<hr>
 
----
+<h2 id="tech-stack">🧩 Tech Stack</h2>
+<ul>
+  <li><strong>Kotlin</strong>, <strong>Jetpack Compose</strong></li>
+  <li><strong>Supabase</strong> (Auth, PostgREST, Realtime)</li>
+  <li><strong>AndroidLiquidGlass</strong> for glass-blur &amp; adaptive text color</li>
+  <li><strong>MotionLayout</strong> animations</li>
+  <li><strong>Glide</strong> image caching</li>
+</ul>
 
-## ✨ Features
-- Live flight tracking with dynamic map and search
-- Personal notes and reminders synced with Supabase
-- Beautiful glass-blur UI powered by AndroidLiquidGlass
-- Dark & light themes with adaptive colors
+<hr>
+
+<hr>
+
+<div align="center">
+  <h3>🙏 Credits &amp; Thanks</h3>
+  <p>
+    Glass effects are powered by
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass"><strong>AndroidLiquidGlass</strong></a>
+    by <a href="https://github.com/Kyant0"><strong>@Kyant0</strong></a>.
+  </p>
+
+  <!-- "Love" actions -->
+  <p>
+    <!-- Star the repo -->
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass" title="Star AndroidLiquidGlass">
+      <img alt="Star" src="https://img.shields.io/github/stars/Kyant0/AndroidLiquidGlass?style=social">
+    </a>
+    <!-- Follow the author -->
+    <a href="https://github.com/Kyant0" title="Follow @Kyant0 on GitHub">
+      <img alt="Follow @Kyant0" src="https://img.shields.io/badge/Follow-@Kyant0-181717?logo=github&logoColor=white">
+    </a>
+    <!-- Watch updates -->
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass/subscription" title="Watch for updates">
+      <img alt="Watch updates" src="https://img.shields.io/badge/Watch-updates-1f6feb?logo=github&logoColor=white">
+    </a>
+    <!-- Say thanks (opens a prefilled issue) -->
+    <a href="https://github.com/Kyant0/AndroidLiquidGlass/issues/new?title=Thanks%20for%20AndroidLiquidGlass&body=%F0%9F%92%99%20Thanks%20for%20AndroidLiquidGlass!%20It%20helped%20me%20with%20...">
+      <img alt="Say thanks" src="https://img.shields.io/badge/Say%20thanks-%F0%9F%92%9A-blueviolet">
+    </a>
+  </p>
+
+  <p>
+    <a href="https://github.com/Kyant0">
+      <img src="https://github.com/Kyant0.png?size=96" width="72" height="72" alt="@Kyant0 avatar">
+    </a>
+  </p>
+</div>
 
 
-
----
-
-<a id="tech-stack"></a>
-## 🧩 Tech Stack
-- **Kotlin**, **Jetpack Compose**
-- **Supabase** (Auth, PostgREST, Realtime)
-- **AndroidLiquidGlass** for glass-blur & adaptive text color
-- **MotionLayout** animations
-- **Glide** image caching
-
----
