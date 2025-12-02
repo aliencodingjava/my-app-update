@@ -1,5 +1,6 @@
 package com.flights.studio
 
+import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -47,6 +48,7 @@ fun ZoomableImageContentInlineImpl(
     modifier: Modifier = Modifier,
     onImageLoadedOk: () -> Unit = {},
     onImageLoadFailed: () -> Unit = {},
+    onBitmapReady: (Bitmap) -> Unit = {},                    // 👈 already here
     overlayContent: (@Composable BoxScope.() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -115,21 +117,29 @@ fun ZoomableImageContentInlineImpl(
         val prevMatrix = if (viewHolder.tiv.drawable != null) viewHolder.tiv.imageMatrix else null
 
         Glide.with(context)
-            .asDrawable()
+            .asBitmap()                                           // 👈 load BITMAP now
             .load(url)
             .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-            .into(object : CustomTarget<Drawable>() {
+            .into(object : CustomTarget<Bitmap>() {
                 override fun onResourceReady(
-                    resource: Drawable,
-                    transition: Transition<in Drawable>?
+                    resource: Bitmap,
+                    transition: Transition<in Bitmap>?
                 ) {
                     state = ImageLoadState.Success
-                    viewHolder.tiv.setImageDrawable(resource)
+                    viewHolder.tiv.setImageBitmap(resource)       // 👈 show bitmap
+
                     if (prevMatrix != null) {
                         viewHolder.tiv.imageMatrix = prevMatrix
                     }
                     lastLoadedUrl = url
                     onImageLoadedOk()
+
+                    // 👇 NEW: send bitmap up so you can analyze it
+                    try {
+                        onBitmapReady(resource)
+                    } catch (_: Throwable) {
+                        // avoid crashing if analysis throws
+                    }
                 }
 
                 override fun onLoadFailed(errorDrawable: Drawable?) {
@@ -167,14 +177,12 @@ fun ZoomableImageContentInlineImpl(
         update = {
             viewHolder.overlay.setContent {
                 ZoomableImageOverlay(
-
                     overlayContent = overlayContent
                 )
             }
         }
     )
 }
-
 
 /**
  * A private, stateless composable to render the overlay UI.

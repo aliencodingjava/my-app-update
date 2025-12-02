@@ -32,5 +32,5 @@ class AlphabetAdapter(
 
     override fun getItemCount() = alphabet.size
 
-    inner class AlphabetViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
+    class AlphabetViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
 }

@@ -12,5 +12,7 @@
     <item name="status_animator" type="id" />
     <item name="status_blink_animator" type="id" />
     <item name="nav_logout" type="id" />
+    <item name="action_delete" type="id"/>
+
 
 </resources>

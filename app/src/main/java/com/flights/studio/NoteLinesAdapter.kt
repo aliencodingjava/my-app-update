@@ -8,7 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 class NoteLinesAdapter(private val lines: List<String>) : RecyclerView.Adapter<NoteLinesAdapter.NoteLineViewHolder>() {
 
-    inner class NoteLineViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class NoteLineViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val lineTextView: TextView = itemView.findViewById(R.id.lineTextView)
     }
 

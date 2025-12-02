@@ -352,8 +352,8 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
     private fun setupTypingVisualizer(view: View) {
         val visualizer = view.findViewById<LinearLayout>(R.id.typingVisualizer)
         val bars = listOf(
-            view.findViewById<View>(R.id.bar1),
-            view.findViewById<View>(R.id.bar2),
+            view.findViewById(R.id.bar1),
+            view.findViewById(R.id.bar2),
             view.findViewById<View>(R.id.bar3)
         )
 
@@ -961,7 +961,7 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
 
                     try {
                         val response     = client.newCall(request).execute()
-                        val responseBody = response.body?.string()
+                        val responseBody = response.body.string()
 
                         if (!response.isSuccessful) {
                             Log.e("ProcessQueue", "❌ Failed to send: $feedbackText\nCode: ${response.code}\nBody: $responseBody")
@@ -1023,7 +1023,7 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
         val response = client.newCall(request).execute()
 
         if (response.isSuccessful) {
-            val body = response.body?.string()
+            val body = response.body.string()
             val jsonArray = JSONArray(body)
             if (jsonArray.length() > 0) {
                 val banEndString = jsonArray.getJSONObject(0).getString("ban_end")

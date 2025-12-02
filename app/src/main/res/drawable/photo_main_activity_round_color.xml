@@ -1,7 +1,0 @@
- <!-- res/drawable/rounded_bottom_app_bar.xml -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-android:shape="rectangle">
-<solid android:color="?attr/bottomAppBarColor" />
-<corners android:topLeftRadius="10dp"
-    android:topRightRadius="10dp"/>
-</shape>

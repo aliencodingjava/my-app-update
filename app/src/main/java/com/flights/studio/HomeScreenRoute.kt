@@ -1,43 +1,61 @@
 package com.flights.studio
 
 import android.content.Intent
+import android.content.SharedPreferences
+import android.graphics.RenderEffect
 import android.os.Build
 import android.util.Log
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.preference.PreferenceManager
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.drawPlainBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.effect
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.sin
 
 private const val TAG = "HomeScreenRoute"
+private const val TAG_ZOOM = "HomeZoom"
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
@@ -47,12 +65,11 @@ fun HomeScreenRouteContent(
     openMenuSheet: () -> Unit,
     triggerRefreshNow: (String?) -> Unit,
     finishApp: () -> Unit,
-    showExitDialog: Boolean,         // ← NEW
-    onDismissExit: () -> Unit,       // ← NEW
-    onConfirmExit: () -> Unit        // ← NEW
+    showExitDialog: Boolean,
+    onDismissExit: () -> Unit,
+    onConfirmExit: () -> Unit
 ) {
     val activity = LocalActivity.current
-    rememberLayerBackdrop()
 
     var currentTab by rememberSaveable { mutableStateOf(FlightsTab.Curb) }
     var currentCamUrl by rememberSaveable {
@@ -63,54 +80,42 @@ fun HomeScreenRouteContent(
 
     val refreshIntervalMs = 90_000L
     val minRefreshGapMs = 1_000L
-
     var countdownMs by rememberSaveable { mutableLongStateOf(refreshIntervalMs) }
     var isRefreshing by rememberSaveable { mutableStateOf(false) }
     var lastRefreshAtMs by rememberSaveable { mutableLongStateOf(0L) }
     var hasInternet by rememberSaveable { mutableStateOf(true) }
-    val dialogImageBackdrop = rememberLayerBackdrop()
 
-    // 🔌 connection state we show in CameraErrorOverlay
+    // single backdrop for image + buttons + strip + dialogs
+    val cameraBackdrop = rememberLayerBackdrop()
+
+    // connection state
     var wifiEnabled by rememberSaveable { mutableStateOf(false) }
     var dataEnabled by rememberSaveable { mutableStateOf(false) }
     var isUserOffline by rememberSaveable { mutableStateOf(false) }
-
-    // ✨ NEW: did we JUST recover from offline?
     var justBecameOnline by rememberSaveable { mutableStateOf(false) }
 
-    // ✨ connectivity monitor loop
+    // connectivity monitor loop
     LaunchedEffect(activity) {
         val ctx = activity ?: return@LaunchedEffect
 
-        // ✨ track previous offline state
         var wasOffline = isUserOffline
 
         while (true) {
             try {
-                // wifi toggle
                 wifiEnabled = ctx.isWifiEnabledNow()
-
-                // mobile data radio up? (new helper you’ll add in CameraErrorOverlay.kt file)
                 dataEnabled = ctx.isCellDataToggleOn()
-
-                // are we offline (no internet at all)?
                 val nowOffline = ctx.isNetworkCompletelyOff()
                 isUserOffline = nowOffline
 
-                // ✨ detect transition: offline -> online
                 if (wasOffline && !nowOffline) {
-                    // we just got internet back
                     justBecameOnline = true
-                    hasInternet = true // make sure refresh loop can run again
+                    hasInternet = true
 
-                    // ✨ soft-force webcam url refresh immediately
                     val newUrl = when (currentTab) {
                         FlightsTab.Curb ->
                             "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=${System.currentTimeMillis()}"
-
                         FlightsTab.North ->
                             "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=${System.currentTimeMillis()}"
-
                         FlightsTab.South ->
                             "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=${System.currentTimeMillis()}"
                     }
@@ -118,52 +123,83 @@ fun HomeScreenRouteContent(
                     lastRefreshAtMs = System.currentTimeMillis()
                     countdownMs = refreshIntervalMs
 
-                    // ✨ show highlight glow 3s then clear
                     launch {
                         delay(3000)
                         justBecameOnline = false
                     }
                 }
 
-                // keep memory for next loop
                 wasOffline = nowOffline
-
             } catch (t: Throwable) {
                 Log.w(TAG, "connectivity poll failed: ${t.message}")
             }
 
-            // poll every 1s
             delay(1000)
         }
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var camExpanded by rememberSaveable { mutableStateOf(false) }
     var refreshPaused by rememberSaveable { mutableStateOf(false) }
     var lockNoRefresh by rememberSaveable { mutableStateOf(false) }
 
-    // DEBUG: log state any time these change
-    LaunchedEffect(camExpanded) {
-        Log.d(TAG, "camExpanded changed -> $camExpanded")
-    }
-    LaunchedEffect(refreshPaused) {
-        Log.d(TAG, "refreshPaused changed -> $refreshPaused")
-    }
-    LaunchedEffect(lockNoRefresh) {
-        Log.d(TAG, "lockNoRefresh changed -> $lockNoRefresh")
-    }
-    LaunchedEffect(currentCamUrl) {
-        Log.d(TAG, "currentCamUrl changed -> $currentCamUrl")
+    val context = LocalContext.current
+    val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
+
+    var isSiriGlowEnabled by remember {
+        mutableStateOf(
+            prefs.getBoolean("siri_camera_glow", true)
+        )
     }
 
-    // AUTO REFRESH LOOP (normal periodic refresh)
+    // Listen for changes to that key while this composable is active
+    DisposableEffect(prefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "siri_camera_glow") {
+                isSiriGlowEnabled = prefs.getBoolean("siri_camera_glow", true)
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    // ✅ Stable progress for card + button (0 = collapsed, 1 = expanded)
+    val camProgress by animateFloatAsState(
+        targetValue = if (camExpanded) 1f else 0f,
+        animationSpec = tween(durationMillis = 450),
+        label = "camProgress"
+    )
+
+    // ✅ One-shot progress only for the Siri edge glow (or 0f if disabled)
+    val siriWaveProgress = if (isSiriGlowEnabled) {
+        siriCardEdgeGlowOverlay(
+            expanded = camExpanded,
+            durationMillis = 2500
+        )
+    } else 0f
+
+
+
+    // discrete weights so the grid doesn’t constantly shrink
+    val cardWeight = if (camExpanded) 1f else 0.5f
+    val listWeight = if (camExpanded) 0f else 0.5f
+
+    LaunchedEffect(camExpanded) { Log.d(TAG, "camExpanded changed -> $camExpanded") }
+    LaunchedEffect(refreshPaused) { Log.d(TAG, "refreshPaused changed -> $refreshPaused") }
+    LaunchedEffect(lockNoRefresh) { Log.d(TAG, "lockNoRefresh changed -> $lockNoRefresh") }
+    LaunchedEffect(currentCamUrl) { Log.d(TAG, "currentCamUrl changed -> $currentCamUrl") }
+
+    // AUTO REFRESH LOOP
     LaunchedEffect(hasInternet, refreshPaused, lockNoRefresh) {
         Log.d(
             TAG,
             "LaunchedEffect start loop: hasInternet=$hasInternet refreshPaused=$refreshPaused lockNoRefresh=$lockNoRefresh"
         )
         while (true) {
-
             Log.d(
                 TAG,
                 "LOOP TICK | expanded=$camExpanded paused=$refreshPaused locked=$lockNoRefresh " +
@@ -200,10 +236,8 @@ fun HomeScreenRouteContent(
                         val newUrl = when (currentTab) {
                             FlightsTab.Curb ->
                                 "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=${System.currentTimeMillis()}"
-
                             FlightsTab.North ->
                                 "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=${System.currentTimeMillis()}"
-
                             FlightsTab.South ->
                                 "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=${System.currentTimeMillis()}"
                         }
@@ -245,7 +279,6 @@ fun HomeScreenRouteContent(
     }
 
     val onTabChangeInternal: (FlightsTab) -> Unit = inner@{ tab ->
-
         if (tab == currentTab) {
             Log.d(
                 TAG,
@@ -257,49 +290,35 @@ fun HomeScreenRouteContent(
         Log.d(TAG, "onTabChangeInternal -> NEW tab=$tab (oldTab=$currentTab) -> reload")
 
         currentTab = tab
-
         currentCamUrl = when (tab) {
             FlightsTab.Curb ->
                 "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=${System.currentTimeMillis()}"
-
             FlightsTab.North ->
                 "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=${System.currentTimeMillis()}"
-
             FlightsTab.South ->
                 "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=${System.currentTimeMillis()}"
         }
 
         countdownMs = refreshIntervalMs
         lastRefreshAtMs = System.currentTimeMillis()
-
-        // leaving fullscreen -> allow auto-refresh again
         lockNoRefresh = false
     }
 
-    // EXPAND/CLOSE BUTTON
     fun toggleExpanded() {
         if (!camExpanded) {
-            // COLLAPSED -> EXPANDED
             camExpanded = true
             refreshPaused = true
             lockNoRefresh = false
-
             Log.d(
                 TAG,
-                "toggleExpanded: EXPAND -> camExpanded=${true} refreshPaused=${true} lockNoRefresh=${false}"
+                "toggleExpanded: EXPAND -> camExpanded=true refreshPaused=true lockNoRefresh=false"
             )
-
         } else {
-            // EXPANDED -> COLLAPSED
             camExpanded = false
-
-            // after closing we want to stop immediate reloads
             refreshPaused = false
             lockNoRefresh = true
-
             countdownMs = refreshIntervalMs
             lastRefreshAtMs = System.currentTimeMillis()
-
             Log.d(
                 TAG,
                 "toggleExpanded: COLLAPSE -> camExpanded=$camExpanded refreshPaused=$refreshPaused lockNoRefresh=$lockNoRefresh " +
@@ -346,40 +365,44 @@ fun HomeScreenRouteContent(
             "card7" -> launchPlain(AllContactsActivity::class.java)
             "card8" -> launchPlain(AllNotesActivity::class.java)
             "card9" -> launchPlain(ProfileDetailsActivity::class.java)
-            "card10", "card11", "card12", "card13", "card14", "card15", "card16" -> { /* no-op */
-            }
-
-            else -> { /* no-op */
-            }
+            "card10", "card11", "card12", "card13", "card14", "card15", "card16" -> { /* no-op */ }
+            else -> { /* no-op */ }
         }
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
+            // ===== TOP CAMERA CARD AREA =====
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(if (camExpanded) 1f else 0.5f)
-                    .padding(8.dp)
+                    .weight(cardWeight)
+                    .padding(4.dp)
             ) {
-                // 1) Card backdrop (exported to children — safe, no recursion)
-                val cameraBackdrop = rememberLayerBackdrop()
-                // 2) Pure image backdrop (records ONLY the image subtree)
-                val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+                val isDark = isSystemInDarkTheme()
+                val extraScale = 0.006f * sin(camProgress * PI).toFloat()
+                val cardScale = 1f + extraScale
+                val cardElevation = 4.dp + (16.dp - 4.dp) * camProgress
+                val cardShape = RoundedCornerShape(20.dp)
+                Log.d(TAG_ZOOM, "CameraCard: camProgress=$camProgress cardScale=$cardScale cardWeight=$cardWeight listWeight=$listWeight")
 
-                // LIQUID GLASS CARD (rounded, normal)
                 Box(
                     modifier = Modifier
                         .matchParentSize()
+                        .graphicsLayer {
+                            shape = cardShape
+                            clip = true
+                            scaleX = cardScale
+                            scaleY = cardScale
+                            shadowElevation = cardElevation.toPx()
+                        }
                         .drawBackdrop(
                             backdrop = backdrop,
-                            exportedBackdrop = cameraBackdrop,          // export to children
-                            shape = { RoundedCornerShape(20.dp) },
+                            shape = { cardShape },
                             shadow = null,
                             effects = {
                                 vibrancy()
@@ -387,77 +410,98 @@ fun HomeScreenRouteContent(
                                 lens(16.dp.toPx(), 32.dp.toPx())
                             },
                             onDrawSurface = {
+                                Log.d(TAG_ZOOM, "CameraCard drawSurface size=(${size.width} x ${size.height})")
+
                                 val base = if (isDark) 0.10f else 0.06f
                                 drawRect(Color.White.copy(alpha = base))
                                 if (!isDark) {
-                                    drawRect(Color.Black.copy(alpha = 0.14f),
-                                        blendMode = androidx.compose.ui.graphics.BlendMode.Multiply)
-                                    drawRect(Color.Black.copy(alpha = 0.05f),
-                                        blendMode = androidx.compose.ui.graphics.BlendMode.Saturation)
+                                    drawRect(
+                                        Color.Black.copy(alpha = 0.14f),
+                                        blendMode = BlendMode.Multiply
+                                    )
+                                    drawRect(
+                                        Color.Black.copy(alpha = 0.05f),
+                                        blendMode = BlendMode.Saturation
+                                    )
                                 }
                             }
-
-
                         )
-
-                        .clip(RoundedCornerShape(20.dp))
                 ) {
-                    // --- IMAGE WRITER: record ONLY the image into imageBackdrop ---
+                    // --- IMAGE WRITER (feeds cameraBackdrop) ---
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .layerBackdrop(dialogImageBackdrop)
+                            .layerBackdrop(cameraBackdrop)
                     ) {
-                        // camera view (spinner, etc) — use the EXPORTED card backdrop for placeholder
+                        Log.d(TAG_ZOOM, "ZoomableImageContentInlineImpl: composing with url=$currentCamUrl")
+
                         ZoomableImageContentInlineImpl(
                             model = currentCamUrl,
                             modifier = Modifier
                                 .matchParentSize()
                                 .zIndex(0f),
                             onImageLoadedOk = {
-                                if (!hasInternet) {
-                                    hasInternet = true
-                                    countdownMs = refreshIntervalMs
-                                    lastRefreshAtMs = System.currentTimeMillis()
-                                    Log.d(
-                                        TAG,
-                                        "onImageLoadedOk: internet restored, resume auto-refresh"
-                                    )
-                                }
+                                Log.d(TAG_ZOOM, "ZoomableImage: onImageLoadedOk url=$currentCamUrl")
+                                hasInternet = true
+                                isRefreshing = false
+                                lockNoRefresh = false
+                                snackbarHostState.currentSnackbarData?.dismiss()
                             },
                             onImageLoadFailed = {
-                                if (hasInternet) {
-                                    hasInternet = false
-                                    isRefreshing = false
-                                    countdownMs = refreshIntervalMs
-                                    Log.d(
-                                        TAG,
-                                        "onImageLoadFailed: no internet, stop auto-refresh loop"
-                                    )
+                                Log.e(
+                                    TAG_ZOOM,
+                                    "ZoomableImage: onImageLoadFailed for url=$currentCamUrl"
+                                )
+                                isRefreshing = false
+                                hasInternet = false
+                                lockNoRefresh = true
+
+                                scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar("Camera image failed to load")
                                 }
                             },
-                            // keep empty so HUD/spinners don’t pollute imageBackdrop
-                            overlayContent = { }
+                            onBitmapReady = {
+                                Log.d(TAG_ZOOM, "ZoomableImage: onBitmapReady (bitmap handled inside compositor)")
+                                // hook for future adaptive luminance from webcam
+                            }
+
+                        )
+                    }
+                    // 🔹 SIRI-LIKE WAVE OVERLAY (magic flash)
+                    if (isSiriGlowEnabled) {
+                        SiriWaveOverlay(
+                            progress = siriWaveProgress,
+                            modifier = Modifier
+                                .matchParentSize()
+                                .zIndex(0.5f) // above image, below chrome
                         )
                     }
 
-// --- EXIT DIALOG that SAMPLES the IMAGE backdrop ----------------
+                    // --- BOTTOM STRIP (liquid glass over image) ---
+                    BottomProgressiveBlurStrip(
+                        backdrop = cameraBackdrop,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .zIndex(1f)
+                    )
+
+                    // --- EXIT DIALOG (glass over image) ---
                     if (showExitDialog) {
                         Box(
                             modifier = Modifier
                                 .matchParentSize()
-                                .zIndex(10f) // above everything
+                                .zIndex(10f)
                         ) {
                             ExitLiquidDialog(
-                                backdrop = dialogImageBackdrop,   // ← use the IMAGE backdrop
+                                backdrop = cameraBackdrop,
                                 onCancel = { onDismissExit() },
                                 onConfirmExit = { onConfirmExit() }
                             )
                         }
                     }
-                    // --- READERS: glass UI that should sample the IMAGE (use imageBackdrop) ---
 
-                    // offline / recovering HUD
+                    // --- OFFLINE HUD (glass) ---
                     if (!hasInternet || isUserOffline) {
                         CameraErrorOverlay(
                             modifier = Modifier
@@ -468,7 +512,7 @@ fun HomeScreenRouteContent(
                             wifiEnabled = wifiEnabled,
                             dataEnabled = dataEnabled,
                             justRecovered = justBecameOnline,
-                            backdrop = dialogImageBackdrop,                   // SAMPLE IMAGE, not scaffold
+                            backdrop = cameraBackdrop,
                             onRequestEnableWifi = {
                                 activity?.startActivity(
                                     Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
@@ -482,9 +526,10 @@ fun HomeScreenRouteContent(
                         )
                     }
 
+                    // --- TOP ICONS (glass over image) ---
                     TopBarLiquidIconButton(
                         iconRes = R.drawable.ic_oui_arrow_to_left,
-                        backdrop = dialogImageBackdrop,                      // ← IMAGE backdrop
+                        backdrop = cameraBackdrop,
                         onClick = { finishApp() },
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -493,35 +538,41 @@ fun HomeScreenRouteContent(
 
                     TopBarLiquidIconButton(
                         iconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
-                        backdrop = dialogImageBackdrop,                      // ← IMAGE backdrop
+                        backdrop = cameraBackdrop,
                         onClick = { openMenuSheet() },
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(end = 12.dp, top = 24.dp)
                     )
 
+                    // --- EXPAND BUTTON (glass over image) ---
                     LiquidGlassExpandButton(
                         camExpanded = camExpanded,
+                        openProgress = camProgress,
                         onToggle = { toggleExpanded() },
-                        backdrop = dialogImageBackdrop,  // ← IMAGE backdrop
-
-                        // NEW options:
-                        expandHapticStyle = ExpandHapticStyle.DoubleClick, // or Heavy, Bouncy
+                        backdrop = cameraBackdrop,
+                        expandHapticStyle = ExpandHapticStyle.DoubleClick,
+                        adaptiveLuminance = true,   // 🔴 turn off for now see if crash again
                         enableHaptics = true,
-
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(end = 12.dp, bottom = 12.dp)
+                            .zIndex(2f)
                     )
                 }
             }
 
-            if (!camExpanded) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(0.5f)
-                ) {
+            // ===== BOTTOM LIST / CARDS AREA =====
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(listWeight.coerceAtLeast(0.0001f))
+                    .graphicsLayer {
+                        // fade out while card expands
+                        alpha = 1f - camProgress
+                    }
+            ) {
+                if (!camExpanded) {
                     FlightsGlassScreen(
                         onTabChanged = { tab -> onTabChangeInternal(tab) },
                         onFullScreen = { openFullScreenImages(currentCamUrl) },
@@ -533,8 +584,6 @@ fun HomeScreenRouteContent(
                     )
                 }
             }
-
-
         }
 
         SnackbarHost(
@@ -543,5 +592,70 @@ fun HomeScreenRouteContent(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 100.dp)
         )
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Composable
+fun BottomProgressiveBlurStrip(
+    backdrop: LayerBackdrop,
+    modifier: Modifier = Modifier
+) {
+    val isLightTheme = !isSystemInDarkTheme()
+
+    val tintColor = if (isLightTheme) {
+        Color(0x9FFFFFFF)
+    } else {
+        Color(0xDF000000)
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(86.dp)
+            .drawPlainBackdrop(
+                backdrop = backdrop,
+                shape = { RectangleShape },
+                effects = {
+                    blur(4.dp.toPx())
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+                        effect(
+                            RenderEffect.createRuntimeShaderEffect(
+                                obtainRuntimeShader(
+                                    "AlphaMask",
+                                    """
+                                    uniform shader content;
+                                    uniform float2 size;
+                                    layout(color) uniform half4 tint;
+                                    uniform float tintIntensity;
+
+                                    half4 main(float2 coord) {
+                                        float y = size.y - coord.y;
+
+                                        float blurAlpha = smoothstep(size.y, size.y * 0.5, y);
+                                        float tintAlpha = smoothstep(size.y, size.y * 0.5, y);
+
+                                        return mix(
+                                            content.eval(coord) * blurAlpha,
+                                            tint * tintAlpha,
+                                            tintIntensity
+                                        );
+                                    }
+                                    """.trimIndent()
+                                ).apply {
+                                    setFloatUniform("size", size.width, size.height)
+                                    setColorUniform("tint", tintColor.toArgb())
+                                    setFloatUniform("tintIntensity", 0.7f)
+                                },
+                                "content"
+                            )
+                        )
+                    }
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        // optional strip content
     }
 }

@@ -119,7 +119,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun applyIconBackgrounds() {
         listOf(
             "sync", "attachment", "check_for_updates", "app_version", "changelog",
-            "email_signup", "rate_us", "share_app", "send_feedback", "language", "license", "General_Settings", "privacy_policy"
+            "email_signup", "rate_us", "share_app", "send_feedback",
+            "language", "license", "General_Settings", "privacy_policy", "siri_camera_glow"
         ).forEach { key ->
             setIconBackground(findPreference(key), R.drawable.icon_settings_background)
         }
@@ -187,75 +188,27 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     private fun showChangelogDialog() {
         val changelogText = """
-        &#8211; <b>Previous Update:</b><br/>
-        General improvements and enhancements.<br/><br/>
-        
-        &#8211; <b>Introducing a New Color Palette System:</b><br/>
-        Customize your experience with themed palettes for cards, overlays, and action buttons — over 50 vibrant combinations to choose from.<br/><br/>
+&#8211; <b>Fresh look & smoother app</b><br/>
+Redesigned home screen cards, cleaner layout, and improved animations for a more fluid experience.<br/><br/>
 
-        
-        &#8211; <b>Quick timer setup:</b><br/>
-        Type “calendar” or “clock” beneath any note to schedule a timer notification.<br/><br/>
+&#8211; <b>Liquid Glass UI</b><br/>
+Beautiful new glass-style buttons, cards, and overlays with smooth depth, blur, and light effects.<br/><br/>
 
-        
-        &#8211; <b>Redesigned Feedback:</b><br/>
-        Improved visual design and user experience.<br/><br/>
-        
-        &#8211; <b>Instant Ban/Unban Alerts:</b><br/>
-        Receive immediate updates when your feedback access is restricted or restored.<br/><br/>
+&#8211; <b>New color palettes</b><br/>
+Choose from multiple themed palettes for cards, overlays, and action buttons to match your style.<br/><br/>
 
-        &#8211; <b>Keep It Respectful:</b><br/>
-        Please ensure all feedback is constructive and courteous.<br/><br/>
+&#8211; <b>Contacts & cards</b><br/>
+Faster access to contacts and activities directly from the home screen, with improved card designs.<br/><br/>
 
-        
-        &#8211; <b>Added Notes:</b><br/>
-        A new section to capture and organize ideas.<br/><br/>
-        
-        &#8211; <b>under the notes you want to create timer notification:</b><br/>
-        just write calendar or clock under the notes you want to create timer notification.<br/><br/>
-        
-        &#8211; <b>Added Cards to home screen:</b><br/>
-        Quickly access activities in one place.<br/><br/>
-        
-        &#8211; <b>Added Contact:</b><br/>
-        Quickly access contact details in one place.<br/><br/>
-        
-        &#8211; <b>Enhanced UI &amp; Animations:</b><br/>
-        Improved design with smoother transitions.<br/><br/>
-    
-        &#8211; <b>Optimized Performance:</b><br/>
-        Faster loading times and reduced memory usage.<br/><br/>
+&#8211; <b>Widget & countdowns</b><br/>
+Added a widget with countdown support and helpful status info (beta).<br/><br/>
 
-        &#8211; <b>New Card Designs:</b><br/>
-        Introduced dynamic expand/collapse functionality.<br/><br/>
-        
-        &#8211; <b>Improved Visual Hierarchy:</b><br/>
-        Adjusted gaps for better readability and structure.<br/><br/>
-        
-        &#8211; <b>Advanced Page Settings:</b><br/>
-        New options for customizing your experience.<br/><br/>
-        
-        &#8211; <b>Widget:</b><br/>
-        A quick-access widget for essential features.<br/><br/>
-        
-        &#8211; <b>Redesigned the App:</b><br/>
-        Improved layout and preferences for better customization.<br/><br/>
-        
-        &#8211; <b>Stability &amp; Performance:</b><br/>
-        Enhanced stability and expandable content behavior.<br/><br/>
-        
-        &#8211; <b>Share Button:</b><br/>
-        Added to contact cards for easier sharing.<br/><br/>
-        
-        &#8211; <b>Countdown Timer:</b><br/>
-        Added functionality to refresh images online.<br/><br/>
-        
-        &#8211; <b>Countdown Timer:</b><br/>
-        Added widget battery status (beta).<br/><br/>
-        
-        &#8211; <b>Thank You:</b><br/>
-        Thank you for using our app!<br/>
-    """.trimIndent()
+&#8211; <b>Performance & stability</b><br/>
+Faster loading, smoother expansions, and general bug fixes and optimizations.<br/><br/>
+
+&#8211; <b>Thank you!</b><br/>
+Thanks for using our app 💙
+""".trimIndent()
 
 
         val versionName = requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName

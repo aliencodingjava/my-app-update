@@ -126,6 +126,14 @@
             app:summary="Select your preferred language"
             app:title="Language" />
 
+        <!-- 🔵 Toggle for Siri-like camera glow -->
+        <CheckBoxPreference
+            android:defaultValue="true"
+            app:icon="@drawable/memory_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            app:key="siri_camera_glow"
+            app:title="Camera Glow (Beta)"
+            app:summaryOn="Glow is on"
+            app:summaryOff="Glow is off" />
 
     </androidx.preference.PreferenceCategory>
 

@@ -1,9 +1,0 @@
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <scale
-            android:scaleWidth="1"
-            android:scaleHeight="1"
-            android:drawable="@drawable/ic_oui_time_outline"
-            android:gravity="center" />
-    </item>
-</layer-list>

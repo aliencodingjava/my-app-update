@@ -1,4 +1,6 @@
+
 package com.flights.studio
+
 
 import android.os.Build
 import androidx.annotation.DrawableRes
@@ -157,8 +159,8 @@ fun FlightsGlassScreen(
                     .padding(0.dp)
             )
         }
+// ---- BOTTOM NAV + FAB ----
 
-        // ---- BOTTOM NAV + FAB ----
         Row(
             modifier = Modifier
                 .padding(horizontal = 24.dp, vertical = 10.dp)
@@ -356,42 +358,34 @@ fun GlassButtonsGrid(
 ) {
     val rows: List<List<GlassBtn>> = listOf(
         listOf(
-            GlassBtn("card13", R.drawable.fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24, "", tintIcon = false),
-            GlassBtn("card14", R.drawable.fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24, "", tintIcon = false),
-            GlassBtn("card15", R.drawable.fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24, "", tintIcon = false),
-            GlassBtn("card16", R.drawable.fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24, "", tintIcon = false)
-        ),
-        listOf(
             GlassBtn("card9",  R.drawable.account_circle_24dp_ffffff_fill1_profile, "My Profile", tintIcon = false),
-            GlassBtn("card10", R.drawable.fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24, "", tintIcon = false),
-            GlassBtn("card11", R.drawable.fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24, "", tintIcon = false),
-            GlassBtn("card12", R.drawable.fiber_manual_record_24dp_ffffff_fill0_wght400_grad0_opsz24, "", tintIcon = false)
+            GlassBtn("card5",  R.drawable.ic_oui_qr_code, "QR Code", tintIcon = false),
+            GlassBtn("card6",  R.drawable.settings_account_box_24dp_ffffff_fill1_wght400_grad0_opsz24, "Settings", tintIcon = false)
         ),
         listOf(
-            GlassBtn("card5", R.drawable.ic_oui_qr_code, "QR Code", tintIcon = false),
-            GlassBtn("card6", R.drawable.settings_account_box_24dp_ffffff_fill1_wght400_grad0_opsz24, "Settings", tintIcon = false),
-            GlassBtn("card7", R.drawable.groups_2_24dp_ffffff_fill1_wght400_grad0_opsz24, "Contacts", tintIcon = false),
-            GlassBtn("card8", R.drawable.book_24dp_ffffff_fill1_wght400_grad0_opsz24, "Notes", tintIcon = false)
+            GlassBtn("card7",  R.drawable.groups_2_24dp_ffffff_fill1_wght400_grad0_opsz24, "Contacts", tintIcon = false),
+            GlassBtn("card1",  R.drawable.play_arrow_24dp_ffffff_fill1_wght400_grad0_opsz24, "Play", tintIcon = false),
+            GlassBtn("card2",  R.drawable.ic_oui_news, "News", tintIcon = false)
         ),
         listOf(
-            GlassBtn("card1", R.drawable.play_arrow_24dp_ffffff_fill1_wght400_grad0_opsz24, "Play", tintIcon = false),
-            GlassBtn("card2", R.drawable.ic_oui_news, "News", tintIcon = false),
+            GlassBtn("card8" , dev.oneuiproject.oneui.R.drawable.ic_oui_notes, "Notes" , tintIcon = false),
             GlassBtn("card3", R.drawable.flight_24dp_ffffff_fill0_wght400_grad0_opsz24, "Flights", tintIcon = false),
             GlassBtn("card4", R.drawable.travel_16dp_ffffff_fill0_wght400_grad0_opsz20, "Travel", tintIcon = false)
         )
     )
 
     Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier
+            .fillMaxSize(),                          // fill the Box
+        verticalArrangement = Arrangement.SpaceEvenly, // ⬅ center / spread rows vertically
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         rows.forEach { row ->
             Row(
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                    .padding(horizontal = 18.dp),    // side padding like before
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 row.forEach { spec ->
@@ -399,15 +393,11 @@ fun GlassButtonsGrid(
                         onClick = { onOpen(spec.id) },
                         iconRes = spec.icon,
                         label = spec.label,
-                        backdrop = backdrop
+                        backdrop = backdrop,
+                        modifier = Modifier.weight(1f) // equal width, compact height from LiquidButton
                     )
                 }
             }
         }
     }
-
-
-
 }
-
-

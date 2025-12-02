@@ -124,7 +124,7 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
         }
     }
 
-    private inner class BottomSheetCallbackListener :
+    private class BottomSheetCallbackListener :
         BottomSheetBehavior.BottomSheetCallback() {
         override fun onStateChanged(bottomSheet: View, newState: Int) {
             // Handle state changes if needed

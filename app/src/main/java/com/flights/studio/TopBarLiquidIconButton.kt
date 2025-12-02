@@ -42,13 +42,20 @@ fun TopBarLiquidIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isInteractive: Boolean = true,
-    tint: Color = Color.Unspecified, // <- use this as the actual tint
+    tint: Color = Color.Unspecified, // <- optional override
 ) {
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
     val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+
+    // ✅ Decide final tint: if caller didn't pass one, use white by default
+    val effectiveTint = if (tint.isSpecified) {
+        tint
+    } else {
+        Color.White
+    }
 
     Row(
         modifier
@@ -136,7 +143,8 @@ fun TopBarLiquidIconButton(
         Image(
             painter = painterResource(iconRes),
             contentDescription = null,
-            colorFilter = if (tint.isSpecified) ColorFilter.tint(tint) else null
+            // ✅ always tint with effectiveTint
+            colorFilter = ColorFilter.tint(effectiveTint)
         )
     }
 }

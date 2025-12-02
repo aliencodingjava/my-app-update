@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="flight_information">Information</string>
-    <string name="back_arrow_desc">backarrow</string>
     <string name="carousel_description">for recycleview material design3</string>
 
 </resources>

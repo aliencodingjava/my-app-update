@@ -1,4 +1,0 @@
-<!-- res/drawable/layered_arrow.xml -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@drawable/bottomsheet_close_icon" />
-</layer-list>

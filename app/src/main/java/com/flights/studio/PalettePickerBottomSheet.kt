@@ -320,7 +320,7 @@ class PalettePickerBottomSheet(
             filteredPalettes
         ) {
             override fun getCount(): Int = filteredPalettes.size
-            override fun getItem(position: Int): NamedPalette? = filteredPalettes[position]
+            override fun getItem(position: Int): NamedPalette = filteredPalettes[position]
 
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val row = convertView ?: LayoutInflater.from(context).inflate(R.layout.list_item_palette, parent, false)

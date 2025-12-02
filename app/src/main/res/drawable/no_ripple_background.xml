@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- No ripple effect on press -->
-    <item android:drawable="@android:color/transparent" android:state_pressed="true"/>
-    <!-- Default background -->
-    <item android:drawable="@android:color/transparent"/>
-</selector>

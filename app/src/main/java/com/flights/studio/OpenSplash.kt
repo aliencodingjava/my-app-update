@@ -125,7 +125,7 @@ class OpenSplash : AppCompatActivity() {
     /* ───────── breathing loop ───────── */
     private fun startBreathing() {
         val breatheX = ObjectAnimator.ofFloat(logo, View.SCALE_X, 1f, 1.035f, 1f).apply {
-            duration = 1_600L
+            duration = 1_000L
             repeatCount = ValueAnimator.INFINITE      // ✅ on the animator itself
             interpolator = AccelerateDecelerateInterpolator()
         }

@@ -5,27 +5,33 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -48,8 +54,8 @@ fun LiquidButton(
     backdrop: LayerBackdrop,
     modifier: Modifier = Modifier,
     isInteractive: Boolean = true,
-    tint: Color = Color.Unspecified,          // keep as requested
-    surfaceColor: Color = Color.Unspecified   // keep as requested
+    tint: Color = Color.Unspecified,
+    surfaceColor: Color = Color.Unspecified,
 ) {
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -57,15 +63,14 @@ fun LiquidButton(
     }
     val isDark = isSystemInDarkTheme()
 
-    Row(
-        modifier
+    Box(
+        modifier = modifier
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { CircleShape },
                 effects = {
                     vibrancy()
                     if (isDark) {
-                        // dark: crisp specular, moderate blur
                         blur(4.dp.toPx())
                         lens(
                             refractionHeight = 8.dp.toPx(),
@@ -79,7 +84,6 @@ fun LiquidButton(
                             saturation = 1.9f
                         )
                     } else {
-                        // light: stronger lens pop, lighter blur (keeps detail under)
                         blur(0.dp.toPx())
                         lens(
                             refractionHeight = 8.dp.toPx(),
@@ -100,36 +104,47 @@ fun LiquidButton(
                         val height = size.height
 
                         val progress = interactiveHighlight.pressProgress
-                        val scale = lerp(1f, 1f + 4.dp.toPx() / size.height, progress)
+
+                        val zoomAmountPx = 1.5.dp.toPx()
+                        val scale = lerp(1f, 1f + zoomAmountPx / size.height, progress)
 
                         val maxOffset = size.minDimension
-                        val k = 0.05f
+                        val k = 0.025f
                         val offset = interactiveHighlight.offset
+
                         translationX = maxOffset * tanh(k * offset.x / maxOffset)
                         translationY = maxOffset * tanh(k * offset.y / maxOffset)
 
-                        val maxDragScale = 4.dp.toPx() / size.height
+                        val maxDragScale = 1.5.dp.toPx() / size.height
                         val ang = atan2(offset.y, offset.x)
+
                         scaleX = scale +
-                                maxDragScale * abs(cos(ang) * offset.x / size.maxDimension) *
+                                maxDragScale *
+                                abs(cos(ang) * offset.x / size.maxDimension) *
                                 (width / height).fastCoerceAtMost(1f)
+
                         scaleY = scale +
-                                maxDragScale * abs(sin(ang) * offset.y / size.maxDimension) *
+                                maxDragScale *
+                                abs(sin(ang) * offset.y / size.maxDimension) *
                                 (height / width).fastCoerceAtMost(1f)
                     }
                 } else null,
                 onDrawSurface = {
+                    // 🔹 Only darken in DARK theme
+                    if (isDark) {
+                        drawRect(Color.Black.copy(alpha = 0.10f))
+                    }
+
                     if (tint.isSpecified) {
-                        // same look as Kyant's catalog
                         drawRect(tint, blendMode = BlendMode.Hue)
-                        drawRect(tint.copy(alpha = 0.75f))
+                        drawRect(tint.copy(alpha = 0.65f))
                     }
                     if (surfaceColor.isSpecified) {
                         drawRect(surfaceColor)
                     }
                 }
+
             )
-            // luminance/highlight overlay + gesture tracking (Shader on Android 13+)
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
             .clickable(
@@ -138,38 +153,62 @@ fun LiquidButton(
                 role = Role.Button,
                 onClick = onClick
             )
-            .height(48.dp)
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically
+            .height(44.dp)
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center
     ) {
-        // Pick a readable content color: white if tint is set OR in dark theme, else black
-        val isDark = isSystemInDarkTheme()
-        val contentColor = when {
-            tint.isSpecified -> Color.White
-            isDark -> Color.White
-            else -> Color.Black
-        }
+        val contentColor = Color.White
+        val textShadow = Shadow(
+            color = Color.Black.copy(alpha = 0.9f),
+            offset = Offset(0f, 2f),
+            blurRadius = 5f
+        )
 
-// Icon
-        if (iconRes != 0) {
-            Image(
-                painter = painterResource(id = iconRes),
-                contentDescription = label,
-                modifier = Modifier.size(22.dp),
-                colorFilter = ColorFilter.tint(contentColor)
-            )
-        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (iconRes != 0) {
+                Image(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = label,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .drawBehind {
+                            drawCircle(
+                                color = Color.DarkGray.copy(alpha = 0.70f),
+                                radius = size.minDimension * 0.62f,
+                                center = center + Offset(0f, 0.dp.toPx())
+                            )
+                        },
+                    colorFilter = ColorFilter.tint(contentColor)
+                )
+            }
 
-// Label
-        if (label.isNotEmpty()) {
-            Text(
-                text = label,
-                color = contentColor,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
 
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                if (label.isNotEmpty()) {
+                    Text(
+                        text = label,
+                        color = contentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = TextStyle(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.15.sp,
+                            shadow = textShadow
+                        )
+                    )
+                }
+            }
+
+            if (iconRes != 0) {
+                Box(modifier = Modifier.size(10.dp))
+            }
+        }
     }
 }
