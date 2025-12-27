@@ -473,6 +473,13 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
     <string name="nav_notes">nav notes</string>
     <string name="nav_search">nav search</string>
     <string name="nav_delete">nav delete</string>
+    <string name="hardworking_and_friendly">Hardworking and friendly!</string>
+    <string name="jan_1_1990">Jan 1, 1990</string>
+    <string name="example_email_com">example@email.com</string>
+    <string name="coming_soon">Coming soon</string>
+    <string name="photo">Photo</string>
+    <string name="privacy">Privacy</string>
+    <string name="quick_actions">Quick actions</string>
 
 
 </resources>

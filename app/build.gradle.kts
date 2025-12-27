@@ -5,12 +5,12 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     kotlin("android")                         // use the same Kotlin version as your project
-    id("org.jetbrains.kotlin.plugin.compose") version "2.2.21"   // ✅ REQUIRED
+    id("org.jetbrains.kotlin.plugin.compose") version "2.3.0"   // ✅ REQUIRED
 //    kotlin("kapt")
     id("com.google.devtools.ksp") version "2.3.0" // ✅ KSP2 works with Kotlin 2.2.x
 
     id("com.google.gms.google-services")
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.21"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
 
 }
 
@@ -57,7 +57,7 @@ android {
 
     defaultConfig {
         applicationId = "com.flights.studio"
-        minSdk = 31
+        minSdk = 26
         targetSdk = 36
         versionCode = 221
         versionName = "0.2.217"
@@ -176,7 +176,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt:3.2.6")
 
     // ----- AndroidX Core -----
-    implementation("androidx.activity:activity:1.12.0")
+    implementation("androidx.activity:activity:1.12.2")
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.appcompat:appcompat-resources:1.7.1")
@@ -187,8 +187,8 @@ dependencies {
     implementation("androidx.gridlayout:gridlayout:1.1.0")
     implementation("androidx.work:work-runtime-ktx:2.11.0")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
-    implementation("androidx.camera.viewfinder:viewfinder-core:1.5.1")
-    implementation("androidx.compose.foundation:foundation-layout:1.9.5")
+    implementation("androidx.camera.viewfinder:viewfinder-core:1.5.2")
+    implementation("androidx.compose.foundation:foundation-layout:1.10.0")
     implementation("androidx.compose.material3:material3:1.4.0")
 
     // ----- Jetpack Compose -----
@@ -197,10 +197,11 @@ dependencies {
 //
 //    implementation(platform("androidx.compose:compose-bom:2025.10.01"))
 
-    implementation("androidx.activity:activity-compose:1.12.0")
+    implementation("androidx.activity:activity-compose:1.12.2")
 
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material3:material3:1.5.0-alpha11")
 
 
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.10.0")
@@ -211,7 +212,7 @@ dependencies {
     // ----- Imaging -----
     implementation("com.github.bumptech.glide:glide:5.0.5")
     implementation("com.google.android.gms:play-services-contextmanager:9.4.0")
-    implementation("androidx.compose.animation:animation-core:1.9.5")
+    implementation("androidx.compose.animation:animation-core:1.10.0")
 
 //    kapt("com.github.bumptech.glide:compiler:5.0.5") // ⬅️ not annotationProcessor
     ksp("com.github.bumptech.glide:ksp:5.0.5")          // ✅ use KSP
@@ -242,7 +243,7 @@ dependencies {
     // ----- Firebase -----
 //    implementation("com.google.firebase:firebase-analytics-ktx")
 //    implementation("com.google.firebase:firebase-database-ktx")
-    implementation(platform("com.google.firebase:firebase-bom:34.6.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
 
     implementation("com.google.firebase:firebase-analytics:23.0.0")
     implementation("com.google.firebase:firebase-database:22.0.1")
@@ -250,6 +251,8 @@ dependencies {
     implementation("com.google.firebase:firebase-storage:22.0.1")
     implementation("com.google.firebase:firebase-messaging:25.0.1")
     implementation("com.google.android.gms:play-services-basement:18.9.0")
+    implementation("androidx.compose.ui:ui-graphics")
+
 
     // ----- Coroutines -----
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
@@ -258,8 +261,8 @@ dependencies {
 
     // ----- Utilities -----
     implementation("com.airbnb.android:lottie:6.7.1")
-    implementation("org.apache.commons:commons-text:1.14.0")
-    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.19")
+    implementation("org.apache.commons:commons-text:1.15.0")
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.21")
     implementation("io.coil-kt:coil:2.7.0")
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
@@ -292,8 +295,8 @@ dependencies {
     implementation("androidx.dynamicanimation:dynamicanimation:1.1.0")
 
     // ----- AndroidLiquidGlass (Backdrop) -----
-    implementation("io.github.kyant0:backdrop:1.0.1")
-    implementation("io.github.kyant0:capsule:2.1.1")
+    implementation("io.github.kyant0:backdrop:1.0.3")
+    implementation("io.github.kyant0:capsule:2.1.2")
 
 
     implementation("androidx.compose.material:material-ripple")
@@ -306,12 +309,12 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.9.5")
-    implementation("androidx.compose.ui:ui-graphics:1.9.5")
-    implementation("androidx.compose.ui:ui:1.9.5")
-    implementation("androidx.compose.animation:animation:1.9.5")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.9.5")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.9.5")
+    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.10.0")
+    implementation("androidx.compose.ui:ui-graphics:1.10.0")
+    implementation("androidx.compose.ui:ui:1.10.0")
+    implementation("androidx.compose.animation:animation:1.10.0")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.10.0")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.10.0")
     runtimeOnly("androidx.compose.material:material-icons-core:1.7.8")
 
     implementation("com.squareup.retrofit2:retrofit:3.0.0")

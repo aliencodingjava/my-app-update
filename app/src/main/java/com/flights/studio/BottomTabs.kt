@@ -1,14 +1,37 @@
 package com.flights.studio
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.paint
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun <T> BottomTabs(
@@ -16,55 +39,99 @@ fun <T> BottomTabs(
     selectedTabState: MutableState<T>,
     backdrop: Backdrop,
     modifier: Modifier = Modifier,
-    content: BottomTabsScope.(tab: T) -> BottomTabsScope.BottomTab
+    tabIconRes: (T) -> Int,
+    tabLabel: (T) -> String,
 ) {
-    val scope = remember { BottomTabsScope() }
+    if (tabs.isEmpty()) return
 
     val isDark = isSystemInDarkTheme()
-    val tabTextColor = if (isDark) Color.White else Color.Black
 
-    // Map state -> index for LiquidBottomTabs
-    val selectedIndexProvider: () -> Int = {
-        val idx = tabs.indexOf(selectedTabState.value)
-        when {
-            tabs.isEmpty() -> 0
-            idx < 0        -> 0
-            else           -> idx.coerceIn(0, tabs.lastIndex)
-        }
+    val labelColor = if (isDark) Color.White else Color(0xFF111111)
+    val iconColorFilter = remember(labelColor) { ColorFilter.tint(labelColor) }
+
+    val labelStyle = remember(isDark) {
+        TextStyle(
+            fontSize = 12.sp,
+            shadow = Shadow(
+                color = if (isDark) Color.Black.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.65f),
+                offset = Offset(0f, 1f),
+                blurRadius = 3f
+            )
+        )
     }
 
-    val selectedIndex = selectedIndexProvider()
 
-    LiquidBottomTabs(
-        selectedTabIndex = selectedIndexProvider,
-        onTabSelected = { index: Int ->
-            if (index in tabs.indices) {
-                selectedTabState.value = tabs[index]
+    var selectedTabIndex by rememberSaveable(tabs) {
+        val initial = tabs.indexOf(selectedTabState.value).let { if (it >= 0) it else 0 }
+        mutableIntStateOf(initial.coerceIn(0, tabs.lastIndex))
+    }
+
+    LaunchedEffect(tabs, selectedTabState) {
+        snapshotFlow { selectedTabState.value }
+            .map { value -> tabs.indexOf(value).takeIf { it >= 0 } }
+            .filterNotNull()
+            .distinctUntilChanged()
+            .collect { idx ->
+                selectedTabIndex = idx.coerceIn(0, tabs.lastIndex)
             }
-        },
-        backdrop = backdrop,
-        tabsCount = tabs.size,
-        modifier = modifier
-    ) {
-        // RowScope content for LiquidBottomTabs
-        tabs.forEachIndexed { index, tab ->
-            val isSelected = index == selectedIndex
+    }
 
-            scope.content(tab).Content(
-                contentColor = { tabTextColor },
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null  // keep it clean, pill animation is the feedback
-                    ) {
-                        if (!isSelected && index in tabs.indices) {
-                            // Update external state; LiquidBottomTabs will
-                            // observe the new selected index and animate the pill.
-                            selectedTabState.value = tabs[index]
+    LaunchedEffect(tabs) {
+        val clamped = selectedTabIndex.coerceIn(0, tabs.lastIndex)
+        if (clamped != selectedTabIndex) selectedTabIndex = clamped
+        val tab = tabs[clamped]
+        if (selectedTabState.value != tab) selectedTabState.value = tab
+    }
+
+    Box(modifier = modifier) {
+        LiquidBottomTabs(
+            selectedTabIndex = { selectedTabIndex },
+            onTabSelected = { index ->
+                val safe = index.coerceIn(0, tabs.lastIndex)
+                if (safe != selectedTabIndex) selectedTabIndex = safe
+                val tab = tabs[safe]
+                if (selectedTabState.value != tab) selectedTabState.value = tab
+            },
+            backdrop = backdrop,
+            tabsCount = tabs.size,
+        ) {
+            repeat(tabs.size) { index ->
+                val tab = tabs[index]
+
+                LiquidBottomTab(
+                    onClick = {
+                        if (index != selectedTabIndex) {
+                            selectedTabIndex = index
+                            selectedTabState.value = tab
                         }
                     }
-            )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .heightIn(min = 56.dp)
+                            .padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            Modifier
+                                .size(28.dp)
+                                .paint(
+                                    painter = painterResource(tabIconRes(tab)),
+                                    colorFilter = iconColorFilter
+                                )
+                        )
+
+                        androidx.compose.material3.Text(
+                            text = tabLabel(tab),
+                            color = labelColor,
+                            style = labelStyle,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -1,7 +1,6 @@
 package com.flights.studio
 
 import android.graphics.Bitmap
-import android.util.Log
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -19,6 +18,7 @@ import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.nio.IntBuffer
 import kotlin.math.abs
@@ -26,7 +26,7 @@ import kotlin.math.abs
 /**
  * State you can reuse for any liquid glass surface.
  *
- * - [layer]: record backdrop into this every frame.
+ * - [layer]: record backdrop into this every frame (layer.record { drawBackdrop() }).
  * - [luminance]: 0f..1f average brightness of what’s behind.
  * - [contentColor]: animated text/icon color based on luminance.
  */
@@ -36,38 +36,26 @@ data class AdaptiveLuminanceState(
     val contentColor: Color
 )
 
-private const val TAG_LUMINANCE = "AdaptiveLum"
-
 @Composable
 fun rememberAdaptiveLuminance(
     enabled: Boolean,
-    initialLuminance: Float = 0.5f,
+    initialLuminance: Float = if (isSystemInDarkTheme()) 0f else 1f,
     lightOnBright: Color = Color.Black,
     lightOnDark: Color = Color.White,
-    animationMillis: Int = 450
+    animationMillis: Int = 1000,
+    sampleSize: Int = 5,            // Kyant uses 5x5
+    sampleEveryMs: Long = 120L      // don’t hammer GPU
 ): AdaptiveLuminanceState {
-    Log.d(
-        TAG_LUMINANCE,
-        "rememberAdaptiveLuminance() COMPOSE enabled=$enabled initial=$initialLuminance"
-    )
+    val isLightTheme = !isSystemInDarkTheme()
 
-    val layer = rememberGraphicsLayer().also {
-        Log.d(TAG_LUMINANCE, "rememberGraphicsLayer() created: $it")
-    }
-    val isDark = isSystemInDarkTheme()
-    Log.d(TAG_LUMINANCE, "isSystemInDarkTheme() = $isDark")
+    // This is the layer you record the backdrop into.
+    val layer = rememberGraphicsLayer()
 
-    // luminance 0f..1f
     val luminanceAnim = remember {
-        Log.d(TAG_LUMINANCE, "Animatable(initial=$initialLuminance) created")
-        Animatable(initialLuminance)
+        Animatable(if (isLightTheme) 1f else 0f)
     }
-
-    // target color we animate towards
-    val targetContentColor = remember(isDark, lightOnBright, lightOnDark) {
-        val startColor = if (isDark) lightOnDark else lightOnBright
-        Log.d(TAG_LUMINANCE, "targetContentColor remember: startColor=$startColor")
-        mutableStateOf(startColor)
+    val targetContentColor = remember {
+        mutableStateOf(if (isLightTheme) lightOnBright else lightOnDark)
     }
 
     val contentColor by animateColorAsState(
@@ -76,52 +64,40 @@ fun rememberAdaptiveLuminance(
         label = "adaptiveContentColor"
     )
 
-    LaunchedEffect(enabled) {
-        Log.d(TAG_LUMINANCE, "LaunchedEffect(enabled=$enabled) START")
-
+    LaunchedEffect(layer, enabled, sampleSize, sampleEveryMs, animationMillis, lightOnBright, lightOnDark) {
         if (!enabled) {
-            Log.d(TAG_LUMINANCE, "Adaptive luminance DISABLED -> reset and return")
-            luminanceAnim.snapTo(initialLuminance)
-            Log.d(TAG_LUMINANCE, "Animatable snapped to $initialLuminance")
+            luminanceAnim.snapTo(initialLuminance.coerceIn(0f, 1f))
+            targetContentColor.value = if (isLightTheme) lightOnBright else lightOnDark
             return@LaunchedEffect
         }
 
-        val sampleSize = 5          // 5x5 thumbnail
         val totalPixels = sampleSize * sampleSize
         val buffer = IntBuffer.allocate(totalPixels)
 
-        var loopIteration = 0
-
         while (isActive) {
-            loopIteration++
-            val previous = luminanceAnim.value
+            // ✅ Kyant-style flow (record -> sample -> animate),
+            // but SAFE on Samsung: snapshot on MAIN, pixel work off-main.
 
+            // 1) Snapshot must be on MAIN to avoid libhwui/RenderThread crashes on some devices.
+            val imageBitmap = withContext(Dispatchers.Main.immediate) {
+                runCatching { layer.toImageBitmap() }.getOrNull()
+            }
+
+            // 2) Scale + copy pixels on background dispatcher.
             val avg = withContext(Dispatchers.Default) {
-                val imageBitmap = runCatching { layer.toImageBitmap() }.getOrNull()
-                    ?: run {
-                        if (loopIteration % 20 == 0) {
-                            Log.w(TAG_LUMINANCE, "loop#$loopIteration: toImageBitmap() returned null, keeping previous=$previous")
-                        }
-                        return@withContext previous
-                    }
+                val bmp = imageBitmap ?: return@withContext luminanceAnim.value
 
-                if (imageBitmap.width <= 0 || imageBitmap.height <= 0) {
-                    if (loopIteration % 20 == 0) {
-                        Log.w(
-                            TAG_LUMINANCE,
-                            "loop#$loopIteration: bitmap size invalid ${imageBitmap.width}x${imageBitmap.height}, keeping previous=$previous"
-                        )
-                    }
-                    return@withContext previous
+                if (bmp.width <= 0 || bmp.height <= 0) {
+                    return@withContext luminanceAnim.value
                 }
 
-                val scaled: Bitmap = imageBitmap
-                    .asAndroidBitmap()
-                    .scale(sampleSize, sampleSize, /* filter = */ false)
-                    .copy(Bitmap.Config.ARGB_8888, false)
+                val thumbnail: Bitmap =
+                    bmp.asAndroidBitmap()
+                        .scale(sampleSize, sampleSize, false)
+                        .copy(Bitmap.Config.ARGB_8888, false)
 
                 buffer.rewind()
-                scaled.copyPixelsToBuffer(buffer)
+                thumbnail.copyPixelsToBuffer(buffer)
                 buffer.rewind()
 
                 var sum = 0.0
@@ -133,41 +109,24 @@ fun rememberAdaptiveLuminance(
                     sum += 0.2126 * r + 0.7152 * g + 0.0722 * b
                 }
 
-                val avgInner = (sum / totalPixels.toDouble()).toFloat()
-                if (abs(avgInner - previous) > 0.02f) {
-                    Log.d(
-                        TAG_LUMINANCE,
-                        "loop#$loopIteration: sampled luminance=$avgInner (prev=$previous)"
-                    )
+                (sum / totalPixels.toDouble()).toFloat().coerceIn(0f, 1f)
+            }
+
+            // 3) Animate (Kyant animates luminance + content color)
+            // Avoid restarting an expensive animation if basically unchanged.
+            if (abs(avg - luminanceAnim.value) > 0.01f) {
+                // content color can animate in parallel like Kyant's demo
+                launch {
+                    targetContentColor.value = if (avg > 0.5f) lightOnBright else lightOnDark
                 }
-                avgInner
+                luminanceAnim.animateTo(avg, tween(animationMillis))
+            } else {
+                // still update color threshold if needed
+                targetContentColor.value = if (avg > 0.5f) lightOnBright else lightOnDark
             }
 
-            if (abs(avg - previous) > 0.01f) {
-                Log.d(
-                    TAG_LUMINANCE,
-                    "loop#$loopIteration: animate luminance from $previous -> $avg"
-                )
-            }
-
-            // animate luminance like his demo
-            luminanceAnim.animateTo(avg, tween(animationMillis))
-
-            // decide text/icon color
-            val newColor = if (avg > 0.5f) lightOnBright else lightOnDark
-            if (newColor != targetContentColor.value) {
-                Log.d(
-                    TAG_LUMINANCE,
-                    "loop#$loopIteration: contentColor change -> $newColor (avg=$avg)"
-                )
-            }
-            targetContentColor.value = newColor
-
-            // don't hammer CPU/GPU every frame
-            delay(100L)
+            delay(sampleEveryMs)
         }
-
-        Log.d(TAG_LUMINANCE, "LaunchedEffect(enabled=${true}) END (isActive=false)")
     }
 
     return AdaptiveLuminanceState(

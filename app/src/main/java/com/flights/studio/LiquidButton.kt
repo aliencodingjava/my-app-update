@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -67,14 +67,14 @@ fun LiquidButton(
         modifier = modifier
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { CircleShape },
+                shape = { RoundedCornerShape(percent = 50) },
                 effects = {
                     vibrancy()
                     if (isDark) {
                         blur(4.dp.toPx())
                         lens(
                             refractionHeight = 8.dp.toPx(),
-                            refractionAmount = 48.dp.toPx(),
+                            refractionAmount = 28.dp.toPx(),
                             depthEffect = true,
                             chromaticAberration = false
                         )
@@ -87,7 +87,7 @@ fun LiquidButton(
                         blur(0.dp.toPx())
                         lens(
                             refractionHeight = 8.dp.toPx(),
-                            refractionAmount = 48.dp.toPx(),
+                            refractionAmount = 28.dp.toPx(),
                             depthEffect = true,
                             chromaticAberration = false
                         )
@@ -169,20 +169,25 @@ fun LiquidButton(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (iconRes != 0) {
-                Image(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = label,
+                Box(
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(28.dp) // ✅ bigger area for the background circle
                         .drawBehind {
                             drawCircle(
                                 color = Color.DarkGray.copy(alpha = 0.70f),
-                                radius = size.minDimension * 0.62f,
-                                center = center + Offset(0f, 0.dp.toPx())
+                                radius = size.minDimension * 0.5f
                             )
                         },
-                    colorFilter = ColorFilter.tint(contentColor)
-                )
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = iconRes),
+                        contentDescription = label,
+                        modifier = Modifier.size(20.dp),
+                        colorFilter = ColorFilter.tint(contentColor)
+                    )
+                }
+
             }
 
 

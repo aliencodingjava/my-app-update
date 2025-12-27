@@ -67,9 +67,6 @@ class ProfileDetailsActivity : AppCompatActivity() {
         overridePendingTransition(0, R.anim.zoom_out)
     }
 
-
-
-
     private fun setupToolbar() {
         setSupportActionBar(binding.profileToolbar)
         supportActionBar?.apply {

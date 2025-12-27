@@ -1,46 +1,48 @@
+@file:Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+
 package com.flights.studio
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
-import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.ortiz.touchview.TouchImageView
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-/**
- * Defines the possible states for the zoomable image component.
- */
-private sealed class ImageLoadState {
-    object Idle : ImageLoadState()
-    object Loading : ImageLoadState()
-    object Success : ImageLoadState()
-    data class Error(val isTimeoutExpired: Boolean = false) : ImageLoadState()
-}
 
 @Composable
 fun ZoomableImageContentInlineImpl(
@@ -48,76 +50,46 @@ fun ZoomableImageContentInlineImpl(
     modifier: Modifier = Modifier,
     onImageLoadedOk: () -> Unit = {},
     onImageLoadFailed: () -> Unit = {},
-    onBitmapReady: (Bitmap) -> Unit = {},                    // 👈 already here
-    overlayContent: (@Composable BoxScope.() -> Unit)? = null
+    onBitmapReady: (Bitmap) -> Unit = {},
+    camExpanded: Boolean? = null,                     // ✅ optional
+    onCamExpandedChange: ((Boolean) -> Unit)? = null, // ✅ optional
+    overlayContent: (@Composable BoxScope.() -> Unit)? = null,
+    cornerRadiusDp: Dp = 20.dp,
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
+    val onLoadedOk by rememberUpdatedState(onImageLoadedOk)
+    val onLoadFailed by rememberUpdatedState(onImageLoadFailed)
+    val onBitmapReadyState by rememberUpdatedState(onBitmapReady)
+    val overlayState by rememberUpdatedState(overlayContent)
 
-    var state by remember { mutableStateOf<ImageLoadState>(ImageLoadState.Idle) }
-    var lastLoadedUrl by remember { mutableStateOf<String?>(null) }
+    val inPreview = LocalInspectionMode.current
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(cornerRadiusDp)
 
-    // Holder for the Android Views, remembered across recompositions.
-    val viewHolder = remember {
-        val container = FrameLayout(context).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-        val tiv = TouchImageView(context).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            scaleType = ImageView.ScaleType.CENTER_CROP
-        }
-        val overlay = ComposeView(context).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            isClickable = false
-            isFocusable = false
-        }
-        container.addView(tiv)
-        container.addView(overlay)
+    // overall container alpha (keep at 1; we do crossfade inside the views)
+    val containerAlpha = remember { Animatable(1f) }
 
-        object {
-            val container: FrameLayout = container
-            val tiv: TouchImageView = tiv
-            val overlay: ComposeView = overlay
-        }
-    }
+    // crossfade alpha for the "incoming" top layer
+    val incomingAlpha = remember { Animatable(0f) }
 
-    // A single effect to handle all loading logic when the model changes.
+    val holder = remember { ZoomViewHolder(context) }
+
     LaunchedEffect(model) {
-        val url = model?.toString()
+        if (inPreview) return@LaunchedEffect
 
-        if (url.isNullOrBlank()) {
-            state = ImageLoadState.Error()
-            viewHolder.tiv.setImageDrawable(null)
-            lastLoadedUrl = null
-            onImageLoadFailed()
-            coroutineScope.launch {
-                delay(5_000)
-                if (state is ImageLoadState.Error) {
-                    state = ImageLoadState.Error(isTimeoutExpired = true)
-                }
-            }
+        val url = model?.toString().orEmpty()
+        if (url.isBlank()) {
+            holder.clearAll()
+            onLoadFailed()
             return@LaunchedEffect
         }
 
-        if (lastLoadedUrl == url && viewHolder.tiv.drawable != null && state is ImageLoadState.Success) {
-            onImageLoadedOk()
-            return@LaunchedEffect
-        }
-
-        state = ImageLoadState.Loading
-        val prevMatrix = if (viewHolder.tiv.drawable != null) viewHolder.tiv.imageMatrix else null
+        // Snapshot zoom matrix so we can attempt to restore it
+        val prevMatrix = holder.tiv.drawable?.let { holder.tiv.imageMatrix }
 
         Glide.with(context)
-            .asBitmap()                                           // 👈 load BITMAP now
+            .asBitmap()
             .load(url)
             .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
             .into(object : CustomTarget<Bitmap>() {
@@ -125,75 +97,180 @@ fun ZoomableImageContentInlineImpl(
                     resource: Bitmap,
                     transition: Transition<in Bitmap>?
                 ) {
-                    state = ImageLoadState.Success
-                    viewHolder.tiv.setImageBitmap(resource)       // 👈 show bitmap
+                    scope.launch {
+                        // Put new bitmap on incoming layer (top) and start from 0 alpha
+                        holder.incoming.setImageBitmap(resource)
+                        holder.incoming.alpha = 0f
+                        incomingAlpha.snapTo(0f)
 
-                    if (prevMatrix != null) {
-                        viewHolder.tiv.imageMatrix = prevMatrix
-                    }
-                    lastLoadedUrl = url
-                    onImageLoadedOk()
+                        // Soft crossfade in (tweak duration for “soooo soft”)
+                        incomingAlpha.animateTo(
+                            1f,
+                            tween(durationMillis = 580, easing = FastOutSlowInEasing)
+                        )
+                        holder.incoming.alpha = incomingAlpha.value
 
-                    // 👇 NEW: send bitmap up so you can analyze it
-                    try {
-                        onBitmapReady(resource)
-                    } catch (_: Throwable) {
-                        // avoid crashing if analysis throws
+                        // Commit bitmap to TouchImageView (gesture layer)
+                        holder.tiv.setImageBitmap(resource)
+
+                        // Restore zoom/pan best-effort
+                        prevMatrix?.let { holder.tiv.imageMatrix = it }
+
+                        // Hide incoming layer (now both are identical)
+                        holder.incoming.setImageDrawable(null)
+                        holder.incoming.alpha = 0f
+                        incomingAlpha.snapTo(0f)
                     }
+
+                    onLoadedOk()
+                    scope.launch { runCatching { onBitmapReadyState(resource) } }
                 }
 
                 override fun onLoadFailed(errorDrawable: Drawable?) {
-                    state = ImageLoadState.Error()
-                    viewHolder.tiv.setImageDrawable(null)
-                    lastLoadedUrl = null
-                    onImageLoadFailed()
-                    coroutineScope.launch {
-                        delay(5_000)
-                        if (state is ImageLoadState.Error) {
-                            state = ImageLoadState.Error(isTimeoutExpired = true)
-                        }
-                    }
+                    // keep previous image; do NOT clear
+                    onLoadFailed()
                 }
 
                 override fun onLoadCleared(placeholder: Drawable?) {
-                    viewHolder.tiv.setImageDrawable(null)
+                    // do nothing (avoid flashes)
                 }
             })
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            if (viewHolder.container.isAttachedToWindow) {
-                Glide.with(context).clear(viewHolder.tiv)
+            if (!inPreview) {
+                // NOTE: we are NOT clearing via Glide targets here because these are Views,
+                // so we just clear drawables to avoid leaks/flashes.
+                holder.clearAll()
             }
         }
     }
 
-    AndroidView(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(20.dp)),
-        factory = { viewHolder.container },
-        update = {
-            viewHolder.overlay.setContent {
-                ZoomableImageOverlay(
-                    overlayContent = overlayContent
+            // ✅ Stronger clipping for AndroidView (more reliable than Modifier.clip)
+            .graphicsLayer {
+                this.shape = shape
+                clip = true
+                alpha = containerAlpha.value
+            }
+    ) {
+
+        if (inPreview) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(if (isDark) Color(0xFF101010) else Color(0xFFEFEFEF))
+            )
+        } else {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        this.shape = shape
+                        clip = true
+                    },
+                factory = { holder.container },
+                update = {
+                    if (camExpanded == true) {
+                        // ✅ Expanded: remove overlay entirely
+                        holder.overlay.setContent { }
+                    } else {
+                        // ✅ Collapsed: show overlay normally
+                        holder.overlay.setContent {
+                            ZoomableImageOverlay(overlayContent = overlayState)
+                        }
+                    }
+
+                    holder.incoming.alpha = incomingAlpha.value
+                }
+
+            )
+
+            if (camExpanded != null && onCamExpandedChange != null) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(66.dp)
+                        .zIndex(100f)
+                        .expandCollapseGrabGesture(
+                            isExpanded = camExpanded,
+                            onExpandedChange = onCamExpandedChange,
+                            enabled = true
+                        )
                 )
             }
+
         }
-    )
+
+    }
 }
 
-/**
- * A private, stateless composable to render the overlay UI.
- */
+/* -------------------------------------------------------------------------- */
+
+private data class ZoomViewHolder(
+    val container: FrameLayout,
+    val tiv: TouchImageView,
+    val incoming: ImageView,
+    val overlay: ComposeView
+) {
+    constructor(context: Context) : this(
+        container = FrameLayout(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            // ✅ Ensure view hierarchy clips zoom-draw outside bounds
+            clipChildren = true
+            clipToPadding = true
+        },
+        tiv = TouchImageView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            scaleType = ImageView.ScaleType.CENTER_CROP
+        },
+        incoming = ImageView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            alpha = 0f
+        },
+        overlay = ComposeView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            isClickable = false
+            isFocusable = false
+        }
+    ) {
+        // base gesture layer first
+        container.addView(tiv)
+        // incoming crossfade layer on top of it
+        container.addView(incoming)
+        // compose overlay on top
+        container.addView(overlay)
+    }
+
+    fun clearAll() {
+        tiv.setImageDrawable(null)
+        incoming.setImageDrawable(null)
+        incoming.alpha = 0f
+    }
+}
+
 @Composable
 private fun ZoomableImageOverlay(
-
     overlayContent: (@Composable BoxScope.() -> Unit)?
 ) {
     Box(Modifier.fillMaxSize()) {
-
         overlayContent?.invoke(this)
     }
 }

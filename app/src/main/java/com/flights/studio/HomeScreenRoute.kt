@@ -7,22 +7,34 @@ import android.os.Build
 import android.util.Log
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,13 +43,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.BlendMode // ✅ IMPORTANT (Compose BlendMode)
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import androidx.preference.PreferenceManager
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -46,16 +62,18 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.drawPlainBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.effect
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.sin
+import kotlin.math.tanh
 
 private const val TAG = "HomeScreenRoute"
-private const val TAG_ZOOM = "HomeZoom"
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
@@ -66,10 +84,17 @@ fun HomeScreenRouteContent(
     triggerRefreshNow: (String?) -> Unit,
     finishApp: () -> Unit,
     showExitDialog: Boolean,
+    isInteractive: Boolean = true,
     onDismissExit: () -> Unit,
     onConfirmExit: () -> Unit
 ) {
+    val isDark = isSystemInDarkTheme()
     val activity = LocalActivity.current
+
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
+    }
 
     var currentTab by rememberSaveable { mutableStateOf(FlightsTab.Curb) }
     var currentCamUrl by rememberSaveable {
@@ -78,14 +103,14 @@ fun HomeScreenRouteContent(
         )
     }
 
-    val refreshIntervalMs = 90_000L
+    val refreshIntervalMs = 60_000L
     val minRefreshGapMs = 1_000L
     var countdownMs by rememberSaveable { mutableLongStateOf(refreshIntervalMs) }
     var isRefreshing by rememberSaveable { mutableStateOf(false) }
     var lastRefreshAtMs by rememberSaveable { mutableLongStateOf(0L) }
     var hasInternet by rememberSaveable { mutableStateOf(true) }
 
-    // single backdrop for image + buttons + strip + dialogs
+    // ✅ single backdrop for image + strip + dialogs + buttons
     val cameraBackdrop = rememberLayerBackdrop()
 
     // connection state
@@ -97,7 +122,6 @@ fun HomeScreenRouteContent(
     // connectivity monitor loop
     LaunchedEffect(activity) {
         val ctx = activity ?: return@LaunchedEffect
-
         var wasOffline = isUserOffline
 
         while (true) {
@@ -140,20 +164,21 @@ fun HomeScreenRouteContent(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
     var camExpanded by rememberSaveable { mutableStateOf(false) }
-    var refreshPaused by rememberSaveable { mutableStateOf(false) }
+    val onCamExpandedChange: (Boolean) -> Unit = { camExpanded = it }
+    val hintText = if (camExpanded) "Swipe up to collapse" else "Drag down to expand"
+
     var lockNoRefresh by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
-
+    val prefs = remember {
+        PreferenceManager.getDefaultSharedPreferences(context)
+    }
     var isSiriGlowEnabled by remember {
-        mutableStateOf(
-            prefs.getBoolean("siri_camera_glow", true)
-        )
+        mutableStateOf(prefs.getBoolean("siri_camera_glow", true))
     }
 
-    // Listen for changes to that key while this composable is active
     DisposableEffect(prefs) {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == "siri_camera_glow") {
@@ -161,62 +186,38 @@ fun HomeScreenRouteContent(
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
-
-        onDispose {
-            prefs.unregisterOnSharedPreferenceChangeListener(listener)
-        }
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
-    // ✅ Stable progress for card + button (0 = collapsed, 1 = expanded)
     val camProgress by animateFloatAsState(
         targetValue = if (camExpanded) 1f else 0f,
         animationSpec = tween(durationMillis = 450),
         label = "camProgress"
     )
+    val gridInteractive = camProgress < 0.02f
 
-    // ✅ One-shot progress only for the Siri edge glow (or 0f if disabled)
+    var gridInstanceKey by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(camExpanded) {
+        if (!camExpanded) gridInstanceKey++
+    }
+
+    // One-shot Siri progress (your function)
     val siriWaveProgress = if (isSiriGlowEnabled) {
-        siriCardEdgeGlowOverlay(
-            expanded = camExpanded,
-            durationMillis = 2500
-        )
+        siriCardEdgeGlowOverlay(expanded = camExpanded, durationMillis = 2500)
     } else 0f
 
-
-
-    // discrete weights so the grid doesn’t constantly shrink
     val cardWeight = if (camExpanded) 1f else 0.5f
     val listWeight = if (camExpanded) 0f else 0.5f
 
-    LaunchedEffect(camExpanded) { Log.d(TAG, "camExpanded changed -> $camExpanded") }
-    LaunchedEffect(refreshPaused) { Log.d(TAG, "refreshPaused changed -> $refreshPaused") }
-    LaunchedEffect(lockNoRefresh) { Log.d(TAG, "lockNoRefresh changed -> $lockNoRefresh") }
-    LaunchedEffect(currentCamUrl) { Log.d(TAG, "currentCamUrl changed -> $currentCamUrl") }
-
     // AUTO REFRESH LOOP
-    LaunchedEffect(hasInternet, refreshPaused, lockNoRefresh) {
-        Log.d(
-            TAG,
-            "LaunchedEffect start loop: hasInternet=$hasInternet refreshPaused=$refreshPaused lockNoRefresh=$lockNoRefresh"
-        )
+    LaunchedEffect(hasInternet, lockNoRefresh) {
         while (true) {
-            Log.d(
-                TAG,
-                "LOOP TICK | expanded=$camExpanded paused=$refreshPaused locked=$lockNoRefresh " +
-                        "countdownMs=$countdownMs isRefreshing=$isRefreshing lastRefreshAtMs=$lastRefreshAtMs"
-            )
-
             if (!hasInternet) {
-                Log.d(TAG, "LOOP: no internet -> sleep 1000")
                 delay(1000)
                 continue
             }
 
-            if (refreshPaused || lockNoRefresh) {
-                Log.d(
-                    TAG,
-                    "LOOP: blocked because refreshPaused=$refreshPaused or lockNoRefresh=$lockNoRefresh -> sleep 250"
-                )
+            if (lockNoRefresh) {
                 delay(250)
                 continue
             }
@@ -224,13 +225,8 @@ fun HomeScreenRouteContent(
             if (!isRefreshing) {
                 if (countdownMs <= 0L) {
                     val now = System.currentTimeMillis()
-                    Log.d(
-                        TAG,
-                        "LOOP: countdownMs <= 0L, now=$now, lastRefreshAtMs=$lastRefreshAtMs, gap=${now - lastRefreshAtMs}"
-                    )
-
                     if (now - lastRefreshAtMs >= minRefreshGapMs) {
-                        Log.d(TAG, "LOOP: starting refresh sequence (isRefreshing=true)")
+                        isRefreshing = true
                         lastRefreshAtMs = now
 
                         val newUrl = when (currentTab) {
@@ -242,53 +238,27 @@ fun HomeScreenRouteContent(
                                 "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=${System.currentTimeMillis()}"
                         }
 
-                        Log.d(TAG, "LOOP: assigning currentCamUrl=$newUrl")
                         currentCamUrl = newUrl
-
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        Log.d(TAG, "LOOP: snackbar 'Refreshing camera…'")
-                        snackbarHostState.showSnackbar("Refreshing camera…")
-
-                        Log.d(TAG, "LOOP: triggerRefreshNow($newUrl)")
                         triggerRefreshNow(newUrl)
 
-                        delay(800)
+                        delay(3_000L)
                         isRefreshing = false
                         countdownMs = refreshIntervalMs
-                        Log.d(
-                            TAG,
-                            "LOOP: refresh done. isRefreshing=false countdownMs reset to $refreshIntervalMs"
-                        )
                     } else {
-                        Log.d(TAG, "LOOP: too soon since last refresh, sleeping 250")
                         delay(250)
                     }
                 } else {
-                    Log.d(
-                        TAG,
-                        "LOOP: countdown ticking. before=$countdownMs after=${countdownMs - 1000}"
-                    )
                     delay(1000)
                     countdownMs -= 1000
                 }
             } else {
-                Log.d(TAG, "LOOP: currently refreshing, sleep 250")
                 delay(250)
             }
         }
     }
 
     val onTabChangeInternal: (FlightsTab) -> Unit = inner@{ tab ->
-        if (tab == currentTab) {
-            Log.d(
-                TAG,
-                "onTabChangeInternal -> same tab=$tab -> ignore, keep currentCamUrl=$currentCamUrl"
-            )
-            return@inner
-        }
-
-        Log.d(TAG, "onTabChangeInternal -> NEW tab=$tab (oldTab=$currentTab) -> reload")
-
+        if (tab == currentTab) return@inner
         currentTab = tab
         currentCamUrl = when (tab) {
             FlightsTab.Curb ->
@@ -298,46 +268,19 @@ fun HomeScreenRouteContent(
             FlightsTab.South ->
                 "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=${System.currentTimeMillis()}"
         }
-
         countdownMs = refreshIntervalMs
         lastRefreshAtMs = System.currentTimeMillis()
         lockNoRefresh = false
     }
 
-    fun toggleExpanded() {
-        if (!camExpanded) {
-            camExpanded = true
-            refreshPaused = true
-            lockNoRefresh = false
-            Log.d(
-                TAG,
-                "toggleExpanded: EXPAND -> camExpanded=true refreshPaused=true lockNoRefresh=false"
-            )
-        } else {
-            camExpanded = false
-            refreshPaused = false
-            lockNoRefresh = true
-            countdownMs = refreshIntervalMs
-            lastRefreshAtMs = System.currentTimeMillis()
-            Log.d(
-                TAG,
-                "toggleExpanded: COLLAPSE -> camExpanded=$camExpanded refreshPaused=$refreshPaused lockNoRefresh=$lockNoRefresh " +
-                        "countdownMs=$countdownMs lastRefreshAtMs=$lastRefreshAtMs"
-            )
-        }
-    }
-
     @Suppress("DEPRECATION")
     val openActivityByCard: (String) -> Unit = { id ->
-        Log.d(TAG, "openActivityByCard: $id")
         fun launchPlain(cls: Class<*>) {
-            Log.d(TAG, "launchPlain: ${cls.simpleName}")
             activity?.startActivity(Intent(activity, cls))
             activity?.overridePendingTransition(R.anim.zoom_in, 0)
         }
 
         fun launchCardScreen(cardId: String) {
-            Log.d(TAG, "launchCardScreen: $cardId")
             val i = Intent(activity, CardBottomSheetActivity::class.java).apply {
                 putExtra("CARD_ID", cardId)
                 putExtra("RETURN_HOME", true)
@@ -347,7 +290,6 @@ fun HomeScreenRouteContent(
         }
 
         fun launchPlayerScreen() {
-            Log.d(TAG, "launchPlayerScreen")
             val i = Intent(activity, IosPlayerActivity::class.java).apply {
                 putExtra("RETURN_HOME", true)
             }
@@ -364,18 +306,20 @@ fun HomeScreenRouteContent(
             "card6" -> launchPlain(SettingsActivity::class.java)
             "card7" -> launchPlain(AllContactsActivity::class.java)
             "card8" -> launchPlain(AllNotesActivity::class.java)
-            "card9" -> launchPlain(ProfileDetailsActivity::class.java)
-            "card10", "card11", "card12", "card13", "card14", "card15", "card16" -> { /* no-op */ }
-            else -> { /* no-op */ }
+            "card9" -> launchPlain(ProfileDetailsComposeActivity::class.java)
+            else -> Unit
         }
     }
 
+    val cardShape = RoundedCornerShape(20.dp)
+    val cardElevationDp = lerp(4f, 1f, camProgress).dp
+
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             // ===== TOP CAMERA CARD AREA =====
             Box(
                 modifier = Modifier
@@ -383,182 +327,318 @@ fun HomeScreenRouteContent(
                     .weight(cardWeight)
                     .padding(4.dp)
             ) {
-                val isDark = isSystemInDarkTheme()
+                // (optional) tiny “breathing”
                 val extraScale = 0.006f * sin(camProgress * PI).toFloat()
                 val cardScale = 1f + extraScale
-                val cardElevation = 4.dp + (16.dp - 4.dp) * camProgress
-                val cardShape = RoundedCornerShape(20.dp)
-                Log.d(TAG_ZOOM, "CameraCard: camProgress=$camProgress cardScale=$cardScale cardWeight=$cardWeight listWeight=$listWeight")
 
+                // OUTER: transforms + shadow
                 Box(
                     modifier = Modifier
                         .matchParentSize()
+
                         .graphicsLayer {
-                            shape = cardShape
-                            clip = true
-                            scaleX = cardScale
-                            scaleY = cardScale
-                            shadowElevation = cardElevation.toPx()
+                            if (isInteractive) {
+                                val height = size.height
+
+                                val press = interactiveHighlight.pressProgress
+                                val zoomAmountPx = 1.5.dp.toPx()
+                                val baseScale = lerp(1f, 1f + zoomAmountPx / height, press)
+
+                                val k = 0.035f
+                                val offsetY = interactiveHighlight.offset.y
+                                translationY = height * tanh(k * offsetY / height)
+
+                                val maxDragScale = 30.dp.toPx() / height
+                                val verticalStretch = maxDragScale * abs(offsetY / height)
+
+                                scaleX = (baseScale) * cardScale
+                                scaleY = (baseScale + verticalStretch) * cardScale
+                            } else {
+                                scaleX = cardScale
+                                scaleY = cardScale
+                            }
                         }
+                        .shadow(
+                            elevation = cardElevationDp,
+                            shape = cardShape,
+                            clip = false
+                        )
                         .drawBackdrop(
-                            backdrop = backdrop,
+                            backdrop = backdrop,     // ✅ READ screenBackdrop here
                             shape = { cardShape },
                             shadow = null,
                             effects = {
                                 vibrancy()
-                                blur(if (isDark) 4.dp.toPx() else 6.dp.toPx())
-                                lens(16.dp.toPx(), 32.dp.toPx())
+                                blur(if (isDark) 0.dp.toPx() else 4.dp.toPx())
+                                lens(12.dp.toPx(), 34.dp.toPx())
                             },
                             onDrawSurface = {
-                                Log.d(TAG_ZOOM, "CameraCard drawSurface size=(${size.width} x ${size.height})")
-
-                                val base = if (isDark) 0.10f else 0.06f
-                                drawRect(Color.White.copy(alpha = base))
-                                if (!isDark) {
-                                    drawRect(
-                                        Color.Black.copy(alpha = 0.14f),
-                                        blendMode = BlendMode.Multiply
-                                    )
-                                    drawRect(
-                                        Color.Black.copy(alpha = 0.05f),
-                                        blendMode = BlendMode.Saturation
-                                    )
-                                }
-                            }
+                                drawRect(
+                                    if (isDark) Color.Black.copy(alpha = 0.10f)
+                                    else Color.White.copy(alpha = 0.50f)
+                                )
+                           }
                         )
                 ) {
-                    // --- IMAGE WRITER (feeds cameraBackdrop) ---
+                    // INNER: clip
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .layerBackdrop(cameraBackdrop)
+                            .graphicsLayer {
+                                shape = cardShape
+                                clip = true
+                            }
+                            .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
+                            .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
                     ) {
-                        Log.d(TAG_ZOOM, "ZoomableImageContentInlineImpl: composing with url=$currentCamUrl")
 
-                        ZoomableImageContentInlineImpl(
-                            model = currentCamUrl,
-                            modifier = Modifier
-                                .matchParentSize()
-                                .zIndex(0f),
-                            onImageLoadedOk = {
-                                Log.d(TAG_ZOOM, "ZoomableImage: onImageLoadedOk url=$currentCamUrl")
-                                hasInternet = true
-                                isRefreshing = false
-                                lockNoRefresh = false
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                            },
-                            onImageLoadFailed = {
-                                Log.e(
-                                    TAG_ZOOM,
-                                    "ZoomableImage: onImageLoadFailed for url=$currentCamUrl"
+                        // =========================================================
+                        // SAFE BACKDROP STRUCTURE:
+                        // - layerBackdrop(cameraBackdrop) wraps ONLY the image
+                        // - drawBackdrop(cameraBackdrop) is a sibling overlay
+                        // =========================================================
+                        Box(modifier = Modifier.matchParentSize()) {
+
+                            // 1) WRITER (ONLY image)
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .layerBackdrop(cameraBackdrop)
+                            ) {
+                                ZoomableImageContentInlineImpl(
+                                    model = currentCamUrl,
+                                    modifier = Modifier.matchParentSize(),
+                                    onImageLoadedOk = {
+                                        hasInternet = true
+                                        isRefreshing = false
+                                        lockNoRefresh = false
+                                        snackbarHostState.currentSnackbarData?.dismiss()
+                                    },
+                                    onImageLoadFailed = {
+                                        isRefreshing = false
+                                        hasInternet = false
+                                        lockNoRefresh = true
+                                        scope.launch {
+                                            snackbarHostState.currentSnackbarData?.dismiss()
+                                            snackbarHostState.showSnackbar("Camera image failed to load")
+                                        }
+                                    },
+                                    onBitmapReady = { }
                                 )
-                                isRefreshing = false
-                                hasInternet = false
-                                lockNoRefresh = true
-
-                                scope.launch {
-                                    snackbarHostState.currentSnackbarData?.dismiss()
-                                    snackbarHostState.showSnackbar("Camera image failed to load")
-                                }
-                            },
-                            onBitmapReady = {
-                                Log.d(TAG_ZOOM, "ZoomableImage: onBitmapReady (bitmap handled inside compositor)")
-                                // hook for future adaptive luminance from webcam
                             }
 
-                        )
-                    }
-                    // 🔹 SIRI-LIKE WAVE OVERLAY (magic flash)
-                    if (isSiriGlowEnabled) {
-                        SiriWaveOverlay(
-                            progress = siriWaveProgress,
-                            modifier = Modifier
-                                .matchParentSize()
-                                .zIndex(0.5f) // above image, below chrome
-                        )
-                    }
+                            // 2) READER overlay (glass on top of the image)
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .zIndex(0.6f)
+                                    .drawBackdrop(
+                                        backdrop = cameraBackdrop, // ✅ must be cameraBackdrop
+                                        shape = { cardShape },
+                                        shadow = null,
+                                        effects = {
+                                            vibrancy()
+                                            // keep >0 so you can SEE it
+                                            blur(if (isDark) 0.dp.toPx() else 0.dp.toPx())
+                                            lens(
+                                                refractionHeight = 2.dp.toPx(),
+                                                refractionAmount = 2.dp.toPx(),
+                                                depthEffect = true,
+                                                chromaticAberration = false
+                                            )
+                                            colorControls(
+                                                brightness = if (isDark) 0.1f else 0.0f,
+                                                contrast = 1.45f,
+                                                saturation = 1.6f
+                                            )
+                                        },
+                                        onDrawSurface = {
+                                            // surface tint (strong enough to see)
+                                            val base = if (isDark) 0.22f else 0.18f
+                                            drawRect(Color.White.copy(alpha = base))
+                                            if (!isDark) {
+                                                drawRect(
+                                                    Color.Black.copy(alpha = 0.14f),
+                                                    blendMode = BlendMode.Multiply
+                                                )
+                                                drawRect(
+                                                    Color.Black.copy(alpha = 0.05f),
+                                                    blendMode = BlendMode.Saturation
+                                                )
+                                            }
+                                        },
+                                        layerBlock = null
+                                    )
+                            )
 
-                    // --- BOTTOM STRIP (liquid glass over image) ---
-                    BottomProgressiveBlurStrip(
-                        backdrop = cameraBackdrop,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .zIndex(1f)
-                    )
+                            // 3) grab zone overlay
+                            val gestureConfig =
+                                remember { ExpandCollapseGestureConfig(expandDistance = 80.dp) }
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .height(66.dp)
+                                    .zIndex(10f)
+                                    .expandCollapseGrabGesture(
+                                        isExpanded = camExpanded,
+                                        onExpandedChange = onCamExpandedChange,
+                                        config = gestureConfig
+                                    )
+                            )
+                        }
 
-                    // --- EXIT DIALOG (glass over image) ---
-                    if (showExitDialog) {
-                        Box(
+                        // 🔹 SIRI-LIKE WAVE OVERLAY
+                        if (isSiriGlowEnabled) {
+                            SiriWaveOverlay(
+                                progress = siriWaveProgress,
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .zIndex(0.5f)
+                            )
+                        }
+
+                        // nudge hint (your existing behavior)
+                        val nudge = remember { Animatable(0f) }
+                        LaunchedEffect(camExpanded) {
+                            nudge.stop()
+                            nudge.snapTo(0f)
+
+                            if (!camExpanded) {
+                                nudge.animateTo(12f, tween(420, easing = FastOutSlowInEasing))
+                                delay(120)
+                                nudge.animateTo(0f, tween(520, easing = FastOutSlowInEasing))
+                            } else {
+                                nudge.animateTo(-10f, tween(420, easing = FastOutSlowInEasing))
+                                delay(120)
+                                nudge.animateTo(0f, tween(520, easing = FastOutSlowInEasing))
+                            }
+                        }
+
+                        val hintAlpha by animateFloatAsState(
+                            targetValue = 1f,
+                            animationSpec = tween(250),
+                            label = "hintAlpha"
+                        )
+
+                        val handleColor = if (isDark) {
+                            Color.White.copy(alpha = 0.35f)
+                        } else {
+                            Color.Black.copy(alpha = 0.22f)
+                        }
+
+                        val hintColor = if (isDark) {
+                            Color.White.copy(alpha = 0.75f)
+                        } else {
+                            Color.Black.copy(alpha = 0.60f)
+                        }
+
+                        // --- BOTTOM STRIP (glass over image) ---
+                        BottomProgressiveBlurStrip(
+                            backdrop = cameraBackdrop,
                             modifier = Modifier
-                                .matchParentSize()
-                                .zIndex(10f)
+                                .align(Alignment.BottomCenter)
+                                .zIndex(1f)
                         ) {
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 28.dp)
+                                    .graphicsLayer {
+                                        translationY = nudge.value
+                                        alpha = hintAlpha
+                                    },
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                repeat(2) {
+                                    Box(
+                                        Modifier
+                                            .size(width = 36.dp, height = 3.dp)
+                                            .clip(CircleShape)
+                                            .background(handleColor)
+                                    )
+                                }
+
+                                Spacer(Modifier.height(0.dp))
+
+                                Text(
+                                    text = hintText,
+                                    color = hintColor,
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+
+                        // --- EXIT DIALOG ---
+                        if (showExitDialog) {
                             ExitLiquidDialog(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .zIndex(3f),
                                 backdrop = cameraBackdrop,
                                 onCancel = { onDismissExit() },
                                 onConfirmExit = { onConfirmExit() }
                             )
                         }
-                    }
 
-                    // --- OFFLINE HUD (glass) ---
-                    if (!hasInternet || isUserOffline) {
-                        CameraErrorOverlay(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .zIndex(3f),
-                            signalStrength = null,
-                            isUserOffline = isUserOffline,
-                            wifiEnabled = wifiEnabled,
-                            dataEnabled = dataEnabled,
-                            justRecovered = justBecameOnline,
+                        // --- OFFLINE HUD ---
+                        if (!hasInternet || isUserOffline) {
+                            CameraErrorOverlay(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .zIndex(3f),
+                                signalStrength = null,
+                                isUserOffline = isUserOffline,
+                                wifiEnabled = wifiEnabled,
+                                dataEnabled = dataEnabled,
+                                justRecovered = justBecameOnline,
+                                backdrop = cameraBackdrop,
+                                onRequestEnableWifi = {
+                                    activity?.startActivity(
+                                        Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
+                                    )
+                                },
+                                onRequestEnableData = {
+                                    activity?.startActivity(
+                                        Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                                    )
+                                }
+                            )
+                        }
+
+                        // --- TOP ICONS ---
+                        TopBarLiquidIconButton(
+                            iconRes = R.drawable.ic_oui_arrow_to_left,
                             backdrop = cameraBackdrop,
-                            onRequestEnableWifi = {
-                                activity?.startActivity(
-                                    Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
-                                )
-                            },
-                            onRequestEnableData = {
-                                activity?.startActivity(
-                                    Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
-                                )
-                            }
+                            onClick = { finishApp() },
+                            modifier = Modifier
+                                .zIndex(5f)
+                                .align(Alignment.TopStart)
+                                .padding(start = 12.dp, top = 24.dp)
+                        )
+
+                        TopBarLiquidIconButton(
+                            iconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
+                            backdrop = cameraBackdrop,
+                            onClick = { openMenuSheet() },
+                            modifier = Modifier
+                                .zIndex(5f)
+                                .align(Alignment.TopEnd)
+                                .padding(end = 12.dp, top = 24.dp)
+                        )
+
+                        // --- REFRESH PILL ---
+                        RefreshStatusPill(
+                            backdrop = cameraBackdrop,
+                            isRefreshing = isRefreshing,
+                            countdownMs = countdownMs,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 12.dp, bottom = 11.dp)
+                                .zIndex(2f)
                         )
                     }
-
-                    // --- TOP ICONS (glass over image) ---
-                    TopBarLiquidIconButton(
-                        iconRes = R.drawable.ic_oui_arrow_to_left,
-                        backdrop = cameraBackdrop,
-                        onClick = { finishApp() },
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(start = 12.dp, top = 24.dp)
-                    )
-
-                    TopBarLiquidIconButton(
-                        iconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
-                        backdrop = cameraBackdrop,
-                        onClick = { openMenuSheet() },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(end = 12.dp, top = 24.dp)
-                    )
-
-                    // --- EXPAND BUTTON (glass over image) ---
-                    LiquidGlassExpandButton(
-                        camExpanded = camExpanded,
-                        openProgress = camProgress,
-                        onToggle = { toggleExpanded() },
-                        backdrop = cameraBackdrop,
-                        expandHapticStyle = ExpandHapticStyle.DoubleClick,
-                        adaptiveLuminance = true,   // 🔴 turn off for now see if crash again
-                        enableHaptics = true,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 12.dp, bottom = 12.dp)
-                            .zIndex(2f)
-                    )
                 }
             }
 
@@ -567,19 +647,18 @@ fun HomeScreenRouteContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(listWeight.coerceAtLeast(0.0001f))
-                    .graphicsLayer {
-                        // fade out while card expands
-                        alpha = 1f - camProgress
-                    }
+                    .graphicsLayer { alpha = 1f - camProgress }
             ) {
-                if (!camExpanded) {
+                key(gridInstanceKey) {
                     FlightsGlassScreen(
+                        selectedTab = currentTab,
                         onTabChanged = { tab -> onTabChangeInternal(tab) },
                         onFullScreen = { openFullScreenImages(currentCamUrl) },
                         onBack = { finishApp() },
                         onMenu = { openMenuSheet() },
                         onOpenCard = { cardId -> openActivityByCard(cardId) },
                         showTopArea = false,
+                        isInteractive = gridInteractive,
                         backdropOverride = backdrop
                     )
                 }
@@ -599,25 +678,22 @@ fun HomeScreenRouteContent(
 @Composable
 fun BottomProgressiveBlurStrip(
     backdrop: LayerBackdrop,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit = {}
 ) {
     val isLightTheme = !isSystemInDarkTheme()
-
-    val tintColor = if (isLightTheme) {
-        Color(0x9FFFFFFF)
-    } else {
-        Color(0xDF000000)
-    }
+    val tintColor = if (isLightTheme) Color(0xFFFFFFFF) else Color(0xFF000000)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(86.dp)
+            .height(66.dp)
             .drawPlainBackdrop(
                 backdrop = backdrop,
                 shape = { RectangleShape },
                 effects = {
-                    blur(4.dp.toPx())
+                    vibrancy()
+                    blur(2.dp.toPx())
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
                         effect(
@@ -625,28 +701,22 @@ fun BottomProgressiveBlurStrip(
                                 obtainRuntimeShader(
                                     "AlphaMask",
                                     """
-                                    uniform shader content;
-                                    uniform float2 size;
-                                    layout(color) uniform half4 tint;
-                                    uniform float tintIntensity;
+uniform shader content;
+uniform float2 size;
+layout(color) uniform half4 tint;
+uniform float tintIntensity;
 
-                                    half4 main(float2 coord) {
-                                        float y = size.y - coord.y;
-
-                                        float blurAlpha = smoothstep(size.y, size.y * 0.5, y);
-                                        float tintAlpha = smoothstep(size.y, size.y * 0.5, y);
-
-                                        return mix(
-                                            content.eval(coord) * blurAlpha,
-                                            tint * tintAlpha,
-                                            tintIntensity
-                                        );
-                                    }
+half4 main(float2 coord) {
+    float y = size.y - coord.y;
+    float blurAlpha = smoothstep(size.y, size.y * 0.15, y);
+    float tintAlpha = smoothstep(size.y, size.y * 0.25, y);
+    return mix(content.eval(coord) * blurAlpha, tint * tintAlpha, tintIntensity);
+}
                                     """.trimIndent()
                                 ).apply {
                                     setFloatUniform("size", size.width, size.height)
                                     setColorUniform("tint", tintColor.toArgb())
-                                    setFloatUniform("tintIntensity", 0.7f)
+                                    setFloatUniform("tintIntensity", 0.8f)
                                 },
                                 "content"
                             )
@@ -655,7 +725,25 @@ fun BottomProgressiveBlurStrip(
                 }
             ),
         contentAlignment = Alignment.Center
-    ) {
-        // optional strip content
+    ) { content() }
+}
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+@Preview(showBackground = true, device = "id:pixel_8")
+@Composable
+fun HomeScreenPreview() {
+    val mockBackdrop = rememberLayerBackdrop()
+    MaterialTheme {
+        HomeScreenRouteContent(
+            backdrop = mockBackdrop,
+            openFullScreenImages = {},
+            openMenuSheet = {},
+            triggerRefreshNow = {},
+            finishApp = {},
+            showExitDialog = false,
+            isInteractive = true,
+            onDismissExit = {},
+            onConfirmExit = {}
+        )
     }
 }

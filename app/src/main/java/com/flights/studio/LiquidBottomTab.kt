@@ -1,4 +1,7 @@
+@file:Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+
 package com.flights.studio
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
@@ -13,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -25,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
@@ -54,9 +55,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sign
-val LocalLiquidBottomTabScale = compositionLocalOf { { 1f } }
 
-@Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
 @Composable
 fun LiquidBottomTabs(
     selectedTabIndex: () -> Int,
@@ -73,7 +72,6 @@ fun LiquidBottomTabs(
     val containerColor =
         if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
         else Color(0xFF121212).copy(0.4f)
-
     val tabsBackdrop = rememberLayerBackdrop()
 
     BoxWithConstraints(
@@ -131,6 +129,7 @@ fun LiquidBottomTabs(
                 }
             )
         }
+
         LaunchedEffect(selectedTabIndex) {
             snapshotFlow { selectedTabIndex() }
                 .collectLatest { index ->
@@ -158,7 +157,7 @@ fun LiquidBottomTabs(
                 }
             )
         }
-
+        // BACK PLATE
         Row(
             Modifier
                 .graphicsLayer {
@@ -169,7 +168,7 @@ fun LiquidBottomTabs(
                     shape = { ContinuousCapsule },
                     effects = {
                         vibrancy()
-                        blur(3f.dp.toPx())
+                        blur(8f.dp.toPx())
                         lens(24f.dp.toPx(), 24f.dp.toPx())
                     },
                     layerBlock = {
@@ -188,6 +187,7 @@ fun LiquidBottomTabs(
             content = content
         )
 
+        // ICON TINT PASS (Hidden, used for backdrop sampling)
         CompositionLocalProvider(
             LocalLiquidBottomTabScale provides {
                 lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
@@ -207,7 +207,7 @@ fun LiquidBottomTabs(
                         effects = {
                             val progress = dampedDragAnimation.pressProgress
                             vibrancy()
-                            blur(4f.dp.toPx())
+                            blur(8f.dp.toPx())
                             lens(
                                 24f.dp.toPx() * progress,
                                 24f.dp.toPx() * progress
@@ -266,17 +266,11 @@ fun LiquidBottomTabs(
                         )
                     },
                     layerBlock = {
-                        val press = dampedDragAnimation.pressProgress
-                        val baseScale = 1f - 0.05f * press   // shrink 8% when pressed
-                        scaleX = dampedDragAnimation.scaleX * baseScale
-                        scaleY = dampedDragAnimation.scaleY * baseScale
-
-                        val velocity = dampedDragAnimation.velocity / 25f
+                        scaleX = dampedDragAnimation.scaleX
+                        scaleY = dampedDragAnimation.scaleY
+                        val velocity = dampedDragAnimation.velocity / 10f
                         scaleX /= 1f - (velocity * 0.75f).fastCoerceIn(-0.2f, 0.2f)
                         scaleY *= 1f - (velocity * 0.25f).fastCoerceIn(-0.2f, 0.2f)
-                    },
-                    onDrawBehind = {
-                        drawRect(Color.Red, blendMode = BlendMode.Clear)
                     },
                     onDrawSurface = {
                         val progress = dampedDragAnimation.pressProgress

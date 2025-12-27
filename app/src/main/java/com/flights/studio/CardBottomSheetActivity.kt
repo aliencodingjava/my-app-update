@@ -343,13 +343,15 @@ class CardBottomSheetActivity : AppCompatActivity() {
         }
 
 
-        // Click to open profile details
+        // Click to open profile details (Compose version)
         userProfileImageView.setOnClickListener {
-            startActivity(Intent(this, ProfileDetailsActivity::class.java))
+            startActivity(Intent(this, ProfileDetailsComposeActivity::class.java))
         }
+
         userInitialsTextView.setOnClickListener {
-            startActivity(Intent(this, ProfileDetailsActivity::class.java))
+            startActivity(Intent(this, ProfileDetailsComposeActivity::class.java))
         }
+
 
         // Animate in
         val viewsToAnimate = listOf(

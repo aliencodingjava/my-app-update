@@ -6,29 +6,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,8 +30,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.paint
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
@@ -67,7 +60,6 @@ fun LiquidGlassGalleryScreen(
     startIndex: Int = 0,
     onBack: () -> Unit,
     onClose: () -> Unit,
-    bottomBar: @Composable (() -> Unit)? = null,
 ) {
     // rc01 provider
     val bottomTabsBackdrop = rememberLayerBackdrop()
@@ -137,22 +129,7 @@ fun LiquidGlassGalleryScreen(
         }
     )
 
-    val bottomBarGlass = Modifier.drawBackdrop(
-        backdrop = bottomTabsBackdrop,
-        shape = { RoundedCornerShape(16.dp) },
-        effects = {
-            vibrancy()
-            blur(2.dp.toPx())
-            lens(
-                refractionHeight = 14.dp.toPx(),
-                refractionAmount = 64.dp.toPx(),
-                chromaticAberration = true
-            )
-        },
-        onDrawSurface = {
-            drawRect(Color.Black.copy(alpha = 0.22f))
-        }
-    )
+
 
     // OUTER container translated as a whole
     Box(
@@ -271,28 +248,39 @@ fun LiquidGlassGalleryScreen(
             }
         }
 
-        // ==== BOTTOM BAR ====
-        bottomBar?.let { content ->
-            Box(
+// ==== BOTTOM BAR ====
+        BottomProgressiveBlurStrip(
+            backdrop = bottomTabsBackdrop,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+        ) {
+            val textShadow = Shadow(
+                color = Color.Black.copy(alpha = 1f),   // full black
+                offset = Offset(0f, 3f),
+                blurRadius = 6f
+            )
+
+            Text(
+                text = "Gallery mode • Swipe to navigate",
+                color = uiOnGlass,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    shadow = textShadow
+                ),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .windowInsetsPadding(
-                        WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+                    .padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        bottom = 14.dp
                     )
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .heightIn(min = 64.dp)
-                    .then(bottomBarGlass)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CompositionLocalProvider(LocalContentColor provides uiOnGlass) {
-                    content()
-                }
-            }
+            )
         }
     }
 }
+
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Preview
@@ -303,7 +291,6 @@ private fun LiquidGlassGalleryScreenPreview() {
         startIndex = 0,
         onBack = {},
         onClose = {},
-        bottomBar = { Text("Bottom bar content") }
     )
 }
 

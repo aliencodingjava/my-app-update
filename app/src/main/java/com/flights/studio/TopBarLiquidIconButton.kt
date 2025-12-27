@@ -65,30 +65,30 @@ fun TopBarLiquidIconButton(
                 effects = {
                     vibrancy()
                     if (isDark) {
-                        blur(1.dp.toPx())
+                        blur(2.dp.toPx())
                         lens(
-                            refractionHeight = 8.dp.toPx(),
-                            refractionAmount = 38.dp.toPx(),
+                            refractionHeight = 6.dp.toPx(),
+                            refractionAmount = 9.dp.toPx(),
                             depthEffect = true,
-                            chromaticAberration = false
+                            chromaticAberration = true
                         )
                         colorControls(
                             brightness = 0.0f,
-                            contrast = 1.0f,
-                            saturation = 1.9f
+                            contrast = 1.58f,
+                            saturation = 2.0f
                         )
                     } else {
-                        blur(0.dp.toPx())
+                        blur(2.dp.toPx())
                         lens(
-                            refractionHeight = 8.dp.toPx(),
-                            refractionAmount = 38.dp.toPx(),
+                            refractionHeight = 6.dp.toPx(),
+                            refractionAmount = 9.dp.toPx(),
                             depthEffect = true,
-                            chromaticAberration = false
+                            chromaticAberration = true
                         )
                         colorControls(
                             brightness = 0.0f,
-                            contrast = 1.0f,
-                            saturation = 1.9f
+                            contrast = 1.58f,
+                            saturation = 2.0f
                         )
                     }
                 },

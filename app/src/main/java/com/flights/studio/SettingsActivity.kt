@@ -220,8 +220,9 @@ class SettingsActivity : LocaleActivity() {
         }
 
         header.setOnClickListener {
-            startActivity(Intent(this, ProfileDetailsActivity::class.java))
+            startActivity(Intent(this, ProfileDetailsComposeActivity::class.java))
         }
+
     }
     override fun onResume() {
         super.onResume()
@@ -613,22 +614,36 @@ class SettingsActivity : LocaleActivity() {
 
     private fun createDownloadUri(): Uri? {
         return try {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, "update_${System.currentTimeMillis()}.apk")
-                put(MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
-                put(
-                    MediaStore.Downloads.RELATIVE_PATH,
-                    "Download/"
-                ) // Ensure this matches file_paths.xml
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // API 29+
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, "update_${System.currentTimeMillis()}.apk")
+                    put(MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
+                    put(MediaStore.Downloads.RELATIVE_PATH, "Download/")
+                }
+                contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            } else {
+                // API 26-28 fallback: write into public Downloads via MediaStore.Files
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, "update_${System.currentTimeMillis()}.apk")
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/vnd.android.package-archive")
+                    @Suppress("DEPRECATION")
+                    put(
+                        MediaStore.MediaColumns.DATA,
+                        android.os.Environment.getExternalStoragePublicDirectory(
+                            android.os.Environment.DIRECTORY_DOWNLOADS
+                        ).absolutePath + "/update_${System.currentTimeMillis()}.apk"
+                    )
+                }
+                @Suppress("DEPRECATION")
+                contentResolver.insert(MediaStore.Files.getContentUri("external"), values)
             }
-            val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-            Log.d("DownloadURI", "Created URI: $uri")
-            uri
         } catch (e: Exception) {
             Log.e("DownloadError", "Error creating download URI: ${e.message}", e)
             null
         }
     }
+
 
 
     private fun showInstallOptionBottomSheet(fileUri: Uri) {
@@ -688,8 +703,14 @@ class SettingsActivity : LocaleActivity() {
 
     private fun getAppVersionCode(): Long {
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
-        return packageInfo.longVersionCode
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.versionCode.toLong()
+        }
     }
+
 
 
     private fun calculateTimeLeft(totalBytesRead: Long, fileLength: Int, startTime: Long): String {
