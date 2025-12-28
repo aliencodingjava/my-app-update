@@ -59,10 +59,10 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 221
-        versionName = "0.2.217"
+        versionCode = 222
+        versionName = "0.2.218"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Dec-02-2025\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Dec-27-2025\"")
 
         // ✅ from local.properties
         buildConfigField("String", "OPENAI_API_KEY", "\"$openAiKey\"")
@@ -295,7 +295,7 @@ dependencies {
     implementation("androidx.dynamicanimation:dynamicanimation:1.1.0")
 
     // ----- AndroidLiquidGlass (Backdrop) -----
-    implementation("io.github.kyant0:backdrop:1.0.3")
+    implementation("io.github.kyant0:backdrop:1.0.4")
     implementation("io.github.kyant0:capsule:2.1.2")
 
 
