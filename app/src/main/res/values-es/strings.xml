@@ -365,7 +365,7 @@
     <string name="verification_successful">✅ ¡Verificación exitosa!</string>
     <string name="verification_failed">❌ Verificación fallida: %1$s</string>
 
-    <string name="title_my_profile">Mi perfil</string>
+    <string name="title_my_profile">Perfil</string>
     <string name="default_user_name">Anónimo</string>
     <string name="label_email">Correo: %1$s</string>
     <string name="label_bio">Biografía: %1$s</string>

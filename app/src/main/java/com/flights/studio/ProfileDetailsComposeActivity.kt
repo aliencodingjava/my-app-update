@@ -26,7 +26,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.MoreVert
@@ -101,6 +101,7 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                     }
                 )
             }
+
         }
 
     }
@@ -272,14 +273,21 @@ private fun ProfileDetailsRoute(
                 ),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 tonalElevation = 0.dp,
-                shadowElevation = 0.dp
+                shadowElevation = 5.dp
             ) {
                 CenterAlignedTopAppBar(
-                    title = { Text(stringResource(R.string.title_my_profile)) },
+                    title = {
+                        Text(
+                            text = stringResource(R.string.title_my_profile),
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.SemiBold // ⭐ key choice
+                            )
+                        )
+                    },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                                 contentDescription = "Back"
                             )
                         }
@@ -384,14 +392,9 @@ private fun ProfileDetailsRoute(
                         Box(
                             Modifier
                                 .matchParentSize()
-                                .animatedProfileGradient(
-                                    // TEMP: higher alpha so you can SEE it moving
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f),
-                                    MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f),
-                                    durationMillis = 14000 // TEMP: faster so you can SEE it
-                                )
+                                .staticProfileBackdrop()
                         )
+
                     }
 
                     Column {

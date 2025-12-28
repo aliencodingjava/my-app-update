@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -25,10 +26,8 @@ import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.capsule.ContinuousCapsule
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -61,36 +60,11 @@ fun TopBarLiquidIconButton(
         modifier
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { ContinuousCapsule },
+                shape = { CircleShape },
                 effects = {
                     vibrancy()
-                    if (isDark) {
-                        blur(2.dp.toPx())
-                        lens(
-                            refractionHeight = 6.dp.toPx(),
-                            refractionAmount = 9.dp.toPx(),
-                            depthEffect = true,
-                            chromaticAberration = true
-                        )
-                        colorControls(
-                            brightness = 0.0f,
-                            contrast = 1.58f,
-                            saturation = 2.0f
-                        )
-                    } else {
-                        blur(2.dp.toPx())
-                        lens(
-                            refractionHeight = 6.dp.toPx(),
-                            refractionAmount = 9.dp.toPx(),
-                            depthEffect = true,
-                            chromaticAberration = true
-                        )
-                        colorControls(
-                            brightness = 0.0f,
-                            contrast = 1.58f,
-                            saturation = 2.0f
-                        )
-                    }
+                    blur(0.5f.dp.toPx())
+                    lens(6f.dp.toPx(), 32f.dp.toPx())
                 },
                 layerBlock = if (isInteractive) {
                     {
@@ -117,12 +91,12 @@ fun TopBarLiquidIconButton(
                     }
                 } else null,
                 onDrawSurface = {
-                    val base = if (isDark) 0.10f else 0.06f
+                    val base = if (isDark) 0.20f else 0.06f
                     drawRect(Color.White.copy(alpha = base))
                     if (!isDark) {
                         drawRect(
-                            Color.Black.copy(alpha = 0.04f),
-                            blendMode = BlendMode.Saturation
+                            Color.Black.copy(alpha = 0.06f),
+                            blendMode = BlendMode.Hue
                         )
                     }
                 }
@@ -136,7 +110,7 @@ fun TopBarLiquidIconButton(
                 onClick = onClick
             )
             .size(48.dp)
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 0.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {

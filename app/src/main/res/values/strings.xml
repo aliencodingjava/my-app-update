@@ -432,7 +432,7 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
     <string name="verification_successful">✅ Verification successful!</string>
     <string name="verification_failed">❌ Verification failed: %1$s</string>
 
-    <string name="title_my_profile">My Profile</string>
+    <string name="title_my_profile">Profile</string>
     <string name="default_user_name">Anonymous</string>
     <string name="unknown_contact">No contact info</string>
     <string name="label_email">Email: %1$s</string>
