@@ -1,4 +1,4 @@
-<img width="7184" height="3301" alt="new layer clean" src="https://github.com/user-attachments/assets/073ae083-5a9e-47f8-bed0-286fc3832fcd" />
+<img width="7449" height="4142" alt="banner jh air tracker2" src="https://github.com/user-attachments/assets/9bf4be42-e09f-48a3-a7d0-e325ad46def8" />
 
 <div align="center">
   <h1>✈️ Jack Flight Studio</h1>
@@ -62,9 +62,9 @@
       <img alt="Follow @Kyant0" src="https://img.shields.io/badge/Follow-@Kyant0-181717?logo=github&logoColor=white">
     </a>
     <!-- Watch updates -->
-    <a href="https://github.com/Kyant0/AndroidLiquidGlass/subscription" title="Watch for updates">
-      <img alt="Watch updates" src="https://img.shields.io/badge/Watch-updates-1f6feb?logo=github&logoColor=white">
-    </a>
+<a href="https://github.com/Kyant0/AndroidLiquidGlass/subscription" title="Watch for updates">
+  <img alt="Watch updates" src="https://img.shields.io/badge/Watch-updates-1f6feb?logo=github&logoColor=white">
+</a>
     <!-- Say thanks (opens a prefilled issue) -->
     <a href="https://github.com/Kyant0/AndroidLiquidGlass/issues/new?title=Thanks%20for%20AndroidLiquidGlass&body=%F0%9F%92%99%20Thanks%20for%20AndroidLiquidGlass!%20It%20helped%20me%20with%20...">
       <img alt="Say thanks" src="https://img.shields.io/badge/Say%20thanks-%F0%9F%92%9A-blueviolet">
