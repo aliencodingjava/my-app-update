@@ -17,7 +17,7 @@
             android:layout_width="match_parent"
             android:layout_height="80dp"
             android:background="@color/bottom_sheet"
-            android:paddingTop="25dp"
+            android:paddingTop="20dp"
             android:elevation="4dp"
             app:titleTextColor="?android:attr/colorForeground"
             app:navigationIconTint="?android:attr/colorForeground"

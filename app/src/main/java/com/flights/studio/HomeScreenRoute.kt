@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.BlendMode // ✅ IMPORTANT (Compose BlendMod
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -86,10 +87,12 @@ fun HomeScreenRouteContent(
     showExitDialog: Boolean,
     isInteractive: Boolean = true,
     onDismissExit: () -> Unit,
+    tint: Color = Color.Unspecified,
+    surfaceColor: Color = Color.Unspecified,
     onConfirmExit: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
     val activity = LocalActivity.current
+    val isDark = isSystemInDarkTheme()
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -335,13 +338,12 @@ fun HomeScreenRouteContent(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-
                         .graphicsLayer {
                             if (isInteractive) {
                                 val height = size.height
 
                                 val press = interactiveHighlight.pressProgress
-                                val zoomAmountPx = 1.5.dp.toPx()
+                                val zoomAmountPx = 1.0.dp.toPx()
                                 val baseScale = lerp(1f, 1f + zoomAmountPx / height, press)
 
                                 val k = 0.035f
@@ -361,7 +363,7 @@ fun HomeScreenRouteContent(
                         .shadow(
                             elevation = cardElevationDp,
                             shape = cardShape,
-                            clip = false
+                            clip = true
                         )
                         .drawBackdrop(
                             backdrop = backdrop,     // ✅ READ screenBackdrop here
@@ -369,15 +371,48 @@ fun HomeScreenRouteContent(
                             shadow = null,
                             effects = {
                                 vibrancy()
-                                blur(if (isDark) 0.dp.toPx() else 4.dp.toPx())
-                                lens(12.dp.toPx(), 34.dp.toPx())
+                                if (isDark) {
+                                    blur(4.dp.toPx())
+                                    lens(
+                                        refractionHeight = 8.dp.toPx(),
+                                        refractionAmount = 28.dp.toPx(),
+                                        depthEffect = true,
+                                        chromaticAberration = false
+                                    )
+                                    colorControls(
+                                        brightness = 0.0f,
+                                        contrast = 1.0f,
+                                        saturation = 1.9f
+                                    )
+                                } else {
+                                    blur(0.dp.toPx())
+                                    lens(
+                                        refractionHeight = 8.dp.toPx(),
+                                        refractionAmount = 28.dp.toPx(),
+                                        depthEffect = true,
+                                        chromaticAberration = false
+                                    )
+                                    colorControls(
+                                        brightness = 0.0f,
+                                        contrast = 1.0f,
+                                        saturation = 1.9f
+                                    )
+                                }
                             },
                             onDrawSurface = {
-                                drawRect(
-                                    if (isDark) Color.Black.copy(alpha = 0.10f)
-                                    else Color.White.copy(alpha = 0.50f)
-                                )
-                           }
+                                // 🔹 Only darken in DARK theme
+                                if (isDark) {
+                                    drawRect(Color.Black.copy(alpha = 0.10f))
+                                }
+
+                                if (tint.isSpecified) {
+                                    drawRect(tint, blendMode = BlendMode.Hue)
+                                    drawRect(tint.copy(alpha = 0.65f))
+                                }
+                                if (surfaceColor.isSpecified) {
+                                    drawRect(surfaceColor)
+                                }
+                            }
                         )
                 ) {
                     // INNER: clip
@@ -388,8 +423,8 @@ fun HomeScreenRouteContent(
                                 shape = cardShape
                                 clip = true
                             }
-                            .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
-                            .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
+//                            .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
+//                            .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
                     ) {
 
                         // =========================================================
@@ -452,21 +487,7 @@ fun HomeScreenRouteContent(
                                                 saturation = 1.6f
                                             )
                                         },
-                                        onDrawSurface = {
-                                            // surface tint (strong enough to see)
-                                            val base = if (isDark) 0.22f else 0.18f
-                                            drawRect(Color.White.copy(alpha = base))
-                                            if (!isDark) {
-                                                drawRect(
-                                                    Color.Black.copy(alpha = 0.14f),
-                                                    blendMode = BlendMode.Multiply
-                                                )
-                                                drawRect(
-                                                    Color.Black.copy(alpha = 0.05f),
-                                                    blendMode = BlendMode.Saturation
-                                                )
-                                            }
-                                        },
+
                                         layerBlock = null
                                     )
                             )
@@ -480,6 +501,7 @@ fun HomeScreenRouteContent(
                                     .fillMaxWidth()
                                     .height(66.dp)
                                     .zIndex(10f)
+                                    .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier) // ✅ only here
                                     .expandCollapseGrabGesture(
                                         isExpanded = camExpanded,
                                         onExpandedChange = onCamExpandedChange,

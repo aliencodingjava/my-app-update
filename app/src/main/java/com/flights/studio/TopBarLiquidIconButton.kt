@@ -14,7 +14,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.isSpecified
@@ -41,13 +40,13 @@ fun TopBarLiquidIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isInteractive: Boolean = true,
-    tint: Color = Color.Unspecified, // <- optional override
+    tint: Color = Color.Yellow, // <- optional override
 ) {
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+//    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
 
     // ✅ Decide final tint: if caller didn't pass one, use white by default
     val effectiveTint = if (tint.isSpecified) {
@@ -72,7 +71,7 @@ fun TopBarLiquidIconButton(
                         val height = size.height
 
                         val progress = interactiveHighlight.pressProgress
-                        val scale = lerp(1f, 1f + 2.dp.toPx() / size.height, progress)
+                        val scale = lerp(1f, 1f + 9.dp.toPx() / size.height, progress)
 
                         val maxOffset = size.minDimension
                         val k = 0.03f
@@ -90,16 +89,16 @@ fun TopBarLiquidIconButton(
                                 (height / width).fastCoerceAtMost(1f)
                     }
                 } else null,
-                onDrawSurface = {
-                    val base = if (isDark) 0.20f else 0.06f
-                    drawRect(Color.White.copy(alpha = base))
-                    if (!isDark) {
-                        drawRect(
-                            Color.Black.copy(alpha = 0.06f),
-                            blendMode = BlendMode.Hue
-                        )
-                    }
-                }
+//                onDrawSurface = {
+//                    val base = if (isDark) 0.20f else 0.06f
+//                    drawRect(Color.White.copy(alpha = base))
+//                    if (!isDark) {
+//                        drawRect(
+//                            Color.Black.copy(alpha = 0.06f),
+//                            blendMode = BlendMode.Hue
+//                        )
+//                    }
+//                }
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)

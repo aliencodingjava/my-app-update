@@ -24,6 +24,11 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -215,55 +220,70 @@ fun AllNotesScreen(
                     }
                 }
 
-                // ── Notes content ──
-                val cardShape = RoundedCornerShape(12.dp)
+            // ── Notes content ──
+            val cardShape = RoundedCornerShape(12.dp)
 
-                androidx.compose.material3.Card(
-                    modifier = Modifier
-                        .padding(end = 5.dp, bottom = 5.dp)  // like XML margins
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    shape = cardShape,
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = colorResource(R.color.box_qrcode)
-                    ),
-                    elevation = androidx.compose.material3.CardDefaults.cardElevation(0.dp)
+            androidx.compose.material3.Card(
+                modifier = Modifier
+                    .padding(end = 5.dp, bottom = 5.dp)
+                    .weight(1f)
+                    .fillMaxHeight(),
+                shape = cardShape,
+                colors = androidx.compose.material3.CardDefaults.cardColors(
+                    containerColor = colorResource(R.color.box_qrcode)
+                ),
+                elevation = androidx.compose.material3.CardDefaults.cardElevation(0.dp)
+            ) {
+                Box(
+                    Modifier
+                        .clip(cardShape)
+                        .background(colorResource(R.color.box_qrcode))
+                        .fillMaxSize()
                 ) {
-                    Box(
-                        Modifier
-                            .clip(cardShape)
-                            .background(colorResource(R.color.box_qrcode))
-                            .fillMaxSize()
-                    ) {
-                        AndroidView(
-                            modifier = Modifier.fillMaxSize(),
-                            factory = { ctx ->
-                                RecyclerView(ctx).apply {
-                                    layoutManager = LinearLayoutManager(ctx)
-                                    adapter = notesAdapter
-                                }
-                            },
-                            update = { it.adapter = notesAdapter }
-                        )
+                    @Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { ctx ->
+                            RecyclerView(ctx).apply {
+                                layoutManager = LinearLayoutManager(ctx)
+                                adapter = notesAdapter
+                            }
+                        },
+                        update = { it.adapter = notesAdapter }
+                    )
 
-                        val isEmpty = notes.isEmpty()
-                        androidx.compose.animation.AnimatedVisibility(
-                            visible = isEmpty,
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(start = 10.dp, bottom = 78.dp),
-                            enter = slideInHorizontally(initialOffsetX = { -it }) + fadeIn(),
-                            exit = slideOutHorizontally(targetOffsetX = { +it }) + fadeOut()
-                        ) {
-                            Text(
-                                text = stringResource(R.string.add_your_first_note),
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                    val isEmpty = notes.isEmpty()
+
+                    // ✅ Make enter animation run even on first composition when empty
+                    var showEmptyHint by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        showEmptyHint = false
+                        showEmptyHint = isEmpty
+                    }
+                    LaunchedEffect(isEmpty) {
+                        showEmptyHint = isEmpty
+                    }
+
+                    val isDark = isSystemInDarkTheme()
+                    val hintColor = if (isDark) Color.White else Color.Black
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showEmptyHint,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 10.dp, bottom = 78.dp),
+                        enter = slideInHorizontally(initialOffsetX = { fullWidth -> -fullWidth / 2 }) + fadeIn(),
+                        exit = slideOutHorizontally(targetOffsetX = { fullWidth -> -fullWidth / 2 }) + fadeOut()
+                    ) {
+                        Text(
+                            text = stringResource(R.string.add_your_first_note),
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                            color = hintColor
+                        )
                     }
                 }
-
             }
+
+        }
         }
     }

@@ -9,12 +9,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,7 +23,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
@@ -53,25 +47,20 @@ fun ZoomableImageContentInlineImpl(
     onBitmapReady: (Bitmap) -> Unit = {},
     camExpanded: Boolean? = null,                     // ✅ optional
     onCamExpandedChange: ((Boolean) -> Unit)? = null, // ✅ optional
-    overlayContent: (@Composable BoxScope.() -> Unit)? = null,
-    cornerRadiusDp: Dp = 20.dp,
+    cornerRadiusDp: Dp = 0.dp,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val onLoadedOk by rememberUpdatedState(onImageLoadedOk)
     val onLoadFailed by rememberUpdatedState(onImageLoadFailed)
     val onBitmapReadyState by rememberUpdatedState(onBitmapReady)
-    val overlayState by rememberUpdatedState(overlayContent)
 
     val inPreview = LocalInspectionMode.current
-    val isDark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(cornerRadiusDp)
 
     // overall container alpha (keep at 1; we do crossfade inside the views)
     val containerAlpha = remember { Animatable(1f) }
 
-    // crossfade alpha for the "incoming" top layer
-    val incomingAlpha = remember { Animatable(0f) }
 
     val holder = remember { ZoomViewHolder(context) }
 
@@ -98,28 +87,28 @@ fun ZoomableImageContentInlineImpl(
                     transition: Transition<in Bitmap>?
                 ) {
                     scope.launch {
-                        // Put new bitmap on incoming layer (top) and start from 0 alpha
+                        // Put new bitmap on incoming layer (top)
+                        holder.incoming.animate().cancel()
                         holder.incoming.setImageBitmap(resource)
                         holder.incoming.alpha = 0f
-                        incomingAlpha.snapTo(0f)
 
-                        // Soft crossfade in (tweak duration for “soooo soft”)
-                        incomingAlpha.animateTo(
-                            1f,
-                            tween(durationMillis = 580, easing = FastOutSlowInEasing)
-                        )
-                        holder.incoming.alpha = incomingAlpha.value
+                        // ✅ REAL crossfade that does not require AndroidView(update)
+                        holder.incoming.animate()
+                            .alpha(1f)
+                            .setDuration(580)
+                            .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                            .withEndAction {
+                                // Commit bitmap to TouchImageView (gesture layer)
+                                holder.tiv.setImageBitmap(resource)
 
-                        // Commit bitmap to TouchImageView (gesture layer)
-                        holder.tiv.setImageBitmap(resource)
+                                // Restore zoom/pan best-effort
+                                prevMatrix?.let { holder.tiv.imageMatrix = it }
 
-                        // Restore zoom/pan best-effort
-                        prevMatrix?.let { holder.tiv.imageMatrix = it }
-
-                        // Hide incoming layer (now both are identical)
-                        holder.incoming.setImageDrawable(null)
-                        holder.incoming.alpha = 0f
-                        incomingAlpha.snapTo(0f)
+                                // Hide incoming layer (now both are identical)
+                                holder.incoming.setImageDrawable(null)
+                                holder.incoming.alpha = 0f
+                            }
+                            .start()
                     }
 
                     onLoadedOk()
@@ -162,32 +151,16 @@ fun ZoomableImageContentInlineImpl(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(if (isDark) Color(0xFF101010) else Color(0xFFEFEFEF))
             )
         } else {
             AndroidView(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        this.shape = shape
-                        clip = true
-                    },
+                    .graphicsLayer { this.shape = shape; clip = true },
                 factory = { holder.container },
-                update = {
-                    if (camExpanded == true) {
-                        // ✅ Expanded: remove overlay entirely
-                        holder.overlay.setContent { }
-                    } else {
-                        // ✅ Collapsed: show overlay normally
-                        holder.overlay.setContent {
-                            ZoomableImageOverlay(overlayContent = overlayState)
-                        }
-                    }
-
-                    holder.incoming.alpha = incomingAlpha.value
-                }
-
+                update = { /* nothing */ }
             )
+
 
             if (camExpanded != null && onCamExpandedChange != null) {
                 Box(
@@ -263,14 +236,5 @@ private data class ZoomViewHolder(
         tiv.setImageDrawable(null)
         incoming.setImageDrawable(null)
         incoming.alpha = 0f
-    }
-}
-
-@Composable
-private fun ZoomableImageOverlay(
-    overlayContent: (@Composable BoxScope.() -> Unit)?
-) {
-    Box(Modifier.fillMaxSize()) {
-        overlayContent?.invoke(this)
     }
 }

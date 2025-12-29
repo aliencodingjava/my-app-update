@@ -13,7 +13,7 @@
     <style name="SplashTheme" parent="Base.Theme.Test">
         <item name="android:statusBarColor">@color/lightSplashStatusBarColor</item>
         <item name="colorButton">@color/button_color_light</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightStatusBar">true</item>
         <item name="bottomAppBarColor">@color/lightBottomAppBarColor</item>
         <item name="colorBox">@color/colorBoxLight</item>
 
@@ -84,7 +84,7 @@
     <color name="glass_blur_overlay">#80FFFFFF</color>
 
     <color name="right_arrow">#FF32302A</color>
-    <color name="bottom_bar">#81D4FA</color>
+    <color name="bottom_bar">#598FBA</color>
     <color name="bottom_sheet">#E8F4FF</color>
 
     <color name="ripple_Color">#FF32302A</color>

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
@@ -306,19 +307,21 @@ fun RefreshStatusPill(
             .padding(horizontal = horizontalPaddingDp.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val progressYellow = if (isDark) Color(0xFFFFD54F) else Color(0xFFFFC107)
+
         LinearProgressIndicator(
             progress = { animatedProgress },
             modifier = Modifier
                 .width(barWidthDp.dp)
                 .height(6.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(99.dp)),
-            color = if (isDark) Color.Cyan else Color(0xFF64DD17), // iOS-ish blue in light
+                .clip(RoundedCornerShape(99.dp)),
+            color = progressYellow,
             trackColor = if (isDark)
                 Color.White.copy(alpha = 0.25f)
             else
-                Color.Black.copy(alpha = 0.10f) // ✅ light theme: soft dark track
-
+                Color.Black.copy(alpha = 0.10f)
         )
+
 
         Spacer(Modifier.width(gapWidthDp.dp))
 

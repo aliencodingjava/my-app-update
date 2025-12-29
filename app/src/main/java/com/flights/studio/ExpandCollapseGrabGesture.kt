@@ -36,9 +36,10 @@ fun Modifier.expandCollapseGrabGesture(
         with(density) { config.collapseDistance.toPx() }
     }
 
-    return pointerInput(isExpanded, expandDistPx, collapseDistPx) {
-        val velocityTracker = VelocityTracker()
+    return pointerInput(isExpanded, expandDistPx, collapseDistPx, config.flingVelocity) {
+
         val totalDragY = 0f
+        val velocityTracker = VelocityTracker()
 
         detectDragGestures(
             onDragStart = {
@@ -47,7 +48,7 @@ fun Modifier.expandCollapseGrabGesture(
             onDrag = { change, dragAmount ->
                 dragAmount.y
                 velocityTracker.addPosition(change.uptimeMillis, change.position)
-                change.consume()
+                // ❌ DO NOT consume
             },
             onDragEnd = {
                 val velocityY = velocityTracker.calculateVelocity().y
