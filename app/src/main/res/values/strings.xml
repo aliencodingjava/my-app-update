@@ -101,43 +101,6 @@
 
 
 
-    <string-array name="update_messages">
-        <item>&#8211; <b>Fresh look &amp; smoother app:</b></item>
-        <item>&#8211; Redesigned cards, cleaner layout, and smoother animations.</item>
-
-        <item>&#8211; <b>Liquid Glass UI:</b></item>
-        <item>&#8211; New glass-style buttons, cards, and overlays with blur and depth effects.</item>
-
-        <item>&#8211; <b>New color palettes:</b></item>
-        <item>&#8211; Customize cards, overlays, and action buttons with themed colors.</item>
-
-        <item>&#8211; <b>Contacts &amp; Notes:</b></item>
-        <item>&#8211; Faster access to contacts, activities, and personal notes.</item>
-
-        <item>&#8211; <b>Widget &amp; countdowns:</b></item>
-        <item>&#8211; Home screen widget with countdown timer and automatic refresh (beta).</item>
-
-        <item>&#8211; <b>Dark Mode improvements:</b></item>
-        <item>&#8211; Better visibility and contrast for night use.</item>
-
-        <item>&#8211; <b>Performance &amp; stability:</b></item>
-        <item>&#8211; Faster loading, smoother navigation, and reduced crashes.</item>
-
-        <item>&#8211; <b>Compatibility update:</b></item>
-        <item>&#8211; Improved support for the latest Android versions.</item>
-
-        <item>&#8211; <b>Accessibility:</b></item>
-        <item>&#8211; Improved support for screen readers and better usability.</item>
-
-        <item>&#8211; <b>Battery optimization:</b></item>
-        <item>&#8211; Reduced background usage for longer app sessions.</item>
-
-        <item>&#8211; <b>Thank you!</b></item>
-        <item>&#8211; Thank you for using our app 💙</item>
-    </string-array>
-
-
-
     <string name="download_complete_title">Download Complete</string>
     <string name="app_update_title">App Update</string>
     <string name="app_up_to_date_message">Your app is up to date!</string>
@@ -431,6 +394,11 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
     <string name="enter_valid_otp_message">Enter the 6-digit code sent to your email</string>
     <string name="verification_successful">✅ Verification successful!</string>
     <string name="verification_failed">❌ Verification failed: %1$s</string>
+    <string name="otp_waiting_seconds" translatable="false">Waiting… %1$ds</string>
+    <string name="otp_open_email" translatable="false">Open email</string>
+    <string name="otp_enter_code_title" translatable="false">
+    Enter the 6-digit code sent to your email
+</string>
 
     <string name="title_my_profile">Profile</string>
     <string name="default_user_name">Anonymous</string>

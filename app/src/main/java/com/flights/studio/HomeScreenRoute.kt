@@ -484,7 +484,7 @@ fun HomeScreenRouteContent(
                                             colorControls(
                                                 brightness = if (isDark) 0.1f else 0.0f,
                                                 contrast = 1.45f,
-                                                saturation = 1.6f
+                                                saturation = 1.2f
                                             )
                                         },
 

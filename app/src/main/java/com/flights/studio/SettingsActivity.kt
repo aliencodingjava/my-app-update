@@ -101,12 +101,12 @@ class SettingsActivity : LocaleActivity() {
         userPrefs = UserPreferencesManager(this)
         networkConnectivityHelper = NetworkConnectivityHelper(this)
 
-        val apkUrl = intent.getStringExtra("apkUrl")
-        Log.d("SettingsActivity", "Received APK URL: $apkUrl")
-
-        if (apkUrl != null) {
-            showUpdateBottomSheet(apkUrl)
-        }
+//        val apkUrl = intent.getStringExtra("apkUrl")
+//        Log.d("SettingsActivity", "Received APK URL: $apkUrl")
+//
+//        if (apkUrl != null) {
+//            showUpdateBottomSheet(apkUrl)
+//        }
         // Schedule the worker
         scheduleUpdateCheckWorker()
         // App was updated, so save the current date as the update date
@@ -470,15 +470,33 @@ class SettingsActivity : LocaleActivity() {
             try {
                 val jsonText = URL(gistUrl).readText()
                 val jsonObject = JSONObject(jsonText)
+
                 val latestVersionCode = jsonObject.getInt("versionCode")
                 val apkUrl = jsonObject.getString("apkUrl")
+
+                // ✅ NEW: get changelog list from JSON
+                val updatesJson = jsonObject.optJSONArray("updates")
+                val updates = buildList {
+                    if (updatesJson != null) {
+                        for (i in 0 until updatesJson.length()) {
+                            val o = updatesJson.getJSONObject(i)
+                            add(
+                                UpdateBlock(
+                                    title = o.optString("title"),
+                                    body = o.optString("body")
+                                )
+                            )
+                        }
+                    }
+                }
+
                 val currentVersionCode = getAppVersionCode()
                 val lastCheckedVersion = getLastCheckedVersion()
 
                 withContext(Dispatchers.Main) {
                     initialDialog.dismiss()
                     if (latestVersionCode > currentVersionCode && latestVersionCode != lastCheckedVersion) {
-                        showUpdateBottomSheet(apkUrl)
+                        showUpdateBottomSheet(apkUrl, updates)   // ✅ FIX
                         saveLastCheckedVersion(latestVersionCode)
                     } else {
                         showUpToDateBottomSheet()
@@ -492,6 +510,7 @@ class SettingsActivity : LocaleActivity() {
             }
         }
     }
+
 
 
     private fun showUpToDateBottomSheet() {
@@ -553,28 +572,24 @@ class SettingsActivity : LocaleActivity() {
     }
 
     @SuppressLint("InflateParams")
-    private fun showUpdateBottomSheet(apkUrl: String) {
+    private fun showUpdateBottomSheet(apkUrl: String, updates: List<UpdateBlock>) {
         val bottomSheetDialog = BottomSheetDialog(this)
 
-        // Inflate the layout and pass the root view of the BottomSheetDialog as the parent
         val bottomSheetView = layoutInflater.inflate(
             R.layout.update_bottom_sheet,
-            null,  // Pass null here since we're not inflating into a view hierarchy
-            false  // False here to prevent immediate attachment to parent
+            null,
+            false
         )
 
-        // Set the content view for the BottomSheetDialog
         bottomSheetDialog.setContentView(bottomSheetView)
 
-                bottomSheetView.findViewById<TextView>(R.id.update_app_title)
-                    .setText(R.string.update_app_title)
+        bottomSheetView.findViewById<TextView>(R.id.update_app_title)
+            .setText(R.string.update_app_title)
 
-        // Set up RecyclerView
         val recyclerView = bottomSheetView.findViewById<RecyclerView>(R.id.updateRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        // Load the updates from strings.xml
-        val updates = resources.getStringArray(R.array.update_messages).toList()
+        // ✅ USE CHANGELOG FROM GIST (not strings.xml)
         recyclerView.adapter = UpdateAdapter(updates)
 
         bottomSheetView.findViewById<Button>(R.id.button_download).setOnClickListener {
@@ -582,23 +597,22 @@ class SettingsActivity : LocaleActivity() {
             showDownloadDialog(apkUrl)
         }
 
-
         bottomSheetView.findViewById<Button>(R.id.button_cancel).setOnClickListener {
             bottomSheetDialog.dismiss()
         }
 
-        // Optional: Customize the BottomSheet's behavior (peek height, expanded state, etc.)
         val bottomSheet =
             bottomSheetDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+
         bottomSheet?.let {
             val behavior = BottomSheetBehavior.from(it)
-            behavior.peekHeight = 600 // Adjust peek height as needed
-            behavior.state = BottomSheetBehavior.STATE_EXPANDED // Set to expanded by default
+            behavior.peekHeight = 600
+            behavior.state = BottomSheetBehavior.STATE_EXPANDED
         }
 
-        // Show the BottomSheetDialog
         bottomSheetDialog.show()
     }
+
 
 
     private fun scheduleUpdateCheckWorker() {

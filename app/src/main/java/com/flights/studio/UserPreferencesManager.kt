@@ -15,11 +15,6 @@ class UserPreferencesManager(context: Context) {
     // ✅ Observable login state
     val isLoggedInLiveData = MutableLiveData(prefs.getBoolean(KEY_IS_LOGGED_IN, false))
 
-    var userBio: String?
-        get() = prefs.getString(KEY_USER_BIO, null)
-        set(value) = prefs.edit { putString(KEY_USER_BIO, value) }
-    
-
     var isLoggedIn: Boolean
         get() = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
         set(value) {
@@ -43,21 +38,59 @@ class UserPreferencesManager(context: Context) {
         get() = prefs.getString(KEY_USER_BIRTHDAY, null)
         set(value) = prefs.edit { putString(KEY_USER_BIRTHDAY, value) }
 
+    var userBio: String?
+        get() = prefs.getString(KEY_USER_BIO, null)
+        set(value) = prefs.edit { putString(KEY_USER_BIO, value) }
+
     var userInitials: String?
         get() = prefs.getString(KEY_USER_INITIALS, null)
         set(value) = prefs.edit { putString(KEY_USER_INITIALS, value) }
 
+    /**
+     * Stores either:
+     * - content://... (local chosen photo)
+     * - https://...   (remote Supabase photo url)
+     *
+     * Never store blank or the literal "null".
+     */
     var userPhotoUriString: String?
         get() = prefs.getString(KEY_USER_PHOTO_URI, null)
         set(value) = prefs.edit { putString(KEY_USER_PHOTO_URI, value) }
 
     var loggedInUserId: String?
-        get() = prefs.getString("loggedInUserId", null)
-        set(value) = prefs.edit { putString("loggedInUserId", value) }
+        get() = prefs.getString(KEY_LOGGED_IN_USER_ID, null)
+        set(value) = prefs.edit { putString(KEY_LOGGED_IN_USER_ID, value) }
 
+    var profileThemeMode: Int
+        get() = prefs.getInt("profile_theme_mode", 0) // 0=Auto, 1=Glass, 2=Solid
+        set(value) = prefs.edit { putInt("profile_theme_mode", value) }
 
+    // ----------------------------
+    // Photo helpers
+    // ----------------------------
 
-    fun getUserPhotoUri(): Uri? = userPhotoUriString?.toUri()
+    fun setPhotoString(value: String?) {
+        val clean = value
+            ?.trim()
+            ?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+
+        userPhotoUriString = clean
+        if (clean != null) userInitials = null
+    }
+
+    fun clearUserPhoto() {
+        userPhotoUriString = null
+    }
+
+    fun getUserPhotoUri(): Uri? {
+        val s = userPhotoUriString?.trim().orEmpty()
+        if (s.isBlank() || s.equals("null", ignoreCase = true)) return null
+        return runCatching { s.toUri() }.getOrNull()
+    }
+
+    // ----------------------------
+    // Profile save / clear
+    // ----------------------------
 
     fun saveUserProfile(
         name: String,
@@ -68,48 +101,57 @@ class UserPreferencesManager(context: Context) {
         selectedPhotoUri: Uri?
     ) {
         isLoggedIn = true
-        userName = name
-        userPhone = phone
-        userEmail = email
-        userBirthday = birthday
-        userBio = bio
+
+        userName = name.trim().ifBlank { null }
+        userPhone = phone.trim().ifBlank { null }
+        userEmail = email?.trim()?.ifBlank { null }
+        userBirthday = birthday?.trim()?.ifBlank { null }
+        userBio = bio?.trim()?.ifBlank { null }
 
         if (selectedPhotoUri != null) {
-            userPhotoUriString = selectedPhotoUri.toString()
-            userInitials = null
+            // ✅ new photo chosen (content://...)
+            setPhotoString(selectedPhotoUri.toString())
         } else {
-            if (userPhotoUriString == null) {
-                userInitials = name.split(" ")
-                    .filter { it.isNotBlank() }
-                    .take(2)
-                    .mapNotNull { it.firstOrNull()?.uppercaseChar()?.toString() }
-                    .joinToString("")
+            // ✅ no new photo: keep existing photo if already saved,
+            // otherwise generate initials from name
+            val hasPhoto = !userPhotoUriString.isNullOrBlank() &&
+                    !userPhotoUriString.equals("null", ignoreCase = true)
+
+            if (!hasPhoto) {
+                userInitials = computeInitialsFrom(name)
             }
         }
     }
-
-
 
     fun clear() {
         prefs.edit { clear() }
         isLoggedInLiveData.postValue(false)
     }
 
-    fun clearUserPhoto() {
-        userPhotoUriString = null
-    }
-
     fun getRawFullName(): String? = userName?.takeIf { it.isNotBlank() }
+
+    private fun computeInitialsFrom(name: String): String {
+        return name.trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .take(2)
+            .mapNotNull { it.firstOrNull()?.uppercaseChar()?.toString() }
+            .joinToString("")
+            .ifEmpty { "?" }
+    }
 
     companion object {
         private const val PREFS_NAME = "UserPrefs"
+
         const val KEY_IS_LOGGED_IN = "isLoggedIn"
         const val KEY_USER_NAME = "userName"
         const val KEY_USER_PHONE = "userPhone"
         const val KEY_USER_EMAIL = "userEmail"
         const val KEY_USER_BIRTHDAY = "userBirthday"
+        const val KEY_USER_BIO = "userBio"
         const val KEY_USER_INITIALS = "userInitials"
         const val KEY_USER_PHOTO_URI = "userPhotoUri"
-        const val KEY_USER_BIO = "userBio"
+
+        private const val KEY_LOGGED_IN_USER_ID = "loggedInUserId"
     }
 }

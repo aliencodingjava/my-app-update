@@ -1,5 +1,6 @@
 package com.flights.studio
 
+import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -20,7 +21,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.content.res.AppCompatResources
@@ -38,9 +38,8 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil
 import io.github.jan.supabase.auth.OtpType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.OTP
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.sql.Date
-import java.text.SimpleDateFormat
 import java.util.Locale
 
 
@@ -52,8 +51,13 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
     private var isEditMode = false
     private var editContact: UserContactRow? = null
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private var existingSavedPhotoUri: Uri? = null
 
-
+    private fun showPill(text: String, durationMs: Long = 1300L) {
+        val act = activity ?: return
+        if (act.isFinishing) return
+        FancyPillToast.show(act, text, durationMs)
+    }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,24 +79,32 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
     var onProfileSavedListener: OnProfileSavedListener? = null
 
     private val pickImageLauncher =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
             uri?.let { newUri ->
                 currentSelectedPhotoUri = newUri
 
-                // ✅ Glide safely loads & resizes the image
+                try {
+                    requireContext().contentResolver.takePersistableUriPermission(
+                        newUri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (_: SecurityException) {
+                    // ok, some providers still don't allow it
+                }
+
+                // Save it anyway (this makes the avatar show immediately)
+                userPrefsManager.setPhotoString(newUri.toString())
+
                 Glide.with(requireContext())
                     .load(newUri)
-                    .override(512, 512) // or smaller if needed
+                    .override(512, 512)
                     .centerCrop()
+                    .skipMemoryCache(true)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
                     .into(binding.iconImage)
+
                 binding.iconInitials.visibility = View.GONE
                 binding.iconImage.visibility = View.VISIBLE
             }
-            // If no saved photo, show initials from the current name
-            if (currentSelectedPhotoUri == null && binding.iconImage.drawable == null) {
-                showInitialsFrom(binding.editName.text?.toString().orEmpty())
-            }
-
         }
 
 
@@ -148,6 +160,8 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
 
         userPrefsManager = UserPreferencesManager(requireContext())
         loadProfileData()       // your existing loader (will set default and photo)
+        existingSavedPhotoUri = userPrefsManager.getUserPhotoUri()
+
         setupClickListeners()   // your existing click logic
 
         // Keep initials live while typing if there's no photo
@@ -177,35 +191,26 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
         userPrefsManager.getUserPhotoUri()?.let { uri ->
             currentSelectedPhotoUri = uri
             try {
-                val persistedUriPermissions = requireContext().contentResolver.persistedUriPermissions
-                val hasPermission = persistedUriPermissions.any { it.uri == uri && it.isReadPermission }
-
-                if (hasPermission) {
-                    Glide.with(requireContext())
-                        .load(uri)
-                        .override(512, 512)
-                        .centerCrop()
-                        .into(binding.iconImage)
-                } else {
-                    requireContext().contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                    Glide.with(requireContext())
-                        .load(uri)
-                        .override(512, 512)
-                        .centerCrop()
-                        .into(binding.iconImage)
+                if (uri.scheme == "content") {
+                    val persisted = requireContext().contentResolver.persistedUriPermissions
+                    val hasPermission = persisted.any { it.uri == uri && it.isReadPermission }
+                    if (!hasPermission) {
+                        requireContext().contentResolver.takePersistableUriPermission(
+                            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    }
                 }
 
-            } catch (e: SecurityException) {
-                Log.e(TAG, "SecurityException: Failed to grant permission for URI: $uri", e)
-                Toast.makeText(context, getString(R.string.error_failed_to_load_image_permission), Toast.LENGTH_LONG).show()
-                userPrefsManager.userPhotoUriString = null
-                currentSelectedPhotoUri = null
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading saved photo URI: $uri", e)
-                Toast.makeText(context, getString(R.string.error_loading_image_uri), Toast.LENGTH_LONG).show()
+                Glide.with(requireContext())
+                    .load(uri)
+                    .override(512, 512)
+                    .centerCrop()
+                    .skipMemoryCache(true)
+                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
+                    .into(binding.iconImage)
+
+            } catch (_: Exception) {
+                showPill(getString(R.string.error_loading_image_uri))
                 userPrefsManager.userPhotoUriString = null
                 currentSelectedPhotoUri = null
             }
@@ -222,117 +227,215 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
                 .build()
 
             picker.addOnPositiveButtonClickListener { selection ->
-                val formattedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                    .format(Date(selection))
+                val localDate = java.time.Instant
+                    .ofEpochMilli(selection)
+                    .atZone(java.time.ZoneOffset.UTC) // ✅ IMPORTANT
+                    .toLocalDate()
+
+                val formattedDate = localDate.toString() // yyyy-MM-dd
                 binding.editBirthday.setText(formattedDate)
             }
+
 
             picker.show(parentFragmentManager, "birthdayPicker")
         }
 
         binding.editPhotoIcon.setOnClickListener {
-            pickImageLauncher.launch("image/*")
+            pickImageLauncher.launch(arrayOf("image/*"))
         }
         binding.iconImage.setOnClickListener {
-            pickImageLauncher.launch("image/*")
+            pickImageLauncher.launch(arrayOf("image/*"))
         }
 
         binding.cancelButton.setOnClickListener {
             dismiss()
         }
 
-         binding.saveButton.setOnClickListener {
-             if (!validateInputs()) return@setOnClickListener
+        binding.saveButton.setOnClickListener {
+            if (!validateInputs()) return@setOnClickListener
 
-             // ▶️ If we’re already logged in, just save and dismiss
-             if (userPrefsManager.isLoggedIn) {
-                 saveProfile()
-                 onProfileSavedListener?.onProfileSaved()
-                 dismiss()
-                 return@setOnClickListener
-             }
+            // ▶️ If we’re already logged in, just save and dismiss
+            if (userPrefsManager.isLoggedIn) {
+                saveProfile()
+                return@setOnClickListener
+            }
 
-             // 🔑 Not yet logged in: do the OTP flow
-             val userEmail = binding.editEmail.text.toString().trim()
-             lifecycleScope.launch {
-                 try {
-                     SupabaseManager.client.auth.signInWith(OTP) {
-                         email = userEmail
-                     }
-                     Log.d(TAG, "✅ OTP email dispatched to $userEmail")
-                 } catch (e: Exception) {
-                     Log.e(TAG, "❌ Error sending OTP", e)
-                     Toast.makeText(
-                         requireContext(),
-                         "Error sending OTP: ${e.message}",
-                         Toast.LENGTH_LONG
-                     ).show()
-                     return@launch
-                 }
 
-                 // Prompt for the 6-digit code
-                 val codeInputView = layoutInflater.inflate(R.layout.dialog_enter_code, null)
-                 val codeEditText = codeInputView.findViewById<EditText>(R.id.codeEditText)
+            // 🔑 Not yet logged in: do the OTP flow
+            val userEmail = binding.editEmail.text.toString().trim()
 
-                 MaterialAlertDialogBuilder(requireContext())
-                     .setTitle("Enter the 6-digit code sent to your email")
-                     .setView(codeInputView)
-                     .setPositiveButton("Verify") { dialog, _ ->
-                         val code = codeEditText.text.toString().trim()
-                         if (code.length != 6 || !code.all(Char::isDigit)) {
-                             Toast.makeText(
-                                 context,
-                                 getString(R.string.enter_valid_otp_message),
-                                 Toast.LENGTH_SHORT
-                             ).show()
-                             return@setPositiveButton
-                         }
+            lifecycleScope.launch {
+                try {
+                    SupabaseManager.client.auth.signInWith(OTP) {
+                        email = userEmail
+                    }
+                    Log.d(TAG, "✅ OTP email dispatched to $userEmail")
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Error sending OTP", e)
+                    showPill("Error sending OTP: ${e.message}")
 
-                         // Verify OTP
-                         lifecycleScope.launch {
-                             try {
-                                 SupabaseManager.client.auth.verifyEmailOtp(
-                                     type  = OtpType.Email.EMAIL,
-                                     email = userEmail,
-                                     token = code
-                                 )
+                    return@launch
+                }
 
-                                 // Mark logged in
-                                 SupabaseManager.client.auth
-                                     .currentSessionOrNull()
-                                     ?.user
-                                     ?.id
-                                     ?.let { id ->
-                                         userPrefsManager.loggedInUserId = id
-                                         userPrefsManager.isLoggedIn     = true
-                                     }
+                // Prompt for the 6-digit code
+                val codeInputView = layoutInflater.inflate(R.layout.dialog_enter_code, null)
+                val codeEditText = codeInputView.findViewById<EditText>(R.id.codeEditText)
 
-                                 // Save now that they’re authenticated
-                                 saveProfile()
-                                 onProfileSavedListener?.onProfileSaved()
+// Try paste immediately (if already copied)
+                extractOtp(readClipboardText())?.let { otp ->
+                    codeEditText.setText(otp)
+                    codeEditText.setSelection(otp.length)
+                }
 
-                                 Toast.makeText(
-                                     context,
-                                     getString(R.string.verification_successful),
-                                     Toast.LENGTH_SHORT
-                                 ).show()
+                val alertDialog = MaterialAlertDialogBuilder(
+                    requireContext(),
+                    com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog
+                )
+                    .setTitle(R.string.otp_enter_code_title)                    .setView(codeInputView)
+                    .setPositiveButton("Verify", null)
+                    .setNegativeButton(R.string.cancel, null)
+                    .setNeutralButton(R.string.otp_open_email, null)
+                    .setCancelable(false)
+                    .create()
 
-                                 dialog.dismiss()
-                                 dismiss()
-                             } catch (ve: Exception) {
-                                 Toast.makeText(
-                                     context,
-                                     getString(R.string.verification_failed, ve.localizedMessage),
-                                     Toast.LENGTH_LONG
-                                 ).show()
-                             }
-                         }
-                     }
-                     .setNegativeButton(R.string.cancel, null)
-                     .setCancelable(false)
-                     .show()
-             }
-         }
+                alertDialog.setOnShowListener {
+                    val verifyBtn = alertDialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)
+                    val openBtn   = alertDialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+
+
+                    // start hidden / disabled
+                    openBtn.isEnabled = false
+                    openBtn.text = getString(R.string.otp_waiting_seconds, 6)
+
+                    var verifying = false
+                    var verifiedSuccess = false
+
+                    fun toastSafe(msg: String) {
+                        if (!isAdded) return
+                        showPill(msg)
+                    }
+                    lifecycleScope.launch {
+                        val total = 6
+                        repeat(total) { elapsed ->
+                            val remaining = total - elapsed
+                            openBtn.text = getString(R.string.otp_waiting_seconds, remaining)
+                            openBtn.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                                countdownDrawable(elapsed / total.toFloat()),
+                                null, null, null
+                            )
+                            delay(1000)
+                        }
+
+                        // ✅ countdown finished → enable button
+                        openBtn.text = getString(R.string.otp_open_email)
+                        openBtn.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null)
+
+                        openBtn.isEnabled = true
+                        openBtn.setOnClickListener { openEmailApp() }
+                        // 🔥 Material Expressive micro-animation (ADD HERE)
+                        openBtn.alpha = 0.7f
+                        openBtn.animate()
+                            .alpha(1f)
+                            .setDuration(220)
+                            .start()
+                    }
+
+
+                    suspend fun verifyCodeOnce(code: String) {
+                        if (verifying || verifiedSuccess) return
+                        verifying = true
+                        verifyBtn.isEnabled = false
+
+                        try {
+                            SupabaseManager.client.auth.verifyEmailOtp(
+                                type  = OtpType.Email.EMAIL,
+                                email = userEmail,
+                                token = code
+                            )
+
+                            verifiedSuccess = true
+
+                            SupabaseManager.client.auth.currentSessionOrNull()
+                                ?.user?.id?.let { id ->
+                                    userPrefsManager.loggedInUserId = id
+                                    userPrefsManager.isLoggedIn = true
+                                }
+
+                            saveProfile()
+                            onProfileSavedListener?.onProfileSaved()
+                            toastSafe(getString(R.string.verification_successful))
+
+                            alertDialog.dismiss()
+                            dismiss()
+
+                        } catch (e: Exception) {
+                            val msg = (e.message ?: e.localizedMessage ?: "").lowercase()
+
+                            // ✅ ONLY resend on "expired"
+                            if (msg.contains("expired")) {
+                                toastSafe("Code expired. Sending a new code…")
+                                val ok = sendOtpEmail(userEmail)
+                                if (ok) toastSafe("New code sent. Check your email.")
+                            } else {
+                                showPill(getString(R.string.verification_failed, e.localizedMessage))
+
+                            }
+
+                        } finally {
+                            verifying = false
+                            if (isAdded && !verifiedSuccess) verifyBtn.isEnabled = true
+                        }
+                    }
+
+                    // focus + keyboard
+                    codeEditText.requestFocus()
+                    codeEditText.post {
+                        val imm = requireContext().getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                        imm?.showSoftInput(codeEditText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                    }
+
+                    // ✅ Auto-verify when 6 digits typed/pasted (but guarded)
+                    codeEditText.addTextChangedListener(object : TextWatcher {
+                        override fun afterTextChanged(s: Editable?) {
+                            val code = s?.toString()?.trim().orEmpty()
+                            if (!verifying && !verifiedSuccess && code.length == 6 && code.all(Char::isDigit)) {
+                                lifecycleScope.launch { verifyCodeOnce(code) }
+                            }
+                        }
+                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                    })
+
+                    // Manual verify click still works (but guarded)
+                    verifyBtn.setOnClickListener {
+                        val code = codeEditText.text.toString().trim()
+                        if (code.length != 6 || !code.all(Char::isDigit)) {
+                            showPill(getString(R.string.enter_valid_otp_message))
+                            return@setOnClickListener
+                        }
+                        lifecycleScope.launch { verifyCodeOnce(code) }
+                    }
+
+                    // ✅ Clipboard watcher (15s) - setText triggers TextWatcher, which triggers verify once
+                    lifecycleScope.launch {
+                        repeat(30) {
+                            delay(500)
+                            if (verifying || verifiedSuccess) return@launch
+
+                            val otp = extractOtp(readClipboardText())
+                            if (!otp.isNullOrBlank() && codeEditText.text.toString() != otp) {
+                                codeEditText.setText(otp)
+                                codeEditText.setSelection(otp.length)
+                                return@launch
+                            }
+                        }
+                    }
+                }
+
+                alertDialog.show()
+
+            }
+        }
 
         // set the START phone icon once
         binding.editPhone.setCompoundDrawablesRelativeWithIntrinsicBounds(
@@ -367,6 +470,71 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
             saveProfile()
         }
     }
+    private fun extractOtp(text: String): String? {
+        // change 6 if your OTP length differs
+        return Regex("""\b\d{6}\b""").find(text)?.value
+    }
+
+    private fun readClipboardText(): String {
+        val cm = requireContext().getSystemService(android.content.ClipboardManager::class.java)
+        return cm.primaryClip?.getItemAt(0)?.coerceToText(requireContext())?.toString().orEmpty()
+    }
+
+    private fun openEmailApp() {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_APP_EMAIL)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try { startActivity(intent) } catch (_: Exception) { }
+    }
+
+    private suspend fun sendOtpEmail(userEmail: String): Boolean {
+        return try {
+            SupabaseManager.client.auth.signInWith(OTP) { email = userEmail }
+            Log.d(TAG, "✅ OTP email dispatched to $userEmail")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error sending OTP", e)
+            showPill("Error sending OTP: ${e.message}")
+            false
+        }
+    }
+    private fun countdownDrawable(progress: Float): Drawable {
+        val size = dp(18)
+        val paintBg = android.graphics.Paint().apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = dp(2).toFloat()
+            isAntiAlias = true
+            color = Color.LTGRAY
+        }
+        val paintFg = android.graphics.Paint().apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = dp(2).toFloat()
+            isAntiAlias = true
+            color = Color.BLACK
+            strokeCap = android.graphics.Paint.Cap.ROUND
+        }
+
+        val bmp = androidx.core.graphics.createBitmap(size, size)
+        val canvas = Canvas(bmp)
+        val r = size / 2f - dp(2)
+
+        canvas.drawCircle(size / 2f, size / 2f, r, paintBg)
+        canvas.drawArc(
+            dp(2).toFloat(),
+            dp(2).toFloat(),
+            (size - dp(2)).toFloat(),
+            (size - dp(2)).toFloat(),
+            -90f,
+            progress * 360f,
+            false,
+            paintFg
+        )
+
+        return bmp.toDrawable(resources)
+    }
+
+
 
 
     fun getFlagForPhoneNumber(phone: String): String? {
@@ -472,7 +640,7 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
         val birthday = binding.editBirthday.text.toString().trim()
         val bio      = binding.editBio.text.toString().trim()
 
-        // 1) Persist to SharedPreferences (with URI permission if needed)
+        // 1) Persist locally first (fast UI)
         currentSelectedPhotoUri?.let { uri ->
             try {
                 requireContext().contentResolver.takePersistableUriPermission(
@@ -481,54 +649,84 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
                 userPrefsManager.saveUserProfile(name, phone, email, birthday, bio, uri)
             } catch (e: SecurityException) {
                 Log.e(TAG, "Failed to persist URI permission for $uri", e)
-                Toast.makeText(
-                    context,
-                    getString(R.string.error_failed_to_save_image_permission),
-                    Toast.LENGTH_LONG
-                ).show()
-                userPrefsManager.saveUserProfile(name, phone, email, birthday, bio, null)
+                showPill(getString(R.string.error_failed_to_save_image_permission))
+                userPrefsManager.saveUserProfile(name, phone, email, birthday, bio, uri)
             }
         } ?: run {
-            userPrefsManager.saveUserProfile(name, phone, email, birthday, bio, null)
-            if (userPrefsManager.getUserPhotoUri() != null) {
-                userPrefsManager.clearUserPhoto()
-            }
+            // ✅ no new photo picked -> keep old photo if it exists
+            val keepUri = existingSavedPhotoUri ?: userPrefsManager.getUserPhotoUri()
+            userPrefsManager.saveUserProfile(name, phone, email, birthday, bio, keepUri)
         }
 
-        // 2) Immediate feedback & dismiss
-        Toast.makeText(
-            context,
-            getString(R.string.profile_saved_successfully),
-            Toast.LENGTH_SHORT
-        ).show()
+        // 2) Immediate feedback (DO NOT dismiss yet)
+        showPill(getString(R.string.profile_saved_successfully))
         onProfileSavedListener?.onProfileSaved()
-        dismiss()
 
-        // 3) Fire-and-forget Supabase sync if logged in
-        SupabaseManager.client.auth.currentSessionOrNull()?.let { session ->
-            val userId    = session.user?.id.orEmpty()
-            val authToken = session.accessToken
+        // 3) Sync to Supabase IF logged in, then dismiss
+        val session = SupabaseManager.client.auth.currentSessionOrNull()
+        if (session == null) {
+            // not logged in -> close now
+            dismiss()
+            return
+        }
 
-            if (userId.isNotEmpty() && authToken.isNotEmpty()) {
-                lifecycleScope.launch {
-                    val success = SupabaseProfileUploader.uploadProfile(
-                        userId       = userId,
-                        authToken    = authToken,
-                        name         = name,
-                        phone        = phone,
-                        email        = email,
-                        bio          = bio,
-                        birthday     = birthday,
-                        photoUri     = currentSelectedPhotoUri?.toString(),
-                        languageCode = Locale.getDefault().language,
-                        appVersion   = BuildConfig.VERSION_NAME
-                    )
-                    if (success) {
-                        Log.d(TAG, "✅ Synced profile to Supabase")
-                    } else {
-                        Log.e(TAG, "❌ Failed to sync profile")
+        val userId    = session.user?.id.orEmpty()
+        val authToken = session.accessToken
+
+        // ✅ choose best photo candidate:
+        val photoToUse = currentSelectedPhotoUri ?: userPrefsManager.getUserPhotoUri()
+
+        if (userId.isBlank() || authToken.isBlank()) {
+            dismiss()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                // 1) Convert local uri -> storage url (only if needed)
+                val rawUrlOrUri: String? = when {
+                    photoToUse == null -> null
+                    photoToUse.scheme == "content" -> {
+                        SupabaseStorageUploader.uploadProfilePhotoAndGetPublicUrl(
+                            context = requireContext(),
+                            userId = userId,
+                            authToken = authToken,
+                            photoUri = photoToUse
+                        )
                     }
+                    else -> photoToUse.toString() // could already be https://...
                 }
+
+                // If upload failed, do not overwrite DB photo
+                val cleanUrlOrNull = rawUrlOrUri
+                    ?.takeIf { it.startsWith("http", ignoreCase = true) }
+                    ?.substringBefore("?")
+
+                // ✅ Save locally with cache-bust for display (optional)
+                // (only if we have an http url)
+                if (!cleanUrlOrNull.isNullOrBlank()) {
+                    userPrefsManager.userPhotoUriString = "${cleanUrlOrNull}?v=${System.currentTimeMillis()}"
+                }
+
+                // 2) Upsert profile row (store CLEAN url, no cache params)
+                SupabaseProfileUploader.uploadProfile(
+                    userId       = userId,
+                    authToken    = authToken,
+                    name         = name,
+                    phone        = phone,
+                    email        = email,
+                    bio          = bio,
+                    birthday     = birthday,
+                    photoUri     = cleanUrlOrNull,  // ✅ DB gets clean URL (or null)
+                    languageCode = Locale.getDefault().language,
+                    appVersion   = BuildConfig.VERSION_NAME
+                )
+
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Supabase sync failed: ${e.message}", e)
+            } finally {
+                // ✅ close only after attempt finishes
+                dismiss()
             }
         }
     }

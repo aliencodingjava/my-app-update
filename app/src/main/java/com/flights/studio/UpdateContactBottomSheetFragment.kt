@@ -27,6 +27,7 @@ import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.flights.studio.CountryUtils.getCountryCodeAndFlag
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -34,6 +35,8 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.snackbar.Snackbar
+import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -89,8 +92,7 @@ class UpdateContactBottomSheetFragment : BottomSheetDialogFragment() {
                 return@registerForActivityResult
             }
 
-            selectedPhotoUri = Uri.fromFile(File(savedPath))
-
+            selectedPhotoUri = uri
             // ✅ Use Glide with size override to prevent memory crash
             Glide.with(this)
                 .load(selectedPhotoUri)
@@ -301,25 +303,49 @@ class UpdateContactBottomSheetFragment : BottomSheetDialogFragment() {
                 return@setOnClickListener
             }
 
-            val finalPhotoUri = selectedPhotoUri?.let {
-                saveImageToInternalStorage(requireContext(), it)
-            } ?: contact.photoUri
-
             val (regionCode, flag) = getCountryCodeAndFlag(phone)
 
-            val updatedContact = contact.copy(
-                name = name,
-                phone = phone,
-                email = email,
-                address = address,
-                photoUri = finalPhotoUri,
-                birthday = birthday,
-                flag = flag,
-                regionCode = regionCode
-            )
+            lifecycleScope.launch {
+                val session = SupabaseManager.client.auth.currentSessionOrNull()
+                if (session == null) {
+                    Snackbar.make(requireView(), "Not logged in", Snackbar.LENGTH_SHORT).show()
+                    return@launch
+                }
 
-            onSave?.invoke(updatedContact)
-            dismiss()
+                val authToken = session.accessToken
+
+                val userId = session.user?.id ?: run {
+                    Snackbar.make(requireView(), "Missing user id", Snackbar.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                // ✅ upload only if user picked a new image
+                val uploadedUrl: String? = selectedPhotoUri?.let { contentUri ->
+                    SupabaseStorageUploader.uploadProfilePhotoAndGetPublicUrl(
+                        context = requireContext(),
+                        userId = userId,          // ✅ FIXED: use session user id
+                        authToken = authToken,
+                        photoUri = contentUri,
+                        bucket = "profile-photos"
+                    )
+                }
+
+                val finalPhotoUri = uploadedUrl ?: contact.photoUri
+
+                val updatedContact = contact.copy(
+                    name = name,
+                    phone = phone,
+                    email = email,
+                    address = address,
+                    photoUri = finalPhotoUri,    // ✅ now it’s an HTTP url (from Supabase)
+                    birthday = birthday,
+                    flag = flag,
+                    regionCode = regionCode
+                )
+
+                onSave?.invoke(updatedContact)
+                dismiss()
+            }
         }
 
         val drawable = GradientDrawable().apply {

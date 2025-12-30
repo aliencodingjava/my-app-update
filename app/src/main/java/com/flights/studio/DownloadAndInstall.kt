@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -90,12 +91,15 @@ class DownloadAndInstall : AppCompatActivity() {
         // Initialize your networkConnectivityHelper
         networkConnectivityHelper = NetworkConnectivityHelper(this)
 
-        val apkUrl = intent.getStringExtra("apkUrl")
-        Log.d("SettingsActivity", "Received APK URL: $apkUrl")
-
-        if (apkUrl != null) {
-            showUpdateBottomSheet(apkUrl)
-        }
+//        val apkUrl = intent.getStringExtra("apkUrl")
+//        Log.d("SettingsActivity", "Received APK URL: $apkUrl")
+//
+//        if (apkUrl != null) {
+//            val apkUrl = intent.getStringExtra("apkUrl")
+//            if (apkUrl != null) {
+//                showUpdateBottomSheet(apkUrl, emptyList())
+//            }
+//        }
         // Schedule the worker
         scheduleUpdateCheckWorker()
         // App was updated, so save the current date as the update date
@@ -190,15 +194,34 @@ class DownloadAndInstall : AppCompatActivity() {
             try {
                 val jsonText = URL(gistUrl).readText()
                 val jsonObject = JSONObject(jsonText)
+
                 val latestVersionCode = jsonObject.getInt("versionCode")
                 val apkUrl = jsonObject.getString("apkUrl")
+
+                // ✅ NEW: read updates list from JSON
+                val updatesJson = jsonObject.optJSONArray("updates")
+                val updates = buildList {
+                    if (updatesJson != null) {
+                        for (i in 0 until updatesJson.length()) {
+                            val o = updatesJson.getJSONObject(i)
+                            add(
+                                UpdateBlock(
+                                    title = o.optString("title"),
+                                    body = o.optString("body")
+                                )
+                            )
+                        }
+                    }
+                }
+
                 val currentVersionCode = getAppVersionCode()
                 val lastCheckedVersion = getLastCheckedVersion()
 
                 withContext(Dispatchers.Main) {
                     initialDialog.dismiss()
+
                     if (latestVersionCode > currentVersionCode && latestVersionCode != lastCheckedVersion) {
-                        showUpdateBottomSheet(apkUrl)
+                        showUpdateBottomSheet(apkUrl, updates) // ✅ pass updates
                         saveLastCheckedVersion(latestVersionCode)
                     } else {
                         showUpToDateBottomSheet()
@@ -212,6 +235,7 @@ class DownloadAndInstall : AppCompatActivity() {
             }
         }
     }
+
 
 
     private fun showUpToDateBottomSheet() {
@@ -273,52 +297,50 @@ class DownloadAndInstall : AppCompatActivity() {
     }
 
     @SuppressLint("InflateParams")
-    private fun showUpdateBottomSheet(apkUrl: String) {
+    private fun showUpdateBottomSheet(apkUrl: String, updates: List<UpdateBlock>) {
         val bottomSheetDialog = BottomSheetDialog(this)
+        val root = FrameLayout(this)
 
-        // Inflate the layout and pass the root view of the BottomSheetDialog as the parent
         val bottomSheetView = layoutInflater.inflate(
             R.layout.update_bottom_sheet,
-            null,  // Pass null here since we're not inflating into a view hierarchy
-            false  // False here to prevent immediate attachment to parent
+            root,
+            false
         )
 
-        // Set the content view for the BottomSheetDialog
+
         bottomSheetDialog.setContentView(bottomSheetView)
 
         bottomSheetView.findViewById<TextView>(R.id.update_app_title)
             .setText(R.string.update_app_title)
 
-        // Set up RecyclerView
         val recyclerView = bottomSheetView.findViewById<RecyclerView>(R.id.updateRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        // Load the updates from strings.xml
-        val updates = resources.getStringArray(R.array.update_messages).toList()
+        // ✅ NO STRINGS.XML, NO FAKE FUNCTION
         recyclerView.adapter = UpdateAdapter(updates)
 
         bottomSheetView.findViewById<Button>(R.id.button_download).setOnClickListener {
             bottomSheetDialog.dismiss()
-            downloadAndInstallApk(apkUrl) // ✅ Directly start download
+            downloadAndInstallApk(apkUrl)
         }
-
 
         bottomSheetView.findViewById<Button>(R.id.button_cancel).setOnClickListener {
             bottomSheetDialog.dismiss()
         }
 
-        // Optional: Customize the BottomSheet's behavior (peek height, expanded state, etc.)
-        val bottomSheet =
-            bottomSheetDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+        bottomSheetDialog.show()
+
+        val bottomSheet = bottomSheetDialog.findViewById<View>(
+            com.google.android.material.R.id.design_bottom_sheet
+        )
         bottomSheet?.let {
             val behavior = BottomSheetBehavior.from(it)
-            behavior.peekHeight = 600 // Adjust peek height as needed
-            behavior.state = BottomSheetBehavior.STATE_EXPANDED // Set to expanded by default
+            behavior.peekHeight = 600
+            behavior.state = BottomSheetBehavior.STATE_EXPANDED
         }
 
-        // Show the BottomSheetDialog
-        bottomSheetDialog.show()
     }
+
 
 
     private fun scheduleUpdateCheckWorker() {
@@ -448,7 +470,11 @@ class DownloadAndInstall : AppCompatActivity() {
             put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
         }
         return try {
-            contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            } else {
+                TODO("VERSION.SDK_INT < Q")
+            }
         } catch (e: Exception) {
             Log.e("DownloadError", "Error creating download URI: ${e.message}", e)
             null
@@ -529,24 +555,56 @@ class DownloadAndInstall : AppCompatActivity() {
     }
 
     private fun installApk(fileUri: Uri) {
+        // minSdk >= 26 → direct check
+        if (!packageManager.canRequestPackageInstalls()) {
+            Toast.makeText(
+                this,
+                "Enable “Install unknown apps” then press Install again.",
+                Toast.LENGTH_LONG
+            ).show()
+
+            val settingsIntent = Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS)
+            startActivity(settingsIntent)
+
+            startActivity(settingsIntent)
+            return
+        }
+
         val installIntent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(fileUri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = ClipData.newUri(contentResolver, "APK", fileUri)
         }
 
+        // Samsung / Android 13–15 safety grant
+        packageManager
+            .queryIntentActivities(installIntent, PackageManager.MATCH_DEFAULT_ONLY)
+            .forEach {
+                grantUriPermission(
+                    it.activityInfo.packageName,
+                    fileUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+
         try {
-            startActivity(installIntent) // Open APK installer without disrupting the task
+            startActivity(installIntent)
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(this, "No application can install this APK", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "No installer found for this APK.", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Toast.makeText(this, "An error occurred: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Install failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
 
+
     private fun getAppVersionCode(): Long {
         val packageInfo = packageManager.getPackageInfo(packageName, 0)
-        return packageInfo.longVersionCode
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode
+        } else {
+            TODO("VERSION.SDK_INT < P")
+        }
     }
 
 

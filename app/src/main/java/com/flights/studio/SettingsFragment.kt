@@ -16,14 +16,22 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.core.text.HtmlCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.CheckBoxPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceGroup
-import com.google.android.material.bottomsheet.BottomSheetBehavior
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
 import java.util.Locale
+private const val GIST_URL =
+    "https://gist.github.com/aliencodingjava/8ef085a89b30d85e2e86fb6f148d80cb/raw/gistfile2.txt"
 
 @Suppress("DEPRECATION")
 class SettingsFragment : PreferenceFragmentCompat() {
@@ -108,7 +116,11 @@ class SettingsFragment : PreferenceFragmentCompat() {
         try {
             val packageInfo = requireContext().packageManager.getPackageInfo(requireContext().packageName, 0)
             val versionName = packageInfo.versionName
-            val versionCode = packageInfo.longVersionCode
+            val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageInfo.longVersionCode
+            } else {
+                TODO("VERSION.SDK_INT < P")
+            }
             val architecture = getDeviceArchitecture()
             updateAppVersionSummary(versionName, versionCode, architecture)
         } catch (e: Exception) {
@@ -187,54 +199,66 @@ class SettingsFragment : PreferenceFragmentCompat() {
     }
 
     private fun showChangelogDialog() {
-        val changelogText = """
-&#8211; <b>Fresh look & smoother app</b><br/>
-Redesigned home screen cards, cleaner layout, and improved animations for a more fluid experience.<br/><br/>
+        val ctx = requireContext()
 
-&#8211; <b>Liquid Glass UI</b><br/>
-Beautiful new glass-style buttons, cards, and overlays with smooth depth, blur, and light effects.<br/><br/>
+        val versionName = ctx.packageManager
+            .getPackageInfo(ctx.packageName, 0)
+            .versionName
 
-&#8211; <b>New color palettes</b><br/>
-Choose from multiple themed palettes for cards, overlays, and action buttons to match your style.<br/><br/>
+        val bottomSheetDialog = BottomSheetDialog(ctx)
 
-&#8211; <b>Contacts & cards</b><br/>
-Faster access to contacts and activities directly from the home screen, with improved card designs.<br/><br/>
+        val root = FrameLayout(ctx)
+        val bottomSheetView = layoutInflater.inflate(R.layout.update_bottom_sheet, root, false)
 
-&#8211; <b>Widget & countdowns</b><br/>
-Added a widget with countdown support and helpful status info (beta).<br/><br/>
+        bottomSheetView.findViewById<TextView>(R.id.update_app_title)
+            .text = getString(R.string.changelog_title, versionName)
 
-&#8211; <b>Performance & stability</b><br/>
-Faster loading, smoother expansions, and general bug fixes and optimizations.<br/><br/>
+        val recyclerView = bottomSheetView.findViewById<RecyclerView>(R.id.updateRecyclerView)
+        recyclerView.layoutManager = LinearLayoutManager(ctx)
 
-&#8211; <b>Thank you!</b><br/>
-Thanks for using our app 💙
-""".trimIndent()
-
-
-        val versionName = requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName
-        val version = "V.$versionName"
-
-        val bottomSheetDialog = BottomSheetDialog(requireContext())
-        val rootView = FrameLayout(requireContext())
-        val bottomSheetView = layoutInflater.inflate(R.layout.dialog_changelog, rootView, false)
-
-        bottomSheetView.findViewById<TextView>(R.id.dialogTitleChangelog).text = getString(R.string.changelog_title, version)
-        bottomSheetView.findViewById<TextView>(R.id.dialogMessage_changelog).text = HtmlCompat.fromHtml(changelogText, HtmlCompat.FROM_HTML_MODE_LEGACY)
-        bottomSheetView.findViewById<Button>(R.id.dialogButton).setOnClickListener {
-            bottomSheetDialog.dismiss()
+        // Buttons: OK only
+        bottomSheetView.findViewById<Button>(R.id.button_download).apply {
+            text = getString(R.string.ok)
+            setOnClickListener { bottomSheetDialog.dismiss() }
         }
+        bottomSheetView.findViewById<Button>(R.id.button_cancel).visibility = View.GONE
 
         bottomSheetDialog.setContentView(bottomSheetView)
-        bottomSheetDialog.setOnShowListener { dialog ->
-            val bottomSheet = (dialog as BottomSheetDialog).findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-            bottomSheet?.let {
-                val behavior = BottomSheetBehavior.from(it)
-                behavior.peekHeight = (requireContext().resources.displayMetrics.heightPixels * 0.6).toInt()
-                behavior.state = BottomSheetBehavior.STATE_COLLAPSED
+        bottomSheetDialog.show()
+
+        // ✅ Load changelog from Git
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            val items: List<UpdateBlock> = try {
+                val jsonText = URL(GIST_URL).readText()
+                val json = JSONObject(jsonText)
+                val arr = json.optJSONArray("updates")
+
+                buildList {
+                    if (arr != null) {
+                        for (i in 0 until arr.length()) {
+                            val o = arr.getJSONObject(i)
+                            add(
+                                UpdateBlock(
+                                    title = o.optString("title"),
+                                    body = o.optString("body")
+                                )
+                            )
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // ✅ fallback if offline
+                listOf(
+                    UpdateBlock("Offline", "No internet connection. Showing local changelog later.")
+                )
+            }
+
+            withContext(Dispatchers.Main) {
+                recyclerView.adapter = UpdateAdapter(items)
             }
         }
-        bottomSheetDialog.show()
     }
+
 
 
     private fun updateAppVersionSummary(versionName: String?, versionCode: Long?, architecture: String?) {

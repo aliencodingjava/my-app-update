@@ -59,10 +59,10 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 223
-        versionName = "0.2.219"
+        versionCode = 224
+        versionName = "0.2.220"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Dec-29-2025\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Dec-30-2025\"")
 
         // ✅ from local.properties
         buildConfigField("String", "OPENAI_API_KEY", "\"$openAiKey\"")

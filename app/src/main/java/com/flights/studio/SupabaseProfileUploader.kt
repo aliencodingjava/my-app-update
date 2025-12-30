@@ -44,16 +44,22 @@ object SupabaseProfileUploader {
         try {
             val json = JSONObject().apply {
                 put("id", userId)
-                put("full_name", name)
-                put("phone", phone)
-                put("email", email)
-                put("bio", bio)
-                put("birthday", birthday)
-                put("photo_uri", photoUri)
-                put("language_code", languageCode)
-                put("app_version", appVersion)
+
+                if (!name.isNullOrBlank()) put("full_name", name)
+                if (!phone.isNullOrBlank()) put("phone", phone)
+                if (!email.isNullOrBlank()) put("email", email)
+
+                // ✅ IMPORTANT: don’t overwrite existing data with empty values
+                if (!bio.isNullOrBlank()) put("bio", bio)
+                if (!birthday.isNullOrBlank()) put("birthday", birthday)
+
+                if (!photoUri.isNullOrBlank()) put("photo_uri", photoUri)
+                if (!languageCode.isNullOrBlank()) put("language_code", languageCode)
+                if (!appVersion.isNullOrBlank()) put("app_version", appVersion)
+
                 put("last_login", java.time.Instant.now().toString())
             }
+
 
             val request = Request.Builder()
                 .url(userProfilesUrl)

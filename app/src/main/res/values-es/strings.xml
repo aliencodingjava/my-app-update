@@ -74,40 +74,6 @@
         <string name="app_up_to_date">¡Estás al día! Tu app está actualizada.</string>
     <string name="ok">Cerrar</string>
 
-    <string-array name="update_messages">
-        <item>&#8211; <b>Nuevo diseño y mayor fluidez:</b></item>
-        <item>&#8211; Tarjetas rediseñadas, diseño más limpio y animaciones más suaves.</item>
-
-        <item>&#8211; <b>Interfaz Liquid Glass:</b></item>
-        <item>&#8211; Nuevos botones, tarjetas y superposiciones con efecto de vidrio, desenfoque y profundidad.</item>
-
-        <item>&#8211; <b>Nuevas paletas de colores:</b></item>
-        <item>&#8211; Personaliza tarjetas, superposiciones y botones de acción con nuevos temas.</item>
-
-        <item>&#8211; <b>Contactos y Notas:</b></item>
-        <item>&#8211; Acceso más rápido a contactos, actividades y notas personales.</item>
-
-        <item>&#8211; <b>Widget y cuentas regresivas:</b></item>
-        <item>&#8211; Nuevo widget en la pantalla de inicio con temporizador y actualización automática (beta).</item>
-
-        <item>&#8211; <b>Modo oscuro mejorado:</b></item>
-        <item>&#8211; Mejor visibilidad y contraste en el tema oscuro.</item>
-
-        <item>&#8211; <b>Rendimiento y estabilidad:</b></item>
-        <item>&#8211; Carga más rápida, navegación más fluida y menos fallos.</item>
-
-        <item>&#8211; <b>Compatibilidad:</b></item>
-        <item>&#8211; Mejor soporte para las versiones más recientes de Android.</item>
-
-        <item>&#8211; <b>Accesibilidad:</b></item>
-        <item>&#8211; Mejor soporte para lectores de pantalla y mayor usabilidad.</item>
-
-        <item>&#8211; <b>Optimización de batería:</b></item>
-        <item>&#8211; Menor consumo en segundo plano para sesiones más largas.</item>
-
-        <item>&#8211; <b>¡Gracias!</b></item>
-        <item>&#8211; ¡Gracias por usar nuestra aplicación! 💙</item>
-    </string-array>
 
     <string name="tap_to_enter">Pulsa abajo para entrar en la app</string>
 
