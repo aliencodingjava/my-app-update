@@ -1,11 +1,5 @@
-# Flights App stay tuned  
+# ✈️ Flights App — Stay Tuned  
 ![Status](https://img.shields.io/badge/status-coming%20soon-orange)
-
-<img
-  src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939"
-  align="right"
-  width="220"
-/>
 
 🚀 New features are on the way. Stay tuned.
 
@@ -13,6 +7,17 @@
 - Colorful profile blobs background  
 - Glassmorphism blur & light diffusion  
 - Smoother transitions and visual depth  
+
+## 📸 Preview
+
+<p align="left">
+  <img src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939" width="200"/>
+  <img src="https://github.com/user-attachments/assets/cf8ac6bd-9c19-4437-b75a-ac5ef36ea4d8" width="200"/>
+  <img src="https://github.com/user-attachments/assets/cd7f5624-0b57-49ad-ab71-da1ba0794b6a" width="200"/>
+  <img src="https://github.com/user-attachments/assets/3fcaae20-848d-4f8c-98e0-14db771155d0" width="200"/>
+</p>
+
+
 
 
 
