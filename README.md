@@ -23,6 +23,13 @@
 
 
 
+---
+
+> ℹ️ **Note:**  
+> The section above highlights **upcoming / in-progress features**.  
+> Everything below reflects the **current, existing implementation**.
+
+---
 
 
 
