@@ -28,27 +28,17 @@ class DampedDragAnimation(
     val onDrag: DampedDragAnimation.(size: IntSize, dragAmount: Offset) -> Unit,
 ) {
 
-    private val valueAnimationSpec =
-        spring(1f, 1000f, visibilityThreshold)
-    private val velocityAnimationSpec =
-        spring(0.5f, 300f, visibilityThreshold * 10f)
-    private val pressProgressAnimationSpec =
-        spring(1f, 1000f, 0.001f)
-    private val scaleXAnimationSpec =
-        spring(0.6f, 250f, 0.001f)
-    private val scaleYAnimationSpec =
-        spring(0.7f, 250f, 0.001f)
+    private val valueAnimationSpec = spring(dampingRatio = 0.90f, stiffness = 180f, visibilityThreshold = visibilityThreshold)
+    private val velocityAnimationSpec = spring(dampingRatio = 0.95f, stiffness = 120f, visibilityThreshold = visibilityThreshold * 10f)
+    private val pressProgressAnimationSpec = spring(dampingRatio = 0.95f, stiffness = 220f, visibilityThreshold = 0.001f)
+    private val scaleXAnimationSpec = spring(dampingRatio = 0.95f, stiffness = 160f, visibilityThreshold = 0.001f)
+    private val scaleYAnimationSpec = spring(dampingRatio = 0.95f, stiffness = 160f, visibilityThreshold = 0.001f)
 
-    private val valueAnimation =
-        Animatable(initialValue, visibilityThreshold)
-    private val velocityAnimation =
-        Animatable(0f, 5f)
-    private val pressProgressAnimation =
-        Animatable(0f, 0.001f)
-    private val scaleXAnimation =
-        Animatable(initialScale, 0.001f)
-    private val scaleYAnimation =
-        Animatable(initialScale, 0.001f)
+    private val valueAnimation = Animatable(initialValue, visibilityThreshold)
+    private val velocityAnimation = Animatable(0f, 5f)
+    private val pressProgressAnimation = Animatable(0f, 0.001f)
+    private val scaleXAnimation = Animatable(initialScale, 0.001f)
+    private val scaleYAnimation = Animatable(initialScale, 0.001f)
 
     private val mutatorMutex = MutatorMutex()
 

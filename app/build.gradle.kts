@@ -213,6 +213,7 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:5.0.5")
     implementation("com.google.android.gms:play-services-contextmanager:9.4.0")
     implementation("androidx.compose.animation:animation-core:1.10.0")
+    implementation("me.saket.telephoto:zoomable-image-glide:0.18.0")
 
 //    kapt("com.github.bumptech.glide:compiler:5.0.5") // ⬅️ not annotationProcessor
     ksp("com.github.bumptech.glide:ksp:5.0.5")          // ✅ use KSP

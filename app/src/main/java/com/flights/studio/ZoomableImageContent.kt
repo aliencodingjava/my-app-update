@@ -55,7 +55,6 @@ fun ZoomableImageContent(
     onBaseScaleChange: (Boolean) -> Unit = {},
     onViewportChange: (scale: Float, translation: Offset) -> Unit = { _, _ -> },
     onInteractingChange: (Boolean) -> Unit = {},
-
     // Handoff model
     exitHandoffFraction: Float = 0.46f,                   // where parent share begins to dominate
     exitCommitFraction: Float = 0.60f,                    // release beyond → commit dismiss

@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.BlendMode // ✅ IMPORTANT (Compose BlendMode)
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -170,9 +171,10 @@ fun HomeScreenRouteContent(
 
     var camExpanded by rememberSaveable { mutableStateOf(false) }
     val onCamExpandedChange: (Boolean) -> Unit = { camExpanded = it }
-    val hintText = if (camExpanded) "Swipe up to collapse" else "Drag down to expand"
+    val hintText = if (camExpanded) "Drag up, release to collapse" else "Drag down, release to expand"
 
     var lockNoRefresh by rememberSaveable { mutableStateOf(false) }
+    var isZoomInteracting by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val prefs = remember {
@@ -315,22 +317,23 @@ fun HomeScreenRouteContent(
     }
 
     val cardShape = RoundedCornerShape(20.dp)
-    val cardElevationDp = lerp(4f, 1f, camProgress).dp
+//    val cardElevationDp = lerp(4f, 1f, camProgress).dp
+    val cardElevationDp = lerp(6f, 14f, interactiveHighlight.pressProgress).dp
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
 
-    ) {
+
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // ===== TOP CAMERA CARD AREA =====
+
+            // ===========================
+            // TOP CAMERA CARD AREA (FIXED)
+            // ===========================
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(cardWeight)
                     .padding(4.dp)
             ) {
-                // (optional) tiny “breathing”
                 val extraScale = 0.006f * sin(camProgress * PI).toFloat()
                 val cardScale = 1f + extraScale
 
@@ -353,164 +356,134 @@ fun HomeScreenRouteContent(
                                 val maxDragScale = 30.dp.toPx() / height
                                 val verticalStretch = maxDragScale * abs(offsetY / height)
 
-                                scaleX = (baseScale) * cardScale
+                                scaleX = baseScale * cardScale
                                 scaleY = (baseScale + verticalStretch) * cardScale
                             } else {
                                 scaleX = cardScale
                                 scaleY = cardScale
                             }
                         }
+
+
+                        // ✅ SHADOW RESTORED
                         .shadow(
                             elevation = cardElevationDp,
                             shape = cardShape,
-                            clip = true
-                        )
-                        .drawBackdrop(
-                            backdrop = backdrop,     // ✅ READ screenBackdrop here
-                            shape = { cardShape },
-                            shadow = null,
-                            effects = {
-                                vibrancy()
-                                if (isDark) {
-                                    blur(4.dp.toPx())
-                                    lens(
-                                        refractionHeight = 8.dp.toPx(),
-                                        refractionAmount = 28.dp.toPx(),
-                                        depthEffect = true,
-                                        chromaticAberration = false
-                                    )
-                                    colorControls(
-                                        brightness = 0.0f,
-                                        contrast = 1.0f,
-                                        saturation = 1.9f
-                                    )
-                                } else {
-                                    blur(0.dp.toPx())
-                                    lens(
-                                        refractionHeight = 8.dp.toPx(),
-                                        refractionAmount = 28.dp.toPx(),
-                                        depthEffect = true,
-                                        chromaticAberration = false
-                                    )
-                                    colorControls(
-                                        brightness = 0.0f,
-                                        contrast = 1.0f,
-                                        saturation = 1.9f
-                                    )
-                                }
-                            },
-                            onDrawSurface = {
-                                // 🔹 Only darken in DARK theme
-                                if (isDark) {
-                                    drawRect(Color.Black.copy(alpha = 0.10f))
-                                }
-
-                                if (tint.isSpecified) {
-                                    drawRect(tint, blendMode = BlendMode.Hue)
-                                    drawRect(tint.copy(alpha = 0.65f))
-                                }
-                                if (surfaceColor.isSpecified) {
-                                    drawRect(surfaceColor)
-                                }
-                            }
+                            clip = false   // ✅ MUST be false or shadow gets cut off
                         )
                 ) {
-                    // INNER: clip
+                    // INNER CLIP
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .graphicsLayer {
-                                shape = cardShape
-                                clip = true
-                            }
-//                            .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
-//                            .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
+                            .clip(cardShape) // ✅ simpler than graphicsLayer clip
                     ) {
-
-                        // =========================================================
-                        // SAFE BACKDROP STRUCTURE:
-                        // - layerBackdrop(cameraBackdrop) wraps ONLY the image
-                        // - drawBackdrop(cameraBackdrop) is a sibling overlay
-                        // =========================================================
-                        Box(modifier = Modifier.matchParentSize()) {
-
-                            // 1) WRITER (ONLY image)
+                        // 1) WRITER: image only
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .layerBackdrop(cameraBackdrop)
+                        ) {
                             Box(
-                                modifier = Modifier
+                                Modifier
                                     .matchParentSize()
-                                    .layerBackdrop(cameraBackdrop)
-                            ) {
-                                ZoomableImageContentInlineImpl(
-                                    model = currentCamUrl,
-                                    modifier = Modifier.matchParentSize(),
-                                    onImageLoadedOk = {
-                                        hasInternet = true
-                                        isRefreshing = false
-                                        lockNoRefresh = false
+                                    .background(
+                                        Brush.radialGradient(
+                                            colors = listOf(
+                                                if (isDark) Color(0x9B202A36) else Color(0x9BF7F9FC),
+                                                if (isDark) Color(0x9F0E1116) else Color(0x9BE3E9F2)
+                                            )
+                                        )
+                                    )
+                            )
+
+                            HomeGlassZoomImage(
+                                model = currentCamUrl,
+                                modifier = Modifier.matchParentSize(),
+                                onImageLoadedOk = {
+                                    hasInternet = true
+                                    isRefreshing = false
+                                    lockNoRefresh = false
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                },
+                                onImageLoadFailed = {
+                                    isRefreshing = false
+                                    hasInternet = false
+                                    lockNoRefresh = true
+                                    scope.launch {
                                         snackbarHostState.currentSnackbarData?.dismiss()
-                                    },
-                                    onImageLoadFailed = {
-                                        isRefreshing = false
-                                        hasInternet = false
-                                        lockNoRefresh = true
-                                        scope.launch {
-                                            snackbarHostState.currentSnackbarData?.dismiss()
-                                            snackbarHostState.showSnackbar("Camera image failed to load")
-                                        }
-                                    },
-                                    onBitmapReady = { }
-                                )
-                            }
+                                        snackbarHostState.showSnackbar("Camera image failed to load")
+                                    }
+                                }
+                            )
 
-                            // 2) READER overlay (glass on top of the image)
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .zIndex(0.6f)
-                                    .drawBackdrop(
-                                        backdrop = cameraBackdrop, // ✅ must be cameraBackdrop
-                                        shape = { cardShape },
-                                        shadow = null,
-                                        effects = {
-                                            vibrancy()
-                                            // keep >0 so you can SEE it
+
+                        }
+
+
+
+                        // 2) READER: glass overlay reads backdrop
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .drawBackdrop(
+                                    backdrop = cameraBackdrop,
+                                    shape = { cardShape },
+                                    shadow = null,
+                                    effects = {
+                                        // ✅ YOU WANTED THIS EVEN WHILE LOADING
+                                        vibrancy()
+                                        colorControls(
+                                            brightness = if (isDark) 0.1f else 0.0f,
+                                            contrast = 1.45f,
+                                            saturation = 1.2f
+                                        )
+
+                                        if (!isZoomInteracting) {
                                             blur(if (isDark) 0.dp.toPx() else 0.dp.toPx())
                                             lens(
-                                                refractionHeight = 2.dp.toPx(),
-                                                refractionAmount = 2.dp.toPx(),
+                                                refractionHeight = 1.dp.toPx(),
+                                                refractionAmount = 1.dp.toPx(),
                                                 depthEffect = true,
                                                 chromaticAberration = false
                                             )
-                                            colorControls(
-                                                brightness = if (isDark) 0.1f else 0.0f,
-                                                contrast = 1.45f,
-                                                saturation = 1.2f
-                                            )
-                                        },
+                                        }
 
-                                        layerBlock = null
-                                    )
-                            )
-
-                            // 3) grab zone overlay
-                            val gestureConfig =
-                                remember { ExpandCollapseGestureConfig(expandDistance = 80.dp) }
-                            Box(
-                                Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .height(66.dp)
-                                    .zIndex(10f)
-                                    .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier) // ✅ only here
-                                    .expandCollapseGrabGesture(
-                                        isExpanded = camExpanded,
-                                        onExpandedChange = onCamExpandedChange,
-                                        config = gestureConfig
-                                    )
-                            )
+                                    },
+                                    onDrawSurface = {
+                                        // 👇 ADD THIS BACK 👇
+                                        if (isDark) {
+                                            drawRect(Color.Black.copy(alpha = 0.10f))
+                                        }
+                                        if (tint.isSpecified) {
+                                            drawRect(tint, blendMode = BlendMode.Hue)
+                                            drawRect(tint.copy(alpha = 0.65f))
+                                        }
+                                        if (surfaceColor.isSpecified) {
+                                            drawRect(surfaceColor)
+                                        }
+                                    }
+                                )
+                        )
+                        // 3) grab zone overlay
+                        val gestureConfig = remember {
+                            ExpandCollapseGestureConfig(expandDistance = 180.dp)
                         }
+                        Box(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(66.dp)
+                                .zIndex(10f)
+                                .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
+                                .expandCollapseGrabGesture(
+                                    isExpanded = camExpanded,
+                                    onExpandedChange = onCamExpandedChange,
+                                    config = gestureConfig
+                                )
+                        )
 
-                        // 🔹 SIRI-LIKE WAVE OVERLAY
+                        // Siri overlay
                         if (isSiriGlowEnabled) {
                             SiriWaveOverlay(
                                 progress = siriWaveProgress,
@@ -520,12 +493,11 @@ fun HomeScreenRouteContent(
                             )
                         }
 
-                        // nudge hint (your existing behavior)
+                        // nudge hint
                         val nudge = remember { Animatable(0f) }
                         LaunchedEffect(camExpanded) {
                             nudge.stop()
                             nudge.snapTo(0f)
-
                             if (!camExpanded) {
                                 nudge.animateTo(12f, tween(420, easing = FastOutSlowInEasing))
                                 delay(120)
@@ -555,7 +527,6 @@ fun HomeScreenRouteContent(
                             Color.Black.copy(alpha = 0.60f)
                         }
 
-                        // --- BOTTOM STRIP (glass over image) ---
                         BottomProgressiveBlurStrip(
                             backdrop = cameraBackdrop,
                             modifier = Modifier
@@ -565,7 +536,8 @@ fun HomeScreenRouteContent(
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
-                                    .padding(top = 28.dp)
+                                    .padding(top = 20.dp)
+                                    .padding(bottom = 8.dp)
                                     .graphicsLayer {
                                         translationY = nudge.value
                                         alpha = hintAlpha
@@ -581,9 +553,7 @@ fun HomeScreenRouteContent(
                                             .background(handleColor)
                                     )
                                 }
-
                                 Spacer(Modifier.height(0.dp))
-
                                 Text(
                                     text = hintText,
                                     color = hintColor,
@@ -592,7 +562,7 @@ fun HomeScreenRouteContent(
                             }
                         }
 
-                        // --- EXIT DIALOG ---
+                        // EXIT DIALOG (RESTORED)
                         if (showExitDialog) {
                             ExitLiquidDialog(
                                 modifier = Modifier
@@ -604,7 +574,7 @@ fun HomeScreenRouteContent(
                             )
                         }
 
-                        // --- OFFLINE HUD ---
+                        // OFFLINE HUD (RESTORED)
                         if (!hasInternet || isUserOffline) {
                             CameraErrorOverlay(
                                 modifier = Modifier
@@ -629,7 +599,7 @@ fun HomeScreenRouteContent(
                             )
                         }
 
-                        // --- TOP ICONS ---
+                        // TOP ICONS (RESTORED)
                         TopBarLiquidIconButton(
                             iconRes = R.drawable.ic_oui_arrow_to_left,
                             backdrop = cameraBackdrop,
@@ -650,7 +620,7 @@ fun HomeScreenRouteContent(
                                 .padding(end = 12.dp, top = 24.dp)
                         )
 
-                        // --- REFRESH PILL ---
+                        // REFRESH PILL (RESTORED)
                         RefreshStatusPill(
                             backdrop = cameraBackdrop,
                             isRefreshing = isRefreshing,
@@ -658,13 +628,15 @@ fun HomeScreenRouteContent(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
                                 .padding(start = 12.dp, bottom = 11.dp)
-                                .zIndex(2f)
+                                .zIndex(20f)
                         )
                     }
                 }
             }
 
-            // ===== BOTTOM LIST / CARDS AREA =====
+            // ===========================
+            // BOTTOM LIST / CARDS AREA
+            // ===========================
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -696,6 +668,8 @@ fun HomeScreenRouteContent(
     }
 }
 
+
+
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun BottomProgressiveBlurStrip(
@@ -709,13 +683,13 @@ fun BottomProgressiveBlurStrip(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(66.dp)
+            .height(60.dp)
             .drawPlainBackdrop(
                 backdrop = backdrop,
                 shape = { RectangleShape },
                 effects = {
                     vibrancy()
-                    blur(2.dp.toPx())
+                    blur(3.dp.toPx())
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
                         effect(
@@ -760,7 +734,7 @@ fun HomeScreenPreview() {
             backdrop = mockBackdrop,
             openFullScreenImages = {},
             openMenuSheet = {},
-            triggerRefreshNow = {},
+            triggerRefreshNow = {}, // ✅ ADD THIS
             finishApp = {},
             showExitDialog = false,
             isInteractive = true,

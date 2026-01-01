@@ -39,6 +39,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
@@ -626,7 +627,8 @@ private fun ProfileDetailsRoute(
                                 .clip(headerShape)
                                 .profileGlassBackdrop(
                                     backdrop = pageBackdrop,   // ✅ THIS is the key
-                                    shape = headerShape, enabled = useGlassBackdrop
+                                    shape = headerShape,
+                                    enabled = useGlassBackdrop
                                 )
                         )
 
@@ -737,58 +739,87 @@ private fun ProfileDetailsRoute(
                         }
                     }
                 }
-
-                val elevated = LocalProfileBackdropStyle.current != ProfileBackdropStyle.Solid
-
-                // Info card
-                Surface(
+                //info card glass effect on enable
+                ElevatedCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 14.dp),
+                        .padding(top = 8.dp),
                     shape = RoundedCornerShape(28.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    tonalElevation = 0.dp,
-                    shadowElevation = if (elevated) 3.dp else 0.dp // ✅ SAME as top bar
+                    colors = CardDefaults.elevatedCardColors(
+                        // ✅ Always transparent; we paint inside so it never “disappears”
+                        containerColor = Color.Transparent
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp)
-                    ) {
+                    val headerShape = RoundedCornerShape(28.dp)
+                    val headerBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f)
 
-                        // ✅ Section title (this is the upgrade)
-                        Text(
-                            text = "Information",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(headerShape)
+                    ) {
+                        // ✅ 1) BASE BACKGROUND ALWAYS (Solid mode stays visible)
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .background(headerBg)
+                        )
+
+                        // ✅ 2) GLASS OVERLAY (reads PAGE backdrop behind all cards)
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .clip(headerShape)
+                                .profileGlassBackdrop(
+                                    backdrop = pageBackdrop,   // ✅ THIS is the key
+                                    shape = headerShape,
+                                    enabled = useGlassBackdrop
+                                )
+                        )
+
+                        // ✅ 3) CONTENT ON TOP (sharp)
+                        Column(
                             modifier = Modifier
-                                .padding(start = 20.dp, bottom = 6.dp)
-                        )
-                        InfoRow(
-                            iconRes = R.drawable.ic_oui_email,
-                            label = stringResource(R.string.email),
-                            value = stringResource(R.string.label_email, ui.emailRaw)
-                        )
-                        Divider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                        InfoRow(
-                            iconRes = R.drawable.ic_oui_info,
-                            label = stringResource(R.string.bio),
-                            value = stringResource(R.string.label_bio, ui.bioRaw)
-                        )
-                        Divider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                        InfoRow(
-                            iconRes = R.drawable.ic_oui_calendar_year,
-                            label = stringResource(R.string.birthday),
-                            value = stringResource(R.string.label_birthday, ui.birthdayRaw)
-                        )
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp)
+                        ) {
+
+                            // ✅ Section title (this is the upgrade)
+                            Text(
+                                text = "Information",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .padding(start = 20.dp, bottom = 6.dp)
+                            )
+                            InfoRow(
+                                iconRes = R.drawable.ic_oui_email,
+                                label = stringResource(R.string.email),
+                                value = stringResource(R.string.label_email, ui.emailRaw)
+                            )
+                            Divider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                            InfoRow(
+                                iconRes = R.drawable.ic_oui_info,
+                                label = stringResource(R.string.bio),
+                                value = stringResource(R.string.label_bio, ui.bioRaw)
+                            )
+                            Divider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                            InfoRow(
+                                iconRes = R.drawable.ic_oui_calendar_year,
+                                label = stringResource(R.string.birthday),
+                                value = stringResource(R.string.label_birthday, ui.birthdayRaw)
+                            )
+                        }
                     }
                 }
+
                 QuickActionsCard(
                     isLoggedIn = isLoggedIn,
                     onEdit = {
@@ -872,7 +903,7 @@ fun QuickActionsCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .onSizeChanged { actionsWidthPx = it.width },
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilledTonalButton(
@@ -898,8 +929,8 @@ fun QuickActionsCard(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 10.dp)
                     ) {
                         Icon(
-                            Icons.Filled.MoreVert,
-                            contentDescription = null
+                            Icons.Filled.Palette,
+                            contentDescription = "Theme"
                         ) // swap icon later if you want
                         Spacer(Modifier.width(8.dp))
                         Text(
@@ -938,7 +969,7 @@ fun QuickActionsCard(
                     )
 
                     QuickActionIcon(
-                        icon = Icons.Filled.MoreVert, // swap later
+                        icon = Icons.Filled.Palette,
                         label = "Theme",
                         onClick = themeClick,
                         alpha = themeAlpha

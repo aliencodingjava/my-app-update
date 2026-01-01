@@ -24,11 +24,9 @@ class InteractiveHighlight(
     val position: (size: Size, offset: Offset) -> Offset = { _, offset -> offset }
 ) {
 
-    private val pressProgressAnimationSpec =
-        spring(stiffness = 300f, dampingRatio = 0.5f, visibilityThreshold = 0.001f)
+    private val pressProgressAnimationSpec = spring(stiffness = 140f, dampingRatio = 0.95f, visibilityThreshold = 0.001f)
+    private val positionAnimationSpec = spring(stiffness = 110f, dampingRatio = 0.92f, visibilityThreshold = Offset.VisibilityThreshold)
 
-    private val positionAnimationSpec =
-        spring(stiffness = 300f, dampingRatio = 0.5f, visibilityThreshold = Offset.VisibilityThreshold)
 
     private val pressProgressAnimation =
         Animatable(0f, visibilityThreshold = 0.001f)
@@ -68,7 +66,7 @@ class InteractiveHighlight(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && shader != null) {
                     // global soft lift
                     drawRect(
-                        Color.White.copy(alpha = 0.08f * progress),
+                        Color.White.copy(alpha = 0.02f * progress),
                         blendMode = BlendMode.Plus
                     )
 
