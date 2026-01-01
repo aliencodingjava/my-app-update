@@ -1,3 +1,35 @@
+# ✈️ Flights App — Stay Tuned  
+![Status](https://img.shields.io/badge/status-coming%20soon-orange)
+
+🚀 New features are on the way. Stay tuned.
+
+## ✨ New (Incoming)
+- Colorful profile blobs background  
+- Glassmorphism blur & light diffusion  
+- Smoother transitions and visual depth  
+
+## 📸 Preview
+
+<p align="left">
+  <img src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939" width="200"/>
+  <img src="https://github.com/user-attachments/assets/cf8ac6bd-9c19-4437-b75a-ac5ef36ea4d8" width="200"/>
+  <img src="https://github.com/user-attachments/assets/cd7f5624-0b57-49ad-ab71-da1ba0794b6a" width="200"/>
+  <img src="https://github.com/user-attachments/assets/3fcaae20-848d-4f8c-98e0-14db771155d0" width="200"/>
+</p>
+
+
+
+---
+
+> ℹ️ **Note:**  
+> The section above highlights **upcoming / in-progress features**.  
+> Everything below reflects the **current, existing implementation**.
+
+---
+
+
+
+
 <img width="7449" height="4142" alt="banner jh air tracker2" src="https://github.com/user-attachments/assets/9bf4be42-e09f-48a3-a7d0-e325ad46def8" />
 
 <div align="center">
