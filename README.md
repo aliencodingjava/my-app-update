@@ -8,7 +8,8 @@ The new screen animation and photo movement within the display have been success
 ## ✨ New (Incoming)
 - Colorful profile blobs background  
 - Glassmorphism blur & light diffusion  
-- Smoother transitions and visual depth  
+- Smoother transitions and visual depth 
+- smooth drag transition and photo movement 
 
 ## 📸 Preview
 
