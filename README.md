@@ -3,6 +3,8 @@
 
 🚀 New features are on the way. Stay tuned.
 
+The new screen animation and photo movement within the display have been successfully implemented.
+
 ## ✨ New (Incoming)
 - Colorful profile blobs background  
 - Glassmorphism blur & light diffusion  
