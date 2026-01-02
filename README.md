@@ -11,6 +11,7 @@ The new screen animation and photo movement within the display have been success
 - Smoother transitions and visual depth 
 - smooth drag transition and photo movement
 - new glas elevation transition
+- more activities in Jetpack Compose 
 - and more...
 
 ## 📸 Preview
