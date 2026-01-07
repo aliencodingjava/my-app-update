@@ -14,37 +14,45 @@ The new screen animation and photo movement within the display have been **succe
 
 ## 📸 Preview
 
-<!-- FIRST ROW – existing images -->
-<table>
-<tr>
-<td align="center">
-<img src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939" width="200"/>
-</td>
-<td align="center">
-<img src="https://github.com/user-attachments/assets/cf8ac6bd-9c19-4437-b75a-ac5ef36ea4d8" width="200"/>
-</td>
-<td align="center">
-<img src="https://github.com/user-attachments/assets/cd7f5624-0b57-49ad-ab71-da1ba0794b6a" width="200"/>
-</td>
-<td align="center">
-<img src="https://github.com/user-attachments/assets/3fcaae20-848d-4f8c-98e0-14db771155d0" width="200"/>
-</td>
-</tr>
+<!-- FIRST ROW -->
+<table align="center" cellspacing="6" cellpadding="0">
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/cf8ac6bd-9c19-4437-b75a-ac5ef36ea4d8" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/cd7f5624-0b57-49ad-ab71-da1ba0794b6a" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/3fcaae20-848d-4f8c-98e0-14db771155d0" width="200"/>
+    </td>
+  </tr>
 </table>
 
 <br>
 
-<!-- SECOND ROW – NEW IMAGES -->
-<table>
-<tr>
-<td align="center">
-<img src="https://github.com/user-attachments/assets/4ca04e57-b8f4-46dd-819a-c507ef191c31" width="200"/>
-</td>
-<td align="center">
-<img src="https://github.com/user-attachments/assets/ee5b4f8c-b4fc-47dd-a7e2-c6af9087b4ae" width="200"/>
-</td>
-</tr>
+<!-- SECOND ROW -->
+<table align="center" cellspacing="6" cellpadding="0">
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/4ca04e57-b8f4-46dd-819a-c507ef191c31" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/ee5b4f8c-b4fc-47dd-a7e2-c6af9087b4ae" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/ccd14678-1270-4a26-9bc8-c5ec4329b82a" width="200"/>
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/85f01932-bdce-4069-9636-b2f1294ded68" width="200"/>
+    </td>
+  </tr>
 </table>
+
+
 
 ---
 
