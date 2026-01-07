@@ -1,29 +1,50 @@
-# ✈️ Flights App — Stay Tuned  
-![Status](https://img.shields.io/badge/status-coming%20soon-orange)
+## ✨ What’s New (Now Available)
 
-🚀 New features are on the way. Stay tuned.
+The new screen animation and photo movement within the display have been **successfully released** and are now part of the app.
 
-The new screen animation and photo movement within the display have been successfully implemented.
+- **Colorful profile blob backgrounds**  
+- **Glassmorphism blur & light diffusion**  
+- **Smoother transitions and visual depth**  
+- **Fluid drag transitions & photo movement**  
+- **New glass elevation animations**  
+- **More Jetpack Compose activities**  
+- And more improvements…
 
-## ✨ New (Incoming)
-- Colorful profile blobs background  
-- Glassmorphism blur & light diffusion  
-- Smoother transitions and visual depth 
-- smooth drag transition and photo movement
-- new glas elevation transition
-- more activities in Jetpack Compose 
-- and more...
+---
 
 ## 📸 Preview
 
-<p align="left">
-  <img src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939" width="200"/>
-  <img src="https://github.com/user-attachments/assets/cf8ac6bd-9c19-4437-b75a-ac5ef36ea4d8" width="200"/>
-  <img src="https://github.com/user-attachments/assets/cd7f5624-0b57-49ad-ab71-da1ba0794b6a" width="200"/>
-  <img src="https://github.com/user-attachments/assets/3fcaae20-848d-4f8c-98e0-14db771155d0" width="200"/>
-</p>
+<!-- FIRST ROW – existing images -->
+<table>
+<tr>
+<td align="center">
+<img src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939" width="200"/>
+</td>
+<td align="center">
+<img src="https://github.com/user-attachments/assets/cf8ac6bd-9c19-4437-b75a-ac5ef36ea4d8" width="200"/>
+</td>
+<td align="center">
+<img src="https://github.com/user-attachments/assets/cd7f5624-0b57-49ad-ab71-da1ba0794b6a" width="200"/>
+</td>
+<td align="center">
+<img src="https://github.com/user-attachments/assets/3fcaae20-848d-4f8c-98e0-14db771155d0" width="200"/>
+</td>
+</tr>
+</table>
 
+<br>
 
+<!-- SECOND ROW – NEW IMAGES -->
+<table>
+<tr>
+<td align="center">
+<img src="https://github.com/user-attachments/assets/4ca04e57-b8f4-46dd-819a-c507ef191c31" width="200"/>
+</td>
+<td align="center">
+<img src="https://github.com/user-attachments/assets/ee5b4f8c-b4fc-47dd-a7e2-c6af9087b4ae" width="200"/>
+</td>
+</tr>
+</table>
 
 ---
 
