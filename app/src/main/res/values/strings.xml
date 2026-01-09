@@ -246,7 +246,10 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
     ]]>
 </string>
     <string name="qrcode">download our app</string>
-    <string name="why_download_app">" Discover the easiest way to connect with our app! \n    Instantly scan QR codes, share with friends, and enjoy a seamless experience. \n    Download now and unlock exclusive features designed just for you!"</string>
+    <string name="why_download_app">
+Connect faster with our app.
+Scan QR codes, share moments, and enjoy a seamless experience.
+</string>
     <string name="fragment_settings">fragment_settings</string>
     <string name="download_complete">Download complete</string>
 
@@ -448,6 +451,8 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
     <string name="photo" translatable="false">Photo</string>
     <string name="privacy" translatable="false">Privacy</string>
     <string name="quick_actions" translatable="false">Quick actions</string>
+    <string name="logo">logo</string>
+    <string name="scan_qr_code">Scan QR Code</string>
 
 
 </resources>

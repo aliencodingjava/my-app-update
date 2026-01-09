@@ -73,8 +73,8 @@ class InteractiveHighlight(
                     val p = position(size, positionAnimation.value)
                     shader.apply {
                         setFloatUniform("size", size.width, size.height)
-                        setColorUniform("color", Color.White.copy(alpha = 0.15f * progress).toArgb())
-                        setFloatUniform("radius", size.minDimension * 1.5f)
+                        setColorUniform("color", Color.Blue.copy(alpha = 0.15f * progress).toArgb())
+                        setFloatUniform("radius", size.minDimension * 1.3f)
                         setFloatUniform(
                             "position",
                             p.x.fastCoerceIn(0f, size.width),

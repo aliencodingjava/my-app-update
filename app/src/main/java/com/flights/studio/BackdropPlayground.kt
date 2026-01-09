@@ -3,6 +3,7 @@ package com.flights.studio
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -81,9 +82,16 @@ import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 class BackdropPlaygroundActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Make app content go edge-to-edge
+
+        // ✅ If user comes back from reset page, go directly to MainActivity
+        if (isResetDoneDeepLink(intent)) {
+            navigateToMain(this)
+            return
+        }
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
@@ -91,15 +99,21 @@ class BackdropPlaygroundActivity : ComponentActivity() {
             val controller = remember {
                 WindowCompat.getInsetsController(window, window.decorView)
             }
-            SideEffect {
-                controller.isAppearanceLightStatusBars = !isDark
-            }
+            SideEffect { controller.isAppearanceLightStatusBars = !isDark }
 
             BackdropPlaygroundScreen(
-                onNavigateToMain = {
-                    navigateToMain(this)
-                }
+                onNavigateToMain = { navigateToMain(this) }
             )
+        }
+    }
+
+    // ✅ ADD THIS HERE (inside the class)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+
+        if (isResetDoneDeepLink(intent)) {
+            navigateToMain(this)
         }
     }
 }
@@ -117,6 +131,12 @@ private sealed class SplashState {
     object Dropping : SplashState()  // Animating down
     object Ready : SplashState()     // At bottom, label "Tap to enter"
 }
+private fun isResetDoneDeepLink(intent: Intent?): Boolean {
+    val uri: Uri = intent?.data ?: return false
+    return uri.scheme == "flightsstudio" && uri.host == "resetdone"
+}
+
+
 
 @Composable
 fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {

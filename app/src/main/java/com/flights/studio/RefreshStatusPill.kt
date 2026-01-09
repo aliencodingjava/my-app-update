@@ -230,7 +230,7 @@ fun RefreshStatusPill(
 
                     // --- Color controls (you can tune these targets) ---
                     val brightness = lerp(0.0f, if (isDark) 0.02f else 0.00f, p)
-                    val contrast   = lerp(1.0f, 1.08f, p)
+                    val contrast   = lerp(1.0f, 1.18f, p)
                     val saturation = lerp(1.0f, 1.9f, p)
 
                     colorControls(
@@ -253,7 +253,7 @@ fun RefreshStatusPill(
                         val k = 0.025f
                         val offset = interactiveHighlight.offset
 
-                        val maxDragScale = 1.5.dp.toPx() / size.height
+                        val maxDragScale = 3.0.dp.toPx() / size.height
                         val ang = atan2(offset.y, offset.x)
 
                         val pressDragScaleX =

@@ -182,7 +182,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun shareApp() {
         val sendIntent = Intent().apply {
             action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, "0.2.220: https://tinyurl.com/25jufew6")
+            putExtra(Intent.EXTRA_TEXT, "0.2.221: https://tinyurl.com/5a9yhk77")
             type = "text/plain"
         }
         startActivity(Intent.createChooser(sendIntent, null))

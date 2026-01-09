@@ -49,16 +49,22 @@ object SupabaseProfileUploader {
                 if (!phone.isNullOrBlank()) put("phone", phone)
                 if (!email.isNullOrBlank()) put("email", email)
 
-                // ✅ IMPORTANT: don’t overwrite existing data with empty values
                 if (!bio.isNullOrBlank()) put("bio", bio)
                 if (!birthday.isNullOrBlank()) put("birthday", birthday)
 
-                if (!photoUri.isNullOrBlank()) put("photo_uri", photoUri)
+                // ✅ store PATH returned by uploadProfilePhotoAndReturnPath (profiles/<id>/avatar.<ext>)
+                if (!photoUri.isNullOrBlank()) {
+                    put("photo_uri", photoUri)
+                }
+
+
+
                 if (!languageCode.isNullOrBlank()) put("language_code", languageCode)
                 if (!appVersion.isNullOrBlank()) put("app_version", appVersion)
 
                 put("last_login", java.time.Instant.now().toString())
             }
+
 
 
             val request = Request.Builder()

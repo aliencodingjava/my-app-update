@@ -107,6 +107,9 @@
             android:exported="false" />
 
 
+
+
+
         <activity
             android:name=".IosPlayerActivity"
             android:exported="false"
@@ -141,10 +144,23 @@
         <activity
             android:name=".BackdropPlaygroundActivity"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- ✅ Deep link back from GitHub reset page -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="flightsstudio"
+                    android:host="resetdone"/>
+            </intent-filter>
+
+
         </activity>
 
 
@@ -181,7 +197,9 @@
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
 
-
+        <activity
+            android:name=".EditProfileComposeActivity"
+            android:exported="false" />
 
 
         <provider
@@ -244,7 +262,7 @@
 <!--            </intent-filter>-->
 <!--        </activity>-->
         <activity
-            android:name=".QRCodeActivity"
+            android:name=".QRCodeComposeActivity"
             android:configChanges="keyboardHidden|orientation"
             android:exported="false"
             android:theme="@style/Theme.Test" />

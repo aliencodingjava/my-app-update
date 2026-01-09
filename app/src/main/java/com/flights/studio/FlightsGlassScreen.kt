@@ -69,6 +69,7 @@ fun FlightsGlassScreen(
     val isDark = isSystemInDarkTheme()
     val haptics = rememberHapticHelper()
     val uiTab = remember(selectedTab) { mutableStateOf(selectedTab) }
+    val appliedTab = remember { mutableStateOf(uiTab.value) }
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -79,8 +80,9 @@ fun FlightsGlassScreen(
     }
 
 
-    Column(modifier = Modifier.fillMaxSize().padding(bottom = 16.dp)) {
-        // ---- TOP BAR ----
+    Column(modifier = Modifier.fillMaxSize()) {
+
+    // ---- TOP BAR ----
         if (showTopArea) {
             Row(
                 modifier = Modifier
@@ -112,9 +114,6 @@ fun FlightsGlassScreen(
             )
         }
 
-        // ---- BOTTOM NAV + FAB ----
-        val uiTab = remember { mutableStateOf(FlightsTab.Curb) }
-        val appliedTab = remember { mutableStateOf(uiTab.value) }
 
         LaunchedEffect(uiTab.value) {
             if (uiTab.value == appliedTab.value) return@LaunchedEffect
@@ -125,23 +124,25 @@ fun FlightsGlassScreen(
             onTabChanged(appliedTab.value)
         }
 
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(60.dp)
+                .navigationBarsPadding()          // ✅ correct bottom inset (instead of +16dp hack)
                 .padding(horizontal = 26.dp)
+                .height(64.dp),                   // ✅ match LiquidBottomTabs back plate height
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            val fabSize = 60.dp
+            val actionSize = 60.dp
             val gap = 12.dp
 
+            // ✅ PILL takes remaining width
             BottomTabs(
                 tabs = FlightsTab.entries,
                 selectedTabState = uiTab,
                 backdrop = backdrop,
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .padding(end = fabSize + gap),
+                    .weight(1f)
+                    .fillMaxHeight(),
                 tabIconRes = { tab ->
                     when (tab) {
                         FlightsTab.Curb -> R.drawable.ic_oui_parking
@@ -152,6 +153,9 @@ fun FlightsGlassScreen(
                 tabLabel = { it.name }
             )
 
+            Spacer(Modifier.width(gap))
+
+            // ✅ FAB is separated BUT in the same row/layer as tabs
             LiquidFab(
                 backdrop = backdrop,
                 isDark = isDark,
@@ -159,11 +163,9 @@ fun FlightsGlassScreen(
                 isInteractive = isInteractive,
                 interactiveHighlight = interactiveHighlight,
                 onClick = { haptics.tick(); onFullScreen() },
-//                animationScope = animationScope,
-                modifier = Modifier.align(Alignment.CenterEnd).size(fabSize)
+                modifier = Modifier.size(actionSize)
             )
         }
-
     }
 }
 
@@ -225,7 +227,6 @@ fun LiquidFab(
     isDark: Boolean,
     surfaceColor: Color,
     isInteractive: Boolean,
-//    animationScope: CoroutineScope,
     interactiveHighlight: InteractiveHighlight,
     onClick: () -> Unit,
     modifier: Modifier = Modifier

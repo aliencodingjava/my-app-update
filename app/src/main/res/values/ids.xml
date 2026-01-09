@@ -13,6 +13,8 @@
     <item name="status_blink_animator" type="id" />
     <item name="nav_logout" type="id" />
     <item name="action_delete" type="id"/>
+    <item name="tag_avatar_key" type="id" />
+
 
 
 </resources>

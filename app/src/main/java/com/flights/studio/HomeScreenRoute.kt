@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -46,7 +45,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.BlendMode // ✅ IMPORTANT (Compose BlendMode)
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -74,8 +72,15 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
 import kotlin.math.tanh
+import androidx.core.content.edit
 
-private const val TAG = "HomeScreenRoute"
+const val TAG = "HomeScreenRoute"
+private fun camBaseUrl(tab: FlightsTab): String = when (tab) {
+    FlightsTab.Curb  -> "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg"
+    FlightsTab.North -> "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg"
+    FlightsTab.South -> "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg"
+}
+
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
@@ -100,15 +105,24 @@ fun HomeScreenRouteContent(
         InteractiveHighlight(animationScope = animationScope)
     }
 
+    // ----------------------------
+    // PREFS (put this FIRST)
+    // ----------------------------
+    val context = LocalContext.current
+    val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
+    val initialToken = remember { prefs.getLong("cam_last_token", 0L) }
+
+    // ----------------------------
+    // STATE
+    // ----------------------------
     var currentTab by rememberSaveable { mutableStateOf(FlightsTab.Curb) }
-    var currentCamUrl by rememberSaveable {
-        mutableStateOf(
-            "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=${System.currentTimeMillis()}"
-        )
-    }
+
+    // ✅ start from last cached token, not 0
+    var refreshToken by rememberSaveable { mutableLongStateOf(initialToken) }
 
     val refreshIntervalMs = 60_000L
     val minRefreshGapMs = 1_000L
+
     var countdownMs by rememberSaveable { mutableLongStateOf(refreshIntervalMs) }
     var isRefreshing by rememberSaveable { mutableStateOf(false) }
     var lastRefreshAtMs by rememberSaveable { mutableLongStateOf(0L) }
@@ -123,7 +137,59 @@ fun HomeScreenRouteContent(
     var isUserOffline by rememberSaveable { mutableStateOf(false) }
     var justBecameOnline by rememberSaveable { mutableStateOf(false) }
 
-    // connectivity monitor loop
+    // ----------------------------
+    // DERIVED URL (never reassigned)
+    // ----------------------------
+    val currentCamUrl = remember(currentTab, refreshToken) {
+        val base = camBaseUrl(currentTab)
+        if (refreshToken == 0L) base else "$base?v=$refreshToken"
+    }
+
+    var isZoomInteracting by remember { mutableStateOf(false) }
+
+
+
+    // ----------------------------
+    // SETTINGS LISTENER
+    // ----------------------------
+    var isSiriGlowEnabled by remember {
+        mutableStateOf(prefs.getBoolean("siri_camera_glow", true))
+    }
+
+    DisposableEffect(prefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "siri_camera_glow") {
+                isSiriGlowEnabled = prefs.getBoolean("siri_camera_glow", true)
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
+    // ----------------------------
+    // STARTUP: show cached image immediately, then refresh if old
+    // ----------------------------
+    LaunchedEffect(Unit) {
+        // if token is older than refreshIntervalMs, refresh after a short delay
+        val age = System.currentTimeMillis() - refreshToken
+        if (refreshToken == 0L || age > refreshIntervalMs) {
+            delay(500) // let cached image show first
+            val token = System.currentTimeMillis()
+            refreshToken = token
+            lastRefreshAtMs = token
+            countdownMs = refreshIntervalMs
+
+            // optional: tell whoever cares "refresh now"
+            triggerRefreshNow(currentCamUrl)
+        } else {
+            // token is recent -> start countdown from remaining time
+            countdownMs = (refreshIntervalMs - age).coerceAtLeast(0L)
+        }
+    }
+
+    // ----------------------------
+    // CONNECTIVITY MONITOR
+    // ----------------------------
     LaunchedEffect(activity) {
         val ctx = activity ?: return@LaunchedEffect
         var wasOffline = isUserOffline
@@ -139,17 +205,12 @@ fun HomeScreenRouteContent(
                     justBecameOnline = true
                     hasInternet = true
 
-                    val newUrl = when (currentTab) {
-                        FlightsTab.Curb ->
-                            "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=${System.currentTimeMillis()}"
-                        FlightsTab.North ->
-                            "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=${System.currentTimeMillis()}"
-                        FlightsTab.South ->
-                            "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=${System.currentTimeMillis()}"
-                    }
-                    currentCamUrl = newUrl
-                    lastRefreshAtMs = System.currentTimeMillis()
+                    val token = System.currentTimeMillis()
+                    refreshToken = token
+                    lastRefreshAtMs = token
                     countdownMs = refreshIntervalMs
+
+                    triggerRefreshNow(currentCamUrl)
 
                     launch {
                         delay(3000)
@@ -174,25 +235,7 @@ fun HomeScreenRouteContent(
     val hintText = if (camExpanded) "Drag up, release to collapse" else "Drag down, release to expand"
 
     var lockNoRefresh by rememberSaveable { mutableStateOf(false) }
-    var isZoomInteracting by remember { mutableStateOf(false) }
 
-    val context = LocalContext.current
-    val prefs = remember {
-        PreferenceManager.getDefaultSharedPreferences(context)
-    }
-    var isSiriGlowEnabled by remember {
-        mutableStateOf(prefs.getBoolean("siri_camera_glow", true))
-    }
-
-    DisposableEffect(prefs) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "siri_camera_glow") {
-                isSiriGlowEnabled = prefs.getBoolean("siri_camera_glow", true)
-            }
-        }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
 
     val camProgress by animateFloatAsState(
         targetValue = if (camExpanded) 1f else 0f,
@@ -206,7 +249,6 @@ fun HomeScreenRouteContent(
         if (!camExpanded) gridInstanceKey++
     }
 
-    // One-shot Siri progress (your function)
     val siriWaveProgress = if (isSiriGlowEnabled) {
         siriCardEdgeGlowOverlay(expanded = camExpanded, durationMillis = 2500)
     } else 0f
@@ -214,14 +256,15 @@ fun HomeScreenRouteContent(
     val cardWeight = if (camExpanded) 1f else 0.5f
     val listWeight = if (camExpanded) 0f else 0.5f
 
+    // ----------------------------
     // AUTO REFRESH LOOP
+    // ----------------------------
     LaunchedEffect(hasInternet, lockNoRefresh) {
         while (true) {
             if (!hasInternet) {
                 delay(1000)
                 continue
             }
-
             if (lockNoRefresh) {
                 delay(250)
                 continue
@@ -232,19 +275,12 @@ fun HomeScreenRouteContent(
                     val now = System.currentTimeMillis()
                     if (now - lastRefreshAtMs >= minRefreshGapMs) {
                         isRefreshing = true
-                        lastRefreshAtMs = now
 
-                        val newUrl = when (currentTab) {
-                            FlightsTab.Curb ->
-                                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=${System.currentTimeMillis()}"
-                            FlightsTab.North ->
-                                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=${System.currentTimeMillis()}"
-                            FlightsTab.South ->
-                                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=${System.currentTimeMillis()}"
-                        }
+                        val token = System.currentTimeMillis()
+                        refreshToken = token
+                        lastRefreshAtMs = token
 
-                        currentCamUrl = newUrl
-                        triggerRefreshNow(newUrl)
+                        triggerRefreshNow(currentCamUrl)
 
                         delay(3_000L)
                         isRefreshing = false
@@ -264,19 +300,23 @@ fun HomeScreenRouteContent(
 
     val onTabChangeInternal: (FlightsTab) -> Unit = inner@{ tab ->
         if (tab == currentTab) return@inner
+
+        val token = System.currentTimeMillis()
+
+        // 1) update state
         currentTab = tab
-        currentCamUrl = when (tab) {
-            FlightsTab.Curb ->
-                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=${System.currentTimeMillis()}"
-            FlightsTab.North ->
-                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=${System.currentTimeMillis()}"
-            FlightsTab.South ->
-                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=${System.currentTimeMillis()}"
-        }
+        refreshToken = token
+        lastRefreshAtMs = token
         countdownMs = refreshIntervalMs
-        lastRefreshAtMs = System.currentTimeMillis()
         lockNoRefresh = false
+
+        // 2) build the NEW url directly (no stale remember)
+        val newUrl = "${camBaseUrl(tab)}?v=$token"
+
+        // 3) refresh using the correct url
+        triggerRefreshNow(newUrl)
     }
+
 
     @Suppress("DEPRECATION")
     val openActivityByCard: (String) -> Unit = { id ->
@@ -307,7 +347,7 @@ fun HomeScreenRouteContent(
             "card2" -> launchCardScreen("card2")
             "card3" -> launchCardScreen("card3")
             "card4" -> launchCardScreen("card4")
-            "card5" -> launchPlain(QRCodeActivity::class.java)
+            "card5" -> launchPlain(QRCodeComposeActivity::class.java)
             "card6" -> launchPlain(SettingsActivity::class.java)
             "card7" -> launchPlain(AllContactsActivity::class.java)
             "card8" -> launchPlain(AllNotesActivity::class.java)
@@ -317,44 +357,56 @@ fun HomeScreenRouteContent(
     }
 
     val cardShape = RoundedCornerShape(20.dp)
-//    val cardElevationDp = lerp(4f, 1f, camProgress).dp
-    val cardElevationDp = lerp(6f, 14f, interactiveHighlight.pressProgress).dp
-
-
+    val extraScale = 0.006f * sin(camProgress * PI).toFloat()
+    val cardScale = 1f + extraScale
+    val shape = RoundedCornerShape(22.dp)
+    val themedSurface =
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // ===========================
             // TOP CAMERA CARD AREA (FIXED)
-            // ===========================
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(cardWeight)
                     .padding(4.dp)
-            ) {
-                val extraScale = 0.006f * sin(camProgress * PI).toFloat()
-                val cardScale = 1f + extraScale
 
-                // OUTER: transforms + shadow
+            ) {
+
                 Box(
                     modifier = Modifier
                         .matchParentSize()
+
+                        // 1) SHADOW FIRST (this is what will move)
+                        .shadow(
+                            elevation = 0.dp,
+                            shape = shape,
+                            clip = false
+                        )
+
+                        // 2) then transform
                         .graphicsLayer {
                             if (isInteractive) {
                                 val height = size.height
-
                                 val press = interactiveHighlight.pressProgress
+
                                 val zoomAmountPx = 1.0.dp.toPx()
-                                val baseScale = lerp(1f, 1f + zoomAmountPx / height, press)
+                                val baseScale =
+                                    lerp(1f, 1f + zoomAmountPx / height, press)
 
                                 val k = 0.035f
                                 val offsetY = interactiveHighlight.offset.y
-                                translationY = height * tanh(k * offsetY / height)
 
-                                val maxDragScale = 30.dp.toPx() / height
-                                val verticalStretch = maxDragScale * abs(offsetY / height)
+                                translationY =
+                                    height * tanh(k * offsetY / height)
+
+                                val maxDragScale =
+                                    30.dp.toPx() / height
+
+                                val verticalStretch =
+                                    maxDragScale * abs(offsetY / height)
 
                                 scaleX = baseScale * cardScale
                                 scaleY = (baseScale + verticalStretch) * cardScale
@@ -363,39 +415,18 @@ fun HomeScreenRouteContent(
                                 scaleY = cardScale
                             }
                         }
-
-
-                        // ✅ SHADOW RESTORED
-                        .shadow(
-                            elevation = cardElevationDp,
-                            shape = cardShape,
-                            clip = false   // ✅ MUST be false or shadow gets cut off
+                        .background(
+                            color = themedSurface,
+                            shape = shape
                         )
                 ) {
-                    // INNER CLIP
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clip(cardShape) // ✅ simpler than graphicsLayer clip
-                    ) {
+
                         // 1) WRITER: image only
                         Box(
                             modifier = Modifier
                                 .matchParentSize()
                                 .layerBackdrop(cameraBackdrop)
                         ) {
-                            Box(
-                                Modifier
-                                    .matchParentSize()
-                                    .background(
-                                        Brush.radialGradient(
-                                            colors = listOf(
-                                                if (isDark) Color(0x9B202A36) else Color(0x9BF7F9FC),
-                                                if (isDark) Color(0x9F0E1116) else Color(0x9BE3E9F2)
-                                            )
-                                        )
-                                    )
-                            )
 
                             HomeGlassZoomImage(
                                 model = currentCamUrl,
@@ -404,6 +435,8 @@ fun HomeScreenRouteContent(
                                     hasInternet = true
                                     isRefreshing = false
                                     lockNoRefresh = false
+                                    prefs.edit { putLong("cam_last_token", refreshToken) }
+
                                     snackbarHostState.currentSnackbarData?.dismiss()
                                 },
                                 onImageLoadFailed = {
@@ -420,8 +453,6 @@ fun HomeScreenRouteContent(
 
                         }
 
-
-
                         // 2) READER: glass overlay reads backdrop
                         Box(
                             modifier = Modifier
@@ -434,30 +465,28 @@ fun HomeScreenRouteContent(
                                         // ✅ YOU WANTED THIS EVEN WHILE LOADING
                                         vibrancy()
                                         colorControls(
-                                            brightness = if (isDark) 0.1f else 0.0f,
-                                            contrast = 1.45f,
-                                            saturation = 1.2f
+                                            brightness = if (isDark) 0.01f else 0.0f,
+                                            contrast = 1.20f,
+                                            saturation = 1.3f
                                         )
 
                                         if (!isZoomInteracting) {
                                             blur(if (isDark) 0.dp.toPx() else 0.dp.toPx())
                                             lens(
-                                                refractionHeight = 1.dp.toPx(),
-                                                refractionAmount = 1.dp.toPx(),
+                                                refractionHeight = 0.dp.toPx(),
+                                                refractionAmount = 0.dp.toPx(),
                                                 depthEffect = true,
                                                 chromaticAberration = false
                                             )
                                         }
 
                                     },
+
                                     onDrawSurface = {
-                                        // 👇 ADD THIS BACK 👇
-                                        if (isDark) {
-                                            drawRect(Color.Black.copy(alpha = 0.10f))
-                                        }
+                                        if (isDark) drawRect(Color.Black.copy(alpha = 0.20f))
                                         if (tint.isSpecified) {
                                             drawRect(tint, blendMode = BlendMode.Hue)
-                                            drawRect(tint.copy(alpha = 0.65f))
+                                            drawRect(tint.copy(alpha = 0.35f))
                                         }
                                         if (surfaceColor.isSpecified) {
                                             drawRect(surfaceColor)
@@ -473,8 +502,8 @@ fun HomeScreenRouteContent(
                             Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
-                                .height(66.dp)
-                                .zIndex(10f)
+                                .height(86.dp)
+                                .zIndex(0f)
                                 .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
                                 .expandCollapseGrabGesture(
                                     isExpanded = camExpanded,
@@ -508,6 +537,23 @@ fun HomeScreenRouteContent(
                                 nudge.animateTo(0f, tween(520, easing = FastOutSlowInEasing))
                             }
                         }
+                        LaunchedEffect(Unit) {
+                            // if we have no token yet, or it's older than ~1 minute, refresh quickly
+                            val age = System.currentTimeMillis() - refreshToken
+                            if (refreshToken == 0L || age > 60_000L) {
+                                delay(500) // let UI show cached last image first
+                                refreshToken = System.currentTimeMillis()
+                                lastRefreshAtMs = refreshToken
+                                countdownMs = refreshIntervalMs
+                            }
+                        }
+
+//                        BottomProgressiveBlurStrip(
+//                            backdrop = cameraBackdrop,
+//                            modifier = Modifier
+//                                .align(Alignment.BottomCenter)
+//                                .zIndex(0f)
+//                        ) {
 
                         val hintAlpha by animateFloatAsState(
                             targetValue = 1f,
@@ -515,48 +561,43 @@ fun HomeScreenRouteContent(
                             label = "hintAlpha"
                         )
 
-                        val handleColor = if (isDark) {
-                            Color.White.copy(alpha = 0.35f)
-                        } else {
-                            Color.Black.copy(alpha = 0.22f)
-                        }
+                        val handle = Color.White.copy(alpha = 0.88f)
+                        val handleUnder = Color.Black.copy(alpha = 0.30f)
 
-                        val hintColor = if (isDark) {
-                            Color.White.copy(alpha = 0.75f)
-                        } else {
-                            Color.Black.copy(alpha = 0.60f)
-                        }
-
-                        BottomProgressiveBlurStrip(
-                            backdrop = cameraBackdrop,
+                        Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .zIndex(1f)
+                                .padding(bottom = 15.dp)
                         ) {
                             Column(
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .padding(top = 20.dp)
-                                    .padding(bottom = 8.dp)
-                                    .graphicsLayer {
-                                        translationY = nudge.value
-                                        alpha = hintAlpha
-                                    },
+                                modifier = Modifier.graphicsLayer {
+                                    translationY = nudge.value
+                                    alpha = hintAlpha
+                                },
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
-                                repeat(2) {
+                                repeat(3) {
                                     Box(
                                         Modifier
                                             .size(width = 36.dp, height = 3.dp)
                                             .clip(CircleShape)
-                                            .background(handleColor)
+                                            .background(handleUnder)
+                                            .padding(0.6.dp)
+                                            .clip(CircleShape)
+                                            .background(handle)
                                     )
                                 }
-                                Spacer(Modifier.height(0.dp))
+
                                 Text(
                                     text = hintText,
-                                    color = hintColor,
+                                    color = Color.White,
+                                    modifier = Modifier
+                                        .background(
+                                            Color.Black.copy(alpha = 0.55f),
+                                            shape = RoundedCornerShape(10.dp)
+                                        )
+                                        .padding(horizontal = 10.dp, vertical = 3.dp),
                                     style = MaterialTheme.typography.labelMedium
                                 )
                             }
@@ -628,11 +669,11 @@ fun HomeScreenRouteContent(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
                                 .padding(start = 12.dp, bottom = 11.dp)
-                                .zIndex(20f)
+                                .zIndex(10f)
                         )
                     }
                 }
-            }
+
 
             // ===========================
             // BOTTOM LIST / CARDS AREA
@@ -683,13 +724,13 @@ fun BottomProgressiveBlurStrip(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(60.dp)
+            .height(66.dp)
             .drawPlainBackdrop(
                 backdrop = backdrop,
                 shape = { RectangleShape },
                 effects = {
                     vibrancy()
-                    blur(3.dp.toPx())
+                    blur(0.dp.toPx())
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
                         effect(

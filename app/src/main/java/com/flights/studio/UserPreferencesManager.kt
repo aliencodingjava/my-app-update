@@ -65,6 +65,19 @@ class UserPreferencesManager(context: Context) {
         get() = prefs.getInt("profile_theme_mode", 0) // 0=Auto, 1=Glass, 2=Solid
         set(value) = prefs.edit { putInt("profile_theme_mode", value) }
 
+    var pendingFullName: String?
+        get() = prefs.getString("pending_full_name", null)
+        set(v) = prefs.edit { putString("pending_full_name", v) }
+
+    var pendingPhone: String?
+        get() = prefs.getString("pending_phone", null)
+        set(v) = prefs.edit { putString("pending_phone", v) }
+
+    var pendingEmail: String?
+        get() = prefs.getString("pending_email", null)
+        set(v) = prefs.edit { putString("pending_email", v) }
+
+
     // ----------------------------
     // Photo helpers
     // ----------------------------
@@ -81,12 +94,25 @@ class UserPreferencesManager(context: Context) {
     fun clearUserPhoto() {
         userPhotoUriString = null
     }
-
     fun getUserPhotoUri(): Uri? {
-        val s = userPhotoUriString?.trim().orEmpty()
-        if (s.isBlank() || s.equals("null", ignoreCase = true)) return null
-        return runCatching { s.toUri() }.getOrNull()
+        val raw = userPhotoUriString?.trim().orEmpty()
+        if (raw.isBlank()) return null
+
+        if (raw.startsWith("/")) return Uri.fromFile(java.io.File(raw))
+
+        // ✅ Only return real URIs that Android loaders can handle directly.
+        if (raw.startsWith("content", true) || raw.startsWith("file", true) || raw.startsWith("http", true)) {
+            return raw.toUri()
+        }
+
+        // ✅ storage paths are NOT Uris
+        return null
     }
+
+
+
+
+
 
     // ----------------------------
     // Profile save / clear

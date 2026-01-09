@@ -18,7 +18,6 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -31,6 +30,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.navigation.NavigationView
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -261,24 +261,10 @@ class CardBottomSheetActivity : AppCompatActivity() {
 
 
 
-    private fun showCreateProfileSheet() {
-        // grab the headerView once
-        val headerView = navigationView.getHeaderView(0)
-
-        CreateProfileBottomSheetFragment().apply {
-            onProfileSavedListener = object : CreateProfileBottomSheetFragment.OnProfileSavedListener {
-                override fun onProfileSaved() {
-                    // 1) refresh your LiveData from the freshly-written SharedPrefs
-                    viewModel.refresh()
-                    // 2) re-bind every header field (name, phone, photo, initials)
-                    setupHeader(headerView)
-                    // 3) flip the drawer menu label/icon (Login → Logout)
-                    refreshLogoutMenuItem(navigationView)
-                    // 4) re-apply arrow toggle state in case it’s visible
-                    setupNavigationToggle()
-                }
-            }
-        }.show(supportFragmentManager, "CREATE_PROFILE_SHEET")
+    fun showCreateProfileSheet() {
+        // Open Compose profile screen (AuthScreen is handled inside it)
+        startActivity(Intent(this, ProfileDetailsComposeActivity::class.java))
+        overridePendingTransition(0, R.anim.zoom_out)
     }
 
 
@@ -417,36 +403,60 @@ class CardBottomSheetActivity : AppCompatActivity() {
         }, 100)
     }
 
-    private fun loadUserPhoto(photoUri: String?, iconImage: ImageView): Boolean {
-        return runCatching {
-            if (!photoUri.isNullOrEmpty()) {
-                val uri = photoUri.toUri()
+    private fun loadUserPhoto(photoRaw: String?, iconImage: ImageView): Boolean {
+        if (photoRaw.isNullOrBlank()) {
+            iconImage.visibility = View.GONE
+            return false
+        }
 
-                try {
-                    contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                } catch (_: SecurityException) {
-                    // Ignore, fallback to attempt loading anyway
-                }
+        val raw = photoRaw.trim()
 
-                // ✅ Use Glide with resizing and cropping to avoid large bitmap crashes
-                Glide.with(this)
-                    .load(uri)
-                    .override(512, 512) // Safe size
+        // ✅ If it's already usable in UI
+        if (
+            raw.startsWith("http", ignoreCase = true) ||
+            raw.startsWith("content", ignoreCase = true) ||
+            raw.startsWith("file", ignoreCase = true)
+        ) {
+            Glide.with(this)
+                .load(raw) // string works for http/content/file
+                .override(512, 512)
+                .centerCrop()
+                .placeholder(R.drawable.contact_logo_topbar)
+                .error(R.drawable.contact_logo_topbar)
+                .into(iconImage)
+
+            iconImage.visibility = View.VISIBLE
+            return true
+        }
+
+        // ✅ Otherwise it's a STORAGE PATH like "profiles/<uid>/avatar.jpg"
+        lifecycleScope.launch {
+            val session = SupabaseManager.client.auth.currentSessionOrNull()
+            val token = session?.accessToken
+            if (token.isNullOrBlank()) return@launch
+
+            val signed = SupabaseStorageUploader.createSignedUrl(
+                objectPath = raw,
+                authToken = token,
+                bucket = "profile-photos"
+            )
+
+            if (!signed.isNullOrBlank()) {
+                Glide.with(this@CardBottomSheetActivity)
+                    .load(signed)
+                    .override(512, 512)
                     .centerCrop()
                     .placeholder(R.drawable.contact_logo_topbar)
                     .error(R.drawable.contact_logo_topbar)
                     .into(iconImage)
 
                 iconImage.visibility = View.VISIBLE
-                return@runCatching true
-            } else {
-                iconImage.visibility = View.GONE
-                false
             }
-        }.getOrDefault(false)
+        }
+
+        // we will show it async after signing
+        iconImage.visibility = View.VISIBLE
+        return true
     }
 
     private fun applyFallbackIcon(iconImage: ImageView, iconInitials: TextView, initials: String?) {

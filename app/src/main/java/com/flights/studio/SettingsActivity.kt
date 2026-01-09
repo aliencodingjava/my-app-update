@@ -11,7 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
-import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
@@ -47,13 +46,13 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.bumptech.glide.Glide
 import com.flights.studio.databinding.ActivityScrollingSettingsBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.navigationrail.NavigationRailView
 import com.google.android.material.snackbar.Snackbar
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -66,6 +65,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import androidx.core.view.isVisible
 
 
 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
@@ -81,6 +81,7 @@ class SettingsActivity : LocaleActivity() {
     private lateinit var networkConnectivityHelper: NetworkConnectivityHelper
     private lateinit var binding: ActivityScrollingSettingsBinding
     private lateinit var userPrefs: UserPreferencesManager
+
 
 
 
@@ -179,6 +180,9 @@ class SettingsActivity : LocaleActivity() {
         }
     }
 
+    private fun imageAlreadyShown(iv: ImageView): Boolean {
+        return iv.isVisible && iv.drawable != null
+    }
 
     private fun refreshRailAvatar() {
         val navRail = findViewById<NavigationRailView>(R.id.navigation_rail)
@@ -186,47 +190,32 @@ class SettingsActivity : LocaleActivity() {
         val imgView = header.findViewById<ImageView>(R.id.iconImage)
         val initialsTv = header.findViewById<TextView>(R.id.iconInitials)
 
-        userPrefs.getUserPhotoUri()?.let { uri ->
-            initialsTv.visibility = View.GONE
-            imgView.visibility     = View.VISIBLE
+        val initials = userPrefs.userName
+            .orEmpty()
+            .trim()
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .take(2)
+            .map { it[0].uppercaseChar() }
+            .joinToString("")
+            .ifEmpty { "?" }
 
-            Glide.with(this)
-                .load(uri)
-                .centerCrop()    // ← fill the card’s rounded rect
-                .into(imgView)
-        } ?: run {
-            imgView.visibility     = View.GONE
-            initialsTv.visibility = View.VISIBLE
-
-            val initials = userPrefs.userName
-                .orEmpty()
-                .split(Regex("\\s+"))
-                .filter { it.isNotBlank() }
-                .map { it[0].uppercaseChar() }
-                .take(2)
-                .joinToString("")
-
-            if (initials.isNotEmpty()) {
-                initialsTv.text = initials
-            } else {
-                // fallback logo
-                initialsTv.visibility = View.GONE
-                imgView.visibility     = View.VISIBLE
-                imgView.setImageResource(R.drawable.rt_text_logo_jac)
-            }
-
-            (initialsTv.background as? GradientDrawable)
-                ?.setColor(ContextCompat.getColor(this, R.color.box_alert_update))
-        }
-
-        header.setOnClickListener {
-            startActivity(Intent(this, ProfileDetailsComposeActivity::class.java))
-        }
-
+        AvatarLoader.loadInto(
+            scope = lifecycleScope,
+            userPrefs = userPrefs,
+            authTokenProvider = {
+                SupabaseManager.client.auth.currentSessionOrNull()?.accessToken
+            },
+            imageView = imgView,
+            initialsView = initialsTv,
+            initialsText = initials
+        )
     }
+
+
     override fun onResume() {
         super.onResume()
-        refreshRailAvatar()
+//        refreshRailAvatar()
     }
 
 
@@ -344,7 +333,7 @@ class SettingsActivity : LocaleActivity() {
     }
 
     private fun openQRCodeScanner() {
-        val intent = Intent(this, QRCodeActivity::class.java)
+        val intent = Intent(this, QRCodeComposeActivity::class.java)
         startActivity(intent)
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
@@ -1010,9 +999,6 @@ class SettingsActivity : LocaleActivity() {
         internetStrengthIcon.setImageResource(drawableRes)
         internetStrengthIcon.visibility = View.VISIBLE  // Show the cellular icon
     }
-
-
-
 
 
 }

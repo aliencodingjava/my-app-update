@@ -59,10 +59,10 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 224
-        versionName = "0.2.220"
+        versionCode = 226
+        versionName = "0.2.222"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Dec-30-2025\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Jan-09-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "OPENAI_API_KEY", "\"$openAiKey\"")
@@ -153,6 +153,7 @@ android {
     androidResources {
         noCompress += "tflite"
     }
+
 }
 
 dependencies {
@@ -169,11 +170,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.9.0")
 
     // ----- Supabase (BOM) -----
-    implementation(platform("io.github.jan-tennert.supabase:bom:3.2.6"))
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.3.0"))
     implementation("io.github.jan-tennert.supabase:supabase-kt")
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt")
-    implementation("io.github.jan-tennert.supabase:storage-kt:3.2.6")
+    implementation("io.github.jan-tennert.supabase:storage-kt:3.3.0")
 
     // ----- AndroidX Core -----
     implementation("androidx.activity:activity:1.12.2")

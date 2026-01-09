@@ -41,6 +41,7 @@ import io.github.jan.supabase.auth.providers.builtin.OTP
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
+import androidx.core.net.toUri
 
 
 class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
@@ -98,9 +99,8 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
                     .load(newUri)
                     .override(512, 512)
                     .centerCrop()
-                    .skipMemoryCache(true)
-                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
                     .into(binding.iconImage)
+
 
                 binding.iconInitials.visibility = View.GONE
                 binding.iconImage.visibility = View.VISIBLE
@@ -181,41 +181,73 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
     }
 
 
-
     private fun loadProfileData() {
         binding.editName.setText(userPrefsManager.userName)
         binding.editPhone.setText(userPrefsManager.userPhone)
         binding.editEmail.setText(userPrefsManager.userEmail)
         binding.editBirthday.setText(userPrefsManager.userBirthday)
 
-        userPrefsManager.getUserPhotoUri()?.let { uri ->
-            currentSelectedPhotoUri = uri
+        val raw = userPrefsManager.userPhotoUriString?.trim().orEmpty()
+        if (raw.isBlank() || raw.equals("null", true)) {
+            currentSelectedPhotoUri = null
+            updateAvatarFromNameOrPhoto()
+            return
+        }
+
+        // content:// or file:// or http(s) -> load directly
+        if (raw.startsWith("content", true) || raw.startsWith("file", true) || raw.startsWith("http", true)) {
+            currentSelectedPhotoUri = raw.toUri()
+
+            Glide.with(requireContext())
+                .load(raw)
+                .override(512, 512)
+                .centerCrop()
+                .into(binding.iconImage)
+
+            binding.iconInitials.visibility = View.GONE
+            binding.iconImage.visibility = View.VISIBLE
+            return
+        }
+
+        // ✅ Otherwise it’s a storage PATH: "profiles/<uid>/avatar.jpg"
+        // Sign it before loading
+        val session = SupabaseManager.client.auth.currentSessionOrNull()
+        if (session == null) {
+            // can’t sign without session → fallback initials
+            currentSelectedPhotoUri = null
+            updateAvatarFromNameOrPhoto()
+            return
+        }
+
+        lifecycleScope.launch {
             try {
-                if (uri.scheme == "content") {
-                    val persisted = requireContext().contentResolver.persistedUriPermissions
-                    val hasPermission = persisted.any { it.uri == uri && it.isReadPermission }
-                    if (!hasPermission) {
-                        requireContext().contentResolver.takePersistableUriPermission(
-                            uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        )
-                    }
+                val signed = SupabaseStorageUploader.createSignedUrl(
+                    objectPath = raw,
+                    authToken = session.accessToken,
+                    bucket = "profile-photos"
+                )
+
+                if (!signed.isNullOrBlank()) {
+                    Glide.with(requireContext())
+                        .load(signed)
+                        .override(512, 512)
+                        .centerCrop()
+                        .into(binding.iconImage)
+
+                    binding.iconInitials.visibility = View.GONE
+                    binding.iconImage.visibility = View.VISIBLE
+                } else {
+                    currentSelectedPhotoUri = null
+                    updateAvatarFromNameOrPhoto()
                 }
-
-                Glide.with(requireContext())
-                    .load(uri)
-                    .override(512, 512)
-                    .centerCrop()
-                    .skipMemoryCache(true)
-                    .diskCacheStrategy(com.bumptech.glide.load.engine.DiskCacheStrategy.NONE)
-                    .into(binding.iconImage)
-
-            } catch (_: Exception) {
-                showPill(getString(R.string.error_loading_image_uri))
-                userPrefsManager.userPhotoUriString = null
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to sign/load avatar: ${e.message}", e)
                 currentSelectedPhotoUri = null
+                updateAvatarFromNameOrPhoto()
             }
         }
     }
+
 
 
     fun setupClickListeners() {
@@ -683,32 +715,57 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
 
         lifecycleScope.launch {
             try {
-                // 1) Convert local uri -> storage url (only if needed)
-                val rawUrlOrUri: String? = when {
-                    photoToUse == null -> null
+                // We store PATH in DB, but use SIGNED URL for UI display
+                var photoPathToStore: String? = null
+                var signedUrlForUi: String? = null
+
+                when {
+                    photoToUse == null -> {
+                        // keep null (don’t overwrite DB photo)
+                    }
+
+                    // Local image picked -> upload to private storage
                     photoToUse.scheme == "content" -> {
-                        SupabaseStorageUploader.uploadProfilePhotoAndGetPublicUrl(
+                        val path = SupabaseStorageUploader.uploadProfilePhotoAndReturnPath(
                             context = requireContext(),
                             userId = userId,
                             authToken = authToken,
-                            photoUri = photoToUse
+                            photoUri = photoToUse,
+                            bucket = "profile-photos"
                         )
+
+                        // If upload failed, do NOT overwrite DB photo
+                        if (!path.isNullOrBlank()) {
+                            photoPathToStore = path
+
+                            signedUrlForUi = SupabaseStorageUploader.createSignedUrl(
+                                objectPath = path,
+                                authToken = authToken,
+                                bucket = "profile-photos"
+                            )
+                        }
                     }
-                    else -> photoToUse.toString() // could already be https://...
+
+                    else -> {
+                        // If it’s already an http url (maybe old data), you can keep it for UI.
+                        val s = photoToUse.toString()
+                        if (s.startsWith("http", ignoreCase = true)) {
+                            signedUrlForUi = s
+                        }
+                        // BUT: prefer path-only in DB going forward. So we do NOT set photoPathToStore here.
+                    }
                 }
 
-                // If upload failed, do not overwrite DB photo
-                val cleanUrlOrNull = rawUrlOrUri
-                    ?.takeIf { it.startsWith("http", ignoreCase = true) }
-                    ?.substringBefore("?")
-
-                // ✅ Save locally with cache-bust for display (optional)
-                // (only if we have an http url)
-                if (!cleanUrlOrNull.isNullOrBlank()) {
-                    userPrefsManager.userPhotoUriString = "${cleanUrlOrNull}?v=${System.currentTimeMillis()}"
+                if (!photoPathToStore.isNullOrBlank()) {
+                    // ✅ Persist the stable storage PATH locally
+                    userPrefsManager.setPhotoString(photoPathToStore)  // clears initials too
+                } else if (!signedUrlForUi.isNullOrBlank()) {
+                    // Fallback: only if you truly have no path (older data)
+                    userPrefsManager.setPhotoString(signedUrlForUi)
                 }
 
-                // 2) Upsert profile row (store CLEAN url, no cache params)
+
+                // ✅ Upsert profile row (store PATH, not URL)
                 SupabaseProfileUploader.uploadProfile(
                     userId       = userId,
                     authToken    = authToken,
@@ -717,7 +774,7 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
                     email        = email,
                     bio          = bio,
                     birthday     = birthday,
-                    photoUri     = cleanUrlOrNull,  // ✅ DB gets clean URL (or null)
+                    photoUri     = photoPathToStore, // ✅ DB stores PATH: "profiles/<id>/avatar.jpg"
                     languageCode = Locale.getDefault().language,
                     appVersion   = BuildConfig.VERSION_NAME
                 )
@@ -725,10 +782,10 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Supabase sync failed: ${e.message}", e)
             } finally {
-                // ✅ close only after attempt finishes
                 dismiss()
             }
         }
+
     }
 
     private fun showInitialsFrom(name: String) {

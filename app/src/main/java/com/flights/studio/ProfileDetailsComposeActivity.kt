@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -64,6 +65,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -85,11 +87,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.core.os.bundleOf
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -102,6 +104,7 @@ import kotlinx.coroutines.withContext
 class ProfileDetailsComposeActivity : AppCompatActivity() {
 
     private lateinit var userPrefs: UserPreferencesManager
+
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -130,7 +133,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                 }
             }
 
-            // ✅ SINGLE SOURCE OF TRUTH
             val profileThemeModeState =
                 rememberSaveable { mutableIntStateOf(userPrefs.profileThemeMode) }
 
@@ -142,24 +144,341 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                     else -> ProfileBackdropStyle.Auto
                 }
             ) {
-                ProfileDetailsRoute(
-                    userPrefs = userPrefs,
-                    hostActivity = this@ProfileDetailsComposeActivity,
-                    onNavigateBack = {
-                        finish()
-                        overridePendingTransition(0, R.anim.zoom_out)
-                    },
+                // ✅ in-activity navigation: show profile OR auth
+                var showAuth by rememberSaveable { mutableStateOf(false) }
 
-                    // ✅ Route asks, Activity decides
-                    themeMode = profileThemeModeState.intValue,
-                    onThemeModeChange = { newMode ->
-                        profileThemeModeState.intValue = newMode
-                        userPrefs.profileThemeMode = newMode
+                val closeAuth = remember { { showAuth = false } }
+                val openAuth = remember {
+                    {
+                        // ✅ auth screens always solid
+                        profileThemeModeState.intValue = 3
+                        userPrefs.profileThemeMode = 3
+
+                        showAuth = true
                     }
-                )
+                }
+
+                // ✅ Back closes auth screen
+                BackHandler(enabled = showAuth, onBack = closeAuth)
+
+                if (showAuth) {
+                    AuthScreen(
+                        onLogin = { email, password ->
+                            val e = email.trim()
+                            if (e.isBlank() || password.isBlank()) {
+                                return@AuthScreen Result.failure(
+                                    IllegalArgumentException("Enter email and password")
+                                )
+                            }
+
+                            val res = SupabaseAuthRepo.signIn(e, password)
+
+                            if (res.isSuccess && SupabaseAuthRepo.hasSession()) {
+                                userPrefs.isLoggedIn = true
+
+                                // ✅ default theme after login = Blur
+                                profileThemeModeState.intValue = 2
+                                userPrefs.profileThemeMode = 2
+
+
+                                // apply pending signup info if any
+                                val pendingEmail = userPrefs.pendingEmail
+                                val pendingName = userPrefs.pendingFullName
+                                val pendingPhone = userPrefs.pendingPhone
+
+                                if (!pendingEmail.isNullOrBlank()
+                                    && pendingEmail.equals(e, ignoreCase = true)
+                                    && !pendingName.isNullOrBlank()
+                                    && !pendingPhone.isNullOrBlank()
+                                ) {
+                                    runCatching {
+                                        SupabaseProfilesRepo.upsertMyProfile(
+                                            fullName = pendingName,
+                                            phone = pendingPhone,
+                                            email = e,
+                                            bio = null,
+                                            birthday = null
+                                        )
+
+                                        userPrefs.userName = pendingName
+                                        userPrefs.userPhone = pendingPhone
+                                        userPrefs.userEmail = e
+                                        userPrefs.pendingEmail = null
+                                        userPrefs.pendingFullName = null
+                                        userPrefs.pendingPhone = null
+                                    }
+                                }
+
+                                closeAuth()
+                                return@AuthScreen Result.success(Unit)
+                            }
+
+                            // ❌ LOGIN FAILED → normalize error
+                            val raw = res.exceptionOrNull()?.message.orEmpty()
+                            val msg = raw.lowercase()
+
+                            val shortMsg = when {
+                                // Supabase common invalid creds (covers wrong pass + non-existing email)
+                                msg.contains("invalid login credentials") ||
+                                        msg.contains("invalid credentials") ||
+                                        (msg.contains("invalid") && (msg.contains("email") || msg.contains("password") || msg.contains("login"))) ||
+                                        msg.contains("credentials") ->
+                                    "Invalid email or password"
+
+                                // Rate limit
+                                msg.contains("rate") || msg.contains("too many") ->
+                                    "Too many attempts. Try later."
+
+                                // Email confirmation required (only if Supabase actually returns this)
+                                msg.contains("email not confirmed") || msg.contains("confirm") ->
+                                    "Please confirm your email"
+
+                                else ->
+                                    "Login failed"
+                            }
+
+                            Log.e("AUTH_LOGIN_FAIL", "raw=$raw", res.exceptionOrNull())
+
+                            FancyPillToast.show(
+                                activity = this@ProfileDetailsComposeActivity,
+                                text = shortMsg,
+                                durationMs = 2200L
+                            )
+
+                            Result.failure(IllegalStateException(shortMsg))
+
+                        },
+
+                        onSignUp = { fullName, phone, email, password, avatarUri ->
+                            val e = email.trim()
+                            val p = SupabaseProfilesRepo.normalizePhone(phone)
+                            val n = fullName.trim()
+
+                            if (n.isBlank() || p.isBlank() || e.isBlank() || password.isBlank()) {
+                                return@AuthScreen Result.failure(IllegalArgumentException("Fill all fields"))
+                            }
+                            val available = runCatching { SupabaseProfilesRepo.isPhoneAvailable(p) }.getOrDefault(false)
+                            if (!available) {
+                                return@AuthScreen Result.failure(IllegalStateException("PHONE_TAKEN"))
+                            }
+                            if (avatarUri != null) {
+                                userPrefs.setPhotoString(avatarUri.toString()) // content://...
+                                userPrefs.userInitials = null
+                            }
+
+                            // 1) Attempt SIGN UP
+                            val signUpRes = SupabaseAuthRepo.signUpWithProfileCheck(
+                                email = e,
+                                password = password,
+                                phone = p
+                            )
+
+                            // If signup failed because already registered -> force Login mode
+                            if (signUpRes.isFailure) {
+                                val raw = signUpRes.exceptionOrNull()?.message.orEmpty()
+                                val msg = raw.lowercase()
+                                if (msg.contains("signup_conflict")) {
+                                    return@AuthScreen Result.failure(IllegalStateException("SIGNUP_CONFLICT"))
+                                }
+                                if (msg.contains("weak_password")) {
+                                    return@AuthScreen Result.failure(IllegalArgumentException("WEAK_PASSWORD"))
+                                }
+                                // 0) LOG ALWAYS so you can see what Supabase actually returned
+                                Log.e("SIGNUP_FAIL", "raw=$raw", signUpRes.exceptionOrNull())
+
+                                val isWeakPassword =
+                                    msg.contains("weak_password") ||      // underscore variant
+                                            msg.contains("weak password") ||      // space variant (your screenshot shows this)
+                                            (msg.contains("password") && msg.contains("weak")) ||
+                                            (msg.contains("password") && msg.contains("at least") && msg.contains("character")) ||
+                                            (msg.contains("password") && msg.contains("minimum")) ||
+                                            (msg.contains("password") && msg.contains("length"))
+                                if (isWeakPassword) {
+                                    return@AuthScreen Result.failure(IllegalArgumentException("WEAK_PASSWORD"))
+                                }
+
+
+                                // 2) ✅ CONFLICT (only strong signals)
+                                val isConflict =
+                                    msg.contains("23505") ||
+                                            msg.contains("unique_violation") ||
+                                            msg.contains("user already registered") ||
+                                            msg.contains("already registered") ||
+                                            msg.contains("email already") ||
+                                            msg.contains("phone already") ||
+                                            msg.contains("already exists") ||
+                                            msg.contains("duplicate key")
+
+                                if (isConflict) {
+                                    return@AuthScreen Result.failure(IllegalStateException("SIGNUP_CONFLICT"))
+                                }
+
+                                // 3) ✅ otherwise generic
+                                return@AuthScreen Result.failure(IllegalStateException("SIGNUP_FAILED"))
+                            }
+
+
+
+                            // 2) If confirmations are ON, Supabase often returns NO SESSION.
+                            // Instead of acting like "signup worked again", we try SIGN IN immediately.
+                            val sessionAfterSignUp = SupabaseManager.client.auth.currentSessionOrNull()
+                            if (sessionAfterSignUp == null) {
+
+                                // Save pending profile info; after login we will upsert profile (your login block already does this)
+                                userPrefs.pendingEmail = e
+                                userPrefs.pendingFullName = n
+                                userPrefs.pendingPhone = p
+
+                                // Try to sign in right now (if account already existed, this succeeds)
+                                val signInRes = SupabaseAuthRepo.signIn(e, password)
+                                if (signInRes.isSuccess && SupabaseAuthRepo.hasSession()) {
+                                    userPrefs.isLoggedIn = true
+                                    closeAuth()
+                                    return@AuthScreen Result.success(Unit)
+                                }
+
+                                // New account but needs email confirmation
+                                FancyPillToast.show(
+                                    activity = this@ProfileDetailsComposeActivity,
+                                    text = "Confirm your email, then log in.",
+                                    durationMs = 2600L
+                                )
+                                return@AuthScreen Result.failure(IllegalStateException("SIGNUP_NO_SESSION"))
+                            }
+
+                            // 3) We DO have a session -> can create profile + upload avatar
+                            val userId = sessionAfterSignUp.user?.id
+                                ?: return@AuthScreen Result.failure(IllegalStateException("NO_USER_ID"))
+                            val token = sessionAfterSignUp.accessToken
+
+                            // Upload avatar if chosen (store PATH)
+                            var photoPathToStore: String? = null
+                            if (avatarUri != null) {
+                                val path = SupabaseStorageUploader.uploadProfilePhotoAndReturnPath(
+                                    context = this@ProfileDetailsComposeActivity,
+                                    userId = userId,
+                                    authToken = token,
+                                    photoUri = avatarUri,
+                                    bucket = "profile-photos"
+                                )
+                                if (!path.isNullOrBlank()) photoPathToStore = path
+                            }
+
+                            // Upsert profile (this should NOT crash once your DB rows are clean + unique constraint restored)
+                            val profileRes = runCatching {
+                                SupabaseProfilesRepo.upsertMyProfile(
+                                    fullName = n,
+                                    phone = p,
+                                    email = e,
+                                    bio = null,
+                                    birthday = null
+                                )
+
+                            }
+
+                            if (profileRes.isFailure) {
+                                // If you still hit this, your table has conflicting rows (same email on another id)
+                                FancyPillToast.show(
+                                    activity = this@ProfileDetailsComposeActivity,
+                                    text = "Could not save profile. Try again.",
+                                    durationMs = 3000L
+                                )
+                                Log.e(
+                                    "PROFILE_SAVE",
+                                    "Profile save failed",
+                                    profileRes.exceptionOrNull()
+                                )
+                                return@AuthScreen Result.failure(IllegalStateException("PROFILE_SAVE_FAILED"))
+                            }
+
+                            // Store photo path into DB
+                            if (!photoPathToStore.isNullOrBlank()) {
+                                runCatching {
+                                    SupabaseStorageUploader.updateProfilePhotoUrl(
+                                        userId = userId,
+                                        authToken = token,
+                                        photoPath = photoPathToStore
+                                    )
+                                }
+                            }
+
+                            // Local prefs + go back to profile
+                            userPrefs.userName = n
+                            userPrefs.userPhone = p
+                            userPrefs.userEmail = e
+                            userPrefs.isLoggedIn = true
+
+                            if (!photoPathToStore.isNullOrBlank()) {
+                                userPrefs.setPhotoString(photoPathToStore)
+                                userPrefs.userInitials = null
+                            }
+
+                            // Clear pending (not needed anymore)
+                            userPrefs.pendingEmail = null
+                            userPrefs.pendingFullName = null
+                            userPrefs.pendingPhone = null
+
+                            closeAuth()
+                            Log.d("AVATAR", "photoPathToStore=$photoPathToStore")
+                            Log.d("AVATAR", "prefs.userPhotoUriString=${userPrefs.userPhotoUriString}")
+
+                            Result.success(Unit)
+                        }
+,
+                        onForgotPassword = { prefill ->
+                            val e = prefill.trim()
+
+                            if (e.isBlank()) {
+                                FancyPillToast.show(
+                                    this@ProfileDetailsComposeActivity,
+                                    "Enter your email first",
+                                    2200L
+                                )
+                                return@AuthScreen
+                            }
+
+                            lifecycleScope.launch {
+                                val result = SupabaseAuthRepo.resetPassword(e)
+
+                                val msg = when {
+                                    result.isSuccess ->
+                                        "If the email exists, you'll get a reset link."
+
+                                    result.exceptionOrNull()?.message?.contains("rate", ignoreCase = true) == true ->
+                                        "Please wait and try again."
+
+                                    else ->
+                                        "Could not send reset email."
+                                }
+
+
+                                FancyPillToast.show(
+                                    this@ProfileDetailsComposeActivity,
+                                    msg,
+                                    2600L
+                                )
+                            }
+                        }
+
+                    )
+                } else {
+                    ProfileDetailsRoute(
+                        userPrefs = userPrefs,
+                        hostActivity = this@ProfileDetailsComposeActivity,
+                        onNavigateBack = {
+                            finish()
+                            overridePendingTransition(0, R.anim.zoom_out)
+                        },
+                        themeMode = profileThemeModeState.intValue,
+                        onThemeModeChange = { newMode ->
+                            profileThemeModeState.intValue = newMode
+                            userPrefs.profileThemeMode = newMode
+                        },
+                        onOpenLogin = openAuth // ✅ opens AuthScreen (starts on Login)
+                    )
+                }
             }
         }
-
 
     }
 
@@ -181,7 +500,7 @@ private data class ProfileUiState(
     val displayName: String,
     val secondaryTextRaw: String,
     val initials: String,
-    val photoUri: Uri?,
+    val photoRaw: String,
     val emailRaw: String,
     val bioRaw: String,
     val birthdayRaw: String
@@ -218,12 +537,14 @@ private fun buildProfileUiState(userPrefs: UserPreferencesManager): ProfileUiSta
         displayName = displayName,
         secondaryTextRaw = secondaryRaw,
         initials = initials,
-        photoUri = userPrefs.getUserPhotoUri(),
+        photoRaw = userPrefs.userPhotoUriString?.trim().orEmpty(),
         emailRaw = userPrefs.userEmail.orEmpty(),
         bioRaw = userPrefs.userBio.orEmpty(),
         birthdayRaw = userPrefs.userBirthday.orEmpty()
     )
 }
+
+
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -233,7 +554,8 @@ private fun ProfileDetailsRoute(
     hostActivity: AppCompatActivity,
     onNavigateBack: () -> Unit,
     themeMode: Int,
-    onThemeModeChange: (Int) -> Unit
+    onThemeModeChange: (Int) -> Unit,
+    onOpenLogin: () -> Unit
 ) {
     val context = LocalContext.current
     var menuOpen by rememberSaveable { mutableStateOf(false) }
@@ -241,26 +563,47 @@ private fun ProfileDetailsRoute(
     val scope = rememberCoroutineScope()
     val createProfileMsg = stringResource(R.string.prompt_create_profile)
     val comingSoonMsg = stringResource(R.string.coming_soon)
+    var avatarVersion by remember { mutableIntStateOf(0) }
 
     var refreshTick by remember { mutableIntStateOf(0) }
+    val editProfileLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                refreshTick += 1
+                avatarVersion += 1   // 🔥 FORCE image reload
+            }
+        }
 
+
+    val isLoggedIn = userPrefs.isLoggedIn
 
     val cycleTheme: () -> Unit = {
-        val next = (themeMode + 1) % 4  // ✅ 4 modes now
-        onThemeModeChange(next)
-        refreshTick += 1
+        if (!isLoggedIn) {
+            onThemeModeChange(3)
+            userPrefs.profileThemeMode = 3
+            refreshTick += 1
+            FancyPillToast.show(hostActivity, "Theme: Solid", 1600L)
+        } else {
+            val next = (themeMode + 1) % 4
+            onThemeModeChange(next)
+            userPrefs.profileThemeMode = next
+            refreshTick += 1
 
-        FancyPillToast.show(
-            hostActivity,
-            "🎨 Theme: " + when (next) {
-                0 -> "Auto"
-                1 -> "Glass"
-                2 -> "Blur"
-                else -> "Solid"
-            },
-            1600L
-        )
+            FancyPillToast.show(
+                hostActivity,
+                "Theme: " + when (next) {
+                    0 -> "Auto"
+                    1 -> "Glass"
+                    2 -> "Blur"
+                    else -> "Solid"
+                },
+                1600L
+            )
+        }
     }
+
 
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -268,18 +611,26 @@ private fun ProfileDetailsRoute(
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
 
-        // Keep local permission (good even if upload fails)
-        try {
-            context.contentResolver.takePersistableUriPermission(
-                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        } catch (_: SecurityException) {
+        // Keep local permission (ONLY for content://)
+        if (uri.scheme == "content") {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // some providers don't allow persistable permission
+            }
         }
 
-        // Optional: show immediately locally (nice UX)
-        userPrefs.setPhotoString(uri.toString())
+
+        // ✅ Keep previous in case upload fails
+        val previousPhoto = userPrefs.userPhotoUriString
+
+// ✅ Optional preview (instant UX)
+        userPrefs.setPhotoString(uri.toString())  // content://...
         userPrefs.userInitials = null
         refreshTick += 1
+
 
         // ✅ NOW upload to Supabase + update profile
         scope.launch {
@@ -289,7 +640,7 @@ private fun ProfileDetailsRoute(
                 val userId = session.user?.id ?: return@launch
 
                 // Upload to storage -> get public url
-                val uploadedUrl = SupabaseStorageUploader.uploadProfilePhotoAndGetPublicUrl(
+                val path = SupabaseStorageUploader.uploadProfilePhotoAndReturnPath(
                     context = context,
                     userId = userId,
                     authToken = token,
@@ -297,43 +648,39 @@ private fun ProfileDetailsRoute(
                     bucket = "profile-photos"
                 )
 
-                // ✅ If upload failed, show pill and stop
-                if (uploadedUrl.isNullOrBlank()) {
+                if (path.isNullOrBlank()) {
                     withContext(Dispatchers.Main) {
-                        FancyPillToast.show(
-                            activity = hostActivity,
-                            text = "❌ Upload failed",
-                            durationMs = 2500L
-                        )
+                        userPrefs.setPhotoString(previousPhoto) // ✅ revert
+                        FancyPillToast.show(hostActivity, "❌ Upload failed", 2500L)
+                        refreshTick += 1
                     }
                     return@launch
                 }
+
 
                 // ✅ Update DB row (profiles.photo_uri)
                 val ok = SupabaseStorageUploader.updateProfilePhotoUrl(
                     userId = userId,
                     authToken = token,
-                    photoUrl = uploadedUrl
+                    photoPath = path
                 )
+
 
                 withContext(Dispatchers.Main) {
                     if (ok) {
-                        // Save remote url into prefs (cache bust so it refreshes)
-                        userPrefs.setPhotoString("${uploadedUrl}?v=${System.currentTimeMillis()}")
+                        // Update stored path (same as you do)
+                        userPrefs.setPhotoString(path)
                         userPrefs.userInitials = null
-                        refreshTick += 1
 
-                        FancyPillToast.show(
-                            activity = hostActivity,
-                            text = "✅ Photo updated",
-                            durationMs = 2000L
-                        )
-                    } else {
-                        FancyPillToast.show(
-                            activity = hostActivity,
-                            text = "❌ Failed to update profile photo",
-                            durationMs = 2500L
-                        )
+                        // ✅ IMPORTANT: bust caches because file content changed but path same
+                        SignedUrlCache.invalidate(path)
+                        AvatarDiskCache.delete(context, path)   // you need to add this function
+
+                        refreshTick += 1
+                        FancyPillToast.show(hostActivity, "✅ Photo updated", 2000L)
+                    }
+                    else {
+                        FancyPillToast.show(hostActivity, "❌ Failed to update profile photo", 2500L)
                     }
                 }
             } catch (e: Exception) {
@@ -364,10 +711,9 @@ private fun ProfileDetailsRoute(
     val ui = remember(refreshTick) { buildProfileUiState(userPrefs) }
 
     val hasProfile = !userPrefs.userName.isNullOrBlank()
-    val isLoggedIn = userPrefs.isLoggedIn
 
 
-    val hasPhoto = ui.photoUri != null
+    val hasPhoto = ui.photoRaw.isNotBlank()
 
     val useGlassBackdrop = when (themeMode) {
         0 -> isLoggedIn && hasPhoto   // Auto
@@ -377,39 +723,81 @@ private fun ProfileDetailsRoute(
     }
 
 
-    LaunchedEffect(isLoggedIn) {
+    LaunchedEffect(isLoggedIn, refreshTick) {
         if (!isLoggedIn) return@LaunchedEffect
 
         try {
-            val session =
-                SupabaseManager.client.auth.currentSessionOrNull() ?: return@LaunchedEffect
+            val session = SupabaseManager.client.auth.currentSessionOrNull()
+                ?: return@LaunchedEffect
+
             val userId = session.user?.id ?: return@LaunchedEffect
             val token = session.accessToken
 
-            val profile =
-                SupabaseProfileDownloader.fetchProfile(userId, token) ?: return@LaunchedEffect
-            val remotePhotoBase = profile.photoUri?.trim().orEmpty()
+            val profile = SupabaseProfileDownloader.fetchProfile(
+                userId = userId,
+                authToken = token
+            ) ?: return@LaunchedEffect
 
-            if (remotePhotoBase.isNotBlank()) {
-                // compare BASE urls (ignore ?v=)
-                val currentBase = userPrefs.getUserPhotoUri()
-                    ?.toString()
-                    ?.substringBefore("?v=")
-                    .orEmpty()
+            var changed = false
 
-                if (currentBase != remotePhotoBase) {
-                    // Only cache-bust when it actually changed
-                    userPrefs.setPhotoString("${remotePhotoBase}?v=${System.currentTimeMillis()}")
+            fun updateIfChanged(current: String?, incoming: String?): Boolean =
+                current.orEmpty() != incoming.orEmpty()
+
+            if (updateIfChanged(userPrefs.userName, profile.fullName)) {
+                userPrefs.userName = profile.fullName.orEmpty()
+                changed = true
+            }
+            if (updateIfChanged(userPrefs.userEmail, profile.email)) {
+                userPrefs.userEmail = profile.email.orEmpty()
+                changed = true
+            }
+            if (updateIfChanged(userPrefs.userPhone, profile.phone)) {
+                userPrefs.userPhone = profile.phone.orEmpty()
+                changed = true
+            }
+            if (updateIfChanged(userPrefs.userBio, profile.bio)) {
+                userPrefs.userBio = profile.bio.orEmpty()
+                changed = true
+            }
+            if (updateIfChanged(userPrefs.userBirthday, profile.birthday)) {
+                userPrefs.userBirthday = profile.birthday.orEmpty()
+                changed = true
+            }
+
+            val remoteRaw = profile.photoUri?.trim().orEmpty()
+            if (remoteRaw.isNotBlank()) {
+                val canonicalPath = when {
+                    remoteRaw.startsWith("http", ignoreCase = true) ->
+                        extractStoragePathIfSignedUrl(remoteRaw, bucket = "profile-photos")
+                            ?: remoteRaw
+                    else -> remoteRaw
+                }
+
+                if (canonicalPath != remoteRaw && !canonicalPath.startsWith("http", ignoreCase = true)) {
+                    runCatching {
+                        SupabaseStorageUploader.updateProfilePhotoUrl(
+                            userId = userId,
+                            authToken = token,
+                            photoPath = canonicalPath
+                        )
+                    }
+                }
+
+                if (canonicalPath.isNotBlank() && userPrefs.userPhotoUriString != canonicalPath) {
+                    userPrefs.setPhotoString(canonicalPath)
                     userPrefs.userInitials = null
-                    refreshTick += 1
+                    changed = true
                 }
             }
 
-            // ⚠️ don’t refreshTick += 1 unconditionally here anymore
+            // ✅ trigger recomposition only if something changed
+            if (changed) refreshTick += 1
+
         } catch (_: Exception) {
-            // keep existing
         }
     }
+
+
 
 
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -427,7 +815,15 @@ private fun ProfileDetailsRoute(
                 TextButton(
                     onClick = {
                         dismissLogoutDialog()
+
+                        // ✅ logout
                         userPrefs.clear()
+
+                        // ✅ force solid theme after logout
+                        onThemeModeChange(3)
+                        userPrefs.profileThemeMode = 3
+
+                        // ✅ rebuild UI
                         refreshTick += 1
                     }
                 ) {
@@ -499,12 +895,12 @@ private fun ProfileDetailsRoute(
 
                                 onEdit = {
                                     menuOpen = false
-                                    showCreateProfileSheet(
-                                        activity = hostActivity,
-                                        isEdit = true,
-                                        onProfileSaved = { refreshTick += 1 }
+                                    editProfileLauncher.launch(
+                                        Intent(hostActivity, EditProfileComposeActivity::class.java)
                                     )
                                 },
+
+
                                 onChangePhoto = {
                                     menuOpen = false
                                     if (isLoggedIn) {
@@ -530,11 +926,7 @@ private fun ProfileDetailsRoute(
                                     if (isLoggedIn) {
                                         openLogoutDialog()
                                     } else {
-                                        showCreateProfileSheet(
-                                            activity = hostActivity,
-                                            isEdit = false,
-                                            onProfileSaved = { refreshTick += 1 }
-                                        )
+                                        onOpenLogin() // ✅ open AuthScreen instead of old bottom sheet
                                     }
                                 },
 
@@ -659,7 +1051,6 @@ private fun ProfileDetailsRoute(
                             ) {
                                 val alpha = if (isLoggedIn) 1f else 0.4f
                                 val avatarShape = RoundedCornerShape(46.dp)
-                                var avatarFailed by remember(ui.photoUri) { mutableStateOf(false) }
 
                                 Surface(
                                     modifier = Modifier
@@ -679,16 +1070,78 @@ private fun ProfileDetailsRoute(
                                     color = MaterialTheme.colorScheme.surface,
                                     shape = avatarShape
                                 ) {
-                                    if (ui.photoUri != null && !avatarFailed) {
+                                    val rawPhoto = ui.photoRaw.trim()
+
+                                    var avatarFailed by remember(rawPhoto) { mutableStateOf(false) }
+
+// decide what to load
+                                    val dataToLoad by produceState<Any?>(initialValue = null, key1 = rawPhoto, key2 = refreshTick) {
+
+                                        if (rawPhoto.isBlank()) {
+                                            value = null
+                                            return@produceState
+                                        }
+
+                                        // already usable by Coil
+                                        if (
+                                            rawPhoto.startsWith("http", true) ||
+                                            rawPhoto.startsWith("content", true) ||
+                                            rawPhoto.startsWith("file", true)
+                                        ) {
+                                            value = rawPhoto
+                                            return@produceState
+                                        }
+
+                                        // 1) try local disk cache FIRST
+                                        val local = AvatarDiskCache.localFile(context, rawPhoto)
+                                        if (local.exists() && local.length() > 0L) {
+                                            value = local
+                                            return@produceState
+                                        }
+
+                                        // 2) try signed-url cache
+                                        SignedUrlCache.getValid(rawPhoto)?.let {
+                                            value = it
+                                            return@produceState
+                                        }
+
+                                        // 3) sign fresh
+                                        val session = SupabaseManager.client.auth.currentSessionOrNull()
+                                        if (session != null) {
+                                            val fresh = SupabaseStorageUploader.createSignedUrl(
+                                                objectPath = rawPhoto,
+                                                authToken = session.accessToken,
+                                                bucket = "profile-photos"
+                                            )
+                                            if (!fresh.isNullOrBlank()) {
+                                                SignedUrlCache.put(rawPhoto, fresh, 60 * 60)
+                                                AvatarDiskCache.cacheFromSignedUrl(context, rawPhoto, fresh)
+                                                value = fresh
+                                                return@produceState
+                                            }
+                                        }
+
+                                        value = null
+                                    }
+
+                                    LaunchedEffect(dataToLoad) { avatarFailed = false }
+
+                                    if (dataToLoad != null && !avatarFailed) {
                                         AsyncImage(
                                             model = ImageRequest.Builder(context)
-                                                .data(ui.photoUri)
-                                                .crossfade(true)
+                                                .data(dataToLoad)
+                                                .setParameter("v", avatarVersion)
+                                                .crossfade(true)     // ❌ no memoryCacheKey / diskCacheKey
                                                 .build(),
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize(),
-                                            onError = { avatarFailed = true }
+                                            onError = {
+                                                avatarFailed = true
+                                                if (rawPhoto.isNotBlank()) {
+                                                    SignedUrlCache.invalidate(rawPhoto)
+                                                }
+                                            }
                                         )
                                     } else {
                                         Box(
@@ -697,16 +1150,15 @@ private fun ProfileDetailsRoute(
                                         ) {
                                             Text(
                                                 text = ui.initials.ifEmpty { "?" },
-                                                style = MaterialTheme.typography.headlineSmall.copy(
-                                                    fontWeight = FontWeight.Bold
-                                                ),
+                                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
                                     }
+
                                 }
 
-                                Spacer(Modifier.width(14.dp))
+                                    Spacer(Modifier.width(14.dp))
 
                                 Column(Modifier.weight(1f)) {
                                     Text(
@@ -823,19 +1275,23 @@ private fun ProfileDetailsRoute(
                 QuickActionsCard(
                     isLoggedIn = isLoggedIn,
                     onEdit = {
-                        showCreateProfileSheet(
-                            activity = hostActivity,
-                            isEdit = true,
-                            onProfileSaved = { refreshTick += 1 }
+                        editProfileLauncher.launch(
+                            Intent(hostActivity, EditProfileComposeActivity::class.java)
                         )
+                        hostActivity.overridePendingTransition(R.anim.zoom_in, 0)
                     },
+
                     onLogin = {
-                        showCreateProfileSheet(
-                            activity = hostActivity,
-                            isEdit = false,
-                            onProfileSaved = { refreshTick += 1 }
-                        )
+                        onOpenLogin()
                     },
+
+//                    onLogin = {
+//                        showCreateProfileSheet(
+//                            activity = hostActivity,
+//                            isEdit = false,
+//                            onProfileSaved = { refreshTick += 1 }
+//                        )
+//                    },
                     onTheme = cycleTheme,
                     onRequireProfile = {
                         FancyPillToast.show(hostActivity, createProfileMsg, 3000L)
@@ -1057,16 +1513,16 @@ private fun InfoRow(
 }
 
 // BottomSheet opener (same behavior as your XML activity)
-private fun showCreateProfileSheet(
-    activity: AppCompatActivity,
-    isEdit: Boolean,
-    onProfileSaved: () -> Unit
-) {
-    CreateProfileBottomSheetFragment().apply {
-        arguments = bundleOf("isEdit" to isEdit)
-        onProfileSavedListener = object : CreateProfileBottomSheetFragment.OnProfileSavedListener {
-            override fun onProfileSaved() = onProfileSaved()
-        }
-    }.show(activity.supportFragmentManager, "CreateProfileSheet")
-}
+//private fun showCreateProfileSheet(
+//    activity: AppCompatActivity,
+//    onProfileSaved: () -> Unit
+//) {
+//    CreateProfileBottomSheetFragment().apply {
+//        arguments = bundleOf("isEdit" to true)
+//        onProfileSavedListener = object :
+//            CreateProfileBottomSheetFragment.OnProfileSavedListener {
+//            override fun onProfileSaved() = onProfileSaved()
+//        }
+//    }.show(activity.supportFragmentManager, "CreateProfileSheet")
+//}
 

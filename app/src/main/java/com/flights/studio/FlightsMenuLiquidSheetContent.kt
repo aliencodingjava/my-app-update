@@ -54,8 +54,8 @@ fun FlightsMenuLiquidSheetContent(
     val sheetBackdrop = rememberLayerBackdrop()
 
     val sheetSurfaceColor =
-        if (isDark) Color(0xFF101010).copy(alpha = 0.55f)
-        else Color.White.copy(alpha = 0.70f)
+        if (isDark) Color(0xFF101010).copy(alpha = 0.85f)
+        else Color.White.copy(alpha = 0.90f)
 
     val mainTextColor =
         if (isDark) Color.White.copy(alpha = 0.96f)
@@ -77,7 +77,7 @@ fun FlightsMenuLiquidSheetContent(
                 shape = { RoundedCornerShape(44.dp) },
                 effects = {
                     vibrancy()
-                    blur(4.dp.toPx())
+                    blur(2.dp.toPx())
                     lens(24.dp.toPx(), 48.dp.toPx(), true)
                 },
                 highlight = { Highlight.Plain },

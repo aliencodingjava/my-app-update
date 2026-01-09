@@ -213,6 +213,7 @@ class MainActivity : FragmentActivity() {
                             Log.d(TAG_MAIN, "ExitLiquidDialog: onConfirmExit()")
                             showExitDialog = false
                             actuallyExitApp()
+
                         }
                     )
 

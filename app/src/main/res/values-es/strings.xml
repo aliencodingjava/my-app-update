@@ -165,10 +165,10 @@
 </string>
     <string name="qrcode">descarga nuestra aplicación</string>
     <string name="why_download_app">
-    "¡Descubre la forma más fácil de conectarte con nuestra aplicación! \n
-    Escanea códigos QR al instante, compártelos con amigos y disfruta de una experiencia sin interrupciones. \n
-    ¡Descárgala ahora y desbloquea funciones exclusivas diseñadas especialmente para ti!"
+Conéctate más rápido con nuestra aplicación.
+Escanea códigos QR, comparte momentos y vive una experiencia fluida.
 </string>
+
     <string name="fragment_settings">configuración_fragmento</string>
     <string name="download_complete">Descarga completa</string>
     <string name="image_view_item_transform_content_description">Representa una vista de imagen en el

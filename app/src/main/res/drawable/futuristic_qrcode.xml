@@ -24,7 +24,7 @@
     </item>
 
     <!-- Scaled drawable layer -->
-    <item android:drawable="@drawable/bing_generated_qrcode"
+    <item android:drawable="@drawable/qrflights"
         android:top="10dp"
         android:bottom="10dp"
         android:start="5dp"
