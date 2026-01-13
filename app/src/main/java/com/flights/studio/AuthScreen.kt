@@ -3,55 +3,88 @@
 package com.flights.studio
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import android.net.Uri
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
-import coil.request.ImageRequest
-import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.core.net.toUri
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 enum class AuthMode { Login, SignUp }
 
@@ -72,6 +105,10 @@ fun AuthScreen(
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
 
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val dark = isSystemInDarkTheme()
+
+    val textScale = rememberUiTight()
 
     val avatarPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -82,14 +119,13 @@ fun AuthScreen(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
-        } catch (_: SecurityException) { }
+        } catch (_: SecurityException) {
+        }
         avatarUri = uri
     }
 
-
     var fullName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
@@ -100,9 +136,6 @@ fun AuthScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
 
-    val scope = rememberCoroutineScope()
-    val dark = isSystemInDarkTheme()
-
     val pageBg = if (!dark) Color(0xFFF6F7FB) else Color(0xFF0F1116)
     val fieldBg = if (!dark) Color(0xFFE7EAF2) else Color(0xFF1B1F2A)
     val primaryBtn = if (!dark) Color(0xFF253D73) else Color(0xFF4E7DFF)
@@ -112,6 +145,7 @@ fun AuthScreen(
     val canSubmit = when (mode) {
         AuthMode.Login ->
             email.isNotBlank() && password.isNotBlank() && !isLoading
+
         AuthMode.SignUp ->
             fullName.isNotBlank() && phone.isNotBlank() &&
                     email.isNotBlank() && password.isNotBlank() && confirm.isNotBlank() && !isLoading
@@ -120,7 +154,6 @@ fun AuthScreen(
     fun switchMode(next: AuthMode) {
         mode = next
         errorText = null
-//        password = ""
         confirm = ""
         showPass = false
         showConfirm = false
@@ -174,9 +207,12 @@ fun AuthScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             if (mode == AuthMode.SignUp) {
+                                val s = MaterialTheme.typography.labelLarge
                                 Text(
                                     text = "Add photo",
-                                    style = MaterialTheme.typography.labelLarge,
+                                    style = s,
+                                    fontSize = s.fontSize.us(textScale),
+                                    lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(textScale) else s.lineHeight,
                                     color = subtleText
                                 )
                             } else {
@@ -187,12 +223,10 @@ fun AuthScreen(
                                     modifier = Modifier.size(52.dp)
                                 )
                             }
-
                         }
                     }
                 }
             }
-
 
             Spacer(Modifier.height(8.dp))
 
@@ -201,9 +235,10 @@ fun AuthScreen(
                 loginText = "Login",
                 signUpText = "Sign up",
                 color = titleColor,
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold)
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier,
+                textScale = textScale
             )
-
 
             Spacer(Modifier.height(18.dp))
 
@@ -217,10 +252,10 @@ fun AuthScreen(
                         value = fullName,
                         onValueChange = { fullName = it; errorText = null },
                         placeholder = "Full name",
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_oui_contact), null)
-                        },
+                        leadingIcon = { Icon(painterResource(R.drawable.ic_oui_contact), null) },
                         fieldBg = fieldBg,
-                        keyboardType = KeyboardType.Text
+                        keyboardType = KeyboardType.Text,
+                        textScale = textScale
                     )
                     Spacer(Modifier.height(14.dp))
                     RoundedField(
@@ -229,7 +264,8 @@ fun AuthScreen(
                         placeholder = "Phone number",
                         leadingIcon = { Icon(Icons.Filled.Phone, null) },
                         fieldBg = fieldBg,
-                        keyboardType = KeyboardType.Phone
+                        keyboardType = KeyboardType.Phone,
+                        textScale = textScale
                     )
                     Spacer(Modifier.height(14.dp))
                 }
@@ -241,7 +277,8 @@ fun AuthScreen(
                 placeholder = "Email",
                 leadingIcon = { Icon(Icons.Filled.Email, null) },
                 fieldBg = fieldBg,
-                keyboardType = KeyboardType.Email
+                keyboardType = KeyboardType.Email,
+                textScale = textScale
             )
 
             Spacer(Modifier.height(14.dp))
@@ -258,7 +295,8 @@ fun AuthScreen(
                 },
                 fieldBg = fieldBg,
                 keyboardType = KeyboardType.Password,
-                visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation()
+                visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
+                textScale = textScale
             )
 
             AnimatedVisibility(
@@ -280,14 +318,22 @@ fun AuthScreen(
                         },
                         fieldBg = fieldBg,
                         keyboardType = KeyboardType.Password,
-                        visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation()
+                        visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation(),
+                        textScale = textScale
                     )
                 }
             }
 
             if (errorText != null) {
                 Spacer(Modifier.height(10.dp))
-                Text(errorText!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                val s = MaterialTheme.typography.bodySmall
+                Text(
+                    errorText!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = s,
+                    fontSize = s.fontSize.us(textScale),
+                    lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(textScale) else s.lineHeight
+                )
             } else {
                 Spacer(Modifier.height(18.dp))
             }
@@ -335,7 +381,6 @@ fun AuthScreen(
                             )
                         }
 
-
                         isLoading = false
                         result.exceptionOrNull()?.let { ex ->
                             when (ex.message) {
@@ -356,6 +401,7 @@ fun AuthScreen(
                                     showPass = false
                                     showConfirm = false
                                 }
+
                                 "WEAK_PASSWORD" -> {
                                     errorText = "Password is too weak. Use at least 6 characters."
                                     password = ""
@@ -363,6 +409,7 @@ fun AuthScreen(
                                     showPass = false
                                     showConfirm = false
                                 }
+
                                 "SIGNUP_CONFLICT" -> {
                                     mode = AuthMode.Login
                                     errorText = "Email or phone already exists. Please log in."
@@ -375,27 +422,22 @@ fun AuthScreen(
                                 "SIGNUP_FAILED" -> {
                                     errorText = "Sign up failed. Please try again."
                                 }
+
                                 "PHONE_TAKEN" -> {
                                     errorText = "Phone already used"
-                                    // optional: keep them in SignUp mode and clear only the phone field if you want
-                                    // phone = ""
                                 }
-
-
 
                                 else -> {
                                     val raw = ex.message.orEmpty()
                                     val msg = raw.lowercase()
 
                                     errorText = when {
-                                        // ✅ login invalid creds
                                         msg.contains("invalid login") ||
                                                 msg.contains("invalid credentials") ||
                                                 (msg.contains("invalid") && msg.contains("password")) ||
                                                 (msg.contains("invalid") && msg.contains("email")) ->
                                             "Invalid email or password"
 
-                                        // ✅ rate limit / too many attempts
                                         msg.contains("rate") || msg.contains("too many") ->
                                             "Too many attempts. Try again later."
 
@@ -404,12 +446,8 @@ fun AuthScreen(
 
                                     android.util.Log.e("AUTH_UI_ERR", "raw=$raw", ex)
                                 }
-
-
                             }
                         }
-
-
                     }
                 },
                 enabled = canSubmit,
@@ -420,10 +458,16 @@ fun AuthScreen(
                     disabledContainerColor = primaryBtn.copy(alpha = 0.45f),
                     disabledContentColor = Color.White.copy(alpha = 0.75f)
                 ),
-                modifier = Modifier.fillMaxWidth().height(52.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp), color = Color.White)
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White
+                    )
                     Spacer(Modifier.width(10.dp))
                 }
                 AnimatedModeText(
@@ -431,9 +475,10 @@ fun AuthScreen(
                     loginText = "Login",
                     signUpText = "Create account",
                     color = Color.White,
-                    style = TextStyle(fontWeight = FontWeight.SemiBold)
+                    style = TextStyle(fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier,
+                    textScale = textScale
                 )
-
             }
 
             Spacer(Modifier.height(14.dp))
@@ -441,10 +486,13 @@ fun AuthScreen(
             if (mode == AuthMode.Login) {
                 var showForgotDialog by remember { mutableStateOf(false) }
 
+                val s = MaterialTheme.typography.bodyMedium
                 Text(
                     text = "Forget Password?",
                     color = primaryBtn,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = s,
+                    fontSize = s.fontSize.us(textScale),
+                    lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(textScale) else s.lineHeight,
                     modifier = Modifier.clickable {
                         val e = email.trim()
                         if (e.isBlank()) {
@@ -454,20 +502,19 @@ fun AuthScreen(
                         showForgotDialog = true
                     }
                 )
-
-                ForgotPasswordDialog(
+                val scales = rememberUiScales()
+                ForgotPasswordDialogModern(
                     visible = showForgotDialog,
                     email = email.trim(),
                     dark = dark,
                     primaryBtn = primaryBtn,
                     fieldBg = fieldBg,
+                    scales = scales,
                     onSendReset = { targetEmail ->
-                        // Call your existing callback
                         onForgotPassword(targetEmail)
                     },
                     onDismissAndBackToLogin = {
                         showForgotDialog = false
-                        // Bring them back to login flow
                         mode = AuthMode.Login
                         password = ""
                         confirm = ""
@@ -480,21 +527,24 @@ fun AuthScreen(
             } else {
                 Spacer(Modifier.height(18.dp))
             }
+
             AuthBottomSwitch(
                 mode = mode,
                 subtleText = subtleText,
                 primaryBtn = primaryBtn,
+                textScale = textScale,
                 onSwitch = { next -> switchMode(next) }
             )
-
         }
     }
 }
+
 @Composable
 fun AuthBottomSwitch(
     mode: AuthMode,
     subtleText: Color,
     primaryBtn: Color,
+    textScale: Float,
     onSwitch: (AuthMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -526,9 +576,12 @@ fun AuthBottomSwitch(
             }
         }
 
+        val s = MaterialTheme.typography.bodyMedium
         Text(
             text = bottom,
-            style = MaterialTheme.typography.bodyMedium,
+            style = s,
+            fontSize = s.fontSize.us(textScale),
+            lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(textScale) else s.lineHeight,
             modifier = modifier.clickable {
                 onSwitch(if (m == AuthMode.Login) AuthMode.SignUp else AuthMode.Login)
             }
@@ -536,15 +589,21 @@ fun AuthBottomSwitch(
     }
 }
 
+private enum class ForgotUiState {
+    Confirm,
+    Sending,
+    CountdownToOpenEmail,
+    ReadyToOpenEmail
+}
 
-@Suppress("AssignedValueIsNeverRead")
 @Composable
-private fun ForgotPasswordDialog(
+fun ForgotPasswordDialogModern(
     visible: Boolean,
     email: String,
     dark: Boolean,
     primaryBtn: Color,
     fieldBg: Color,
+    scales: UiScales, // ✅ use your real scaling
     onSendReset: (String) -> Unit,
     onDismissAndBackToLogin: () -> Unit,
     onDismiss: () -> Unit,
@@ -552,143 +611,217 @@ private fun ForgotPasswordDialog(
     if (!visible) return
 
     val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
 
     var checked by remember { mutableStateOf(false) }
     var state by remember { mutableStateOf(ForgotUiState.Confirm) }
     var msg by remember { mutableStateOf<String?>(null) }
 
+    // ✅ real countdown seconds
+    var secondsLeft by remember { mutableIntStateOf(8) }
 
     fun openGmail() {
-        // 1) Try open Gmail inbox directly
         val gmailInbox = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_APP_EMAIL)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            setPackage("com.google.android.gm") // try Gmail first
+            setPackage("com.google.android.gm")
         }
+        runCatching { ctx.startActivity(gmailInbox); return }
 
-        try {
-            ctx.startActivity(gmailInbox)
-            return
-        } catch (_: Exception) {
-            // ignore → fallback
-        }
-
-        // 2) Fallback: open any email app inbox
         val anyMailApp = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_APP_EMAIL)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+        runCatching { ctx.startActivity(Intent.createChooser(anyMailApp, "Open email app")); return }
 
-        try {
-            ctx.startActivity(Intent.createChooser(anyMailApp, "Open email app"))
-            return
-        } catch (_: Exception) {
-            // ignore → fallback
-        }
-
-        // 3) Last resort: open Gmail web inbox
-        val web = Intent(
-            Intent.ACTION_VIEW,
-            "https://mail.google.com".toUri()
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-        ctx.startActivity(web)
+        val web = Intent(Intent.ACTION_VIEW, "https://mail.google.com".toUri())
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { ctx.startActivity(web) }
     }
 
+    // ✅ countdown logic
+    LaunchedEffect(state) {
+        if (state == ForgotUiState.CountdownToOpenEmail) {
+            secondsLeft = 8
+            while (secondsLeft > 0 && state == ForgotUiState.CountdownToOpenEmail) {
+                delay(1000)
+                secondsLeft -= 1
+            }
+            if (state == ForgotUiState.CountdownToOpenEmail) {
+                state = ForgotUiState.ReadyToOpenEmail
+            }
+        }
+    }
 
+    // Modern-ish container + your colors
     AlertDialog(
         onDismissRequest = {
-            // Prevent dismiss while "sending/waiting" if you want:
+            // Only allow dismiss on first step (so user doesn’t close while “sending”)
             if (state == ForgotUiState.Confirm) onDismiss()
         },
-        containerColor = if (!dark) Color.White else Color(0xFF121522),
-        tonalElevation = 6.dp,
+        containerColor = if (!dark) Color.White else Color(0xFF111526),
+        tonalElevation = 0.dp,
+        shape = RoundedCornerShape(22.dp),
         title = {
-            Text(
-                text = "Reset password",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // little icon chip
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(primaryBtn.copy(alpha = if (dark) 0.22f else 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🔒", fontSize = MaterialTheme.typography.titleMedium.fontSize.us(scales.body))
+                }
+
+                Spacer(Modifier.width(10.dp))
+
+                Column {
+                    val t = MaterialTheme.typography.titleLarge
+                    Text(
+                        text = "Reset password",
+                        style = t,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = t.fontSize.us(scales.body),
+                        lineHeight = if (t.lineHeight.isSpecified) t.lineHeight.us(scales.body) else t.lineHeight
+                    )
+                    val s = MaterialTheme.typography.bodySmall
+                    Text(
+                        text = "We’ll send a secure reset link to your email.",
+                        style = s,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                        fontSize = s.fontSize.us(scales.label),
+                        lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.label) else s.lineHeight
+                    )
+                }
+            }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-                // Email "pill"
+                // Email card
                 Surface(
                     color = fieldBg,
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    tonalElevation = 0.dp
                 ) {
                     Column(Modifier.padding(12.dp)) {
+                        val l = MaterialTheme.typography.labelMedium
                         Text(
-                            "We will send a reset link to:",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            "Reset link will be sent to:",
+                            style = l,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                            fontSize = l.fontSize.us(scales.label),
+                            lineHeight = if (l.lineHeight.isSpecified) l.lineHeight.us(scales.label) else l.lineHeight
                         )
                         Spacer(Modifier.height(4.dp))
+                        val b = MaterialTheme.typography.bodyLarge
                         Text(
                             email.ifBlank { "—" },
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
+                            style = b,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = b.fontSize.us(scales.body),
+                            lineHeight = if (b.lineHeight.isSpecified) b.lineHeight.us(scales.body) else b.lineHeight
                         )
                     }
                 }
 
-                when (state) {
-                    ForgotUiState.Confirm -> {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .clickable(enabled = email.isNotBlank()) { checked = !checked }
-                                .padding(10.dp)
-                        ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { checked = it }
-                            )
-                            Spacer(Modifier.width(8.dp))
+                AnimatedContent(
+                    targetState = state,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = "forgot_state"
+                ) { st ->
+                    when (st) {
+                        ForgotUiState.Confirm -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = if (dark) 0.06f else 0.04f))
+                                        .clickable(enabled = email.isNotBlank()) { checked = !checked }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                                ) {
+                                    Checkbox(checked = checked, onCheckedChange = { checked = it })
+                                    Spacer(Modifier.width(10.dp))
+                                    val s = MaterialTheme.typography.bodyMedium
+                                    Text(
+                                        "I confirm I want to reset this account",
+                                        style = s,
+                                        fontSize = s.fontSize.us(scales.body),
+                                        lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
+                                    )
+                                }
+
+                                val tip = MaterialTheme.typography.bodySmall
+                                Text(
+                                    "Tip: Check Spam/Junk if you don’t see it.",
+                                    style = tip,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                                    fontSize = tip.fontSize.us(scales.label),
+                                    lineHeight = if (tip.lineHeight.isSpecified) tip.lineHeight.us(scales.label) else tip.lineHeight
+                                )
+                            }
+                        }
+
+                        ForgotUiState.Sending -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(10.dp))
+                                val s = MaterialTheme.typography.bodyMedium
+                                Text(
+                                    "Sending reset email…",
+                                    style = s,
+                                    fontSize = s.fontSize.us(scales.body),
+                                    lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
+                                )
+                            }
+                        }
+
+                        ForgotUiState.CountdownToOpenEmail -> {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    val s = MaterialTheme.typography.bodyMedium
+                                    Text(
+                                        "Email sent. Preparing… $secondsLeft",
+                                        style = s,
+                                        fontSize = s.fontSize.us(scales.body),
+                                        lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
+                                    )
+                                }
+                                val s2 = MaterialTheme.typography.bodySmall
+                                Text(
+                                    "We’ll show the Open Email button in a moment.",
+                                    style = s2,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                                    fontSize = s2.fontSize.us(scales.label),
+                                    lineHeight = if (s2.lineHeight.isSpecified) s2.lineHeight.us(scales.label) else s2.lineHeight
+                                )
+                            }
+                        }
+
+                        ForgotUiState.ReadyToOpenEmail -> {
+                            val s = MaterialTheme.typography.bodyMedium
                             Text(
-                                text = "I’m 100% sure I want to reset this email",
-                                style = MaterialTheme.typography.bodyMedium
+                                text = "Email sent ✅\nOpen your inbox and tap the reset link.",
+                                style = s,
+                                fontSize = s.fontSize.us(scales.body),
+                                lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
                             )
-                        }
-
-                        Text(
-                            text = "Tip: If you don’t receive it, check Spam/Junk.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                        )
-                    }
-
-                    ForgotUiState.Sending -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text("Sending reset email…", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-
-                    ForgotUiState.WaitingToOpenEmail -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text("Done  Waiting 8 seconds…", style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-
-                    ForgotUiState.ReadyToOpenEmail -> {
-                        Text(
-                            text = "Email sent \nOpen your inbox to click the reset link.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        msg?.let {
-                            Text(
-                                it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                            )
+                            msg?.let {
+                                Spacer(Modifier.height(6.dp))
+                                val s2 = MaterialTheme.typography.bodySmall
+                                Text(
+                                    it,
+                                    style = s2,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+                                    fontSize = s2.fontSize.us(scales.label),
+                                    lineHeight = if (s2.lineHeight.isSpecified) s2.lineHeight.us(scales.label) else s2.lineHeight
+                                )
+                            }
                         }
                     }
                 }
@@ -700,32 +833,37 @@ private fun ForgotPasswordDialog(
                     Button(
                         enabled = email.isNotBlank() && checked,
                         onClick = {
-                            msg = null
                             state = ForgotUiState.Sending
 
+                            // ✅ you still control actual send from caller
                             onSendReset(email)
 
-                            scope.launch {
-                                kotlinx.coroutines.delay(700)
-                                state = ForgotUiState.WaitingToOpenEmail
-                                kotlinx.coroutines.delay(8000)
-                                state = ForgotUiState.ReadyToOpenEmail
-                            }
+                            // ✅ nicer flow: short sending → countdown → open email
+                            // (no fake "waiting", real countdown UI)
+                            state = ForgotUiState.CountdownToOpenEmail
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = primaryBtn, contentColor = Color.White),
                         shape = RoundedCornerShape(14.dp)
                     ) {
-                        Text("Send reset email")
+                        val s = MaterialTheme.typography.labelLarge
+                        Text(
+                            "Send reset email",
+                            style = s,
+                            fontSize = s.fontSize.us(scales.body),
+                            lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
+                        )
                     }
                 }
 
-                ForgotUiState.Sending, ForgotUiState.WaitingToOpenEmail -> {
-                    Button(
-                        enabled = false,
-                        onClick = {},
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text("Please wait…")
+                ForgotUiState.Sending, ForgotUiState.CountdownToOpenEmail -> {
+                    Button(enabled = false, onClick = {}, shape = RoundedCornerShape(14.dp)) {
+                        val s = MaterialTheme.typography.labelLarge
+                        Text(
+                            "Please wait…",
+                            style = s,
+                            fontSize = s.fontSize.us(scales.body),
+                            lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
+                        )
                     }
                 }
 
@@ -733,13 +871,18 @@ private fun ForgotPasswordDialog(
                     Button(
                         onClick = {
                             openGmail()
-                            // Close dialog + go back to login screen
                             onDismissAndBackToLogin()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = primaryBtn, contentColor = Color.White),
                         shape = RoundedCornerShape(14.dp)
                     ) {
-                        Text("Open email")
+                        val s = MaterialTheme.typography.labelLarge
+                        Text(
+                            "Open email",
+                            style = s,
+                            fontSize = s.fontSize.us(scales.body),
+                            lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
+                        )
                     }
                 }
             }
@@ -747,29 +890,73 @@ private fun ForgotPasswordDialog(
         dismissButton = {
             when (state) {
                 ForgotUiState.Confirm -> {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    TextButton(onClick = onDismiss) {
+                        val s = MaterialTheme.typography.labelLarge
+                        Text(
+                            "Cancel",
+                            style = s,
+                            fontSize = s.fontSize.us(scales.body),
+                            lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
+                        )
+                    }
                 }
+
                 ForgotUiState.ReadyToOpenEmail -> {
-                    TextButton(
-                        onClick = {
-                            // user wants to close but still go back to login
-                            onDismissAndBackToLogin()
-                        }
-                    ) { Text("Back to login") }
+                    TextButton(onClick = onDismissAndBackToLogin) {
+                        val s = MaterialTheme.typography.labelLarge
+                        Text(
+                            "Back to login",
+                            style = s,
+                            fontSize = s.fontSize.us(scales.body),
+                            lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(scales.body) else s.lineHeight
+                        )
+                    }
                 }
-                else -> {
-                    // disable cancel while waiting
-                }
+
+                else -> Unit
             }
         }
     )
 }
 
-private enum class ForgotUiState {
-    Confirm,
-    Sending,
-    WaitingToOpenEmail,
-    ReadyToOpenEmail
+@Composable
+fun AnimatedModeText(
+    mode: AuthMode,
+    loginText: String,
+    signUpText: String,
+    color: Color,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    textScale: Float
+) {
+    val scaledStyle = remember(style, textScale) { style.scaleText(textScale) }
+
+    AnimatedContent(
+        targetState = mode,
+        transitionSpec = {
+            val goingToSignUp = targetState == AuthMode.SignUp
+
+            val inAnim =
+                (fadeIn(tween(180)) + slideInVertically(tween(220)) { h ->
+                    if (goingToSignUp) h / 2 else -h / 2
+                })
+
+            val outAnim =
+                (fadeOut(tween(140)) + slideOutVertically(tween(200)) { h ->
+                    if (goingToSignUp) -h / 2 else h / 2
+                })
+
+            inAnim.togetherWith(outAnim).using(SizeTransform(clip = false))
+        },
+        label = "AnimatedModeText"
+    ) { m ->
+        Text(
+            text = if (m == AuthMode.Login) loginText else signUpText,
+            color = color,
+            style = scaledStyle,
+            modifier = modifier
+        )
+    }
 }
 
 @Composable
@@ -781,13 +968,23 @@ private fun RoundedField(
     trailingIcon: (@Composable () -> Unit)? = null,
     fieldBg: Color,
     keyboardType: KeyboardType,
-    visualTransformation: VisualTransformation = VisualTransformation.None
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    textScale: Float
 ) {
+    val base = MaterialTheme.typography.bodyLarge
+    val scaled = remember(base, textScale) { base.scaleText(textScale) }
+
     TextField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        placeholder = { Text(placeholder) },
+        placeholder = {
+            Text(
+                placeholder,
+                style = scaled
+            )
+        },
+        textStyle = scaled,
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
@@ -801,6 +998,15 @@ private fun RoundedField(
             cursorColor = Color(0xFF253D73)
         ),
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 54.dp)
     )
+}
+
+private fun TextStyle.scaleText(s: Float): TextStyle {
+    var out = this
+    if (out.fontSize.isSpecified) out = out.copy(fontSize = out.fontSize.us(s))
+    if (out.lineHeight.isSpecified) out = out.copy(lineHeight = out.lineHeight.us(s))
+    return out
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Login
@@ -18,8 +19,6 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenuPopup
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
@@ -32,12 +31,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.unit.LayoutDirection
 
 // ---------- Defaults ----------
 private val MenuIconSize = 20.dp
-private val MenuMinWidth = 240.dp
+val MenuMinWidth = 200.dp
 
 private const val KEY_EDIT = "edit"
 private const val KEY_PHOTO = "photo"
@@ -56,10 +61,10 @@ data class MenuFeatureFlags(
 )
 
 @Composable
-fun ProfileExpressiveMenuPopup(
+fun ProfileExpressiveMenuPopupAnchored(
     expanded: Boolean,
     onDismiss: () -> Unit,
-    offset: DpOffset,
+    anchorBounds: IntRect?,              // ✅ anchor in WINDOW coords
     hasProfile: Boolean,
     isLoggedIn: Boolean,
     onEdit: () -> Unit,
@@ -70,45 +75,114 @@ fun ProfileExpressiveMenuPopup(
     selectedKey: String? = null,
     flags: MenuFeatureFlags = MenuFeatureFlags(),
 ) {
+    if (!expanded || anchorBounds == null) return
+
+    val scales = rememberUiScales()
+    val density = LocalDensity.current
+
     val containerColor = if (flags.vibrant) {
         MenuDefaults.groupVibrantContainerColor
     } else {
         MenuDefaults.groupStandardContainerColor
     }
 
-    DropdownMenuPopup(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        offset = offset,
-        modifier = modifier.widthIn(min = MenuMinWidth),
-    ) {
-        // Use groupCount = 2 because we have two DropdownMenuGroups
-        val totalGroups = 2
+    val positionProvider = remember(anchorBounds, density) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize
+            ): IntOffset {
+                val marginPx = with(density) { 8.dp.roundToPx() }
 
-        // ----- Group 0: Profile Actions -----
-        val topItems = remember(hasProfile, isLoggedIn, flags) {
-            buildList {
-                if (hasProfile) {
-                    add(MenuEntry(
+                var x = anchorBounds.right - popupContentSize.width - marginPx
+                x = x.coerceIn(
+                    marginPx,
+                    windowSize.width - popupContentSize.width - marginPx
+                )
+
+                var y = anchorBounds.bottom + marginPx
+                y = y.coerceIn(
+                    marginPx,
+                    windowSize.height - popupContentSize.height - marginPx
+                )
+
+                return IntOffset(x, y)
+
+            }
+        }
+    }
+
+    Popup(
+        popupPositionProvider = positionProvider,
+        onDismissRequest = onDismiss
+    ) {
+        // content width controlled by wrapContentWidth, but groups have their own min sizes
+        MenuContent(
+            modifier = modifier
+                .wrapContentWidth()
+                .widthIn(min = MenuMinWidth),
+            hasProfile = hasProfile,
+            isLoggedIn = isLoggedIn,
+            flags = flags,
+            selectedKey = selectedKey,
+            scales = scales,
+            containerColor = containerColor,
+            onEdit = onEdit,
+            onChangePhoto = onChangePhoto,
+            onPrivacy = onPrivacy,
+            onLoginLogout = onLoginLogout,
+            onDismiss = onDismiss
+        )
+    }
+}
+
+@Composable
+private fun MenuContent(
+    modifier: Modifier,
+    hasProfile: Boolean,
+    isLoggedIn: Boolean,
+    flags: MenuFeatureFlags,
+    selectedKey: String?,
+    scales: UiScales,
+    containerColor: androidx.compose.ui.graphics.Color,
+    onEdit: () -> Unit,
+    onChangePhoto: () -> Unit,
+    onPrivacy: () -> Unit,
+    onLoginLogout: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val totalGroups = 2
+
+    val topItems = remember(hasProfile, isLoggedIn, flags) {
+        buildList {
+            if (hasProfile) {
+                add(
+                    MenuEntry(
                         key = KEY_EDIT,
                         label = "Edit profile",
                         leadingIcon = Icons.Filled.Edit,
                         supportingText = if (flags.supportingText) "Edit your profile info" else null,
                         trailingIcon = if (flags.trailingIcon) Icons.AutoMirrored.Filled.KeyboardArrowRight else null,
                         onClick = onEdit
-                    ))
-                }
-                if (isLoggedIn) {
-                    add(MenuEntry(
+                    )
+                )
+            }
+            if (isLoggedIn) {
+                add(
+                    MenuEntry(
                         key = KEY_PHOTO,
                         label = "Change photo",
                         leadingIcon = Icons.Filled.PhotoCamera,
                         supportingText = if (flags.supportingText) "Update your avatar" else null,
                         trailingIcon = if (flags.trailingIcon) Icons.AutoMirrored.Filled.KeyboardArrowRight else null,
                         onClick = onChangePhoto
-                    ))
-                }
-                add(MenuEntry(
+                    )
+                )
+            }
+            add(
+                MenuEntry(
                     key = KEY_PRIVACY,
                     label = "Privacy",
                     leadingIcon = Icons.Filled.PrivacyTip,
@@ -116,36 +190,30 @@ fun ProfileExpressiveMenuPopup(
                     trailingIcon = if (flags.trailingIcon) Icons.AutoMirrored.Filled.KeyboardArrowRight else null,
                     badgeText = if (flags.badge) "New" else null,
                     onClick = onPrivacy
-                ))
-            }
+                )
+            )
         }
+    }
 
+    // Outer container: same min width behavior you want
+    androidx.compose.material3.DropdownMenuPopup(
+        expanded = true,
+        onDismissRequest = onDismiss,
+        offset = androidx.compose.ui.unit.DpOffset(0.dp, 0.dp),
+        modifier = modifier
+    ) {
         DropdownMenuGroup(
             shapes = MenuDefaults.groupShape(index = 0, count = totalGroups),
             containerColor = containerColor,
         ) {
-            if (flags.groupLabels) {
-                MenuDefaults.Label { Text("Account") }
-                if (flags.groupDividers) {
-                    HorizontalDivider(Modifier.padding(horizontal = MenuDefaults.HorizontalDividerPadding))
-                }
-            }
-
             topItems.forEachIndexed { index, item ->
-
                 val hasPhoto = topItems.any { it.key == KEY_PHOTO }
 
-                val itemShapes = when (// ✅ LOGGED OUT CASE: only Privacy in top group
-                    // Make it look like "top item of 2" => top corners rounded only
-                    item.key) {
+                val itemShapes = when (item.key) {
                     KEY_PRIVACY if topItems.size == 1 ->
                         MenuDefaults.itemShape(index = 0, count = 2)
-
-                    // ✅ LOGGED IN CASES where you want Privacy to be square like Change photo
                     KEY_PRIVACY if hasPhoto ->
-                        MenuDefaults.itemShape(index = 1, count = 3) // middle => square
-
-                    // ✅ Default behavior
+                        MenuDefaults.itemShape(index = 1, count = 3)
                     else -> MenuDefaults.itemShape(index = index, count = topItems.size)
                 }
 
@@ -153,16 +221,14 @@ fun ProfileExpressiveMenuPopup(
                     entry = item,
                     selected = flags.persistentSelection && (selectedKey == item.key),
                     shapes = itemShapes,
-                    flags = flags
+                    flags = flags,
+                    scales = scales
                 )
             }
-
         }
-
 
         Spacer(Modifier.height(MenuDefaults.GroupSpacing))
 
-        // ----- Group 1: Auth Actions -----
         val authEntry = remember(isLoggedIn, flags.supportingText) {
             MenuEntry(
                 key = KEY_AUTH,
@@ -182,9 +248,9 @@ fun ProfileExpressiveMenuPopup(
             ExpressiveMenuItem(
                 entry = authEntry,
                 selected = flags.persistentSelection && (selectedKey == KEY_AUTH),
-                // Since there is only 1 item in this group, index is 0 and count is 1
                 shapes = MenuDefaults.itemShape(index = 1, count = 2),
                 flags = flags,
+                scales = scales,
                 colors = MenuDefaults.itemColors(
                     leadingIconColor = MaterialTheme.colorScheme.primary,
                 )
@@ -212,40 +278,53 @@ private fun ExpressiveMenuItem(
     selected: Boolean,
     shapes: MenuItemShapes,
     flags: MenuFeatureFlags,
+    scales: UiScales,
     colors: MenuItemColors? = null,
 ) {
-    val trailingContent: (@Composable () -> Unit)? = remember(flags, entry) {
+    val bodyS = scales.body
+    val labelS = scales.label
+
+    val leadingIconSize = MenuIconSize.us(bodyS)
+    val trailingIconSize = 18.dp.us(bodyS)
+
+    val labelStyle = MaterialTheme.typography.bodyLarge
+    val supportingStyle = MaterialTheme.typography.bodySmall
+    val trailingTextStyle = MaterialTheme.typography.labelSmall
+
+    val trailingContent: (@Composable () -> Unit)? = remember(flags, entry, bodyS, labelS) {
         val hasTrailing = (flags.trailingIcon && entry.trailingIcon != null) ||
                 (flags.badge && entry.badgeText != null) ||
                 (flags.trailingText && entry.trailingText != null)
 
-        if (hasTrailing) {
-            {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (flags.trailingText && entry.trailingText != null) {
-                        Text(
-                            text = entry.trailingText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
+        if (!hasTrailing) return@remember null
 
-                    if (flags.badge && entry.badgeText != null) {
-                        BadgePill(text = entry.badgeText)
-                    }
+        {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (flags.trailingText && entry.trailingText != null) {
+                    Text(
+                        text = entry.trailingText,
+                        style = trailingTextStyle.copy(
+                            fontSize = trailingTextStyle.fontSize.us(labelS)
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(8.dp.us(bodyS)))
+                }
 
-                    if (flags.trailingIcon && entry.trailingIcon != null) {
-                        if (flags.badge || flags.trailingText) Spacer(Modifier.width(8.dp))
-                        Icon(
-                            imageVector = entry.trailingIcon,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                if (flags.badge && entry.badgeText != null) {
+                    BadgePill(text = entry.badgeText, scales = scales)
+                }
+
+                if (flags.trailingIcon && entry.trailingIcon != null) {
+                    if (flags.badge || flags.trailingText) Spacer(Modifier.width(8.dp.us(bodyS)))
+                    Icon(
+                        imageVector = entry.trailingIcon,
+                        contentDescription = null,
+                        modifier = Modifier.size(trailingIconSize)
+                    )
                 }
             }
-        } else null
+        }
     }
 
     DropdownMenuItem(
@@ -257,30 +336,35 @@ private fun ExpressiveMenuItem(
             Icon(
                 imageVector = entry.leadingIcon,
                 contentDescription = null,
-                modifier = Modifier.size(MenuIconSize)
+                modifier = Modifier.size(leadingIconSize)
             )
         },
         text = {
             if (flags.supportingText && entry.supportingText != null) {
-                // FIX: Pass the label as the trailing lambda, not a named 'label' parameter
                 MenuDefaults.LabelWithSupportingText(
                     supportingText = {
                         Text(
                             text = entry.supportingText,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = supportingStyle.copy(
+                                fontSize = supportingStyle.fontSize.us(labelS)
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 ) {
                     Text(
                         text = entry.label,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = labelStyle.copy(
+                            fontSize = labelStyle.fontSize.us(bodyS)
+                        )
                     )
                 }
             } else {
                 Text(
                     text = entry.label,
-                    style = MaterialTheme.typography.bodyLarge
+                    style = labelStyle.copy(
+                        fontSize = labelStyle.fontSize.us(bodyS)
+                    )
                 )
             }
         },
@@ -289,7 +373,9 @@ private fun ExpressiveMenuItem(
 }
 
 @Composable
-private fun BadgePill(text: String) {
+private fun BadgePill(text: String, scales: UiScales) {
+    val badgeStyle = MaterialTheme.typography.labelSmall
+
     Surface(
         shape = MaterialTheme.shapes.extraSmall,
         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -297,8 +383,13 @@ private fun BadgePill(text: String) {
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = badgeStyle.copy(
+                fontSize = badgeStyle.fontSize.us(scales.label)
+            ),
+            modifier = Modifier.padding(
+                horizontal = 6.dp.us(scales.body),
+                vertical = 2.dp.us(scales.body)
+            ),
         )
     }
 }

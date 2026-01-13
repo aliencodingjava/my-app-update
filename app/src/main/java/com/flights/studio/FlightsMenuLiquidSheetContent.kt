@@ -37,10 +37,6 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  MAIN GLASS SHEET – big rounded rect + stats + 3 LiquidButtons
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun FlightsMenuLiquidSheetContent(
     backdrop: LayerBackdrop,
@@ -50,7 +46,10 @@ fun FlightsMenuLiquidSheetContent(
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
 
-    // secondary backdrop for the sheet & inner boxes (Kyant: bottomSheetBackdrop)
+    // ✅ your scaling system
+    val ui = rememberUiScale()       // dp scaling
+    val uiTight = rememberUiTight()  // text scaling
+
     val sheetBackdrop = rememberLayerBackdrop()
 
     val sheetSurfaceColor =
@@ -65,66 +64,59 @@ fun FlightsMenuLiquidSheetContent(
         if (isDark) Modifier.graphicsLayer(blendMode = BlendMode.Plus)
         else Modifier
 
-    val sheetShapeRound = RoundedCornerShape(42.dp)
+    val sheetShapeRound = RoundedCornerShape(42.dp.us(ui))
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 6.dp, vertical = 8.dp)
+            .padding(horizontal = 6.dp.us(ui), vertical = 8.dp.us(ui))
             .clip(sheetShapeRound)
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { RoundedCornerShape(44.dp) },
+                shape = { RoundedCornerShape(44.dp.us(ui)) },
                 effects = {
                     vibrancy()
-                    blur(2.dp.toPx())
-                    lens(24.dp.toPx(), 48.dp.toPx(), true)
+                    blur(2.dp.us(ui).toPx())
+                    lens(24.dp.us(ui).toPx(), 48.dp.us(ui).toPx(), true)
                 },
                 highlight = { Highlight.Plain },
                 exportedBackdrop = sheetBackdrop,
                 onDrawSurface = { drawRect(sheetSurfaceColor) }
             )
-            .clickable(
-                interactionSource = null,
-                indication = null
-            ) { }
-            .padding(horizontal = 0.dp, vertical = 24.dp),
+            .clickable(interactionSource = null, indication = null) { }
+            .padding(horizontal = 0.dp, vertical = 24.dp.us(ui)),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
         // grab handle
         Box(
             modifier = Modifier
-                .size(width = 36.dp, height = 4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(
-                    Color.White.copy(alpha = if (isDark) 0.50f else 0.40f)
-                )
+                .size(width = 36.dp.us(ui), height = 4.dp.us(ui))
+                .clip(RoundedCornerShape(2.dp.us(ui)))
+                .background(Color.White.copy(alpha = if (isDark) 0.50f else 0.40f))
         )
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(18.dp.us(ui)))
 
-        // ───── BOX #1: Stats (Notes / Contacts) – glass bar ─────
+        // Stats bar
         Box(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp.us(ui))
                 .fillMaxWidth()
-                .height(64.dp)
+                .height(64.dp.us(ui))
                 .drawBackdrop(
                     backdrop = sheetBackdrop,
-                    shape = { RoundedCornerShape(20.dp) },
+                    shape = { RoundedCornerShape(20.dp.us(ui)) },
                     shadow = null,
                     effects = {
                         vibrancy()
-                        blur(2.dp.toPx())
-                        lens(16.dp.toPx(), 32.dp.toPx())
+                        blur(2.dp.us(ui).toPx())
+                        lens(16.dp.us(ui).toPx(), 32.dp.us(ui).toPx())
                     },
-                    onDrawSurface = {
-                        drawRect(Color.Green.copy(alpha = 0.15f))
-                    }
+                    onDrawSurface = { drawRect(Color.Green.copy(alpha = 0.15f)) }
                 )
-                .clip(RoundedCornerShape(20.dp))
-                .padding(horizontal = 18.dp, vertical = 10.dp)
+                .clip(RoundedCornerShape(20.dp.us(ui)))
+                .padding(horizontal = 18.dp.us(ui), vertical = 10.dp.us(ui))
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -141,7 +133,7 @@ fun FlightsMenuLiquidSheetContent(
                         modifier = liftTextMod,
                         style = TextStyle(
                             color = mainTextColor.copy(alpha = 0.65f),
-                            fontSize = 11.sp,
+                            fontSize = 11.sp.us(uiTight),
                             fontWeight = FontWeight.Normal
                         )
                     )
@@ -150,9 +142,9 @@ fun FlightsMenuLiquidSheetContent(
                         modifier = liftTextMod,
                         style = TextStyle(
                             color = mainTextColor,
-                            fontSize = 18.sp,
+                            fontSize = 18.sp.us(uiTight),
                             fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.25).sp
+                            letterSpacing = (-0.25).sp.us(uiTight)
                         )
                     )
                 }
@@ -166,7 +158,7 @@ fun FlightsMenuLiquidSheetContent(
                         modifier = liftTextMod,
                         style = TextStyle(
                             color = mainTextColor.copy(alpha = 0.65f),
-                            fontSize = 11.sp,
+                            fontSize = 11.sp.us(uiTight),
                             fontWeight = FontWeight.Normal
                         )
                     )
@@ -175,85 +167,69 @@ fun FlightsMenuLiquidSheetContent(
                         modifier = liftTextMod,
                         style = TextStyle(
                             color = mainTextColor,
-                            fontSize = 18.sp,
+                            fontSize = 18.sp.us(uiTight),
                             fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.25).sp
+                            letterSpacing = (-0.25).sp.us(uiTight)
                         )
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(22.dp.us(ui)))
 
-        // ───── BOX #2: Open Notes – LiquidButton ─────
         Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp.us(ui))
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
             LiquidButton(
-                onClick = {
-                    context.startActivity(Intent(context, AllNotesActivity::class.java))
-                },
+                onClick = { context.startActivity(Intent(context, AllNotesActivity::class.java)) },
                 iconRes = R.drawable.ic_oui_notes,
                 label = "Open Notes",
                 backdrop = sheetBackdrop,
                 modifier = Modifier.fillMaxWidth(),
-//                centerLabel = true          // 🔹 HERE
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp.us(ui)))
 
-        // ───── BOX #3: Open Contacts – LiquidButton ─────
         Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp.us(ui))
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
             LiquidButton(
-                onClick = {
-                    context.startActivity(Intent(context, AllContactsActivity::class.java))
-                },
+                onClick = { context.startActivity(Intent(context, AllContactsActivity::class.java)) },
                 iconRes = R.drawable.contact_page_24dp_ffffff_fill1_wght400_grad0_opsz24,
                 label = "Open Contacts",
                 backdrop = sheetBackdrop,
                 modifier = Modifier.fillMaxWidth(),
-//                centerLabel = true          // 🔹 HERE
             )
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp.us(ui)))
 
-        // ───── BOX #4: Settings – LiquidButton ─────
         Row(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp.us(ui))
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
         ) {
             LiquidButton(
-                onClick = {
-                    context.startActivity(Intent(context, SettingsActivity::class.java))
-                },
+                onClick = { context.startActivity(Intent(context, SettingsActivity::class.java)) },
                 iconRes = R.drawable.ic_settings_black_24dp,
                 label = "Settings",
                 backdrop = sheetBackdrop,
                 modifier = Modifier.fillMaxWidth(),
-//                centerLabel = true          // 🔹 HERE
             )
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(24.dp.us(ui)))
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Modal wrapper – unchanged
-// ─────────────────────────────────────────────────────────────────────────────
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -295,3 +271,32 @@ fun FlightsMenuLiquidSheetModal(
         )
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "Small phone",
+    device = "id:pixel_4",
+    showBackground = true
+)
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "Big phone",
+    device = "id:pixel_8_pro",
+    showBackground = true
+)
+@androidx.compose.ui.tooling.preview.Preview(
+    name = "Tablet",
+    device = "id:pixel_tablet",
+    showBackground = true
+)
+@Composable
+fun FlightsMenuLiquidSheetContentPreview() {
+    val mockBackdrop = rememberLayerBackdrop()
+
+    FlightsTheme {
+        FlightsMenuLiquidSheetContent(
+            backdrop = mockBackdrop,
+            notesCount = 12,
+            contactsCount = 34
+        )
+    }
+}
+

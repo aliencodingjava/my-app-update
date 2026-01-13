@@ -46,6 +46,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
 
+
 @Composable
 fun LiquidButton(
     onClick: () -> Unit,
@@ -63,6 +64,22 @@ fun LiquidButton(
     }
     val isDark = isSystemInDarkTheme()
 
+    // ✅ dp/layout scaling
+    val ui = rememberUiScale()
+    // ✅ text scaling (tablet-safe)
+    val uiTight = rememberUiTight()
+
+    // Layout tokens (dp)
+    val btnHeight = 44.dp.us(ui)
+    val horizontalPad = 12.dp.us(ui)
+    val iconBgSize = 28.dp.us(ui)
+    val iconSize = 20.dp.us(ui)
+    val endSpacer = 10.dp.us(ui)
+
+    // Text tokens (sp)
+    val fontSize = 12.sp.us(uiTight)
+    val letterSpacing = 0.15.sp.us(uiTight)
+
     Box(
         modifier = modifier
             .drawBackdrop(
@@ -70,42 +87,28 @@ fun LiquidButton(
                 shape = { RoundedCornerShape(percent = 50) },
                 effects = {
                     vibrancy()
-                    if (isDark) {
-                        blur(4.dp.toPx())
-                        lens(
-                            refractionHeight = 8.dp.toPx(),
-                            refractionAmount = 28.dp.toPx(),
-                            depthEffect = true,
-                            chromaticAberration = false
-                        )
-                        colorControls(
-                            brightness = 0.0f,
-                            contrast = 1.0f,
-                            saturation = 1.9f
-                        )
-                    } else {
-                        blur(0.dp.toPx())
-                        lens(
-                            refractionHeight = 8.dp.toPx(),
-                            refractionAmount = 28.dp.toPx(),
-                            depthEffect = true,
-                            chromaticAberration = false
-                        )
-                        colorControls(
-                            brightness = 0.0f,
-                            contrast = 1.0f,
-                            saturation = 1.9f
-                        )
-                    }
+                    // you can keep these constants; glass blur/lens doesn't need scaling
+                    blur(if (isDark) 2.dp.toPx() else 0.dp.toPx())
+                    lens(
+                        refractionHeight = 8.dp.toPx(),
+                        refractionAmount = 28.dp.toPx(),
+                        depthEffect = true,
+                        chromaticAberration = false
+                    )
+                    colorControls(
+                        brightness = 0.0f,
+                        contrast = 1.0f,
+                        saturation = 1.9f
+                    )
                 },
                 layerBlock = if (isInteractive) {
                     {
                         val width = size.width
                         val height = size.height
-
                         val progress = interactiveHighlight.pressProgress
 
-                        val zoomAmountPx = 1.5.dp.toPx()
+                        // Optional: if you want the press feel consistent with your dp scale:
+                        val zoomAmountPx = 1.5.dp.us(ui).toPx()
                         val scale = lerp(1f, 1f + zoomAmountPx / size.height, progress)
 
                         val maxOffset = size.minDimension
@@ -115,7 +118,7 @@ fun LiquidButton(
                         translationX = maxOffset * tanh(k * offset.x / maxOffset)
                         translationY = maxOffset * tanh(k * offset.y / maxOffset)
 
-                        val maxDragScale = 1.5.dp.toPx() / size.height
+                        val maxDragScale = 1.5.dp.us(ui).toPx() / size.height
                         val ang = atan2(offset.y, offset.x)
 
                         scaleX = scale +
@@ -130,10 +133,7 @@ fun LiquidButton(
                     }
                 } else null,
                 onDrawSurface = {
-                    // 🔹 Only darken in DARK theme
-                    if (isDark) {
-                        drawRect(Color.Black.copy(alpha = 0.10f))
-                    }
+                    if (isDark) drawRect(Color.Black.copy(alpha = 0.10f))
 
                     if (tint.isSpecified) {
                         drawRect(tint, blendMode = BlendMode.Hue)
@@ -143,7 +143,6 @@ fun LiquidButton(
                         drawRect(surfaceColor)
                     }
                 }
-
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
@@ -153,15 +152,15 @@ fun LiquidButton(
                 role = Role.Button,
                 onClick = onClick
             )
-            .height(44.dp)
-            .padding(horizontal = 12.dp),
+            .height(btnHeight)
+            .padding(horizontal = horizontalPad),
         contentAlignment = Alignment.Center
     ) {
         val contentColor = Color.White
         val textShadow = Shadow(
             color = Color.Black.copy(alpha = 0.9f),
             offset = Offset(0f, 2f),
-            blurRadius = 5f
+            blurRadius = 1f
         )
 
         Row(
@@ -171,7 +170,7 @@ fun LiquidButton(
             if (iconRes != 0) {
                 Box(
                     modifier = Modifier
-                        .size(28.dp) // ✅ bigger area for the background circle
+                        .size(iconBgSize)
                         .drawBehind {
                             drawCircle(
                                 color = Color.DarkGray.copy(alpha = 0.70f),
@@ -183,13 +182,11 @@ fun LiquidButton(
                     Image(
                         painter = painterResource(id = iconRes),
                         contentDescription = label,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(iconSize),
                         colorFilter = ColorFilter.tint(contentColor)
                     )
                 }
-
             }
-
 
             Box(
                 modifier = Modifier.weight(1f),
@@ -202,9 +199,9 @@ fun LiquidButton(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         style = TextStyle(
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.15.sp,
+                            fontSize = fontSize,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = letterSpacing,
                             shadow = textShadow
                         )
                     )
@@ -212,7 +209,7 @@ fun LiquidButton(
             }
 
             if (iconRes != 0) {
-                Box(modifier = Modifier.size(10.dp))
+                Box(modifier = Modifier.size(endSpacer))
             }
         }
     }

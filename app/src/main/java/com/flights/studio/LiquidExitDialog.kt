@@ -113,8 +113,8 @@ fun ExitLiquidDialog(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.90f)
-                .heightIn(min = 260.dp)
+                .fillMaxWidth(0.80f)
+                .heightIn(min = 250.dp)
                 .graphicsLayer {
                     alpha = dialogAlpha.value
                     scaleX = dialogScale.value

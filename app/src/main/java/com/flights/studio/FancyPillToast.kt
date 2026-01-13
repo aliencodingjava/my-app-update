@@ -30,13 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.delay
 import java.util.WeakHashMap
 
 object FancyPillToast {
 
-    // ✅ one toast per activity (prevents shadow stacking / black multiply)
     private val activeHosts = WeakHashMap<FragmentActivity, FrameLayout>()
 
     fun show(activity: FragmentActivity, text: String, durationMs: Long = 3000L) {
@@ -45,7 +45,6 @@ object FancyPillToast {
         activity.runOnUiThread {
             val root = activity.findViewById<ViewGroup>(android.R.id.content) ?: return@runOnUiThread
 
-            // ✅ remove existing toast (if user taps multiple times)
             activeHosts.remove(activity)?.let { old ->
                 try { root.removeView(old) } catch (_: Throwable) {}
             }
@@ -70,20 +69,23 @@ object FancyPillToast {
 
                 setContent {
                     FlightsTheme {
+                        // ✅ dp scale for spacing / padding
+                        val ui = rememberUiScale()
+                        // ✅ text scale (tablet-safe tightening)
+                        val uiTight = rememberUiTight()
+
                         val visible = remember { mutableStateOf(true) }
                         val shadowOn = remember { mutableStateOf(true) }
 
                         val navBottom = WindowInsets.navigationBars.asPaddingValues()
                             .calculateBottomPadding()
 
-                        // ✅ Animate shadow off before the exit animation
                         val shadowDp = animateDpAsState(
                             targetValue = if (shadowOn.value) 5.dp else 0.dp,
                             animationSpec = tween(140),
                             label = "pillShadow"
                         )
 
-                        // Optional: tiny fade on the surface itself while shadow drops
                         val surfaceAlpha = animateFloatAsState(
                             targetValue = if (shadowOn.value) 0.96f else 0.92f,
                             animationSpec = tween(140),
@@ -92,16 +94,11 @@ object FancyPillToast {
 
                         LaunchedEffect(Unit) {
                             delay(durationMs)
-
-                            // 1) drop shadow first (prevents “heavy” last frames)
                             shadowOn.value = false
                             delay(150)
-
-                            // 2) then exit (slide/fade out)
                             visible.value = false
                             delay(260)
 
-                            // 3) remove view safely
                             if (!activity.isFinishing && !activity.isDestroyed) {
                                 if (host.parent != null) {
                                     try { root.removeView(host) } catch (_: Throwable) {}
@@ -115,7 +112,7 @@ object FancyPillToast {
                                 visible = visible.value,
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
-                                    .padding(bottom = navBottom + 28.dp),
+                                    .padding(bottom = navBottom + (28.dp * ui)),
                                 enter = fadeIn(tween(180)) + slideInVertically(tween(220)) { it / 2 },
                                 exit = fadeOut(tween(180)) + slideOutVertically(tween(200)) { it / 2 }
                             ) {
@@ -125,11 +122,24 @@ object FancyPillToast {
                                     tonalElevation = 0.dp,
                                     shadowElevation = shadowDp.value
                                 ) {
+                                    val base = MaterialTheme.typography.labelLarge
+
+                                    // ✅ scale fontSize/lineHeight only if specified
+                                    val scaledStyle = remember(base, uiTight) {
+                                        var out = base
+                                        if (base.fontSize.isSpecified) out = out.copy(fontSize = base.fontSize.us(uiTight))
+                                        if (base.lineHeight.isSpecified) out = out.copy(lineHeight = base.lineHeight.us(uiTight))
+                                        out
+                                    }
+
                                     Text(
                                         text = text,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = scaledStyle,
                                         color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.padding(horizontal = 50.dp, vertical = 12.dp)
+                                        modifier = Modifier.padding(
+                                            horizontal = (22.dp * ui),
+                                            vertical = (10.dp * ui)
+                                        )
                                     )
                                 }
                             }

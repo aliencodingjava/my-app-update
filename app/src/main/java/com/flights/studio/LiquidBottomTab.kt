@@ -6,8 +6,25 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -41,16 +58,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sign
 
-/**
- * Kyant-style: THIS composable renders ONLY the PILL.
- * The screen/root owns the bottom Row (pill + fab) like your snippet.
- *
- * Usage in root:
- * Row(...){
- *   LiquidBottomTabs(modifier = Modifier.fillMaxHeight().weight(1f), onFabClick = null, ...)
- *   Box(...fab...)
- * }
- */
 @Composable
 fun LiquidBottomTabs(
     selectedTabIndex: () -> Int,
@@ -60,7 +67,9 @@ fun LiquidBottomTabs(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit
 ) {
+    val ui = rememberUiScale()
     val isLightTheme = !isSystemInDarkTheme()
+
     val accentColor = if (isLightTheme) Color(0xFF0088FF) else Color(0xFF0091FF)
     val containerColor =
         if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
@@ -68,7 +77,6 @@ fun LiquidBottomTabs(
 
     val tabsBackdrop = rememberLayerBackdrop()
 
-    // ✅ PILL ONLY (no outer Row, no FAB)
     BoxWithConstraints(
         modifier = modifier
             .fillMaxHeight()
@@ -77,17 +85,15 @@ fun LiquidBottomTabs(
     ) {
         val density = LocalDensity.current
 
-        val tabWidth = with(density) {
-            // keep the same spacing math you had (8.dp gap in the root Row)
-            (constraints.maxWidth.toFloat() - 8f.dp.toPx()) / tabsCount
-        }
+        val gapPx = with(density) { 8.dp.us(ui).toPx() }
+        val tabWidth = (constraints.maxWidth.toFloat() - gapPx) / tabsCount
 
         val offsetAnimation = remember { Animatable(0f) }
-        val panelOffset by remember(density) {
+        val panelOffset by remember(density, ui) {
             derivedStateOf {
                 val fraction = (offsetAnimation.value / constraints.maxWidth).fastCoerceIn(-1f, 1f)
                 with(density) {
-                    4f.dp.toPx() * fraction.sign * EaseOut.transform(abs(fraction))
+                    (8.dp.us(ui).toPx()) * fraction.sign * EaseOut.transform(abs(fraction))
                 }
             }
         }
@@ -98,22 +104,20 @@ fun LiquidBottomTabs(
 
         val onTabSelectedLatest = rememberUpdatedState(onTabSelected)
 
-        val dampedDragAnimation = remember(animationScope) {
+        val dampedDragAnimation = remember(animationScope, tabWidth, isLtr, tabsCount) {
             DampedDragAnimation(
                 animationScope = animationScope,
                 initialValue = selectedTabIndex().toFloat(),
                 valueRange = 0f..(tabsCount - 1).toFloat(),
                 visibilityThreshold = 0.001f,
                 initialScale = 1f,
-                pressedScale = 75f / 56f,
+                pressedScale = 72f / 56f,
                 onDragStarted = {},
                 onDragStopped = {
                     val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
                     currentIndex = targetIndex
                     animateToValue(targetIndex.toFloat())
-
                     onTabSelectedLatest.value(targetIndex)
-
                     animationScope.launch {
                         offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f))
                     }
@@ -130,7 +134,6 @@ fun LiquidBottomTabs(
             )
         }
 
-
         LaunchedEffect(selectedTabIndex) {
             snapshotFlow { selectedTabIndex() }
                 .collectLatest { index -> currentIndex = index }
@@ -145,7 +148,7 @@ fun LiquidBottomTabs(
                 }
         }
 
-        val interactiveHighlight = remember(animationScope) {
+        val interactiveHighlight = remember(animationScope, tabWidth, isLtr, ui, density) {
             InteractiveHighlight(
                 animationScope = animationScope,
                 position = { size, _ ->
@@ -158,7 +161,10 @@ fun LiquidBottomTabs(
             )
         }
 
-        // BACK PLATE long bar
+        val backPlateH = 72.dp.us(ui)
+        val sliderH = 64.dp.us(ui)
+        val sidePad = 4.dp.us(ui)
+
         Row(
             Modifier
                 .graphicsLayer { translationX = panelOffset }
@@ -167,26 +173,25 @@ fun LiquidBottomTabs(
                     shape = { ContinuousCapsule },
                     effects = {
                         vibrancy()
-                        blur(8f.dp.toPx())
-                        lens(24f.dp.toPx(), 24f.dp.toPx())
+                        blur(4.dp.us(ui).toPx())
+                        lens(16.dp.us(ui).toPx(), 32.dp.us(ui).toPx())
                     },
                     layerBlock = {
                         val progress = dampedDragAnimation.pressProgress
-                        val scale = lerp(1f, 1f + 3f.dp.toPx() / size.width, progress)
+                        val scale = lerp(1f, 1f + 4.dp.us(ui).toPx() / size.width, progress)
                         scaleX = scale
                         scaleY = scale
                     },
                     onDrawSurface = { drawRect(containerColor) }
                 )
                 .then(interactiveHighlight.modifier)
-                .height(64.dp)
+                .height(backPlateH)
                 .fillMaxWidth()
                 .padding(0.dp),
             verticalAlignment = Alignment.CenterVertically,
             content = content
         )
 
-        // ICON TINT PASS (Hidden, used for backdrop sampling)
         CompositionLocalProvider(
             LocalLiquidBottomTabScale provides {
                 lerp(1f, 1.1f, dampedDragAnimation.pressProgress)
@@ -204,8 +209,8 @@ fun LiquidBottomTabs(
                         effects = {
                             val progress = dampedDragAnimation.pressProgress
                             vibrancy()
-                            blur(8f.dp.toPx())
-                            lens(24f.dp.toPx() * progress, 24f.dp.toPx() * progress)
+                            blur(4.dp.us(ui).toPx())
+                            lens(16.dp.us(ui).toPx() * progress, 32.dp.us(ui).toPx() * progress)
                         },
                         highlight = {
                             val progress = dampedDragAnimation.pressProgress
@@ -214,7 +219,7 @@ fun LiquidBottomTabs(
                         onDrawSurface = { drawRect(containerColor) }
                     )
                     .then(interactiveHighlight.modifier)
-                    .height(56.dp)
+                    .height(sliderH)
                     .fillMaxWidth()
                     .padding(horizontal = 0.dp)
                     .graphicsLayer(colorFilter = ColorFilter.tint(accentColor)),
@@ -223,10 +228,9 @@ fun LiquidBottomTabs(
             )
         }
 
-        // SLIDER CAPSULE
         Box(
             Modifier
-                .padding(horizontal = 4.dp)
+                .padding(horizontal = sidePad)
                 .graphicsLayer {
                     translationX =
                         if (isLtr) dampedDragAnimation.value * tabWidth + panelOffset
@@ -240,8 +244,8 @@ fun LiquidBottomTabs(
                     effects = {
                         val progress = dampedDragAnimation.pressProgress
                         lens(
-                            7f.dp.toPx() * progress,
-                            14f.dp.toPx() * progress,
+                            8.dp.us(ui).toPx() * progress,
+                            14.dp.us(ui).toPx() * progress,
                             chromaticAberration = true
                         )
                     },
@@ -255,7 +259,7 @@ fun LiquidBottomTabs(
                     },
                     innerShadow = {
                         val progress = dampedDragAnimation.pressProgress
-                        InnerShadow(radius = 8f.dp * progress, alpha = progress)
+                        InnerShadow(radius = 8.dp.us(ui) * progress, alpha = progress)
                     },
                     layerBlock = {
                         scaleX = dampedDragAnimation.scaleX
@@ -267,14 +271,13 @@ fun LiquidBottomTabs(
                     onDrawSurface = {
                         val progress = dampedDragAnimation.pressProgress
                         drawRect(
-                            if (isLightTheme) Color.Black.copy(0.1f)
-                            else Color.White.copy(0.1f),
+                            if (isLightTheme) Color.Black.copy(0.1f) else Color.White.copy(0.1f),
                             alpha = 1f - progress
                         )
                         drawRect(Color.Black.copy(alpha = 0.03f * progress))
                     }
                 )
-                .height(56.dp)
+                .height(sliderH)
                 .fillMaxWidth(1f / tabsCount)
         )
     }

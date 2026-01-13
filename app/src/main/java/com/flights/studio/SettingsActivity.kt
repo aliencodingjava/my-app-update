@@ -94,6 +94,7 @@ class SettingsActivity : LocaleActivity() {
     @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
 
         binding = ActivityScrollingSettingsBinding.inflate(layoutInflater)

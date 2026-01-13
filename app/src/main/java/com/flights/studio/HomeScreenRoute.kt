@@ -9,7 +9,12 @@ import androidx.activity.compose.LocalActivity
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,10 +29,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -44,7 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.BlendMode // ✅ IMPORTANT (Compose BlendMode)
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -73,6 +79,7 @@ import kotlin.math.abs
 import kotlin.math.sin
 import kotlin.math.tanh
 import androidx.core.content.edit
+import androidx.fragment.app.FragmentActivity
 
 const val TAG = "HomeScreenRoute"
 private fun camBaseUrl(tab: FlightsTab): String = when (tab) {
@@ -82,6 +89,7 @@ private fun camBaseUrl(tab: FlightsTab): String = when (tab) {
 }
 
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun HomeScreenRouteContent(
@@ -98,26 +106,21 @@ fun HomeScreenRouteContent(
     onConfirmExit: () -> Unit
 ) {
     val activity = LocalActivity.current
+    val hostActivity = activity as? FragmentActivity
     val isDark = isSystemInDarkTheme()
+    val ui = rememberUiScale()
+
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
 
-    // ----------------------------
-    // PREFS (put this FIRST)
-    // ----------------------------
     val context = LocalContext.current
     val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
     val initialToken = remember { prefs.getLong("cam_last_token", 0L) }
 
-    // ----------------------------
-    // STATE
-    // ----------------------------
     var currentTab by rememberSaveable { mutableStateOf(FlightsTab.Curb) }
-
-    // ✅ start from last cached token, not 0
     var refreshToken by rememberSaveable { mutableLongStateOf(initialToken) }
 
     val refreshIntervalMs = 60_000L
@@ -128,18 +131,13 @@ fun HomeScreenRouteContent(
     var lastRefreshAtMs by rememberSaveable { mutableLongStateOf(0L) }
     var hasInternet by rememberSaveable { mutableStateOf(true) }
 
-    // ✅ single backdrop for image + strip + dialogs + buttons
     val cameraBackdrop = rememberLayerBackdrop()
 
-    // connection state
     var wifiEnabled by rememberSaveable { mutableStateOf(false) }
     var dataEnabled by rememberSaveable { mutableStateOf(false) }
     var isUserOffline by rememberSaveable { mutableStateOf(false) }
     var justBecameOnline by rememberSaveable { mutableStateOf(false) }
 
-    // ----------------------------
-    // DERIVED URL (never reassigned)
-    // ----------------------------
     val currentCamUrl = remember(currentTab, refreshToken) {
         val base = camBaseUrl(currentTab)
         if (refreshToken == 0L) base else "$base?v=$refreshToken"
@@ -147,11 +145,6 @@ fun HomeScreenRouteContent(
 
     var isZoomInteracting by remember { mutableStateOf(false) }
 
-
-
-    // ----------------------------
-    // SETTINGS LISTENER
-    // ----------------------------
     var isSiriGlowEnabled by remember {
         mutableStateOf(prefs.getBoolean("siri_camera_glow", true))
     }
@@ -212,6 +205,9 @@ fun HomeScreenRouteContent(
 
                     triggerRefreshNow(currentCamUrl)
 
+                    // ✅ optional "back online" toast
+                    hostActivity?.let { FancyPillToast.show(it, "Back online") } // :contentReference[oaicite:3]{index=3}
+
                     launch {
                         delay(3000)
                         justBecameOnline = false
@@ -227,15 +223,9 @@ fun HomeScreenRouteContent(
         }
     }
 
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-
     var camExpanded by rememberSaveable { mutableStateOf(false) }
     val onCamExpandedChange: (Boolean) -> Unit = { camExpanded = it }
-    val hintText = if (camExpanded) "Drag up, release to collapse" else "Drag down, release to expand"
-
     var lockNoRefresh by rememberSaveable { mutableStateOf(false) }
-
 
     val camProgress by animateFloatAsState(
         targetValue = if (camExpanded) 1f else 0f,
@@ -245,9 +235,7 @@ fun HomeScreenRouteContent(
     val gridInteractive = camProgress < 0.02f
 
     var gridInstanceKey by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(camExpanded) {
-        if (!camExpanded) gridInstanceKey++
-    }
+    LaunchedEffect(camExpanded) { if (!camExpanded) gridInstanceKey++ }
 
     val siriWaveProgress = if (isSiriGlowEnabled) {
         siriCardEdgeGlowOverlay(expanded = camExpanded, durationMillis = 2500)
@@ -371,7 +359,7 @@ fun HomeScreenRouteContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(cardWeight)
-                    .padding(4.dp)
+                    .padding(4.dp.us(ui))
 
             ) {
 
@@ -437,20 +425,18 @@ fun HomeScreenRouteContent(
                                     lockNoRefresh = false
                                     prefs.edit { putLong("cam_last_token", refreshToken) }
 
-                                    snackbarHostState.currentSnackbarData?.dismiss()
                                 },
                                 onImageLoadFailed = {
                                     isRefreshing = false
                                     hasInternet = false
                                     lockNoRefresh = true
-                                    scope.launch {
-                                        snackbarHostState.currentSnackbarData?.dismiss()
-                                        snackbarHostState.showSnackbar("Camera image failed to load")
+
+                                    // ✅ Fancy pill instead of snackbar :contentReference[oaicite:4]{index=4}
+                                    hostActivity?.let {
+                                        FancyPillToast.show(it, "Camera image failed to load")
                                     }
                                 }
                             )
-
-
                         }
 
                         // 2) READER: glass overlay reads backdrop
@@ -466,7 +452,7 @@ fun HomeScreenRouteContent(
                                         vibrancy()
                                         colorControls(
                                             brightness = if (isDark) 0.01f else 0.0f,
-                                            contrast = 1.20f,
+                                            contrast = 1.25f,
                                             saturation = 1.3f
                                         )
 
@@ -496,13 +482,16 @@ fun HomeScreenRouteContent(
                         )
                         // 3) grab zone overlay
                         val gestureConfig = remember {
-                            ExpandCollapseGestureConfig(expandDistance = 180.dp)
+                            ExpandCollapseGestureConfig(
+                                expandDistance = 180.dp.us(ui)
+                            )
+
                         }
                         Box(
                             Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
-                                .height(86.dp)
+                                .height(86.dp.us(ui))
                                 .zIndex(0f)
                                 .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
                                 .expandCollapseGrabGesture(
@@ -561,49 +550,98 @@ fun HomeScreenRouteContent(
                             label = "hintAlpha"
                         )
 
-                        val handle = Color.White.copy(alpha = 0.88f)
-                        val handleUnder = Color.Black.copy(alpha = 0.30f)
+                    val handle = Color.White.copy(alpha = 0.88f)
+                    val handleUnder = Color.Black.copy(alpha = 0.30f)
 
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 15.dp)
+                    val infinite = rememberInfiniteTransition(label = "handleInfinite")
+
+                    val breathe by infinite.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "handleBreathe"
+                    )
+
+                    val shimmer by infinite.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 2200, easing = LinearEasing),
+                            repeatMode = RepeatMode.Restart
+                        ),
+                        label = "handleShimmer"
+                    )
+
+                    val driftTarget = if (camExpanded) -3f else 3f
+                    val drift by animateFloatAsState(
+                        targetValue = driftTarget,
+                        animationSpec = tween(240, easing = FastOutSlowInEasing),
+                        label = "handleDrift"
+                    )
+
+                    val arrowRotation by animateFloatAsState(
+                        targetValue = if (camExpanded) 180f else 0f,
+                        animationSpec = tween(240, easing = FastOutSlowInEasing),
+                        label = "hintArrowRotation"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 15.dp.us(ui))
+                    ) {
+                        Column(
+                            modifier = Modifier.graphicsLayer {
+                                // base nudge + our drift + a gentle breathe
+                                translationY = nudge.value + drift + lerp(-1.2f, 1.2f, breathe)
+                                alpha = hintAlpha
+                            },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.graphicsLayer {
-                                    translationY = nudge.value
-                                    alpha = hintAlpha
-                                },
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                repeat(3) {
-                                    Box(
-                                        Modifier
-                                            .size(width = 36.dp, height = 3.dp)
-                                            .clip(CircleShape)
-                                            .background(handleUnder)
-                                            .padding(0.6.dp)
-                                            .clip(CircleShape)
-                                            .background(handle)
-                                    )
-                                }
+                            // ✅ Premium stagger: each line has slightly different width/alpha
+                            // Also, add subtle shimmer: middle line slightly brighter over time
+                            repeat(3) { i ->
+                                val t = (i / 2f) // 0..1
+                                val lineWidth = lerp(24f, 32f, 1f - abs(t - 0.5f) * 2f).dp
+                                val baseAlpha = lerp(0.70f, 0.92f, 1f - abs(t - 0.5f) * 2f)
 
-                                Text(
-                                    text = hintText,
-                                    color = Color.White,
-                                    modifier = Modifier
-                                        .background(
-                                            Color.Black.copy(alpha = 0.55f),
-                                            shape = RoundedCornerShape(10.dp)
-                                        )
-                                        .padding(horizontal = 10.dp, vertical = 3.dp),
-                                    style = MaterialTheme.typography.labelMedium
+                                // shimmer gives a gentle “focus” to the middle line
+                                val shimmerBoost = if (i == 1) lerp(0.0f, 0.10f, shimmer) else 0f
+
+                                Box(
+                                    Modifier
+                                        .size(width = lineWidth.us(ui), height = 2.dp.us(ui))
+                                        .clip(CircleShape)
+                                        .background(handleUnder.copy(alpha = 0.22f + shimmerBoost))
+                                        .padding(0.5.dp)
+                                        .clip(CircleShape)
+                                        .background(handle.copy(alpha = baseAlpha + shimmerBoost))
                                 )
                             }
-                        }
 
-                        // EXIT DIALOG (RESTORED)
+                            Icon(
+                                imageVector = Icons.Filled.ExpandMore,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.80f),
+                                modifier = Modifier
+                                    .size(18.dp.us(ui))
+                                    .graphicsLayer {
+                                        rotationZ = arrowRotation
+                                        // tiny follow drift + breathe
+                                        translationY = (drift * 0.35f) + lerp(-0.6f, 0.6f, breathe)
+                                        alpha = 0.85f
+                                    }
+                            )
+                        }
+                    }
+
+
+
+                    // EXIT DIALOG (RESTORED)
                         if (showExitDialog) {
                             ExitLiquidDialog(
                                 modifier = Modifier
@@ -699,13 +737,6 @@ fun HomeScreenRouteContent(
                 }
             }
         }
-
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 100.dp)
-        )
     }
 }
 

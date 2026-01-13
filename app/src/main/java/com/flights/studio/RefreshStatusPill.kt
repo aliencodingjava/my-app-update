@@ -39,6 +39,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
@@ -65,16 +66,13 @@ fun RefreshStatusPill(
     onClick: (() -> Unit)? = null,
 ) {
     val isDark = isSystemInDarkTheme()
+    val ui = rememberUiScale()
 
-    // Same as your other liquid buttons
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
 
-    // ----------------------------------------
-    // progress calculation
-    // ----------------------------------------
     val totalIntervalMs = 60_000L
     val warningWindowMs = 10_000L
 
@@ -94,10 +92,12 @@ fun RefreshStatusPill(
         label = "refreshLinearProgress"
     )
 
-// ✅ Expand only when near-refresh (countdown). Refreshing is indicated by the image crossfade.
     val expand = safeCountdown in 1..warningWindowMs
+    val refreshMoment = safeCountdown == 0L || isRefreshing
 
-    // Drives lens/blur a bit, not size.
+    // ONLY this decides expanded vs collapsed layout
+    val showExpandedLayout = expand && !refreshMoment
+
     val expressiveProgress by animateFloatAsState(
         targetValue = if (expand) 1f else 0f,
         animationSpec = spring(
@@ -107,99 +107,55 @@ fun RefreshStatusPill(
         label = "pillExpressiveProgress"
     )
 
-    // ----------------------------------------
-    // label text
-    // ----------------------------------------
     val secondsLeft = (safeCountdown / 1000L).coerceIn(0L, 99L).toInt()
     val secondsText = remember(secondsLeft) { String.format(Locale.US, "%02d", secondsLeft) }
     val label = "Refresh in ${secondsText}s"
 
-    // ----------------------------------------
-    // spring pop ONLY on open (layout-based, keeps capsule rounded)
-    // ----------------------------------------
     val expandImpulse = remember { Animatable(0f) }
-    LaunchedEffect(expand) {
-        if (expand) {
+    LaunchedEffect(showExpandedLayout) {
+        if (showExpandedLayout) {
             expandImpulse.snapTo(1f)
             expandImpulse.animateTo(0f, tween(durationMillis = 520, easing = FastOutSlowInEasing))
         } else {
             expandImpulse.snapTo(0f)
         }
     }
-    val springPop = if (isRefreshing) 0f else expandImpulse.value // 0..1
+    val springPop = if (isRefreshing) 0f else expandImpulse.value
 
-    // ----------------------------------------
-    // Layout animation (controls pill size)
-    // ✅ Open = spring, Close = fast smooth tween
-    // ✅ Extra tiny springPop added into layout (NOT scaleX) => no "arrow"
-    // ----------------------------------------
-    val t = updateTransition(expand, label = "pillExpand")
+    val t = updateTransition(showExpandedLayout, label = "pillExpand")
 
-    val horizontalPaddingDp by t.animateFloat(
-        transitionSpec = {
-            if (targetState) spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium)
-            else tween(durationMillis = 170, easing = FastOutSlowInEasing)
-        },
-        label = "pillPadding"
-    ) { if (it) 10f + (springPop * 1.2f) else 9f }
+    val openSpec = spring<Float>(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium)
+    val closeSpec = tween<Float>(durationMillis = 170, easing = FastOutSlowInEasing)
 
-    val barWidthDp = 52f
-    val refreshMoment = safeCountdown == 0L || isRefreshing
+    // ONE DRIVER: p = 1 expanded, p = 0 collapsed
+    val p by t.animateFloat(
+        transitionSpec = { if (targetState) openSpec else closeSpec },
+        label = "layoutProgress"
+    ) { expanded -> if (expanded) 1f else 0f }
 
+    val labelStyle: TextStyle =
+        MaterialTheme.typography.labelSmall.copy(
+            fontSize = (MaterialTheme.typography.labelSmall.fontSize.value * ui).sp
+        )
 
-    val gapWidthDp by t.animateFloat(
-        transitionSpec = {
-            if (targetState) spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium)
-            else tween(durationMillis = 170, easing = FastOutSlowInEasing)
-        },
-        label = "gapWidth"
-    ) { if (it) 8f + (springPop * 0.8f) else 0f }
-
-    val labelAlpha by t.animateFloat(
-        transitionSpec = {
-            if (targetState) tween(durationMillis = 120, easing = FastOutSlowInEasing)
-            else tween(durationMillis = 220, easing = FastOutSlowInEasing)
-        },
-        label = "labelAlpha"
-    ) { expanded ->
-        if (expanded && !refreshMoment) 1f else 0f
-    }
-
-
-    val labelStyle: TextStyle = MaterialTheme.typography.bodyMedium
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-
     val labelTargetWidthDp = remember(labelStyle, density) {
-        fun measureDp(text: String): Float {
-            val px = measurer.measure(
-                text = AnnotatedString(text),
-                style = labelStyle
-            ).size.width.toFloat()
-            return with(density) { px.toDp().value }
-        }
-
-        // ✅ only the real string you show
-        val maxWidthDp = measureDp("Refresh in 00s")
-
-        // ✅ small safety padding so seconds never clip
-        maxWidthDp + 12f
+        val px = measurer.measure(
+            text = AnnotatedString("Refresh in 00s"),
+            style = labelStyle
+        ).size.width.toFloat()
+        with(density) { px.toDp().value } + 12f
     }
 
+    val horizontalPaddingDp = lerp(9f, 10f + (springPop * 1.2f), p)
+    val gapWidthDp = lerp(0f, 8f + (springPop * 0.8f), p)
 
-    val labelWidthDp by t.animateFloat(
-        transitionSpec = {
-            if (targetState) spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMedium)
-            else tween(durationMillis = 220, easing = FastOutSlowInEasing) // ✅ smooth + not laggy
-        },
-        label = "labelWidth"
-    ) { expanded ->
-        if (expanded && !refreshMoment) {
-            labelTargetWidthDp + (springPop * 6f)
-        } else 0f
-    }
+    val barWidthDp = lerp(38f, 52f, p)
+    val barHeightDp = lerp(5f, 6f, p)
 
-
+    val labelWidthDp = labelTargetWidthDp * p
+    val labelAlpha = p
 
     Row(
         modifier = modifier
@@ -209,17 +165,13 @@ fun RefreshStatusPill(
                 effects = {
                     vibrancy()
 
-                    // expressiveProgress: 0f..1f
-                    val p = expressiveProgress.coerceIn(0f, 1f)
+                    val ep = expressiveProgress.coerceIn(0f, 1f)
 
-                    // --- Blur (softly comes in/out) ---
-                    // If you truly want blur always 0, keep 0f; otherwise lerp like below.
-                    val blurRadius = lerp(0.dp.toPx(), 4.dp.toPx(), p)
+                    val blurRadius = lerp(1.dp.toPx(), 4.dp.toPx(), ep)
                     blur(radius = blurRadius, edgeTreatment = TileMode.Decal)
 
-                    // --- Lens (refraction animates) ---
-                    val refractionHeight = lerp(6.dp.toPx(), 10.dp.toPx(), p)
-                    val refractionAmount = lerp(6.dp.toPx(), 14.dp.toPx(), p)
+                    val refractionHeight = lerp(6.dp.toPx(), 10.dp.toPx(), ep)
+                    val refractionAmount = lerp(6.dp.toPx(), 14.dp.toPx(), ep)
 
                     lens(
                         refractionHeight = refractionHeight,
@@ -228,10 +180,9 @@ fun RefreshStatusPill(
                         chromaticAberration = false
                     )
 
-                    // --- Color controls (you can tune these targets) ---
-                    val brightness = lerp(0.0f, if (isDark) 0.02f else 0.00f, p)
-                    val contrast   = lerp(1.0f, 1.18f, p)
-                    val saturation = lerp(1.0f, 1.9f, p)
+                    val brightness = lerp(0.0f, if (isDark) 0.02f else 0.00f, ep)
+                    val contrast = lerp(1.0f, 1.18f, ep)
+                    val saturation = lerp(1.0f, 1.9f, ep)
 
                     colorControls(
                         brightness = brightness,
@@ -239,7 +190,6 @@ fun RefreshStatusPill(
                         saturation = saturation
                     )
                 },
-
                 layerBlock = if (isInteractive) {
                     {
                         val width = size.width
@@ -268,7 +218,6 @@ fun RefreshStatusPill(
                                     abs(sin(ang) * offset.y / size.maxDimension) *
                                     (height / width).fastCoerceAtMost(1f)
 
-                        // ✅ NO wobble scale here => capsule stays perfectly rounded (no arrow)
                         translationX = maxOffset * tanh(k * offset.x / maxOffset)
                         translationY = maxOffset * tanh(k * offset.y / maxOffset)
 
@@ -277,24 +226,11 @@ fun RefreshStatusPill(
                     }
                 } else null,
                 onDrawSurface = {
-                    // darker tint in dark mode, subtle gray tint in light mode (not milky-white)
-                    val baseTint = if (isDark) {
-                        Color.Black.copy(alpha = 0.22f)
-                    } else {
-                        Color.Black.copy(alpha = 0.06f) // ✅ light theme: slight dark tint for contrast
-                    }
-
-                    // optional warmth highlight (lower in light mode)
-                    val warmTint = if (isDark) {
-                        Color(0xFFFFD54F).copy(alpha = 0.10f)
-                    } else {
-                        Color(0xFFFFD54F).copy(alpha = 0.06f)
-                    }
-
+                    val baseTint = if (isDark) Color.Black.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.06f)
+                    val warmTint = if (isDark) Color(0xFFFFD54F).copy(alpha = 0.10f) else Color(0xFFFFD54F).copy(alpha = 0.06f)
                     drawRect(baseTint)
                     drawRect(warmTint)
                 }
-
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
@@ -312,16 +248,12 @@ fun RefreshStatusPill(
         LinearProgressIndicator(
             progress = { animatedProgress },
             modifier = Modifier
+                .clip(RoundedCornerShape(99.dp))
                 .width(barWidthDp.dp)
-                .height(6.dp)
-                .clip(RoundedCornerShape(99.dp)),
+                .height(barHeightDp.dp),
             color = progressYellow,
-            trackColor = if (isDark)
-                Color.White.copy(alpha = 0.25f)
-            else
-                Color.Black.copy(alpha = 0.10f)
+            trackColor = if (isDark) Color.White.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.10f)
         )
-
 
         Spacer(Modifier.width(gapWidthDp.dp))
 

@@ -96,7 +96,7 @@ class EditProfileComposeActivity : AppCompatActivity() {
 }
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun EditProfileScreen(
     userPrefs: UserPreferencesManager,
@@ -277,7 +277,7 @@ private fun EditProfileScreen(
                     title = {
                         Text(
                             text = "Edit profile",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                            style = MaterialTheme.typography.titleMediumEmphasized.copy(fontWeight = FontWeight.SemiBold),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -507,7 +507,7 @@ private fun EditProfileScreen(
                         Column(Modifier.weight(1f)) {
                             Text(
                                 text = "Profile photo",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Normal),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(4.dp))

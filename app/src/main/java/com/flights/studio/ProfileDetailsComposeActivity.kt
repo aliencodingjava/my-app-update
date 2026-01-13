@@ -8,6 +8,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import android.util.Log
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.compose.BackHandler
@@ -18,6 +22,7 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,16 +48,16 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Divider
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -77,6 +82,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -85,7 +92,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
@@ -100,6 +107,7 @@ import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 class ProfileDetailsComposeActivity : AppCompatActivity() {
 
@@ -138,10 +146,14 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
 
             FlightsTheme(
                 profileBackdropStyle = when (profileThemeModeState.intValue) {
+                    0 -> ProfileBackdropStyle.Auto
                     1 -> ProfileBackdropStyle.Glass
-                    2 -> ProfileBackdropStyle.Blur
-                    3 -> ProfileBackdropStyle.Solid
-                    else -> ProfileBackdropStyle.Auto
+                    2 -> ProfileBackdropStyle.ClearGlass
+                    3 -> ProfileBackdropStyle.Blur
+                    4 -> ProfileBackdropStyle.Frosted
+                    5 -> ProfileBackdropStyle.VibrantGlass
+                    6 -> ProfileBackdropStyle.Solid
+                    else -> ProfileBackdropStyle.Amoled
                 }
             ) {
                 // ✅ in-activity navigation: show profile OR auth
@@ -151,8 +163,8 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                 val openAuth = remember {
                     {
                         // ✅ auth screens always solid
-                        profileThemeModeState.intValue = 3
-                        userPrefs.profileThemeMode = 3
+                        profileThemeModeState.intValue = 6
+                        userPrefs.profileThemeMode = 6
 
                         showAuth = true
                     }
@@ -177,8 +189,8 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                 userPrefs.isLoggedIn = true
 
                                 // ✅ default theme after login = Blur
-                                profileThemeModeState.intValue = 2
-                                userPrefs.profileThemeMode = 2
+                                profileThemeModeState.intValue = 3
+                                userPrefs.profileThemeMode = 3
 
 
                                 // apply pending signup info if any
@@ -547,7 +559,7 @@ private fun buildProfileUiState(userPrefs: UserPreferencesManager): ProfileUiSta
 
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ProfileDetailsRoute(
     userPrefs: UserPreferencesManager,
@@ -578,31 +590,46 @@ private fun ProfileDetailsRoute(
 
 
     val isLoggedIn = userPrefs.isLoggedIn
+    val style = LocalProfileBackdropStyle.current
+    LaunchedEffect(style) {
+        Log.d("PROFILE_STYLE", "style = $style")
+    }
 
     val cycleTheme: () -> Unit = {
         if (!isLoggedIn) {
-            onThemeModeChange(3)
-            userPrefs.profileThemeMode = 3
+            // Guests always go Solid
+            onThemeModeChange(6) // Solid index in new order
+            userPrefs.profileThemeMode = 6
             refreshTick += 1
             FancyPillToast.show(hostActivity, "Theme: Solid", 1600L)
         } else {
-            val next = (themeMode + 1) % 4
+
+            // 8 modes: 0..7 in PRO order
+            val next = (themeMode + 1) % 8
             onThemeModeChange(next)
             userPrefs.profileThemeMode = next
             refreshTick += 1
 
+            val label = when (next) {
+                0 -> "Auto"
+                1 -> "Glass"
+                2 -> "Clear glass"
+                3 -> "Blur"
+                4 -> "Frosted"
+                5 -> "Vibrant"
+                6 -> "Solid"
+                else -> "Amoled"
+            }
+
             FancyPillToast.show(
                 hostActivity,
-                "Theme: " + when (next) {
-                    0 -> "Auto"
-                    1 -> "Glass"
-                    2 -> "Blur"
-                    else -> "Solid"
-                },
+                "Theme: $label",
                 1600L
             )
         }
     }
+
+
 
 
 
@@ -709,6 +736,11 @@ private fun ProfileDetailsRoute(
     BackHandler { onNavigateBack() }
 
     val ui = remember(refreshTick) { buildProfileUiState(userPrefs) }
+    val scales = rememberUiScales()
+    val bodyS = scales.body
+    val labelS = scales.label
+
+
 
     val hasProfile = !userPrefs.userName.isNullOrBlank()
 
@@ -718,9 +750,14 @@ private fun ProfileDetailsRoute(
     val useGlassBackdrop = when (themeMode) {
         0 -> isLoggedIn && hasPhoto   // Auto
         1 -> true                     // Glass
-        2 -> true                     // ✅ Blur also uses glass overlay
-        else -> false                 // Solid
+        2 -> true                     // ClearGlass
+        3 -> true                     // Blur
+        4 -> true                     // Frosted
+        5 -> true                     // VibrantGlass
+        6 -> false                    // Solid
+        else -> false                 // Amoled
     }
+
 
 
     LaunchedEffect(isLoggedIn, refreshTick) {
@@ -807,10 +844,32 @@ private fun ProfileDetailsRoute(
 
 
     if (showLogoutDialog) {
+        val scales = rememberUiScales()
+        val bodyS = scales.body
+        val labelS = scales.label
+
+        val titleStyle = MaterialTheme.typography.titleMedium
+        val bodyStyle = MaterialTheme.typography.bodyMedium
+        val btnStyle = MaterialTheme.typography.labelLarge
+
         AlertDialog(
             onDismissRequest = dismissLogoutDialog,
-            title = { Text(stringResource(R.string.title_log_out)) },
-            text = { Text(stringResource(R.string.confirm_log_out)) },
+
+            title = {
+                Text(
+                    text = stringResource(R.string.title_log_out),
+                    style = titleStyle,
+                    fontSize = titleStyle.fontSize.us(bodyS)
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.confirm_log_out),
+                    style = bodyStyle,
+                    fontSize = bodyStyle.fontSize.us(bodyS)
+                )
+            },
+
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -820,19 +879,28 @@ private fun ProfileDetailsRoute(
                         userPrefs.clear()
 
                         // ✅ force solid theme after logout
-                        onThemeModeChange(3)
-                        userPrefs.profileThemeMode = 3
+                        onThemeModeChange(6)
+                        userPrefs.profileThemeMode = 6
 
                         // ✅ rebuild UI
                         refreshTick += 1
                     }
                 ) {
-                    Text(stringResource(R.string.yes))
+                    Text(
+                        text = stringResource(R.string.yes),
+                        style = btnStyle,
+                        fontSize = btnStyle.fontSize.us(labelS)
+                    )
                 }
             },
+
             dismissButton = {
                 TextButton(onClick = dismissLogoutDialog) {
-                    Text(stringResource(R.string.cancel))
+                    Text(
+                        text = stringResource(R.string.cancel),
+                        style = btnStyle,
+                        fontSize = btnStyle.fontSize.us(labelS)
+                    )
                 }
             }
         )
@@ -861,11 +929,11 @@ private fun ProfileDetailsRoute(
             ) {
                 CenterAlignedTopAppBar(
                     title = {
+                        val topTitle = MaterialTheme.typography.titleLarge
                         Text(
                             text = stringResource(R.string.title_my_profile),
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.SemiBold // ⭐ key choice
-                            )
+                            style = topTitle.copy(fontWeight = FontWeight.SemiBold),
+                            fontSize = topTitle.fontSize.us(bodyS)
                         )
                     },
                     navigationIcon = {
@@ -877,41 +945,84 @@ private fun ProfileDetailsRoute(
                         }
                     },
                     actions = {
-                        Box(
-                            modifier = Modifier.wrapContentSize(Alignment.TopEnd)
-                        ) {
-                            IconButton(onClick = { menuOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Menu")
+                        Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
+
+                            // ✅ IMPORTANT: capture anchor bounds here (window coords)
+                            var anchorBounds by remember { mutableStateOf<IntRect?>(null) }
+
+                            val openBg = MenuDefaults.groupVibrantContainerColor
+                            val openFg = MaterialTheme.colorScheme.onSurface
+                            val closedFg = MaterialTheme.colorScheme.onSurface
+
+                            val shape = RoundedCornerShape(14.dp)
+                            val interaction = remember { MutableInteractionSource() }
+
+                            val scale by animateFloatAsState(
+                                targetValue = if (menuOpen) 1.05f else 1f,
+                                animationSpec = spring(dampingRatio = 0.75f, stiffness = 380f),
+                                label = "menuScale"
+                            )
+
+                            val rotation by animateFloatAsState(
+                                targetValue = if (menuOpen) 90f else 0f,
+                                animationSpec = spring(dampingRatio = 0.85f, stiffness = 320f),
+                                label = "menuRotate"
+                            )
+
+                            // ✅ This box IS the anchor. We measure its bounds in window.
+                            Box(
+                                modifier = Modifier
+                                    .width(36.dp)   // 👈 slimmer
+                                    .height(44.dp)  // 👈 same height
+                                    .onGloballyPositioned { coords ->
+                                        val r = coords.boundsInWindow()
+                                        anchorBounds = IntRect(
+                                            left = r.left.roundToInt(),
+                                            top = r.top.roundToInt(),
+                                            right = r.right.roundToInt(),
+                                            bottom = r.bottom.roundToInt()
+                                        )
+                                    }
+                                    .scale(scale)
+                                    .clip(shape)
+                                    .background(
+                                        color = if (menuOpen) openBg else Color.Transparent,
+                                        shape = shape
+                                    )
+                                    .clickable(
+                                        interactionSource = interaction,
+                                        indication = null
+                                    ) { menuOpen = !menuOpen },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.MoreVert,
+                                    contentDescription = "Menu",
+                                    tint = if (menuOpen) openFg else closedFg,
+                                    modifier = Modifier.graphicsLayer { rotationZ = rotation }
+                                )
                             }
 
-                            // ✅ M3 Expressive popup menu (2 blocks + gap, Log in/out separated)
-                            ProfileExpressiveMenuPopup(
+                            // ✅ Anchored menu (works in portrait + landscape)
+                            ProfileExpressiveMenuPopupAnchored(
                                 expanded = menuOpen,
                                 onDismiss = { menuOpen = false },
-                                offset = DpOffset(x = (-16).dp, y = 8.dp),
-
+                                anchorBounds = anchorBounds,
                                 hasProfile = hasProfile,
                                 isLoggedIn = isLoggedIn,
 
                                 onEdit = {
                                     menuOpen = false
-                                    editProfileLauncher.launch(
-                                        Intent(hostActivity, EditProfileComposeActivity::class.java)
-                                    )
+                                    editProfileLauncher.launch(Intent(hostActivity, EditProfileComposeActivity::class.java))
                                 },
-
-
                                 onChangePhoto = {
                                     menuOpen = false
-                                    if (isLoggedIn) {
-                                        photoPickerLauncher.launch(arrayOf("image/*"))
-                                    } else {
-                                        FancyPillToast.show(
-                                            hostActivity,
-                                            hostActivity.getString(R.string.prompt_create_profile),
-                                            3000L
-                                        )
-                                    }
+                                    if (isLoggedIn) photoPickerLauncher.launch(arrayOf("image/*"))
+                                    else FancyPillToast.show(
+                                        hostActivity,
+                                        hostActivity.getString(R.string.prompt_create_profile),
+                                        3000L
+                                    )
                                 },
                                 onPrivacy = {
                                     menuOpen = false
@@ -923,14 +1034,9 @@ private fun ProfileDetailsRoute(
                                 },
                                 onLoginLogout = {
                                     menuOpen = false
-                                    if (isLoggedIn) {
-                                        openLogoutDialog()
-                                    } else {
-                                        onOpenLogin() // ✅ open AuthScreen instead of old bottom sheet
-                                    }
+                                    if (isLoggedIn) openLogoutDialog() else onOpenLogin()
                                 },
 
-                                // 🔒 Everything OFF for now
                                 flags = MenuFeatureFlags(
                                     vibrant = true,
                                     groupLabels = false,
@@ -986,33 +1092,32 @@ private fun ProfileDetailsRoute(
 // ----------------------------
 // Header card (FULL)
 // ----------------------------
-                ElevatedCard(
+                val style = LocalProfileBackdropStyle.current
+                val elevated = style != ProfileBackdropStyle.Solid
+
+
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        // ✅ Always transparent; we paint inside so it never “disappears”
-                        containerColor = Color.Transparent
-                    ),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
+                    color = MaterialTheme.colorScheme.surfaceVariant, // ✅ SAME AS QUICK ACTIONS
+                    tonalElevation = 0.dp,
+                    shadowElevation = if (elevated) 3.dp else 0.dp    // ✅ SAME AS QUICK ACTIONS
                 ) {
-                    val headerShape = RoundedCornerShape(28.dp)
-                    val headerBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f)
+
+                val headerShape = RoundedCornerShape(28.dp)
+                    val headerBg = MaterialTheme.colorScheme.surfaceVariant
 
                     Box(
                         Modifier
                             .fillMaxWidth()
                             .clip(headerShape)
+                            .background(headerBg) // ✅ background on clipped container
                     ) {
-                        // ✅ 1) BASE BACKGROUND ALWAYS (Solid mode stays visible)
-                        Box(
-                            Modifier
-                                .matchParentSize()
-                                .background(headerBg)
-                        )
 
-                        // ✅ 2) GLASS OVERLAY (reads PAGE backdrop behind all cards)
+
+                    // ✅ 2) GLASS OVERLAY (reads PAGE backdrop behind all cards)
                         Box(
                             Modifier
                                 .matchParentSize()
@@ -1030,17 +1135,14 @@ private fun ProfileDetailsRoute(
                                 .fillMaxWidth()
                                 .padding(bottom = 0.dp)
                         ) {
+                            val profileLabel = MaterialTheme.typography.labelMedium
                             Text(
                                 text = "Profile",
-                                style = MaterialTheme.typography.labelLarge,
+                                style = profileLabel,
+                                fontSize = profileLabel.fontSize.us(labelS),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(
-                                    start = 20.dp,
-                                    top = 14.dp,
-                                    bottom = 4.dp
-                                )
+                                modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp)
                             )
-
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1074,7 +1176,6 @@ private fun ProfileDetailsRoute(
 
                                     var avatarFailed by remember(rawPhoto) { mutableStateOf(false) }
 
-// decide what to load
                                     val dataToLoad by produceState<Any?>(initialValue = null, key1 = rawPhoto, key2 = refreshTick) {
 
                                         if (rawPhoto.isBlank()) {
@@ -1148,9 +1249,11 @@ private fun ProfileDetailsRoute(
                                             modifier = Modifier.fillMaxSize(),
                                             contentAlignment = Alignment.Center
                                         ) {
+                                            val initialsStyle = MaterialTheme.typography.headlineSmall
                                             Text(
                                                 text = ui.initials.ifEmpty { "?" },
-                                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Medium),
+                                                style = initialsStyle.copy(fontWeight = FontWeight.Medium),
+                                                fontSize = initialsStyle.fontSize.us(bodyS),
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                         }
@@ -1161,50 +1264,55 @@ private fun ProfileDetailsRoute(
                                     Spacer(Modifier.width(14.dp))
 
                                 Column(Modifier.weight(1f)) {
+                                    val nameStyle = MaterialTheme.typography.titleLarge
                                     Text(
                                         text = ui.displayName.ifEmpty { stringResource(R.string.default_user_name) },
-                                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                        style = nameStyle.copy(fontWeight = FontWeight.Bold),
+                                        fontSize = nameStyle.fontSize.us(bodyS),
                                         color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-
                                     Spacer(Modifier.height(6.dp))
 
+                                    val secondaryStyle = MaterialTheme.typography.bodyMedium
                                     Text(
                                         text = ui.secondaryTextRaw.ifEmpty { stringResource(R.string.unknown_contact) },
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = secondaryStyle,
+                                        fontSize = secondaryStyle.fontSize.us(bodyS),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-
                                     Spacer(Modifier.height(6.dp))
 
+                                    val statusStyle = MaterialTheme.typography.labelMedium
                                     Text(
                                         text = if (isLoggedIn) "🟢 Signed in" else "⚪ Guest mode",
-                                        style = MaterialTheme.typography.labelMedium,
+                                        style = statusStyle,
+                                        fontSize = statusStyle.fontSize.us(labelS),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+
                                 }
                             }
                         }
                     }
                 }
-                //info card glass effect on enable
-                ElevatedCard(
+
+
+                Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        // ✅ Always transparent; we paint inside so it never “disappears”
-                        containerColor = Color.Transparent
-                    ),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 0.dp,
+                    shadowElevation = if (elevated) 3.dp else 0.dp   // 🔥 SAME AS QUICK ACTIONS
                 ) {
-                    val headerShape = RoundedCornerShape(28.dp)
-                    val headerBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f)
+
+                val headerShape = RoundedCornerShape(28.dp)
+                    val headerBg = MaterialTheme.colorScheme.surfaceVariant
 
                     Box(
                         Modifier
@@ -1237,13 +1345,13 @@ private fun ProfileDetailsRoute(
                                 .padding(vertical = 12.dp)
                         ) {
 
-                            // ✅ Section title (this is the upgrade)
+                            val infoTitle = MaterialTheme.typography.labelLarge
                             Text(
                                 text = "Information",
-                                style = MaterialTheme.typography.labelLarge,
+                                style = infoTitle,
+                                fontSize = infoTitle.fontSize.us(labelS),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier
-                                    .padding(start = 20.dp, bottom = 6.dp)
+                                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
                             )
                             InfoRow(
                                 iconRes = R.drawable.ic_oui_email,
@@ -1321,7 +1429,8 @@ fun QuickActionsCard(
 ) {
     val style = LocalProfileBackdropStyle.current
     val elevated = style != ProfileBackdropStyle.Solid
-
+    val scales = rememberUiScales()
+    val labelS = scales.label
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1332,9 +1441,11 @@ fun QuickActionsCard(
         shadowElevation = if (elevated) 3.dp else 0.dp // ✅ same as top bar
     ) {
         Column(Modifier.padding(14.dp)) {
+            val qaTitle = MaterialTheme.typography.labelLarge
             Text(
                 text = "Quick actions",
-                style = MaterialTheme.typography.labelLarge,
+                style = qaTitle,
+                fontSize = qaTitle.fontSize.us(labelS),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(12.dp))
@@ -1355,6 +1466,7 @@ fun QuickActionsCard(
             val themeAlpha = if (isLoggedIn) 1f else 0.6f
 
             if (!compact) {
+                val btnText = MaterialTheme.typography.labelLarge
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1369,8 +1481,11 @@ fun QuickActionsCard(
                     ) {
                         Icon(primaryIcon, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
+                        val btnText = MaterialTheme.typography.labelLarge
                         Text(
                             primaryLabel,
+                            style = btnText,
+                            fontSize = btnText.fontSize.us(labelS),
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
@@ -1391,6 +1506,8 @@ fun QuickActionsCard(
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "Theme",
+                            style = btnText,
+                            fontSize = btnText.fontSize.us(labelS),
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
@@ -1406,6 +1523,8 @@ fun QuickActionsCard(
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "Privacy",
+                            style = btnText,
+                            fontSize = btnText.fontSize.us(labelS),
                             maxLines = 1,
                             softWrap = false,
                             overflow = TextOverflow.Ellipsis
@@ -1450,6 +1569,8 @@ private fun QuickActionIcon(
     onClick: () -> Unit,
     alpha: Float = 1f
 ) {
+    val scales = rememberUiScales()
+    val labelS = scales.label
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.alpha(alpha) // ✅ USE IT
@@ -1463,14 +1584,17 @@ private fun QuickActionIcon(
 
         Spacer(Modifier.height(6.dp))
 
+        val qaLabel = MaterialTheme.typography.labelMedium
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = qaLabel,
+            fontSize = qaLabel.fontSize.us(labelS),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis
         )
+
     }
 }
 
@@ -1481,6 +1605,9 @@ private fun InfoRow(
     label: String,
     value: String
 ) {
+    val scales = rememberUiScales()
+    val bodyS = scales.body
+    val labelS = scales.label
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1497,15 +1624,20 @@ private fun InfoRow(
         Spacer(Modifier.width(14.dp))
 
         Column(Modifier.weight(1f)) {
+            val infoLabel = MaterialTheme.typography.labelMedium
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                style = infoLabel.copy(fontWeight = FontWeight.Bold),
+                fontSize = infoLabel.fontSize.us(labelS),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
             Spacer(Modifier.height(3.dp))
+            val infoValue = MaterialTheme.typography.bodyLarge
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyLarge,
+                style = infoValue,
+                fontSize = infoValue.fontSize.us(bodyS),
                 color = MaterialTheme.colorScheme.onSurface
             )
         }

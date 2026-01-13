@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,10 +88,16 @@ class BackdropPlaygroundActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // ✅ If user comes back from reset page, go directly to MainActivity
-        if (isResetDoneDeepLink(intent)) {
-            navigateToMain(this)
+        if (isAuthLoginDeepLink(intent)) {
+            navigateToMain(this, openLogin = true)
             return
         }
+
+        if (isResetDoneDeepLink(intent)) {
+            navigateToMain(this) // or openLogin=true if you want reset to go login
+            return
+        }
+
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -107,52 +114,62 @@ class BackdropPlaygroundActivity : ComponentActivity() {
         }
     }
 
-    // ✅ ADD THIS HERE (inside the class)
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
 
+        if (isAuthLoginDeepLink(intent)) {
+            navigateToMain(this, openLogin = true)
+            return
+        }
+
         if (isResetDoneDeepLink(intent)) {
             navigateToMain(this)
         }
+
     }
+    private fun isResetDoneDeepLink(intent: Intent?): Boolean {
+        val uri: Uri = intent?.data ?: return false
+        return uri.scheme == "flightsstudio" && uri.host == "resetdone"
+    }
+    private fun isAuthLoginDeepLink(intent: Intent?): Boolean {
+        val uri: Uri = intent?.data ?: return false
+        return uri.scheme == "flightsstudio" && uri.host == "auth" && uri.path == "/login"
+    }
+
+
+
 }
 
 // -------------------------------------------------------------
 // Screen
 // -------------------------------------------------------------
 
-/**
- * Defines the animation phases for the splash screen.
- */
 private sealed class SplashState {
-    object Hidden : SplashState()    // NEW: nothing shown yet, used to trigger first fade-in
-    object Initial : SplashState()   // Center, label "Welcome to JAC"
-    object Dropping : SplashState()  // Animating down
-    object Ready : SplashState()     // At bottom, label "Tap to enter"
-}
-private fun isResetDoneDeepLink(intent: Intent?): Boolean {
-    val uri: Uri = intent?.data ?: return false
-    return uri.scheme == "flightsstudio" && uri.host == "resetdone"
+    object Hidden : SplashState()
+    object Initial : SplashState()
+    object Dropping : SplashState()
+    object Ready : SplashState()
 }
 
 
 
 @Composable
 fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
-    // --- State Management ---
+    // ✅ one scale value for this screen
+    val uiTight = rememberUiScale()
+
     var splashState by remember { mutableStateOf<SplashState>(SplashState.Hidden) }
 
-    // --- Derived State ---
     val isReady = splashState == SplashState.Ready
     val dropToBottom = splashState == SplashState.Dropping || splashState == SplashState.Ready
 
-    // --- Animation & Layout Constants ---
     val windowInfo = LocalWindowInfo.current
     val density = LocalDensity.current
     val screenHeight = remember(windowInfo, density) {
         with(density) { windowInfo.containerSize.height.toDp() }
     }
+
     val buttonDiameter = 64.dp
     val bottomMargin = 24.dp
     val dropDurationMs = 750
@@ -161,20 +178,14 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
     val finalButtonCenterY = screenHeight - bottomMargin - (buttonDiameter / 2)
     val targetOffsetY = finalButtonCenterY - centerScreenY
 
-    // --- Drop animation ---
     val buttonOffsetY by animateDpAsState(
         targetValue = if (dropToBottom) targetOffsetY else 0.dp,
-        animationSpec = tween(
-            durationMillis = dropDurationMs,
-            easing = FastOutSlowInEasing
-        ),
+        animationSpec = tween(durationMillis = dropDurationMs, easing = FastOutSlowInEasing),
         label = "button_drop_offset"
     )
 
-    // --- Breathing scale animation ---
     val breatheTransition = rememberInfiniteTransition(label = "button_breathe")
 
-    // Raw breathing between 0.96x and 1.04x, always running
     val rawBreatheScale by breatheTransition.animateFloat(
         initialValue = 0.96f,
         targetValue = 1.04f,
@@ -185,49 +196,38 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
         label = "button_breathe_value"
     )
 
-    // This animates from 0 → 1 when the splash becomes Ready
     val breatheFactor by animateFloatAsState(
         targetValue = if (isReady) 1f else 0f,
         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         label = "breathe_factor"
     )
 
-    // Final scale: 1f before Ready, then smoothly transitions into breathing
     val buttonScale = 1f + (rawBreatheScale - 1f) * breatheFactor
 
-    // --- Animation Scheduler ---
     LaunchedEffect(Unit) {
-        // 0) Start hidden so AnimatedVisibility can play enter animation
         splashState = SplashState.Hidden
-
-        // Small delay so first composition is done
         delay(80L)
 
-        // 1) Center, fade/scale-in "Welcome to JAC Airport"
         splashState = SplashState.Initial
         delay(1600L)
 
-        // 2) Drop down
         splashState = SplashState.Dropping
         delay(dropDurationMs.toLong() + 100L)
 
-        // 3) At bottom, swap label to "Tap to enter"
         splashState = SplashState.Ready
     }
 
     OpenSplashBackdropScaffold { backdrop ->
         Box(Modifier.fillMaxSize()) {
-            // Greeting appears above the final pill only when Ready
             AnimatedVisibility(
                 visible = isReady,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = bottomMargin + buttonDiameter + 12.dp)
             ) {
-                GreetingBlock()
+                GreetingBlock(uiTight = uiTight)
             }
 
-            // Liquid-glass pill
             LiquidGlassRoundIconButton(
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -240,6 +240,7 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
                 diameter = buttonDiameter,
                 isInteractive = isReady,
                 splashState = splashState,
+                uiTight = uiTight,
                 onClick = onNavigateToMain
             )
         }
@@ -247,11 +248,12 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
 }
 
 // -------------------------------------------------------------
-// Greeting text
+// Greeting text (scaled)
 // -------------------------------------------------------------
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun GreetingBlock() {
+private fun GreetingBlock(uiTight: Float) {
     val context = LocalContext.current
 
     val greeting by produceState(initialValue = "Loading…") {
@@ -303,16 +305,21 @@ private fun GreetingBlock() {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        val t1 = MaterialTheme.typography.titleMediumEmphasized
         Text(
             text = greeting,
-            style = MaterialTheme.typography.titleMedium,
+            style = t1,
+            fontSize = t1.fontSize.us(uiTight),
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(bottom = 4.dp)
         )
+
+        val t2 = MaterialTheme.typography.labelSmall
         Text(
             text = stringResource(R.string.tap_to_enter),
-            style = MaterialTheme.typography.bodySmall,
+            style = t2,
+            fontSize = t2.fontSize.us(uiTight),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
@@ -320,7 +327,7 @@ private fun GreetingBlock() {
 }
 
 // -------------------------------------------------------------
-// Liquid-glass button
+// Liquid-glass button (scaled labels)
 // -------------------------------------------------------------
 
 @Composable
@@ -328,6 +335,7 @@ private fun LiquidGlassRoundIconButton(
     backdrop: LayerBackdrop,
     @DrawableRes iconRes: Int,
     splashState: SplashState,
+    uiTight: Float,
     modifier: Modifier = Modifier,
     diameter: Dp = 84.dp,
     isInteractive: Boolean = true,
@@ -377,17 +385,14 @@ private fun LiquidGlassRoundIconButton(
                         val pressScaleDelta = 2.dp.toPx()
                         val dragScaleDelta = 2.dp.toPx()
 
-                        val scale =
-                            lerp(1f, 1f + pressScaleDelta / size.height, progress)
+                        val scale = lerp(1f, 1f + pressScaleDelta / size.height, progress)
 
                         val maxOffset = size.minDimension
                         val k = 0.05f
                         val offset = interactiveHighlight.offset
 
-                        translationX =
-                            maxOffset * tanh(k * offset.x / maxOffset)
-                        translationY =
-                            maxOffset * tanh(k * offset.y / maxOffset)
+                        translationX = maxOffset * tanh(k * offset.x / maxOffset)
+                        translationY = maxOffset * tanh(k * offset.y / maxOffset)
 
                         val maxDragScale = dragScaleDelta / size.height
                         val ang = atan2(offset.y, offset.x)
@@ -408,11 +413,8 @@ private fun LiquidGlassRoundIconButton(
                         drawRect(surfaceColor)
                     } else {
                         drawRect(
-                            if (isDark) {
-                                Color.White.copy(alpha = 0.10f)
-                            } else {
-                                Color.White.copy(alpha = 0.28f)
-                            }
+                            if (isDark) Color.White.copy(alpha = 0.10f)
+                            else Color.White.copy(alpha = 0.28f)
                         )
                     }
                 },
@@ -423,9 +425,7 @@ private fun LiquidGlassRoundIconButton(
                     Modifier
                         .then(interactiveHighlight.modifier)
                         .then(interactiveHighlight.gestureModifier)
-                } else {
-                    Modifier
-                }
+                } else Modifier
             )
             .clickable(
                 enabled = isInteractive,
@@ -436,39 +436,28 @@ private fun LiquidGlassRoundIconButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Initial label: "Welcome to JAC Airport"
         AnimatedVisibility(
             visible = splashState == SplashState.Initial,
-            enter = fadeIn(
-                animationSpec = tween(durationMillis = 450)
-            ) + scaleIn(
+            enter = fadeIn(tween(durationMillis = 450)) + scaleIn(
                 initialScale = 0.92f,
                 animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing)
             ),
-            exit = fadeOut(
-                animationSpec = tween(durationMillis = 200)
-            )
+            exit = fadeOut(tween(durationMillis = 200))
         ) {
-            ScreenLabel(textRes = R.string.welcome_to_jac_airport)
+            ScreenLabel(textRes = R.string.welcome_to_jac_airport, uiTight = uiTight)
         }
 
-        // Ready label: "Tap to enter"
         AnimatedVisibility(
             visible = splashState == SplashState.Ready,
-            enter = fadeIn(
-                animationSpec = tween(durationMillis = 400)
-            ) + scaleIn(
+            enter = fadeIn(tween(durationMillis = 400)) + scaleIn(
                 initialScale = 0.96f,
                 animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
             ),
-            exit = fadeOut(
-                animationSpec = tween(durationMillis = 180)
-            )
+            exit = fadeOut(tween(durationMillis = 180))
         ) {
-            ScreenLabel(textRes = R.string.Enter_here)
+            ScreenLabel(textRes = R.string.Enter_here, uiTight = uiTight)
         }
 
-        // Logo
         Image(
             painter = painterResource(iconRes),
             contentDescription = contentDescription,
@@ -486,10 +475,12 @@ private fun LiquidGlassRoundIconButton(
 }
 
 @Composable
-private fun ScreenLabel(@StringRes textRes: Int) {
+private fun ScreenLabel(@StringRes textRes: Int, uiTight: Float) {
+    val base = MaterialTheme.typography.titleLarge
     Text(
         text = stringResource(id = textRes),
-        style = MaterialTheme.typography.titleLarge,
+        style = base,
+        fontSize = base.fontSize.us(uiTight),
         color = MaterialTheme.colorScheme.onSurface,
         textAlign = TextAlign.Center
     )
@@ -499,9 +490,10 @@ private fun ScreenLabel(@StringRes textRes: Int) {
 // Navigation
 // -------------------------------------------------------------
 
-private fun navigateToMain(activity: Activity) {
+private fun navigateToMain(activity: Activity, openLogin: Boolean = false) {
     val intent = Intent(activity, MainActivity::class.java).apply {
-        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        putExtra(EXTRA_OPEN_LOGIN, openLogin)
     }
     val options = ActivityOptionsCompat.makeCustomAnimation(
         activity,
@@ -511,3 +503,4 @@ private fun navigateToMain(activity: Activity) {
     activity.startActivity(intent, options.toBundle())
     activity.finish()
 }
+

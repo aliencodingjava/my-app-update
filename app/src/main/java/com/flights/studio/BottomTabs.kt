@@ -46,12 +46,16 @@ fun <T> BottomTabs(
 
     val isDark = isSystemInDarkTheme()
 
+    // ✅ scaling
+    val ui = rememberUiScale()
+    val uiTight = rememberUiTight()
+
     val labelColor = if (isDark) Color.White else Color(0xFF111111)
     val iconColorFilter = remember(labelColor) { ColorFilter.tint(labelColor) }
 
-    val labelStyle = remember(isDark) {
+    val labelStyle = remember(isDark, uiTight) {
         TextStyle(
-            fontSize = 12.sp,
+            fontSize = 12.sp.us(uiTight),
             shadow = Shadow(
                 color = if (isDark) Color.Black.copy(alpha = 0.85f)
                 else Color.White.copy(alpha = 0.65f),
@@ -61,13 +65,11 @@ fun <T> BottomTabs(
         )
     }
 
-    // index state (drives LiquidBottomTabs + click)
     var selectedTabIndex by rememberSaveable(tabs) {
         val initial = tabs.indexOf(selectedTabState.value).let { if (it >= 0) it else 0 }
         mutableIntStateOf(initial.coerceIn(0, tabs.lastIndex))
     }
 
-    // keep selectedTabIndex in sync if external state changes
     LaunchedEffect(tabs, selectedTabState) {
         snapshotFlow { selectedTabState.value }
             .map { value -> tabs.indexOf(value).takeIf { it >= 0 } }
@@ -79,7 +81,6 @@ fun <T> BottomTabs(
             }
     }
 
-    // when tabs list changes, ensure index + state remain valid
     LaunchedEffect(tabs) {
         val clamped = selectedTabIndex.coerceIn(0, tabs.lastIndex)
         if (clamped != selectedTabIndex) selectedTabIndex = clamped
@@ -114,14 +115,14 @@ fun <T> BottomTabs(
             ) {
                 Column(
                     modifier = Modifier
-                        .heightIn(min = 56.dp)
-                        .padding(vertical = 6.dp),
+                        .heightIn(min = 56.dp.us(ui))
+                        .padding(vertical = 6.dp.us(ui)),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Box(
                         Modifier
-                            .size(28.dp)
+                            .size(28.dp.us(ui))
                             .paint(
                                 painter = painterResource(tabIconRes(tab)),
                                 colorFilter = iconColorFilter

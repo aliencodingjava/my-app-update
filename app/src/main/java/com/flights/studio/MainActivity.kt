@@ -1,5 +1,6 @@
 package com.flights.studio
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -32,7 +33,15 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
 
         Log.d(TAG_MAIN, "onCreate() START, savedInstanceState=$savedInstanceState")
+        val openLogin = intent.getBooleanExtra(EXTRA_OPEN_LOGIN, false)
 
+        if (openLogin) {
+            startActivity(Intent(this, ProfileDetailsComposeActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            })
+            finish()
+            return
+        }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         firebaseAnalytics = FirebaseAnalytics.getInstance(this)
         Log.d(TAG_MAIN, "FirebaseAnalytics initialized")

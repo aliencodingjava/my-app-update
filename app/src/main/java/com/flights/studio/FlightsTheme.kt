@@ -16,9 +16,11 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 
@@ -47,7 +49,17 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 /** Controls how the profile backdrop is drawn (NOT whether it shows). */
-enum class ProfileBackdropStyle { Auto, Glass, Blur, Solid }
+enum class ProfileBackdropStyle {
+    Auto,          // adaptive
+    Glass,         // classic glass
+    ClearGlass,    // sharp glass
+    Blur,          // soft blur
+    Frosted,       // heavy blur + wash
+    VibrantGlass,  // colorful glass
+    Solid,         // flat UI
+    Amoled         // pure black (special)
+}
+
 
 /** Theme-local setting */
 val LocalProfileBackdropStyle = staticCompositionLocalOf { ProfileBackdropStyle.Auto }
@@ -121,10 +133,21 @@ private fun rememberProfileBackdropSpec(
 ): ProfileBackdropSpec {
     // Decide if we want fancy bg (so glass/blur looks different than solid)
     val enableFancy = when (style) {
-        ProfileBackdropStyle.Solid -> false
-        ProfileBackdropStyle.Glass, ProfileBackdropStyle.Blur -> true
-        ProfileBackdropStyle.Auto -> true
+
+        // 🔒 Flat modes (no blobs / no glass background)
+        ProfileBackdropStyle.Solid,
+        ProfileBackdropStyle.Amoled -> false
+
+        // ✨ Glass & effect modes
+        ProfileBackdropStyle.Auto,
+        ProfileBackdropStyle.Glass,
+        ProfileBackdropStyle.ClearGlass,
+        ProfileBackdropStyle.Blur,
+        ProfileBackdropStyle.Frosted,
+        ProfileBackdropStyle.VibrantGlass -> true
     }
+
+
 
     // ─────────────────────────────────────────────
     // SCHEME: edit ONLY these numbers to tune blobs
@@ -286,8 +309,31 @@ fun Modifier.profileGlassBackdrop(
             shape = { shape },
             effects = {
                 if (spec.vibrancy) vibrancy()
-                if (spec.blur.value > 0f) blur(spec.blur.toPx())
-                if (spec.lensOuter.value > 0f) lens(spec.lensInner.toPx(), spec.lensOuter.toPx())
+
+                // ✅ color controls
+                colorControls(
+                    brightness = spec.brightness,
+                    contrast = spec.contrast,
+                    saturation = spec.saturation
+                )
+
+                // ✅ blur (with edgeTreatment)
+                if (spec.blur.value > 0f) {
+                    blur(spec.blur.toPx(), edgeTreatment = spec.blurEdge)
+                }
+
+                // ✅ lens
+                if (spec.lensOuter.value > 0f || spec.refractionAmount > 0f || spec.refractionHeight > 0f) {
+                    lens(
+                        refractionHeight = spec.refractionHeight.dp.toPx(),
+                        refractionAmount = spec.refractionAmount.dp.toPx(),
+                        depthEffect = spec.depthEffect,
+                        chromaticAberration = spec.chromaticAberration
+                    )
+                } else if (spec.lensOuter.value > 0f) {
+                    // fallback to your old lens signature if you still want it:
+                    lens(spec.lensInner.toPx(), spec.lensOuter.toPx())
+                }
             },
             onDrawSurface = { drawRect(wash) }
         )
@@ -299,7 +345,31 @@ fun FlightsTheme(
     profileBackdropStyle: ProfileBackdropStyle = ProfileBackdropStyle.Auto,
     content: @Composable () -> Unit
 ) {
-    val colors = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colors = when {
+        darkTheme && profileBackdropStyle == ProfileBackdropStyle.Amoled -> darkColorScheme(
+            primary = DarkColorScheme.primary,
+            onPrimary = DarkColorScheme.onPrimary,
+
+            // ✅ true AMOLED page
+            background = Color.Black,
+            surface = Color.Black,
+
+            // ✅ cards must NOT be black or they disappear
+            surfaceVariant = Color(0xFF14161B),          // <- lifted card color
+            onSurface = Color(0xFFE9ECF2),
+            onSurfaceVariant = Color(0xFFB8BFCC),
+
+            outline = Color(0xFF2A2F3A),
+            outlineVariant = Color(0xFF3A4150),
+        )
+
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+
+
+
+
 
     val backdropSpec = rememberProfileBackdropSpec(darkTheme, profileBackdropStyle, colors)
     val glassSpec = rememberProfileGlassSpec(darkTheme, profileBackdropStyle)
@@ -318,6 +388,7 @@ fun FlightsTheme(
     }
 }
 
+
 /**
  * Theme-backed background that gives Glass/Blur something to refract/blur.
  * - Solid style => flat base
@@ -331,7 +402,13 @@ fun Modifier.profileBackdropBackground(shape: RoundedCornerShape): Modifier {
 
     val m = this.clip(shape)
 
-    // Solid mode
+    // ✅ ONLY AMOLED + DARK → force black page
+    val style = LocalProfileBackdropStyle.current
+    val isDark = isSystemInDarkTheme()
+    if (style == ProfileBackdropStyle.Amoled && isDark) {
+        return m.background(Color.Black)
+    }
+
     if (!spec.enabledFancyBackground) {
         return m.background(spec.base)
     }
@@ -341,13 +418,9 @@ fun Modifier.profileBackdropBackground(shape: RoundedCornerShape): Modifier {
         val h = size.height
         fun p(n: Offset) = Offset(n.x * w, n.y * h)
 
-        // ✅ Landscape: blobs extend lower (more glass visible)
         val cutoff = h * (if (isLandscape) 0.6f else 0.5f)
-
-        // ✅ Make the “flat” area softer in landscape
         val fadeHeight = h * (if (isLandscape) 0.14f else 0.08f)
 
-        // 1) Blobs only above cutoff
         clipRect(0f, 0f, w, cutoff) {
             drawCircle(spec.blob1, spec.r1 * 0.25f, p(spec.c1))
             drawCircle(spec.blob2, spec.r2 * 0.10f, p(spec.c2))
@@ -358,10 +431,9 @@ fun Modifier.profileBackdropBackground(shape: RoundedCornerShape): Modifier {
             drawCircle(spec.blob7, spec.r7 * 0.20f, p(spec.c7))
         }
 
-        // 2) Softer “flat” fade (lower alpha = more glass effect shows through)
         val isDark = spec.base.luminance() < 0.5f
         val endColor = (if (isDark) Color(0xFF0E1116) else Color(0xFFF4F5F7))
-            .copy(alpha = if (isLandscape) 0.72f else 0.92f) // ✅ key
+            .copy(alpha = if (isLandscape) 0.72f else 0.92f)
 
         clipRect(0f, cutoff - fadeHeight, w, cutoff) {
             drawRect(

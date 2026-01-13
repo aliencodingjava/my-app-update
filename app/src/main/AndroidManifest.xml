@@ -145,12 +145,13 @@
             android:name=".BackdropPlaygroundActivity"
             android:exported="true">
 
+            <!-- App launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- ✅ Deep link back from GitHub reset page -->
+            <!-- ✅ After password reset → go to HOME -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -160,8 +161,19 @@
                     android:host="resetdone"/>
             </intent-filter>
 
+            <!-- ✅ NEW: go directly to LOGIN -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="flightsstudio"
+                    android:host="auth"
+                    android:path="/login"/>
+            </intent-filter>
 
         </activity>
+
 
 
 
