@@ -2,7 +2,6 @@
 
 package com.flights.studio
 
-import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Typeface
@@ -357,10 +356,6 @@ class AddNoteActivity : AppCompatActivity() {
 
     }
 
-
-    companion object {
-        fun newIntent(context: Context): Intent = Intent(context, AddNoteActivity::class.java)
-    }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {

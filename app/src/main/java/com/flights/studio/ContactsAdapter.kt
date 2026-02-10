@@ -16,11 +16,11 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.animation.doOnEnd
 import androidx.core.content.edit
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
@@ -251,12 +251,22 @@ class ContactsAdapter(
                 deleteBackground.visibility = View.GONE
                 deleteBackground.alpha = 0f
 
-                if (!contact.photoUri.isNullOrEmpty()) {
+                if (!contact.photoUri.isNullOrBlank()) {
                     iconImage.visibility = View.VISIBLE
                     iconInitials.visibility = View.GONE
 
+                    val rawPhoto = contact.photoUri?.trim().orEmpty()
+
+                    val model: Any = when {
+                        rawPhoto.startsWith("content://", true) -> rawPhoto
+                        rawPhoto.startsWith("file://", true) -> rawPhoto
+                        rawPhoto.startsWith("http://", true) || rawPhoto.startsWith("https://", true) -> rawPhoto
+                        rawPhoto.startsWith("/") -> java.io.File(rawPhoto)   // ✅ local file path
+                        else -> rawPhoto
+                    }
+
                     Glide.with(context)
-                        .load(contact.photoUri)
+                        .load(model)
                         .placeholder(de.dlyt.yanndroid.samsung.R.drawable.ic_samsung_image)
                         .error(R.drawable.avatar_11)
                         .apply(
@@ -266,7 +276,6 @@ class ContactsAdapter(
                                 .circleCrop()
                         )
                         .into(iconImage)
-
 
                 } else {
                     iconImage.visibility = View.GONE
@@ -278,8 +287,8 @@ class ContactsAdapter(
                         setColor(contact.color)
                     }
                     iconInitials.background = background
-
                 }
+
 
 
 
@@ -454,12 +463,11 @@ class ContactsAdapter(
                     button.iconTint = ColorStateList.valueOf(fallbackTextColor)
                 }
 
-                val textColor = fallbackTextColor
-                binding.textName.setTextColor(textColor)
-                binding.textPhone.setTextColor(textColor)
-                binding.textEmail.setTextColor(textColor)
-                binding.textAddress.setTextColor(textColor)
-                binding.textBirthday.setTextColor(textColor)
+                binding.textName.setTextColor(fallbackTextColor)
+                binding.textPhone.setTextColor(fallbackTextColor)
+                binding.textEmail.setTextColor(fallbackTextColor)
+                binding.textAddress.setTextColor(fallbackTextColor)
+                binding.textBirthday.setTextColor(fallbackTextColor)
 
             } else {
                 // 🔁 Normal palette save
@@ -490,49 +498,15 @@ class ContactsAdapter(
         fun setExpandableState(position: Int, animate: Boolean) {
             with(binding) {
                 val shouldExpand = expandedPosition == position
-                val wasVisible = expandableContent.isVisible
+                val isVisible = expandableContent.isVisible
 
-                val dy = 16f * itemView.resources.displayMetrics.density
-                val inInterp  = androidx.interpolator.view.animation.FastOutLinearInInterpolator()
-                val outInterp = androidx.interpolator.view.animation.FastOutLinearInInterpolator()
-
-                // always cancel any running anims first
+                // cancel running
                 expandableContent.animate().cancel()
                 expandCollapseIcon.animate().cancel()
 
-                if (animate && shouldExpand && !wasVisible) {
-                    expandableContent.alpha = 0f
-                    expandableContent.translationY = -dy
-                    expandableContent.visibility = View.VISIBLE
-                    expandableContent.animate()
-                        .alpha(1f)
-                        .translationY(0f)
-                        .setDuration(300L)
-                        .setInterpolator(inInterp)
-                        .start()
-                } else if (animate && !shouldExpand && wasVisible) {
-                    expandableContent.animate()
-                        .alpha(0f)
-                        .translationY(-dy)
-                        .setDuration(220L)
-                        .setInterpolator(outInterp)
-                        .withEndAction {
-                            expandableContent.visibility = View.GONE
-                            expandableContent.alpha = 1f
-                            expandableContent.translationY = 0f
-                        }
-                        .start()
-                } else {
-                    // snap in bind() or when state didn't change
-                    expandableContent.visibility = if (shouldExpand) View.VISIBLE else View.GONE
-                    expandableContent.alpha = 1f
-                    expandableContent.translationY = 0f
-                }
-
-                // Arrow rotation — animate only on payload
+                // Arrow rotation
                 val targetRot = if (shouldExpand) 0f else 180f
-                if (animate && (shouldExpand != wasVisible)) {
-                    expandCollapseIcon.rotation = (expandCollapseIcon.rotation % 360f + 360f) % 360f
+                if (animate && (shouldExpand != isVisible)) {
                     expandCollapseIcon.animate()
                         .rotation(targetRot)
                         .setDuration(220L)
@@ -542,32 +516,83 @@ class ContactsAdapter(
                     expandCollapseIcon.rotation = targetRot
                 }
 
+                if (!animate) {
+                    expandableContent.visibility = if (shouldExpand) View.VISIBLE else View.GONE
+                    expandableContent.layoutParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
+                    expandableContent.alpha = 1f
+                    expandableContent.scaleY = 1f
+                    return
+                }
 
-                // your existing styling
-                val palette = getPaletteForContact(filteredContacts[position].id)
-                val iconContrastColor = getTextcolorForBackground(context, palette.mainColor)
-                expandCollapseIcon.setColorFilter(iconContrastColor)
-                val baseColor = if (palette.overlayColor != Color.TRANSPARENT)
-                    palette.overlayColor
-                else if (isDarkTheme(context)) "#1C1D23".toColorInt() else "#60FFFFFF".toColorInt()
-                expandableContent.setBackgroundColor(baseColor)
+                if (shouldExpand && !isVisible) {
+                    // measure target height
+                    expandableContent.visibility = View.VISIBLE
+                    expandableContent.alpha = 0f
+                    expandableContent.scaleY = 0.98f
 
-                val updateColor = context.getColor(R.color.box_alert_update)
-                combinedCard.setCardBackgroundColor(updateColor)
+                    expandableContent.measure(
+                        View.MeasureSpec.makeMeasureSpec(itemView.width, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                    )
+                    val targetH = expandableContent.measuredHeight
 
+                    // start collapsed
+                    expandableContent.layoutParams = expandableContent.layoutParams.apply { height = 0 }
 
+                    val anim = android.animation.ValueAnimator.ofInt(0, targetH).apply {
+                        duration = 320L
+                        interpolator = androidx.interpolator.view.animation.FastOutSlowInInterpolator()
+                        addUpdateListener {
+                            val h = it.animatedValue as Int
+                            expandableContent.layoutParams = expandableContent.layoutParams.apply { height = h }
+                        }
+                        doOnEnd {
+                            // let it wrap after expand completes
+                            expandableContent.layoutParams = expandableContent.layoutParams.apply {
+                                height = ViewGroup.LayoutParams.WRAP_CONTENT
+                            }
+                        }
+                    }
 
-                val lp = combinedCard.layoutParams as ViewGroup.MarginLayoutParams
-                lp.topMargin = 5
-                lp.bottomMargin = (3 * context.resources.displayMetrics.density).toInt()
-                combinedCard.layoutParams = lp
+                    expandableContent.animate()
+                        .alpha(1f)
+                        .scaleY(1f)
+                        .setDuration(220L)
+                        .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                        .start()
 
-                val dlp = deleteBackground.layoutParams as ViewGroup.MarginLayoutParams
-                dlp.topMargin = lp.topMargin
-                dlp.bottomMargin = lp.bottomMargin
-                dlp.marginStart = lp.marginStart
-                dlp.marginEnd = lp.marginEnd
-                deleteBackground.layoutParams = dlp
+                    anim.start()
+
+                } else if (!shouldExpand && isVisible) {
+                    // collapse from current height to 0
+                    val startH = expandableContent.height
+
+                    val anim = android.animation.ValueAnimator.ofInt(startH, 0).apply {
+                        duration = 240L
+                        interpolator = androidx.interpolator.view.animation.FastOutLinearInInterpolator()
+                        addUpdateListener {
+                            val h = it.animatedValue as Int
+                            expandableContent.layoutParams = expandableContent.layoutParams.apply { height = h }
+                        }
+                        doOnEnd {
+                            expandableContent.visibility = View.GONE
+                            expandableContent.alpha = 1f
+                            expandableContent.scaleY = 1f
+                            expandableContent.layoutParams = expandableContent.layoutParams.apply {
+                                height = ViewGroup.LayoutParams.WRAP_CONTENT
+                            }
+                        }
+                    }
+
+                    expandableContent.animate()
+                        .alpha(0f)
+                        .scaleY(0.98f)
+                        .setDuration(180L)
+                        .setInterpolator(androidx.interpolator.view.animation.FastOutLinearInInterpolator())
+                        .start()
+
+                    anim.start()
+                }
             }
         }
 

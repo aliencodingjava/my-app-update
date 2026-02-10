@@ -2,6 +2,7 @@
 
 package com.flights.studio
 
+// ✅ Kyant Backdrop
 import android.os.Bundle
 import android.view.View
 import androidx.activity.ComponentActivity
@@ -12,9 +13,29 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,21 +49,19 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp // ✅ ADD THIS
-import androidx.core.view.WindowCompat
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
-// ✅ Kyant Backdrop
+import androidx.core.view.WindowCompat
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -52,12 +71,15 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.tanh
+import androidx.compose.ui.graphics.Color as ComposeColor
 
 class QRCodeComposeActivity : ComponentActivity() {
 
@@ -308,12 +330,31 @@ private fun HeroQrGlassOnly(
     val containerColor =
         if (isLightTheme) Color(0xFFFAFAFA).copy(alpha = 0.44f)
         else Color(0xFF121212).copy(alpha = 0.18f)
+    val isDark = isSystemInDarkTheme()
+
 
     Column(
         modifier = modifier
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { shape },
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.45.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.0.dp,
+                            alpha = 0.35f,
+                            style = HighlightStyle.Plain // very subtle
+                        )
+                    }
+                },
                 effects = {
                     vibrancy()
                     colorControls(
@@ -395,7 +436,7 @@ private fun HeroQrGlassOnly(
             shadowElevation = 0.dp
         ) {
             Image(
-                painter = painterResource(R.drawable.qrflights),
+                painter = painterResource(R.drawable.v227),
                 contentDescription = stringResource(R.string.qrcode),
                 modifier = Modifier
                     .padding(16.dp)

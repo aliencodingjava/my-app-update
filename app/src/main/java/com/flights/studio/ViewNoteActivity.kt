@@ -40,17 +40,28 @@ class ViewNoteActivity : AppCompatActivity() {
         const val EXTRA_NOTE = "NOTE"
         const val EXTRA_POSITION = "NOTE_POSITION"
         const val EXTRA_TITLE = "NOTE_TITLE"
-
+        const val EXTRA_UID = "NOTE_UID"            // ✅ FIX: used to load images
         private const val TAG = "ViewNoteActivity"
         private const val CLICK_DELAY = 500L
 
-        fun newIntent(context: Context, note: String, position: Int, title: String?): Intent {
+        /**
+         * ✅ Correct intent: includes uid so images can be loaded.
+         */
+        fun newIntent(
+            context: Context,
+            uid: String,
+            note: String,
+            position: Int,
+            title: String?
+        ): Intent {
             return Intent(context, ViewNoteActivity::class.java).apply {
+                putExtra(EXTRA_UID, uid)            // ✅ IMPORTANT
                 putExtra(EXTRA_NOTE, note)
                 putExtra(EXTRA_POSITION, position)
                 putExtra(EXTRA_TITLE, title)
             }
         }
+
     }
 
     private lateinit var binding: ActivityViewNoteBinding
@@ -62,8 +73,6 @@ class ViewNoteActivity : AppCompatActivity() {
     private var lastClickedTN: String? = null
     private var lastClickedIndex: Int = RecyclerView.NO_POSITION
     private var imageDialog: Dialog? = null
-
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,8 +96,12 @@ class ViewNoteActivity : AppCompatActivity() {
         val title: String? = intent.getStringExtra(EXTRA_TITLE)
             ?: intent.getStringExtra("extra_title")
 
+        // ✅ UID used for image loading
+        val uid: String? = intent.getStringExtra(EXTRA_UID)
+            ?: intent.getStringExtra("NOTE_UID") // legacy
+
         if (note.isEmpty() || position == -1) {
-            Log.w(TAG, "Invalid note or position: note=$note, position=$position")
+            Log.w(TAG, "Invalid note or position: note.len=${note.length}, position=$position")
             Toast.makeText(this, getString(R.string.error_loading_note), Toast.LENGTH_SHORT).show()
             finish()
             applyTransition()
@@ -99,20 +112,22 @@ class ViewNoteActivity : AppCompatActivity() {
         binding.tvNoteContent.text = note
         if (!title.isNullOrBlank()) binding.toolbar.title = title
 
-        // Setup images carousel
-        setupImagesCarousel(note)
+        // ✅ Setup images carousel (requires uid)
+        if (!uid.isNullOrBlank()) {
+            setupImagesCarousel(uid)
+        } else {
+            // No UID => we can't map to stored images
+            Log.w(TAG, "Missing NOTE_UID; hiding images carousel")
+            findViewById<RecyclerView>(R.id.rv_images)?.isVisible = false
+            snapHelper = null
+        }
 
         // Setup edit result launcher
         setupEditLauncher()
 
         // Optional edit icon inside toolbar
-        setupEditIcon(note, position, title)
-
-
+        setupEditIcon(uid, note, position, title)
     }
-
-
-
 
     private fun setupSharedElementTransitions() {
         val exitSet = android.transition.TransitionSet()
@@ -149,10 +164,18 @@ class ViewNoteActivity : AppCompatActivity() {
         )
     }
 
-    private fun setupImagesCarousel(note: String) {
+    /**
+     * ✅ FIX: no unused "note" parameter; we load images by uid.
+     */
+    private fun setupImagesCarousel(uid: String) {
         rv = findViewById(R.id.rv_images)
-        val uris = NoteMediaStore.getUris(this, note)
-        if (uris.isEmpty()) { rv.isVisible = false; snapHelper = null; return }
+
+        val uris: List<Uri> = NoteMediaStore.getUris(this, uid)
+        if (uris.isEmpty()) {
+            rv.isVisible = false
+            snapHelper = null
+            return
+        }
         rv.isVisible = true
 
         val layoutManager = CarouselLayoutManager(HeroCarouselStrategy())
@@ -163,10 +186,10 @@ class ViewNoteActivity : AppCompatActivity() {
 
         snapHelper = CarouselSnapHelper().also { it.attachToRecyclerView(rv) }
 
-        // 🔴 Remove the side padding you previously added
+        // Remove side padding
         rv.setPadding(0, rv.paddingTop, 0, rv.paddingBottom)
 
-        // ✅ Add spacing between items but NOT before the first item
+        // spacing between items but NOT before first item
         rv.addItemDecoration(object : RecyclerView.ItemDecoration() {
             override fun getItemOffsets(
                 outRect: android.graphics.Rect,
@@ -184,10 +207,9 @@ class ViewNoteActivity : AppCompatActivity() {
         rv.adapter = SimpleImageAdapter(uris, ::showImageDialog)
     }
 
-
     class SimpleImageAdapter(
         private val items: List<Uri>,
-        private val onImageClick: (List<Uri>, Int) -> Unit,  // ✅ sends full list and index
+        private val onImageClick: (List<Uri>, Int) -> Unit, // sends full list + index
     ) : RecyclerView.Adapter<SimpleImageAdapter.VH>() {
 
         class VH(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -212,10 +234,8 @@ class ViewNoteActivity : AppCompatActivity() {
             }
         }
 
-
         override fun getItemCount(): Int = items.size
     }
-
 
     private fun findContainerByTN(tn: String?): View? {
         if (tn.isNullOrEmpty()) return null
@@ -226,10 +246,6 @@ class ViewNoteActivity : AppCompatActivity() {
         return null
     }
 
-    override fun onStop() {
-        super.onStop()
-    }
-
     override fun onDestroy() {
         imageDialog = null
         super.onDestroy()
@@ -237,7 +253,7 @@ class ViewNoteActivity : AppCompatActivity() {
 
     private fun showImageDialog(uris: List<Uri>, startIndex: Int) {
         if (uris.isEmpty()) return
-        val urls = uris.map { it.toString() }               // Compose screen takes strings
+        val urls = uris.map { it.toString() }
         startActivity(
             ViewImageComposeActivity.intent(
                 this,
@@ -245,21 +261,15 @@ class ViewNoteActivity : AppCompatActivity() {
                 startIndex = startIndex
             )
         )
-        // Optional: keep your fade if you like
         overridePendingTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
     }
 
-
-
     private fun centerChildExactly(child: View) {
-        // center of RV content area
         val rvCenter = (rv.paddingLeft + rv.width - rv.paddingRight) / 2
-        // child center in RV coordinates
         val childCenter = (child.left + child.right) / 2
         val dx = childCenter - rvCenter
         if (dx != 0) rv.scrollBy(dx, 0)
     }
-
 
     override fun onActivityReenter(resultCode: Int, data: Intent?) {
         super.onActivityReenter(resultCode, data)
@@ -267,70 +277,80 @@ class ViewNoteActivity : AppCompatActivity() {
         postponeEnterTransition()
         rv.stopScroll()
 
-        // Freeze everything and detach snap so it can’t “help”
         rv.suppressLayout(true)
         snapHelper?.attachToRecyclerView(null)
 
         if (lastClickedIndex != RecyclerView.NO_POSITION) {
-            rv.scrollToPosition(lastClickedIndex) // ensure it’s visible
+            rv.scrollToPosition(lastClickedIndex)
         }
 
         rv.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
             override fun onPreDraw(): Boolean {
                 rv.viewTreeObserver.removeOnPreDrawListener(this)
-
-                // First precise center before starting the return
                 findContainerByTN(lastClickedTN)?.let { centerChildExactly(it) }
-
                 startPostponedEnterTransition()
-
-                // Thaw layout right after we start animating (still no snap yet)
                 rv.post { rv.suppressLayout(false) }
                 return true
             }
         })
     }
 
-
-
-
-
     private fun setupEditLauncher() {
         editNoteLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val data = result.data
-                val updatedNote = data?.getStringExtra("UPDATED_NOTE")
-                val updatedTitle = data?.getStringExtra("UPDATED_TITLE")
-                val updatedPos = data?.getIntExtra("NOTE_POSITION", -1) ?: -1
+            if (result.resultCode != RESULT_OK) return@registerForActivityResult
 
-                if (!updatedNote.isNullOrEmpty() && updatedPos != -1) {
-                    noteIsModified = true
-                    setResult(
-                        RESULT_OK,
-                        Intent().apply {
-                            putExtra("UPDATED_NOTE", updatedNote)
-                            putExtra("UPDATED_TITLE", updatedTitle)
-                            putExtra("NOTE_POSITION", updatedPos)
-                        }
-                    )
-                    finish()
-                    applyTransition()
+            val data = result.data ?: return@registerForActivityResult
+
+            val noteId = data.getStringExtra("NOTE_ID").orEmpty()
+            val updatedNote = data.getStringExtra("UPDATED_NOTE").orEmpty()
+            val updatedTitle = data.getStringExtra("UPDATED_TITLE") // can be null
+            val oldNote = data.getStringExtra("OLD_NOTE")           // optional
+
+            if (noteId.isBlank() || updatedNote.isBlank()) return@registerForActivityResult
+
+            noteIsModified = true
+            setResult(
+                RESULT_OK,
+                Intent().apply {
+                    putExtra("NOTE_ID", noteId)            // ✅ stable identity
+                    putExtra("UPDATED_NOTE", updatedNote)
+                    putExtra("UPDATED_TITLE", updatedTitle)
+                    putExtra("OLD_NOTE", oldNote)
                 }
-            }
-        }
-    }
-
-    private fun setupEditIcon(note: String, position: Int, title: String?) {
-        val editIcon = binding.toolbar.findViewById<ImageView>(R.id.expandCollapseIcon)
-        editIcon?.setOnClickListener { v ->
-            preventDoubleClick(v)
-            Log.d(TAG, "Launching edit activity for position: $position")
-            editNoteLauncher.launch(EditNoteActivity.newIntent(this, note, position, title))
+            )
+            finish()
             applyTransition()
         }
     }
+
+    private fun setupEditIcon(uid: String?, note: String, position: Int, title: String?) {
+        val editIcon = binding.toolbar.findViewById<ImageView>(R.id.expandCollapseIcon)
+
+        // ✅ If we don't have an id, do NOT allow edit (otherwise it edits "" and makes a new note)
+        if (uid.isNullOrBlank()) {
+            editIcon?.isVisible = false
+            return
+        }
+
+        editIcon?.isVisible = true
+        editIcon?.setOnClickListener { v ->
+            preventDoubleClick(v)
+            Log.d(TAG, "Launching edit activity for id=$uid position=$position")
+            editNoteLauncher.launch(
+                EditNoteActivity.newIntent(
+                    this,
+                    id = uid,          // ✅ real id
+                    note = note,
+                    position = position,
+                    title = title
+                )
+            )
+            applyTransition()
+        }
+    }
+
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
@@ -342,6 +362,7 @@ class ViewNoteActivity : AppCompatActivity() {
                 }
                 true
             }
+
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -370,6 +391,7 @@ class ViewNoteActivity : AppCompatActivity() {
                     window.decorView.systemUiVisibility = 0
                 }
             }
+
             Configuration.UI_MODE_NIGHT_NO -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     window.insetsController?.setSystemBarsAppearance(

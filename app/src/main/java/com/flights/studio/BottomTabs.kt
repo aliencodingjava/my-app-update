@@ -60,7 +60,7 @@ fun <T> BottomTabs(
                 color = if (isDark) Color.Black.copy(alpha = 0.85f)
                 else Color.White.copy(alpha = 0.65f),
                 offset = Offset(0f, 1f),
-                blurRadius = 3f
+                blurRadius = 0f
             )
         )
     }
@@ -115,7 +115,7 @@ fun <T> BottomTabs(
             ) {
                 Column(
                     modifier = Modifier
-                        .heightIn(min = 56.dp.us(ui))
+                        .heightIn(min = 50.dp.us(ui))
                         .padding(vertical = 6.dp.us(ui)),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center

@@ -15,6 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.gson.Gson
@@ -43,6 +45,11 @@ class MainActivity : FragmentActivity() {
             return
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.statusBars()) // ✅ hides time/battery/wifi
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
         firebaseAnalytics = FirebaseAnalytics.getInstance(this)
         Log.d(TAG_MAIN, "FirebaseAnalytics initialized")
 
@@ -228,7 +235,7 @@ class MainActivity : FragmentActivity() {
 
                     // ---------- 3.in main activity MENU BOTTOM SHEET MODAL ----------
                     FlightsMenuLiquidSheetModal(
-                        backdrop = buttonsBackdrop,   // ✅ ✅ ✅ BOTTOM SHEET NOW REFLECTS BUTTONS
+                        backdrop = buttonsBackdrop,
                         visible = showMenuSheet,
                         onDismissRequest = {
                             Log.d(TAG_MAIN, "FlightsMenuLiquidSheetModal: onDismissRequest()")
@@ -237,6 +244,8 @@ class MainActivity : FragmentActivity() {
                         notesCount = notesCountForSheet,
                         contactsCount = contactsCountForSheet
                     )
+
+
                 }
 
                 Log.d(TAG_MAIN, "MaterialTheme: composition EXIT (end of setContent block)")

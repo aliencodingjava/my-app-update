@@ -8,10 +8,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.graphicsLayer
 import android.util.Log
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.compose.BackHandler
@@ -20,6 +16,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -79,7 +78,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
@@ -94,6 +96,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -103,11 +106,14 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import dev.seyfarth.composeshimmer.shimmerEffect
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+
+
 
 class ProfileDetailsComposeActivity : AppCompatActivity() {
 
@@ -141,11 +147,24 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                 }
             }
 
+            // ✅ you MUST keep this
             val profileThemeModeState =
                 rememberSaveable { mutableIntStateOf(userPrefs.profileThemeMode) }
 
+            // ⚠️ keep as you had; just note this is not reactive (ok for your reinstall issue)
+            val isLoggedIn = remember { userPrefs.isLoggedIn }
+
+            val effectiveMode = if (!isLoggedIn) 6 else profileThemeModeState.intValue
+
+            LaunchedEffect(isLoggedIn) {
+                if (!isLoggedIn && userPrefs.profileThemeMode != 6) {
+                    userPrefs.profileThemeMode = 6
+                    profileThemeModeState.intValue = 6
+                }
+            }
+
             FlightsTheme(
-                profileBackdropStyle = when (profileThemeModeState.intValue) {
+                profileBackdropStyle = when (effectiveMode) {
                     0 -> ProfileBackdropStyle.Auto
                     1 -> ProfileBackdropStyle.Glass
                     2 -> ProfileBackdropStyle.ClearGlass
@@ -156,21 +175,17 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                     else -> ProfileBackdropStyle.Amoled
                 }
             ) {
-                // ✅ in-activity navigation: show profile OR auth
                 var showAuth by rememberSaveable { mutableStateOf(false) }
 
                 val closeAuth = remember { { showAuth = false } }
                 val openAuth = remember {
                     {
-                        // ✅ auth screens always solid
                         profileThemeModeState.intValue = 6
                         userPrefs.profileThemeMode = 6
-
                         showAuth = true
                     }
                 }
 
-                // ✅ Back closes auth screen
                 BackHandler(enabled = showAuth, onBack = closeAuth)
 
                 if (showAuth) {
@@ -517,6 +532,13 @@ private data class ProfileUiState(
     val bioRaw: String,
     val birthdayRaw: String
 )
+private sealed interface AvatarLoadState {
+    data object Idle : AvatarLoadState
+    data object Loading : AvatarLoadState
+    data class Ready(val data: Any) : AvatarLoadState
+    data object Failed : AvatarLoadState
+}
+
 
 private fun buildProfileUiState(userPrefs: UserPreferencesManager): ProfileUiState {
     val rawName = userPrefs.userName?.trim().orEmpty()
@@ -558,6 +580,7 @@ private fun buildProfileUiState(userPrefs: UserPreferencesManager): ProfileUiSta
 
 
 
+@SuppressLint("ConfigurationScreenWidthHeight")
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -907,12 +930,14 @@ private fun ProfileDetailsRoute(
     }
 
 
+    val pageBg = LocalAppPageBg.current
+
     val scrollState = rememberScrollState()
-    val pageBgColor = MaterialTheme.colorScheme.background
     val pageBackdrop = rememberLayerBackdrop {
-        drawRect(pageBgColor)
+        drawRect(pageBg)
         drawContent()
     }
+
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -924,8 +949,7 @@ private fun ProfileDetailsRoute(
                     bottomEnd = 24.dp
                 ),
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                tonalElevation = 0.dp,
-                shadowElevation = 3.dp
+                shadowElevation = 1.dp
             ) {
                 CenterAlignedTopAppBar(
                     title = {
@@ -1070,20 +1094,25 @@ private fun ProfileDetailsRoute(
                     .profileBackdropBackground(RoundedCornerShape(0.dp))
             )
 
-            // 2) overlay progressive blur that reads pageBackdrop
-//          BottomProgressiveBlurStrip(
-//        backdrop = pageBackdrop,
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .height(66.dp)
-//            .align(Alignment.TopStart)
-//            .offset(y = (maxHeight * 0.5f) - 33.dp) // center strip on the line
-//            .zIndex(1f)
-//    )
+//            val cfg = LocalConfiguration.current
+//            val gradientHeight = remember(cfg.screenHeightDp) { cfg.screenHeightDp.dp * 0.52f }
+//
+//            BackdropGradientLayer(
+//                backdrop = pageBackdrop,
+//                modifier = Modifier
+//                    .align(Alignment.TopStart)
+//                    .zIndex(0.1f),
+//                height = gradientHeight,      // your half screen (OK)
+//                blurDp = 18.dp,
+//                tintIntensity = if (isSystemInDarkTheme()) 0.30f else 0.18f
+//            )
+
+
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .zIndex(1f)
                     .padding(padding)
                     .verticalScroll(scrollState)
                     .padding(horizontal = 16.dp)
@@ -1102,8 +1131,7 @@ private fun ProfileDetailsRoute(
                         .padding(top = 8.dp),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant, // ✅ SAME AS QUICK ACTIONS
-                    tonalElevation = 0.dp,
-                    shadowElevation = if (elevated) 3.dp else 0.dp    // ✅ SAME AS QUICK ACTIONS
+                    shadowElevation = if (elevated) 1.dp else 0.dp    // ✅ SAME AS QUICK ACTIONS
                 ) {
 
                 val headerShape = RoundedCornerShape(28.dp)
@@ -1135,7 +1163,7 @@ private fun ProfileDetailsRoute(
                                 .fillMaxWidth()
                                 .padding(bottom = 0.dp)
                         ) {
-                            val profileLabel = MaterialTheme.typography.labelMedium
+                            val profileLabel = MaterialTheme.typography.labelLarge
                             Text(
                                 text = "Profile",
                                 style = profileLabel,
@@ -1176,12 +1204,17 @@ private fun ProfileDetailsRoute(
 
                                     var avatarFailed by remember(rawPhoto) { mutableStateOf(false) }
 
-                                    val dataToLoad by produceState<Any?>(initialValue = null, key1 = rawPhoto, key2 = refreshTick) {
-
+                                    val avatarState by produceState(
+                                        initialValue = if (rawPhoto.isBlank()) AvatarLoadState.Idle else AvatarLoadState.Loading,
+                                        key1 = rawPhoto,
+                                        key2 = refreshTick
+                                    ) {
                                         if (rawPhoto.isBlank()) {
-                                            value = null
+                                            value = AvatarLoadState.Idle
                                             return@produceState
                                         }
+
+                                        value = AvatarLoadState.Loading
 
                                         // already usable by Coil
                                         if (
@@ -1189,20 +1222,20 @@ private fun ProfileDetailsRoute(
                                             rawPhoto.startsWith("content", true) ||
                                             rawPhoto.startsWith("file", true)
                                         ) {
-                                            value = rawPhoto
+                                            value = AvatarLoadState.Ready(rawPhoto)
                                             return@produceState
                                         }
 
                                         // 1) try local disk cache FIRST
                                         val local = AvatarDiskCache.localFile(context, rawPhoto)
                                         if (local.exists() && local.length() > 0L) {
-                                            value = local
+                                            value = AvatarLoadState.Ready(local)
                                             return@produceState
                                         }
 
                                         // 2) try signed-url cache
                                         SignedUrlCache.getValid(rawPhoto)?.let {
-                                            value = it
+                                            value = AvatarLoadState.Ready(it)
                                             return@produceState
                                         }
 
@@ -1217,48 +1250,86 @@ private fun ProfileDetailsRoute(
                                             if (!fresh.isNullOrBlank()) {
                                                 SignedUrlCache.put(rawPhoto, fresh, 60 * 60)
                                                 AvatarDiskCache.cacheFromSignedUrl(context, rawPhoto, fresh)
-                                                value = fresh
+                                                value = AvatarLoadState.Ready(fresh)
                                                 return@produceState
                                             }
                                         }
 
-                                        value = null
+                                        value = AvatarLoadState.Failed
                                     }
 
-                                    LaunchedEffect(dataToLoad) { avatarFailed = false }
+                                    // reset error flag whenever our resolved data changes
+                                    LaunchedEffect(avatarState) { avatarFailed = false }
 
-                                    if (dataToLoad != null && !avatarFailed) {
-                                        AsyncImage(
-                                            model = ImageRequest.Builder(context)
-                                                .data(dataToLoad)
-                                                .setParameter("v", avatarVersion)
-                                                .crossfade(true)     // ❌ no memoryCacheKey / diskCacheKey
-                                                .build(),
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize(),
-                                            onError = {
-                                                avatarFailed = true
-                                                if (rawPhoto.isNotBlank()) {
-                                                    SignedUrlCache.invalidate(rawPhoto)
+                                    when (val st = avatarState) {
+                                        is AvatarLoadState.Ready -> {
+                                            if (!avatarFailed) {
+                                                AsyncImage(
+                                                    model = ImageRequest.Builder(context)
+                                                        .data(st.data)
+                                                        .setParameter("v", avatarVersion)
+                                                        .crossfade(true)
+                                                        .build(),
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    onError = {
+                                                        avatarFailed = true
+                                                        if (rawPhoto.isNotBlank()) {
+                                                            SignedUrlCache.invalidate(rawPhoto)
+                                                        }
+                                                    }
+                                                )
+                                            } else {
+                                                // logo fallback if coil failed
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Image(
+                                                        painter = painterResource(R.drawable.jh_airport_logo_dark),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.fillMaxSize(0.62f),
+                                                        contentScale = ContentScale.Fit,
+                                                        colorFilter = ColorFilter.tint(
+                                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f)
+                                                        )
+                                                    )
                                                 }
                                             }
-                                        )
-                                    } else {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            val initialsStyle = MaterialTheme.typography.headlineSmall
-                                            Text(
-                                                text = ui.initials.ifEmpty { "?" },
-                                                style = initialsStyle.copy(fontWeight = FontWeight.Medium),
-                                                fontSize = initialsStyle.fontSize.us(bodyS),
-                                                color = MaterialTheme.colorScheme.onSurface
+                                        }
+
+                                        AvatarLoadState.Loading -> {
+                                            // ✅ shimmer placeholder while we wait
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .shimmerEffect(
+                                                        visible = true,
+                                                        shape = avatarShape
+                                                    )
                                             )
                                         }
-                                    }
 
+                                        AvatarLoadState.Idle,
+                                        AvatarLoadState.Failed -> {
+                                            // logo fallback (no photo or couldn't sign)
+                                            Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Image(
+                                                    painter = painterResource(R.drawable.jh_airport_logo_dark),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.fillMaxSize(0.62f),
+                                                    contentScale = ContentScale.Fit,
+                                                    colorFilter = ColorFilter.tint(
+                                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f)
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
 
                                     Spacer(Modifier.width(14.dp))
@@ -1307,8 +1378,7 @@ private fun ProfileDetailsRoute(
                         .padding(top = 8.dp),
                     shape = RoundedCornerShape(28.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    tonalElevation = 0.dp,
-                    shadowElevation = if (elevated) 3.dp else 0.dp   // 🔥 SAME AS QUICK ACTIONS
+                    shadowElevation = if (elevated) 1.dp else 0.dp   // 🔥 SAME AS QUICK ACTIONS
                 ) {
 
                 val headerShape = RoundedCornerShape(28.dp)
@@ -1438,7 +1508,7 @@ fun QuickActionsCard(
         shape = RoundedCornerShape(28.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 0.dp,
-        shadowElevation = if (elevated) 3.dp else 0.dp // ✅ same as top bar
+        shadowElevation = if (elevated) 1.dp else 1.dp // ✅ same as top bar
     ) {
         Column(Modifier.padding(14.dp)) {
             val qaTitle = MaterialTheme.typography.labelLarge

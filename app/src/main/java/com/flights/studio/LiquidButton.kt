@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -28,10 +29,8 @@ import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -40,12 +39,13 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
-
 
 @Composable
 fun LiquidButton(
@@ -64,31 +64,43 @@ fun LiquidButton(
     }
     val isDark = isSystemInDarkTheme()
 
-    // ✅ dp/layout scaling
-    val ui = rememberUiScale()
-    // ✅ text scaling (tablet-safe)
-    val uiTight = rememberUiTight()
+    // ✅ single source of truth
+    val scales = rememberUiScales()
+    val ui = scales.body       // dp/layout
+    val uiText = scales.label  // text
 
-    // Layout tokens (dp)
-    val btnHeight = 44.dp.us(ui)
+    // Layout tokens (dp) — these can stay as tokens (design system)
+    val btnHeight = 50.dp.us(ui)
     val horizontalPad = 12.dp.us(ui)
     val iconBgSize = 28.dp.us(ui)
     val iconSize = 20.dp.us(ui)
     val endSpacer = 10.dp.us(ui)
-
-    // Text tokens (sp)
-    val fontSize = 12.sp.us(uiTight)
-    val letterSpacing = 0.15.sp.us(uiTight)
 
     Box(
         modifier = modifier
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { RoundedCornerShape(percent = 50) },
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.45.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Ambient
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.0.dp,
+                            alpha = 0.35f,
+                            style = HighlightStyle.Plain // very subtle
+                        )
+                    }
+                },
                 effects = {
                     vibrancy()
-                    // you can keep these constants; glass blur/lens doesn't need scaling
-                    blur(if (isDark) 2.dp.toPx() else 0.dp.toPx())
+                    blur(if (isDark) 8.dp.toPx() else 8.dp.toPx())
                     lens(
                         refractionHeight = 8.dp.toPx(),
                         refractionAmount = 28.dp.toPx(),
@@ -107,8 +119,7 @@ fun LiquidButton(
                         val height = size.height
                         val progress = interactiveHighlight.pressProgress
 
-                        // Optional: if you want the press feel consistent with your dp scale:
-                        val zoomAmountPx = 1.5.dp.us(ui).toPx()
+                        val zoomAmountPx = 3.5.dp.us(ui).toPx()
                         val scale = lerp(1f, 1f + zoomAmountPx / size.height, progress)
 
                         val maxOffset = size.minDimension
@@ -156,12 +167,32 @@ fun LiquidButton(
             .padding(horizontal = horizontalPad),
         contentAlignment = Alignment.Center
     ) {
-        val contentColor = Color.White
-        val textShadow = Shadow(
-            color = Color.Black.copy(alpha = 0.9f),
-            offset = Offset(0f, 2f),
-            blurRadius = 1f
+        val textColor = if (isDark) Color.White else Color(0xFF111111)
+        val iconColor = Color.White
+
+        val textShadow = if (isDark) {
+            Shadow(
+                color = Color.Black.copy(alpha = 0.9f),
+                offset = Offset(0f, 2f),
+                blurRadius = 1f
+            )
+        } else {
+            Shadow(
+                color = Color.Transparent,
+                offset = Offset.Zero,
+                blurRadius = 0f
+            )
+        }
+
+        val baseLabelStyle = MaterialTheme.typography.labelMedium
+        val labelStyle = baseLabelStyle.merge(
+            TextStyle(
+                fontSize = baseLabelStyle.fontSize.us(uiText),
+                letterSpacing = baseLabelStyle.letterSpacing.us(uiText),
+                shadow = textShadow
+            )
         )
+
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -183,7 +214,7 @@ fun LiquidButton(
                         painter = painterResource(id = iconRes),
                         contentDescription = label,
                         modifier = Modifier.size(iconSize),
-                        colorFilter = ColorFilter.tint(contentColor)
+                        colorFilter = ColorFilter.tint(iconColor)
                     )
                 }
             }
@@ -195,15 +226,10 @@ fun LiquidButton(
                 if (label.isNotEmpty()) {
                     Text(
                         text = label,
-                        color = contentColor,
+                        color = textColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        style = TextStyle(
-                            fontSize = fontSize,
-                            fontWeight = FontWeight.Normal,
-                            letterSpacing = letterSpacing,
-                            shadow = textShadow
-                        )
+                        style = labelStyle
                     )
                 }
             }

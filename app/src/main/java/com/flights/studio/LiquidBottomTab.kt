@@ -49,6 +49,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.capsule.ContinuousCapsule
@@ -73,7 +74,7 @@ fun LiquidBottomTabs(
     val accentColor = if (isLightTheme) Color(0xFF0088FF) else Color(0xFF0091FF)
     val containerColor =
         if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
-        else Color(0xFF121212).copy(0.4f)
+        else Color(0xFF121212).copy(0.0f)
 
     val tabsBackdrop = rememberLayerBackdrop()
 
@@ -164,6 +165,7 @@ fun LiquidBottomTabs(
         val backPlateH = 72.dp.us(ui)
         val sliderH = 64.dp.us(ui)
         val sidePad = 4.dp.us(ui)
+        val isDark = isSystemInDarkTheme()
 
         Row(
             Modifier
@@ -171,10 +173,27 @@ fun LiquidBottomTabs(
                 .drawBackdrop(
                     backdrop = backdrop,
                     shape = { ContinuousCapsule },
+                    highlight = {
+                        if (isDark) {
+                            Highlight(
+                                width = 0.45.dp,
+                                blurRadius = 1.dp,
+                                alpha = 0.50f,
+                                style = HighlightStyle.Plain
+                            )
+                        } else {
+                            Highlight(
+                                width = 0.30.dp,
+                                blurRadius = 1.0.dp,
+                                alpha = 0.35f,
+                                style = HighlightStyle.Plain // very subtle
+                            )
+                        }
+                    },
                     effects = {
                         vibrancy()
-                        blur(4.dp.us(ui).toPx())
-                        lens(16.dp.us(ui).toPx(), 32.dp.us(ui).toPx())
+                        blur(2.dp.us(ui).toPx())
+                        lens(8.dp.us(ui).toPx(), 48.dp.us(ui).toPx())
                     },
                     layerBlock = {
                         val progress = dampedDragAnimation.pressProgress
@@ -209,8 +228,8 @@ fun LiquidBottomTabs(
                         effects = {
                             val progress = dampedDragAnimation.pressProgress
                             vibrancy()
-                            blur(4.dp.us(ui).toPx())
-                            lens(16.dp.us(ui).toPx() * progress, 32.dp.us(ui).toPx() * progress)
+                            blur(2.dp.us(ui).toPx())
+                            lens(8.dp.us(ui).toPx() * progress, 48.dp.us(ui).toPx() * progress)
                         },
                         highlight = {
                             val progress = dampedDragAnimation.pressProgress
@@ -227,7 +246,7 @@ fun LiquidBottomTabs(
                 content = content
             )
         }
-
+// pill
         Box(
             Modifier
                 .padding(horizontal = sidePad)
@@ -242,11 +261,13 @@ fun LiquidBottomTabs(
                     backdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop),
                     shape = { ContinuousCapsule },
                     effects = {
+                        blur(0f.dp.toPx()) // pill blur 0
                         val progress = dampedDragAnimation.pressProgress
                         lens(
-                            8.dp.us(ui).toPx() * progress,
-                            14.dp.us(ui).toPx() * progress,
-                            chromaticAberration = true
+                            20.dp.us(ui).toPx() * progress,
+                            20.dp.us(ui).toPx() * progress,
+                            chromaticAberration = false,
+                            depthEffect = true
                         )
                     },
                     highlight = {

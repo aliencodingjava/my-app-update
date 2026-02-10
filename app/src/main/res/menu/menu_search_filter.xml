@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ✅ Single-choice group = RADIO circles -->
+    <group
+        android:id="@+id/group_search_mode"
+        android:checkableBehavior="single">
+
+        <item
+            android:id="@+id/filter_note"
+            android:title="Note"
+            android:checked="true" />
+
+        <item
+            android:id="@+id/filter_title"
+            android:title="Title" />
+
+        <item
+            android:id="@+id/filter_both"
+            android:title="Both" />
+
+    </group>
+
+</menu>

@@ -49,9 +49,11 @@
 
     <application
         android:name=".JHAirTracker"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
+        android:fullBackupOnly="false"
+
         android:hardwareAccelerated="true"
         android:icon="@mipmap/jhairtrackericon"
         android:label="@string/app_name"
@@ -78,7 +80,7 @@
             android:exported="false" />
 
         <activity
-            android:name=".EditNoteActivity"
+            android:name=".EditNoteComposeActivity"
             android:hardwareAccelerated="true"
             android:exported="false"
             android:windowSoftInputMode="adjustResize"
@@ -111,7 +113,7 @@
 
 
         <activity
-            android:name=".IosPlayerActivity"
+            android:name=".IosPlayerActivity1"
             android:exported="false"
             android:theme="@style/AppTheme"
             android:hardwareAccelerated="true"
@@ -126,9 +128,18 @@
 
 
         <activity
-            android:name=".ViewNoteActivity"
+            android:name=".ViewNoteComposeActivity"
             android:hardwareAccelerated="true"
             android:exported="false" />
+        <activity
+            android:name=".AddNoteComposeActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
 
 
         <activity
@@ -310,8 +321,11 @@
             android:exported="false"
             android:hardwareAccelerated="true"
             android:screenOrientation="portrait"
-            android:theme="@style/AllNotesActivity.Theme"
             tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+        <activity
+            android:name="NotesSettingsComposeActivity"
+            android:exported="false" />
+
     </application>
 
 </manifest>

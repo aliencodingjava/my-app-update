@@ -33,7 +33,13 @@
         <item name="android:windowExitAnimation">@anim/slide_down</item>
     </style>
 
+    <style name="SmallFabBadge" parent="Widget.MaterialComponents.Badge">
+        <item name="badgeTextAppearance">@style/SmallFabBadgeText</item>
+    </style>
 
+    <style name="SmallFabBadgeText" parent="TextAppearance.MaterialComponents.Badge">
+        <item name="android:textSize">7sp</item>
+    </style>
 
 
 </resources>

@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.ContextThemeWrapper
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.Menu
@@ -224,7 +225,8 @@ class AllContactsFragment : Fragment() {
         val fab = requireActivity().findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.nav_add_contact)
         fab.post {
             if (totalCount > 0) {
-                val badge = fabBadgeDrawable ?: BadgeDrawable.create(requireContext()).also {
+                val themedContext = ContextThemeWrapper(requireContext(), R.style.SmallFabBadge)
+                val badge = fabBadgeDrawable ?: BadgeDrawable.create(themedContext).also {
                     fabBadgeDrawable = it
                 }
 
@@ -233,6 +235,8 @@ class AllContactsFragment : Fragment() {
                 badge.badgeGravity = BadgeDrawable.TOP_END
                 badge.backgroundColor = Color.RED
                 badge.badgeTextColor = Color.WHITE
+                badge.maxCharacterCount = 4   // 99+
+
 
                 // use 15dp offsets for consistent location across densities
                 val d = resources.displayMetrics.density

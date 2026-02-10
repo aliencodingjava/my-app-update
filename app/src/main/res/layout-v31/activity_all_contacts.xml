@@ -95,9 +95,9 @@
                     android:text="999"
                     android:textAlignment="center"
                     android:textColor="@color/message_color_alert"
-                    android:textSize="11sp"
+                    android:textSize="8sp"
                     android:textStyle="normal"
-                    tools:ignore="HardcodedText" />
+                    tools:ignore="HardcodedText,SmallSp" />
 
                 <TextView
                     android:id="@+id/contact_count_message"
@@ -108,7 +108,7 @@
                     android:maxLines="1"
                     android:text="@string/total_contacts"
                     android:textColor="?attr/actionMenuTextColor"
-                    android:textSize="9sp"
+                    android:textSize="8sp"
                     android:textStyle="normal"
                     android:visibility="visible"
                     tools:ignore="SmallSp" />
@@ -128,7 +128,7 @@
                 android:backgroundTint="@color/box_contact_expand"
                 android:contentDescription="@string/add_note"
                 app:tint="@color/red"
-                app:elevation="2dp"
+                app:elevation="1dp"
                 app:srcCompat="@drawable/person_add_24dp_ffffff_fill1_wght400_grad0_opsz24" />
 
 

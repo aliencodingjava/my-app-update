@@ -26,7 +26,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
-import androidx.lifecycle.lifecycleScope
+import androidx.core.net.toUri
 import com.bumptech.glide.Glide
 import com.flights.studio.CountryUtils.getCountryCodeAndFlag
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -34,8 +34,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.google.android.material.snackbar.Snackbar
-import io.github.jan.supabase.auth.auth
-import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -74,49 +72,51 @@ class UpdateContactBottomSheetFragment : BottomSheetDialogFragment() {
     private var selectedPhotoUri: Uri? = null
     private var lastFlag: String? = null
     private var lastFlagSizePx: Int = 0
+    private var selectedPhotoPath: String? = null
+
 
 
 
 
     // Photo picker using ActivityResultContracts
-    private val photoPickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        val initialsTextView = view?.findViewById<TextView>(R.id.iconInitials)
+    private val photoPickerLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
 
-        if (uri != null) {
-            val savedPath = saveImageToInternalStorage(requireContext(), uri)
+            val initialsTextView = view?.findViewById<TextView>(R.id.iconInitials)
 
-            if (savedPath == null) {
-                // ❌ The image was too large or failed to save
-                Snackbar.make(requireView(), "Image too large. Please choose a smaller one.", Snackbar.LENGTH_SHORT).show()
+            if (uri == null) {
+                Snackbar.make(requireView(), "No photo selected", Snackbar.LENGTH_SHORT).show()
                 return@registerForActivityResult
             }
 
-            selectedPhotoUri = uri
-            // ✅ Use Glide with size override to prevent memory crash
+            // ✅ Save once (from content://)
+            val savedPath = saveImageToInternalStorage(requireContext(), uri)
+            if (savedPath == null) {
+                Snackbar.make(
+                    requireView(),
+                    "Image too large. Please choose a smaller one.",
+                    Snackbar.LENGTH_SHORT
+                ).show()
+                return@registerForActivityResult
+            }
+
+            // ✅ store final local path
+            selectedPhotoPath = savedPath
+
+            // ✅ preview local file
+            val localFile = File(savedPath)
+            selectedPhotoUri = localFile.toUri()
+
             Glide.with(this)
-                .load(selectedPhotoUri)
-                .override(512, 512) // or 256 for low-end devices
+                .load(localFile)
+                .override(512, 512)
                 .centerCrop()
                 .into(photoImageView)
 
             photoImageView.visibility = View.VISIBLE
             initialsTextView?.visibility = View.GONE
-        } else {
-            Snackbar.make(requireView(), "No photo selected", Snackbar.LENGTH_SHORT).show()
         }
-    }
-    private fun writeAvatarCacheFromUri(
-        context: Context,
-        rawPhotoPath: String,
-        uri: Uri
-    ) {
-        if (rawPhotoPath.isBlank()) return
-        runCatching {
-            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return
-            if (bytes.isEmpty()) return
-            AvatarDiskCache.localFile(context, rawPhotoPath).writeBytes(bytes)
-        }
-    }
+
 
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -306,114 +306,40 @@ class UpdateContactBottomSheetFragment : BottomSheetDialogFragment() {
             val birthday = birthdayEditText.text.toString()
 
             if (name.isEmpty() || phone.isEmpty()) {
-                Snackbar.make(view, "Name and Phone number are required!", Snackbar.LENGTH_SHORT).show()
+                Snackbar.make(requireView(), "Name and Phone number are required!", Snackbar.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-
             if (!isValidPhoneNumber(phone)) {
-                Snackbar.make(view, "Enter a valid phone number.", Snackbar.LENGTH_SHORT).show()
+                Snackbar.make(requireView(), "Enter a valid phone number.", Snackbar.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             val (regionCode, flag) = getCountryCodeAndFlag(phone)
 
-            lifecycleScope.launch {
-                val session = SupabaseManager.client.auth.currentSessionOrNull()
-                if (session == null) {
-                    Snackbar.make(requireView(), "Not logged in", Snackbar.LENGTH_SHORT).show()
-                    return@launch
-                }
-
-                val authToken = session.accessToken
-
-                val userId = session.user?.id ?: run {
-                    Snackbar.make(requireView(), "Missing user id", Snackbar.LENGTH_SHORT).show()
-                    return@launch
-                }
-                // Upload ONLY if user selected a new photo
-                val finalPhotoPath: String? = if (selectedPhotoUri != null) {
-
-                    // 1️⃣ Upload image → get STORAGE PATH
-                    SupabaseStorageUploader.uploadProfilePhotoAndReturnPath(
-                        context = requireContext(),
-                        userId = userId,
-                        authToken = authToken,
-                        photoUri = selectedPhotoUri!!,
-                        bucket = "profile-photos"
-                    ) ?: contact.photoUri   // keep old path if upload failed
-
-                } else {
-                    contact.photoUri
-                }
-
-                // 1) If user changed photo, remove old cached file
-                val oldRaw = contact.photoUri?.trim().orEmpty()
-                if (selectedPhotoUri != null &&
-                    oldRaw.isNotBlank() &&
-                    !oldRaw.startsWith("http", true) &&
-                    !oldRaw.startsWith("content", true) &&
-                    !oldRaw.startsWith("file", true)
-                ) {
-                    AvatarDiskCache.invalidate(requireContext(), oldRaw)
-                }
-
-                if (selectedPhotoUri != null &&
-                    !finalPhotoPath.isNullOrBlank() &&
-                    !finalPhotoPath.startsWith("http", true)
-                ) {
-                    writeAvatarCacheFromUri(requireContext(), finalPhotoPath, selectedPhotoUri!!)
-                }
+            // ✅ LOCAL photo rule:
+            val finalPhotoPath: String? = selectedPhotoPath ?: contact.photoUri
 
 
-
-
-
-                val updatedContact = contact.copy(
-                    name = name,
-                    phone = phone,
-                    email = email,
-                    address = address,
-                    photoUri = finalPhotoPath,   // PATH
-                    birthday = birthday,
-                    flag = flag,
-                    regionCode = regionCode
-                )
-
-                try {
-                    val birthdayIso = normalizeBirthdayForDb(birthday)
-
-                    // 1) Always upsert basic fields (name/phone/email)
-                    SupabaseProfilesRepo.upsertMyProfile(
-                        fullName = name,
-                        phone = phone,
-                        email = email
-                        // DO NOT pass bio/birthday here if you're updating them separately
-                    )
-
-                    // 2) Update bio + birthday (bio = your address field right now)
-                    SupabaseProfilesRepo.updateMyBioBirthday(
-                        bio = address,          // <-- this is your "bio" field in this UI
-                        birthday = birthdayIso  // <-- ISO yyyy-MM-dd
-                    )
-
-                    // 3) If you store photo path in user_profiles, update it (optional)
-                    if (!finalPhotoPath.isNullOrBlank()) {
-                        SupabaseStorageUploader.updateProfilePhotoUrl(
-                            userId = userId,
-                            authToken = authToken,
-                            photoPath = finalPhotoPath
-                        )
-                    }
-                } catch (e: Exception) {
-                    Snackbar.make(requireView(), "Supabase save failed: ${e.message}", Snackbar.LENGTH_LONG).show()
-                }
-
-
-// ✅ 2) Update local list/UI
-                onSave?.invoke(updatedContact)
-                dismiss()
-
+            // Optional: if you cache avatars and photo changed, invalidate old cache
+            val oldRaw = contact.photoUri?.trim().orEmpty()
+            if (selectedPhotoPath != null && oldRaw.isNotBlank()) {
+                AvatarDiskCache.invalidate(requireContext(), oldRaw)
             }
+
+
+            val updatedContact = contact.copy(
+                name = name,
+                phone = phone,
+                email = email,
+                address = address,
+                photoUri = finalPhotoPath,   // ✅ LOCAL file path
+                birthday = birthday,
+                flag = flag,
+                regionCode = regionCode
+            )
+
+            onSave?.invoke(updatedContact)   // ✅ update UI/list outside
+            dismiss()
         }
 
         val drawable = GradientDrawable().apply {
@@ -501,106 +427,74 @@ class UpdateContactBottomSheetFragment : BottomSheetDialogFragment() {
         updatePhoneFlagEnd(initFlag)
 
         val initialsTextView: TextView? = view?.findViewById(R.id.iconInitials)
+
         val name = contact.name.trim()
-        val parts = name.split(" ")
+        val parts = name.split(" ").filter { it.isNotBlank() }
         val initials = parts.take(2).mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
         val displayInitials = initials.ifEmpty { "?" }
 
-        val birthdayEditText: EditText = view?.findViewById(R.id.edit_birthday) ?: return
         birthdayEditText.setText(contact.birthday)
 
-        val stored = contact.photoUri?.trim()
+        fun showInitials() {
+            initialsTextView?.text = displayInitials
+            initialsTextView?.visibility = View.VISIBLE
+            photoImageView.setImageDrawable(null)
+            photoImageView.visibility = View.GONE
 
-        when {
-            // 1) User just picked a local image -> show it immediately
-            selectedPhotoUri != null -> {
-                Glide.with(this)
-                    .load(selectedPhotoUri)
-                    .override(512, 512)
-                    .centerCrop()
-                    .into(photoImageView)
-
-                photoImageView.visibility = View.VISIBLE
-                initialsTextView?.visibility = View.GONE
+            // background color for initials
+            val bg = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(contact.color)
             }
-
-            // 2) We have something stored (ideally PATH). Build a signed URL if needed.
-            !stored.isNullOrBlank() -> {
-                // 0) LOCAL FIRST (instant)
-                if (!stored.startsWith("http", true) &&
-                    !stored.startsWith("content", true) &&
-                    !stored.startsWith("file", true)
-                ) {
-                    val f = AvatarDiskCache.localFile(requireContext(), stored)
-                    if (f.exists() && f.length() > 0L) {
-                        Glide.with(this)
-                            .load(f)
-                            .override(512, 512)
-                            .centerCrop()
-                            .into(photoImageView)
-
-                        photoImageView.visibility = View.VISIBLE
-                        initialsTextView?.visibility = View.GONE
-                        return
-                    }
-                }
-
-                // 1) Otherwise fall back to signed URL
-                lifecycleScope.launch {
-                    val session = SupabaseManager.client.auth.currentSessionOrNull()
-                    val token = session?.accessToken
-
-                    val urlForUi =
-                        if (stored.startsWith("http", ignoreCase = true)) {
-                            stored
-                        } else if (!token.isNullOrBlank()) {
-                            SupabaseStorageUploader.createSignedUrl(
-                                objectPath = stored,
-                                authToken = token,
-                                bucket = "profile-photos"
-                            )
-                        } else null
-
-                    if (!urlForUi.isNullOrBlank()) {
-                        Glide.with(this@UpdateContactBottomSheetFragment)
-                            .load(urlForUi)
-                            .override(512, 512)
-                            .centerCrop()
-                            .into(photoImageView)
-
-                        photoImageView.visibility = View.VISIBLE
-                        initialsTextView?.visibility = View.GONE
-
-                        // Optional: seed disk cache for next time
-                        if (!stored.startsWith("http", true)) {
-                            AvatarDiskCache.cacheFromSignedUrl(requireContext(), stored, urlForUi)
-                        }
-                    } else {
-                        initialsTextView?.text = displayInitials
-                        initialsTextView?.visibility = View.VISIBLE
-                        photoImageView.setImageDrawable(null)
-                        photoImageView.visibility = View.GONE
-                    }
-                }
-            }
-
-
-            // 3) No photo at all -> initials
-            else -> {
-                initialsTextView?.text = displayInitials
-                initialsTextView?.visibility = View.VISIBLE
-                photoImageView.setImageDrawable(null)
-                photoImageView.visibility = View.GONE
-            }
+            initialsTextView?.background = bg
         }
 
+        fun showPhoto(model: Any) {
+            Glide.with(this)
+                .load(model)
+                .override(512, 512)
+                .centerCrop()
+                .into(photoImageView)
 
-        val color = contact.color
-        val bg = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(color)
+            photoImageView.visibility = View.VISIBLE
+            initialsTextView?.visibility = View.GONE
         }
-        initialsTextView?.background = bg
+
+        // 1) User just picked a photo in this sheet -> show it immediately
+        selectedPhotoUri?.let { uri ->
+            showPhoto(uri)
+            return
+        }
+
+        val stored = contact.photoUri?.trim().orEmpty()
+        if (stored.isBlank()) {
+            showInitials()
+            return
+        }
+
+        // 2) If it's a content:// or file:// uri string
+        if (stored.startsWith("content://", ignoreCase = true) ||
+            stored.startsWith("file://", ignoreCase = true)
+        ) {
+            showPhoto(stored.toUri())
+            return
+        }
+
+        // 3) If it's an absolute local file path
+        val f = File(stored)
+        if (f.exists() && f.length() > 0L) {
+            showPhoto(f)
+            return
+        }
+
+        // 4) (Optional) If old data had http links, allow it (or delete this block)
+        if (stored.startsWith("http://", true) || stored.startsWith("https://", true)) {
+            showPhoto(stored)
+            return
+        }
+
+        // fallback
+        showInitials()
     }
 
     private fun isValidPhoneNumber(phone: String): Boolean {
@@ -672,26 +566,6 @@ class UpdateContactBottomSheetFragment : BottomSheetDialogFragment() {
             try { return SimpleDateFormat(f, Locale.getDefault()).parse(dateStr) } catch (_: Exception) {}
         }
         return null
-    }
-
-    private fun normalizeBirthdayForDb(input: String): String? {
-        val s = input.trim()
-        if (s.isBlank()) return null
-
-        // already ISO
-        if (Regex("""\d{4}-\d{2}-\d{2}""").matches(s)) return s
-
-        // convert MM/dd/yyyy -> yyyy-MM-dd
-        return try {
-            val inFmt = SimpleDateFormat("MM/dd/yyyy", Locale.getDefault())
-            inFmt.isLenient = false
-            val d = inFmt.parse(s) ?: return null
-
-            val outFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            outFmt.format(d)
-        } catch (_: Exception) {
-            null
-        }
     }
 
 

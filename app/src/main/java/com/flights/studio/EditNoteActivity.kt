@@ -12,9 +12,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.MenuItem
-import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowInsetsController
 import android.view.animation.DecelerateInterpolator
@@ -28,32 +26,41 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.widget.NestedScrollView
-import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.launch
 
 
 class EditNoteActivity : AppCompatActivity() {
 
     companion object {
+        private const val EXTRA_ID = "NOTE_ID"
         private const val EXTRA_NOTE = "NOTE"
         private const val EXTRA_POSITION = "NOTE_POSITION"
         private const val EXTRA_TITLE = "NOTE_TITLE"
 
-
-        fun newIntent(context: Context, note: String, position: Int, title: String? = null): Intent {
+        fun newIntent(
+            context: Context,
+            id: String,
+            note: String,
+            position: Int,
+            title: String? = null
+        ): Intent {
             return Intent(context, EditNoteActivity::class.java).apply {
+                putExtra(EXTRA_ID, id)          // ✅ IMPORTANT
                 putExtra(EXTRA_NOTE, note)
                 putExtra(EXTRA_POSITION, position)
                 putExtra(EXTRA_TITLE, title.orEmpty())
             }
         }
     }
+
 
     private lateinit var tvImagesCount: TextView
     private var isNoteModified = false
@@ -65,6 +72,8 @@ class EditNoteActivity : AppCompatActivity() {
     private lateinit var titleEt: TextInputEditText
     private var helpSheet: com.google.android.material.bottomsheet.BottomSheetDialog? = null
     private lateinit var imagesCard: com.google.android.material.card.MaterialCardView
+    private var titleLoading = false
+
 
 
     private fun refreshImagesUI() {
@@ -78,12 +87,15 @@ class EditNoteActivity : AppCompatActivity() {
         setContentView(R.layout.activity_edit_note)
         adjustStatusBarIcons()
 
+        // ✅ Read stable id ONCE (passed from AllNotesActivity)
+        val noteId = intent.getStringExtra(EXTRA_ID).orEmpty()
+
         toolbarView   = findViewById(R.id.toolbar)
         nestedScroll  = findViewById(R.id.nestedScroll)
         titleEt       = findViewById(R.id.et_title)
         tvImagesCount = findViewById(R.id.tv_images_count)
-        imagesCard    = findViewById(R.id.card_images)   // ✅ INIT THIS
-        refreshImagesUI()                                 // ✅ call AFTER both are ready
+        imagesCard    = findViewById(R.id.card_images)
+        refreshImagesUI()
 
         // Toolbar
         setSupportActionBar(findViewById(R.id.toolbar))
@@ -101,7 +113,7 @@ class EditNoteActivity : AppCompatActivity() {
         val titleEt = findViewById<TextInputEditText>(R.id.et_title)
         val saveBtn = findViewById<Button>(R.id.btn_save)
 
-        // Suggestions
+        // Suggestions (unchanged)
         val wordSuggestions = mapOf(
             "hello" to listOf("world", "there", "everyone"),
             "how"   to listOf("are you", "is it going", "much"),
@@ -109,7 +121,8 @@ class EditNoteActivity : AppCompatActivity() {
             "good"  to listOf("morning", "evening", "job"),
             "what"  to listOf("is", "are", "happened")
         )
-        val suggestionAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, emptyList<String>())
+        val suggestionAdapter =
+            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, emptyList<String>())
         noteEt.setAdapter(suggestionAdapter)
         noteEt.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
@@ -130,16 +143,19 @@ class EditNoteActivity : AppCompatActivity() {
         val position = intent.getIntExtra(EXTRA_POSITION, -1)
         val title    = intent.getStringExtra(EXTRA_TITLE).orEmpty()
 
+        val originalNote = note // ✅ keep original once
+
         currentNoteText = note
         noteEt.setText(note)
         if (title.isNotBlank()) titleEt.setText(title)
+
         titleEt.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) { isNoteModified = true }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
 
-        // IMAGES: ViewPager2 (fast + no parent steal)
+        // IMAGES setup (unchanged)
         val imagesRv = findViewById<RecyclerView>(R.id.vp_images)
 
         imagesAdapter = EditImagesAdapter(
@@ -157,24 +173,18 @@ class EditNoteActivity : AppCompatActivity() {
         )
 
         imagesRv.apply {
-            layoutManager =
-                LinearLayoutManager(this@EditNoteActivity, RecyclerView.HORIZONTAL, false)
+            layoutManager = LinearLayoutManager(this@EditNoteActivity, RecyclerView.HORIZONTAL, false)
             adapter = imagesAdapter
             setHasFixedSize(true)
             isNestedScrollingEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             itemAnimator = null
             setItemViewCacheSize(16)
-
-            // no start/end padding → no visible gap at the edges
             setPadding(0, 0, 0, 0)
             clipToPadding = true
         }
 
-// small space ONLY between items
-        // remove your old addItemDecoration first, then:
-        val space = (8f * resources.displayMetrics.density).toInt() // 8dp
-
+        val space = (8f * resources.displayMetrics.density).toInt()
         imagesRv.addItemDecoration(object : RecyclerView.ItemDecoration() {
             override fun getItemOffsets(
                 out: android.graphics.Rect,
@@ -184,172 +194,111 @@ class EditNoteActivity : AppCompatActivity() {
             ) {
                 val pos = parent.getChildAdapterPosition(view)
                 val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
-                if (pos == 0) {
-                    out.set(0, 0, 0, 0) // first: no start gap
-                } else {
-                    if (isRtl) out.right = space else out.left = space
-                }
+                if (pos == 0) out.set(0, 0, 0, 0)
+                else if (isRtl) out.right = space else out.left = space
             }
         })
 
+        PagerSnapHelper().attachToRecyclerView(imagesRv)
 
-// pager-like snap (one item per swipe)
-        androidx.recyclerview.widget.PagerSnapHelper().attachToRecyclerView(imagesRv)
+        val dragHelper = androidx.recyclerview.widget.ItemTouchHelper(
+            object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+                androidx.recyclerview.widget.ItemTouchHelper.LEFT or androidx.recyclerview.widget.ItemTouchHelper.RIGHT,
+                0
+            ) {
+                override fun onMove(
+                    recyclerView: RecyclerView,
+                    viewHolder: RecyclerView.ViewHolder,
+                    target: RecyclerView.ViewHolder
+                ): Boolean {
+                    val from = viewHolder.bindingAdapterPosition
+                    val to = target.bindingAdapterPosition
+                    if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
 
-// Let horizontal drags win over the NestedScrollView (same logic you had)
-        run {
-            val touchSlop = ViewConfiguration.get(this).scaledTouchSlop
-            var startX = 0f
-            var startY = 0f
-            var lockedHorizontal = false
-
-            imagesRv.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
-                override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-                    when (e.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> {
-                            startX = e.x; startY = e.y
-                            lockedHorizontal = false
-                            rv.disallowParents(true)
-                        }
-                        MotionEvent.ACTION_MOVE -> {
-                            val dx = kotlin.math.abs(e.x - startX)
-                            val dy = kotlin.math.abs(e.y - startY)
-                            if (!lockedHorizontal) {
-                                when {
-                                    dx > touchSlop && dx > dy -> {
-                                        lockedHorizontal = true
-                                        rv.disallowParents(true)
-                                    }
-                                    dy > touchSlop && dy > dx -> {
-                                        rv.disallowParents(false)
-                                        return false
-                                    }
-                                }
-                            } else {
-                                rv.disallowParents(true)
-                            }
-                        }
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                            rv.disallowParents(false)
-                            val dx = kotlin.math.abs(e.x - startX)
-                            val dy = kotlin.math.abs(e.y - startY)
-                            if (dx < touchSlop && dy < touchSlop) {
-                                rv.findChildViewUnder(e.x, e.y)?.performClick()
-                            }
-                        }
-                    }
-                    return false
+                    imagesAdapter.move(from, to)   // ✅ uses your function
+                    isNoteModified = true
+                    return true
                 }
-                override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {}
-                override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
-            })
-        }
 
-        ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
-            ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT, 0
-        ) {
-            override fun onMove(
-                rv: RecyclerView,
-                vh: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder
-            ): Boolean {
-                val from = vh.bindingAdapterPosition
-                val to   = target.bindingAdapterPosition
-                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
-                imagesAdapter.move(from, to)   // mutates pickedImages via adapter
-                return true
+                override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
+
+                override fun isLongPressDragEnabled(): Boolean = true
             }
+        )
+        dragHelper.attachToRecyclerView(imagesRv)
 
-            override fun onSwiped(vh: RecyclerView.ViewHolder, dir: Int) {}
-            override fun isLongPressDragEnabled(): Boolean = true
 
-            override fun clearView(rv: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
-                super.clearView(rv, viewHolder)
-                NoteMediaStore.setUris(this@EditNoteActivity, currentNoteText, pickedImages) // persist once
-                isNoteModified = true
-                refreshImagesUI()
-            }
-        }).attachToRecyclerView(imagesRv)
-        /*  ▼▼▼ PASTE THIS BLOCK HERE ▼▼▼  */
-// Load any existing images (show card only if there are some)
+        // (your touch interception + ItemTouchHelper code stays the same)
+
+        // Load existing images
         val initial = NoteMediaStore.getUris(this, currentNoteText)
         if (initial.isNotEmpty()) {
-            val start = pickedImages.size // usually 0 on first open
+            val start = pickedImages.size
             pickedImages.addAll(initial)
             imagesAdapter.notifyItemRangeInserted(start, initial.size)
             imagesRv.scrollToPosition(0)
         }
         refreshImagesUI()
 
-        /*  ▲▲▲ PASTE ENDS ▲▲▲  */
-
-
         // Add-image button
         findViewById<View>(R.id.ll_add_image).setOnClickListener {
             pickImagesLauncher.launch(arrayOf("image/*"))
         }
 
-        // Help
-        findViewById<com.google.android.material.card.MaterialCardView>(R.id.HelpButton)
-            ?.setOnClickListener {
-                if (helpSheet?.isShowing == true) return@setOnClickListener
-                showEditNoteHelpDialog()
-            }
-
-
-        ViewCompat.setTooltipText(findViewById(R.id.HelpButton), getString(R.string.help))
-
-        // Save
+        // Save ✅ ONLY place we call setResult
         saveBtn.setOnClickListener {
             val updatedNote  = noteEt.text?.toString().orEmpty()
             val updatedTitle = titleEt.text?.toString()?.trim().orEmpty()
 
-            if (updatedNote.isNotEmpty()) {
-                if (updatedNote != currentNoteText) {
-                    NoteMediaStore.migrateNoteKey(this, currentNoteText, updatedNote)
-                    currentNoteText = updatedNote
-                }
-                NoteMediaStore.setUris(this, updatedNote, pickedImages)
-
-                setResult(
-                    RESULT_OK,
-                    Intent().apply {
-                        putExtra("UPDATED_NOTE", updatedNote)
-                        putExtra("NOTE_POSITION", position)
-                        putExtra("UPDATED_TITLE", updatedTitle)
-                        putStringArrayListExtra(
-                            "UPDATED_IMAGES",
-                            ArrayList(pickedImages.map { it.toString() })
-                        )
-                        putExtra("UPDATED_IMAGES_COUNT", pickedImages.size) // ✅ added
-                    }
-                )
-
-                finish()
-                applyCloseTransition(
-                    androidx.navigation.ui.R.anim.nav_default_enter_anim,
-                    androidx.navigation.ui.R.anim.nav_default_exit_anim
-                )
-
-            } else {
+            if (updatedNote.isBlank()) {
                 noteEt.error = "Note cannot be empty"
+                return@setOnClickListener
             }
+
+            // migrate images if text changed
+            if (updatedNote != currentNoteText) {
+                NoteMediaStore.migrateNoteKey(this, currentNoteText, updatedNote)
+                currentNoteText = updatedNote
+            }
+            NoteMediaStore.setUris(this, updatedNote, pickedImages)
+
+            setResult(
+                RESULT_OK,
+                Intent().apply {
+                    putExtra("NOTE_ID", noteId)            // ✅ IMPORTANT
+                    putExtra("OLD_NOTE", originalNote)
+                    putExtra("UPDATED_NOTE", updatedNote)
+                    putExtra("UPDATED_TITLE", updatedTitle)
+                    putExtra("NOTE_POSITION", position)    // optional legacy
+                    putStringArrayListExtra(
+                        "UPDATED_IMAGES",
+                        ArrayList(pickedImages.map { it.toString() })
+                    )
+                    putExtra("UPDATED_IMAGES_COUNT", pickedImages.size)
+                }
+            )
+
+            finish()
+            applyCloseTransition(
+                androidx.navigation.ui.R.anim.nav_default_enter_anim,
+                androidx.navigation.ui.R.anim.nav_default_exit_anim
+            )
         }
 
-        // Make the whole images section non-focusable (prevents focus jumps / NSV auto-scroll)
         findViewById<View>(R.id.images_row)?.apply {
             isFocusable = false
             isFocusableInTouchMode = false
         }
+        findViewById<View>(R.id.HelpButton).setOnClickListener {
+            showEditNoteHelpDialog()
+        }
+
+
+
     }
 
-    private fun View.disallowParents(disallow: Boolean) {
-        var p = parent
-        while (p != null) {
-            p.requestDisallowInterceptTouchEvent(disallow)
-            p = p.parent
-        }
-    }
+
+
 
     private fun applyCloseTransition(@AnimRes enterAnim: Int, @AnimRes exitAnim: Int) {
         if (Build.VERSION.SDK_INT >= 34) {
@@ -415,17 +364,49 @@ class EditNoteActivity : AppCompatActivity() {
         view.findViewById<View>(R.id.btnHelpAutoTitle).setOnClickListener {
             val noteEt  = findViewById<AutoCompleteTextView>(R.id.edit_note)
             val titleEt = findViewById<TextInputEditText>(R.id.et_title)
+
             val text = noteEt.text?.toString().orEmpty()
             if (text.isBlank()) {
                 android.widget.Toast.makeText(this, getString(R.string.type_note_first), android.widget.Toast.LENGTH_SHORT).show()
                 sheet.dismiss()
-            } else {
-                NotesAdapter.suggestTitle(this, text) { aiTitle ->
-                    val chosen = aiTitle.takeIf { it.isNotBlank() && it != "📄 Unclassified" }
-                        ?: generateSmartTitle(text)
-                    titleEt.setText(chosen)
+                return@setOnClickListener
+            }
+
+            if (titleLoading) return@setOnClickListener
+            titleLoading = true
+
+            android.widget.Toast.makeText(this, "Generating title…", android.widget.Toast.LENGTH_SHORT).show()
+
+            lifecycleScope.launch {
+                try {
+                    val ai = runCatching {
+                        GeminiTitles.generateTitles(
+                            note = text,
+                            hasImages = pickedImages.isNotEmpty(),
+                            currentTitle = titleEt.text?.toString().orEmpty()
+                        )
+                    }.getOrNull()
+
+                    val best = ai?.firstOrNull()?.title.orEmpty()
+
+                    val finalTitle = best
+                        .ifBlank { generateSmartTitle(text) } // your local fallback
+
+                    titleEt.setText(finalTitle)
                     titleEt.post { runCatching { titleEt.setSelection(titleEt.text?.length ?: 0) } }
-                    android.widget.Toast.makeText(this, getString(R.string.title_set), android.widget.Toast.LENGTH_SHORT).show()
+
+                    android.widget.Toast.makeText(this@EditNoteActivity, getString(R.string.title_set), android.widget.Toast.LENGTH_SHORT).show()
+                    isNoteModified = true
+                } catch (_: Throwable) {
+                    // fallback
+                    val fallback = generateSmartTitle(text)
+                    if (fallback.isNotBlank()) {
+                        titleEt.setText(fallback)
+                        isNoteModified = true
+                    }
+                    android.widget.Toast.makeText(this@EditNoteActivity, "AI failed • used fallback", android.widget.Toast.LENGTH_SHORT).show()
+                } finally {
+                    titleLoading = false
                     sheet.dismiss()
                 }
             }
@@ -456,6 +437,7 @@ class EditNoteActivity : AppCompatActivity() {
             else -> super.onOptionsItemSelected(item)
         }
     }
+
 
     private fun handleBackNavigation() {
         if (isNoteModified) {

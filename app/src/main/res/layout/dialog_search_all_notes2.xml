@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/dialog_search_view"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/rounded_bottom_app_bar"
+    android:backgroundTint="@color/box_contact_expand">
+
+    <!-- TOP ROW -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/search_pill"
+        android:layout_width="match_parent"
+        android:layout_height="57dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginTop="0dp"
+        app:cardCornerRadius="28dp"
+        app:cardUseCompatPadding="false"
+        app:cardPreventCornerOverlap="true"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp"
+        android:layout_marginBottom="20dp"
+
+        app:cardBackgroundColor="@android:color/transparent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:backgroundTint="@color/color_ok_update_alert"
+            android:background="@drawable/rounded_search_background">
+
+            <ImageView
+                android:id="@+id/search_icon"
+                android:layout_width="28dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_oui_notes"
+                app:tint="@android:color/white" />
+
+            <EditText
+                android:id="@+id/et_search"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:gravity="center_vertical"
+                android:hint=""
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:padding="0dp"
+                android:singleLine="true"
+                android:textColor="?attr/actionMenuTextColor"
+                android:textColorHint="#B3FFFFFF" />
+
+
+            <com.google.android.material.button.MaterialSplitButton
+                android:id="@+id/search_split"
+                android:layout_width="100dp"
+                android:layout_height="50dp"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <!-- FILTER (icon only, inside pill) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_filter"
+                    style="?attr/materialSplitButtonLeadingFilledStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
+                    android:text=""
+                    app:backgroundTint="@color/green"
+                    app:icon="@drawable/manage_search_24dp_ffffff_fill0_wght400_grad0_opsz24"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:strokeWidth="0dp" />
+
+                <!-- CLOSE (icon only, inside pill) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_close"
+                    style="?attr/materialSplitButtonIconFilledStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:insetLeft="0dp"
+                    android:insetTop="0dp"
+                    android:insetRight="0dp"
+                    android:insetBottom="0dp"
+                    android:text=""
+                    app:backgroundTint="@color/neon_red"
+                    app:icon="@drawable/baseline_close_24"
+                    app:iconPadding="0dp"
+                    app:strokeWidth="0dp" />
+
+            </com.google.android.material.button.MaterialSplitButton>
+
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -26,23 +26,7 @@ class ViewImageComposeActivity : ComponentActivity() {
             LiquidGlassGalleryScreen(
                 imageUrls = urls.ifEmpty { listOf() },
                 startIndex = start,
-                onBack = { finishInstant() },
-                onClose = { finishInstant() },
             )
-        }
-    }
-
-    private fun finishInstant() {
-        finish()
-        if (Build.VERSION.SDK_INT >= 34) {
-            overrideActivityTransition(
-                OVERRIDE_TRANSITION_CLOSE,
-                /* enterAnim = */ 0,
-                /* exitAnim  = */ 0
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            overridePendingTransition(0, 0)
         }
     }
 

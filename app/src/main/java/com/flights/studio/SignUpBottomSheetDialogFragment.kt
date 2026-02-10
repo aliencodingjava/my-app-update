@@ -12,6 +12,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -59,7 +60,7 @@ class SignUpBottomSheetDialogFragment : BottomSheetDialogFragment() {
                         "&body=" + Uri.encode(emailBody)
 
                 // Creating an ACTION_VIEW intent with the mailto URI
-                val emailIntent = Intent(Intent.ACTION_VIEW, Uri.parse(mailto))
+                val emailIntent = Intent(Intent.ACTION_VIEW, mailto.toUri())
 
                 // Attempt to launch the email application
                 try {

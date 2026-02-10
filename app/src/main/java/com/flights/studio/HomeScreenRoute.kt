@@ -61,6 +61,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
+import androidx.core.content.edit
+import androidx.fragment.app.FragmentActivity
 import androidx.preference.PreferenceManager
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -72,14 +74,14 @@ import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.effect
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.sin
 import kotlin.math.tanh
-import androidx.core.content.edit
-import androidx.fragment.app.FragmentActivity
 
 const val TAG = "HomeScreenRoute"
 private fun camBaseUrl(tab: FlightsTab): String = when (tab) {
@@ -323,7 +325,7 @@ fun HomeScreenRouteContent(
         }
 
         fun launchPlayerScreen() {
-            val i = Intent(activity, IosPlayerActivity::class.java).apply {
+            val i = Intent(activity, IosPlayerActivity1::class.java).apply {
                 putExtra("RETURN_HOME", true)
             }
             activity?.startActivity(i)
@@ -447,6 +449,23 @@ fun HomeScreenRouteContent(
                                     backdrop = cameraBackdrop,
                                     shape = { cardShape },
                                     shadow = null,
+                                    highlight = {
+                                        if (isDark) {
+                                            Highlight(
+                                                width = 0.45.dp,
+                                                blurRadius = 1.6.dp,
+                                                alpha = 0.50f,
+                                                style = HighlightStyle.Ambient
+                                            )
+                                        } else {
+                                            Highlight(
+                                                width = 0.30.dp,
+                                                blurRadius = 1.0.dp,
+                                                alpha = 0.35f,
+                                                style = HighlightStyle.Plain // very subtle
+                                            )
+                                        }
+                                    },
                                     effects = {
                                         // ✅ YOU WANTED THIS EVEN WHILE LOADING
                                         vibrancy()
@@ -749,8 +768,11 @@ fun BottomProgressiveBlurStrip(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit = {}
 ) {
-    val isLightTheme = !isSystemInDarkTheme()
-    val tintColor = if (isLightTheme) Color(0xFFFFFFFF) else Color(0xFF000000)
+    val pageBg = LocalAppPageBg.current
+    val isDark = isSystemInDarkTheme()
+
+    // ✅ keep same hue as your page, just deepen slightly
+    val tintColor = pageBg.copy(alpha = if (isDark) 0.99f else 0.65f)
 
     Box(
         modifier = modifier
@@ -795,6 +817,7 @@ half4 main(float2 coord) {
         contentAlignment = Alignment.Center
     ) { content() }
 }
+
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Preview(showBackground = true, device = "id:pixel_8")

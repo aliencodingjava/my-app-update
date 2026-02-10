@@ -1,34 +1,46 @@
-import org.gradle.kotlin.dsl.implementation
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
 plugins {
     id("com.android.application")
-    kotlin("android")                         // use the same Kotlin version as your project
+//    kotlin("android")
     id("org.jetbrains.kotlin.plugin.compose") version "2.3.0"   // ✅ REQUIRED
 //    kotlin("kapt")
-    id("com.google.devtools.ksp") version "2.3.0" // ✅ KSP2 works with Kotlin 2.2.x
+    id("com.google.devtools.ksp") version "2.3.2" // ✅ KSP2 works with Kotlin 2.2.x
 
     id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
 
 }
 
-// ---- read local.properties safely (NO internal APIs) ----
 val props = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
-val openAiKey: String? = props.getProperty("OPENAI_API_KEY", "")
 val supabaseUrl: String? = props.getProperty("SUPABASE_URL", "")
 val supabaseAnonKey: String? = props.getProperty("SUPABASE_ANON_KEY", "")
+
 
 
 val keystoreProperties = Properties().apply {
     val ks = rootProject.file("keystore.properties")
     if (ks.exists()) ks.inputStream().use { load(it) }
 }
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_21)
+    }
+    jvmToolchain(21)
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
 
 android {
     namespace = "com.flights.studio"
@@ -41,7 +53,11 @@ android {
         buildConfig = true
         mlModelBinding = true
     }
-
+    sourceSets {
+        val beta = maybeCreate("beta")
+        beta.kotlin.directories.add("build/generated/ksp/beta/kotlin")
+        beta.java.directories.add("build/generated/ksp/beta/java")
+    }
 
     signingConfigs {
         create("release") {
@@ -59,13 +75,12 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 227
-        versionName = "0.2.223"
+        versionCode = 231
+        versionName = "0.2.227"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Jan-13-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Feb-10-2026\"")
 
         // ✅ from local.properties
-        buildConfigField("String", "OPENAI_API_KEY", "\"$openAiKey\"")
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
 
@@ -84,9 +99,9 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "custom-proguard-rules.pro"
+                "proguard-rules.pro"
             )
-            // signingConfig = signingConfigs.getByName("release")
+
         }
         getByName("debug") {
 
@@ -101,9 +116,8 @@ android {
             // QA-friendly:
             isMinifyEnabled = false
             isShrinkResources = false
-            isDebuggable = true          // allow tools like Stetho, StrictMode logs, etc.
+            isDebuggable = true
 
-            // proguardFiles(...) would be ignored here, so omit it.
             signingConfig = signingConfigs.getByName("debug")
 
             // Resolve libs that only define debug/release:
@@ -118,21 +132,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    // top-level in module build.gradle.kts
-    kotlin {
-        // makes the Kotlin compiler emit Java 17 bytecode
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_21)
-        }
-        // uses a JDK 17 toolchain if available
-        jvmToolchain(21)
-    }
-
-    java {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(21))
-        }
-    }
 
 
     lint {
@@ -146,8 +145,6 @@ android {
                 "META-INF/LICENSE.md",
                 "META-INF/NOTICE.md"
             )
-            // ...or you could exclude them instead:
-            // excludes += listOf("META-INF/LICENSE.md", "META-INF/NOTICE.md")
         }
     }
     androidResources {
@@ -158,16 +155,16 @@ android {
 
 dependencies {
     // ----- Ktor -----
-    implementation("io.ktor:ktor-client-core:3.3.3")
-    implementation("io.ktor:ktor-client-okhttp:3.3.3")
-    implementation("io.ktor:ktor-client-cio:3.3.3")
-    implementation("io.ktor:ktor-client-logging:3.3.3")
-    implementation("io.ktor:ktor-client-auth:3.3.3")
-    implementation("io.ktor:ktor-client-content-negotiation:3.3.3")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.3.3")
+    implementation("io.ktor:ktor-client-core:3.4.0")
+    implementation("io.ktor:ktor-client-okhttp:3.4.0")
+    implementation("io.ktor:ktor-client-cio:3.4.0")
+    implementation("io.ktor:ktor-client-logging:3.4.0")
+    implementation("io.ktor:ktor-client-auth:3.4.0")
+    implementation("io.ktor:ktor-client-content-negotiation:3.4.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.4.0")
 
     // ----- JSON / Serialization -----
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
     // ----- Supabase (BOM) -----
     implementation(platform("io.github.jan-tennert.supabase:bom:3.3.0"))
@@ -177,7 +174,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt:3.3.0")
 
     // ----- AndroidX Core -----
-    implementation("androidx.activity:activity:1.12.2")
+    implementation("androidx.activity:activity:1.12.3")
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.appcompat:appcompat-resources:1.7.1")
@@ -186,34 +183,31 @@ dependencies {
     implementation("androidx.preference:preference-ktx:1.2.1")
     implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("androidx.gridlayout:gridlayout:1.1.0")
-    implementation("androidx.work:work-runtime-ktx:2.11.0")
+    implementation("androidx.work:work-runtime-ktx:2.11.1")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
-    implementation("androidx.camera.viewfinder:viewfinder-core:1.5.2")
-    implementation("androidx.compose.foundation:foundation-layout:1.10.0")
+    implementation("androidx.camera.viewfinder:viewfinder-core:1.5.3")
+    implementation("androidx.compose.foundation:foundation-layout:1.10.2")
     implementation("androidx.compose.material3:material3:1.4.0")
 
     // ----- Jetpack Compose -----
-    // Use BOM so all Compose libs match versions automatically
-//    androidTestImplementation(platform("androidx.compose:compose-bom:2025.10.01"))
-//
-//    implementation(platform("androidx.compose:compose-bom:2025.10.01"))
 
-    implementation("androidx.activity:activity-compose:1.12.2")
+    implementation("androidx.activity:activity-compose:1.12.3")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
 
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material3:material3:1.5.0-alpha11")
+    implementation("androidx.compose.material3:material3:1.5.0-alpha13")
 
 
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0")
-    implementation("androidx.navigation:navigation-fragment-ktx:2.9.6")
-    implementation("androidx.navigation:navigation-ui-ktx:2.9.6")
+    implementation("androidx.navigation:navigation-fragment-ktx:2.9.7")
+    implementation("androidx.navigation:navigation-ui-ktx:2.9.7")
 
     // ----- Imaging -----
     implementation("com.github.bumptech.glide:glide:5.0.5")
     implementation("com.google.android.gms:play-services-contextmanager:9.4.0")
-    implementation("androidx.compose.animation:animation-core:1.10.0")
+    implementation("androidx.compose.animation:animation-core:1.10.2")
     implementation("me.saket.telephoto:zoomable-image-glide:0.18.0")
 
 //    kapt("com.github.bumptech.glide:compiler:5.0.5") // ⬅️ not annotationProcessor
@@ -245,14 +239,15 @@ dependencies {
     // ----- Firebase -----
 //    implementation("com.google.firebase:firebase-analytics-ktx")
 //    implementation("com.google.firebase:firebase-database-ktx")
-    implementation(platform("com.google.firebase:firebase-bom:34.7.0"))
+    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+    implementation(platform("androidx.compose:compose-bom:2026.01.01"))
 
     implementation("com.google.firebase:firebase-analytics:23.0.0")
     implementation("com.google.firebase:firebase-database:22.0.1")
 
     implementation("com.google.firebase:firebase-storage:22.0.1")
     implementation("com.google.firebase:firebase-messaging:25.0.1")
-    implementation("com.google.android.gms:play-services-basement:18.9.0")
+    implementation("com.google.android.gms:play-services-basement:18.10.0")
     implementation("androidx.compose.ui:ui-graphics")
 
 
@@ -264,7 +259,7 @@ dependencies {
     // ----- Utilities -----
     implementation("com.airbnb.android:lottie:6.7.1")
     implementation("org.apache.commons:commons-text:1.15.0")
-    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.21")
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.23")
     implementation("io.coil-kt:coil:2.7.0")
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
@@ -281,9 +276,10 @@ dependencies {
     implementation("com.google.accompanist:accompanist-navigation-material:0.36.0")
     implementation("com.google.accompanist:accompanist-pager:0.36.0")
     implementation("com.google.accompanist:accompanist-pager-indicators:0.36.0")
+    implementation("dev.seyfarth:compose-shimmer-skeleton:1.0.1")
 
     // ----- OpenAI -----
-    implementation("com.aallam.openai:openai-client:4.0.1")
+    implementation("com.aallam.openai:openai-client:4.1.0")
 
     // ----- Testing -----
     testImplementation("junit:junit:4.13.2")
@@ -292,31 +288,34 @@ dependencies {
 
     // ----- Desugaring -----
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("com.airbnb.android:lottie-compose:6.7.1")
 
     implementation("com.github.Yanndroid:SamsungOneUi:1.2.2")
     implementation("androidx.dynamicanimation:dynamicanimation:1.1.0")
 
     // ----- AndroidLiquidGlass (Backdrop) -----
-    implementation("io.github.kyant0:backdrop:1.0.4")
-    implementation("io.github.kyant0:capsule:2.1.2")
+    implementation("io.github.kyant0:backdrop:1.0.5")
+    implementation("io.github.kyant0:capsule:2.1.3")
 
+    implementation("sh.calvin.reorderable:reorderable:3.0.0")
+    implementation("com.github.nanihadesuka:LazyColumnScrollbar:2.2.0")
 
     implementation("androidx.compose.material:material-ripple")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.github.bumptech.glide:compose:1.0.0-beta08")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
-    implementation("net.engawapg.lib:zoomable:2.9.0")
+    implementation("net.engawapg.lib:zoomable:2.11.0")
     implementation("androidx.constraintlayout:constraintlayout-compose:1.1.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.10.0")
-    implementation("androidx.compose.ui:ui-graphics:1.10.0")
-    implementation("androidx.compose.ui:ui:1.10.0")
-    implementation("androidx.compose.animation:animation:1.10.0")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.10.0")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.10.0")
+    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.10.2")
+    implementation("androidx.compose.ui:ui-graphics:1.10.2")
+    implementation("androidx.compose.ui:ui:1.10.2")
+    implementation("androidx.compose.animation:animation:1.10.2")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.10.2")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.10.2")
     runtimeOnly("androidx.compose.material:material-icons-core:1.7.8")
 
     implementation("com.squareup.retrofit2:retrofit:3.0.0")

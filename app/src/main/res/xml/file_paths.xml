@@ -9,6 +9,7 @@
     <external-path name="shared_qr" path="shared/qr/"/>
     <external-path name="media" path="media/" />
     <external-path name="apk" path="Download/" />
+    <files-path name="notes_photos" path="notes_photos/" />
 
 </paths>
 

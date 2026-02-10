@@ -1,6 +1,5 @@
 package com.flights.studio
 
-import android.R.attr.name
 import android.app.Dialog
 import android.content.Context
 import android.content.Intent
@@ -28,6 +27,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.toColorInt
+import com.bumptech.glide.Glide
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -56,6 +56,7 @@ class AddContactBottomSheetFragment : BottomSheetDialogFragment() {
     private lateinit var flagEnd: ImageView
     private var lastFlag: String? = null
     private var lastFlagSizePx: Int = 0
+    private var selectedPhotoPath: String? = null
 
 
     private var listener: AddContactListener? = null
@@ -69,31 +70,41 @@ class AddContactBottomSheetFragment : BottomSheetDialogFragment() {
         "#32CD32".toColorInt(), "#FFA500".toColorInt()
     )
 
-    private val photoPickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri != null) {
-            val savedPath = saveImageToInternalStorage(requireContext(), uri)
+    private val photoPickerLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
 
+            if (uri == null) {
+                Snackbar.make(requireView(), "No photo selected", Snackbar.LENGTH_SHORT).show()
+                return@registerForActivityResult
+            }
+
+            val savedPath = saveImageToInternalStorage(requireContext(), uri)
             if (savedPath == null) {
                 Snackbar.make(requireView(), "Image too large. Please choose a smaller one.", Snackbar.LENGTH_SHORT).show()
                 return@registerForActivityResult
             }
 
+            // ✅ keep local path for DB
+            selectedPhotoPath = savedPath
+
+            // ✅ local uri for quick checks if you want
             selectedPhotoUri = Uri.fromFile(File(savedPath))
 
             val photoImageView = view?.findViewById<ImageView>(R.id.iconImage)
             val initialsTextView = view?.findViewById<TextView>(R.id.iconInitials)
 
-            photoImageView?.apply {
-                setImageURI(selectedPhotoUri)
-                visibility = View.VISIBLE
+            photoImageView?.let {
+                Glide.with(this)
+                    .load(File(savedPath))
+                    .override(512, 512)
+                    .centerCrop()
+                    .into(it)
+                it.visibility = View.VISIBLE
             }
 
             initialsTextView?.visibility = View.GONE
-
-        } else {
-            Snackbar.make(requireView(), "No photo selected", Snackbar.LENGTH_SHORT).show()
         }
-    }
+
 
     interface AddContactListener {
         fun onContactAdded(contact: AllContact)
@@ -217,7 +228,7 @@ class AddContactBottomSheetFragment : BottomSheetDialogFragment() {
 
                 val intent = Intent(Intent.ACTION_INSERT).apply {
                     data = android.provider.CalendarContract.Events.CONTENT_URI
-                    putExtra(android.provider.CalendarContract.Events.TITLE, "Birthday: $name")
+                    putExtra(android.provider.CalendarContract.Events.TITLE, "Birthday: ${nameEditText.text}")
                     putExtra(android.provider.CalendarContract.Events.DESCRIPTION, "Birthday reminder")
                     putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, calendar.timeInMillis)
                     putExtra(android.provider.CalendarContract.Events.ALL_DAY, true)
@@ -260,7 +271,6 @@ class AddContactBottomSheetFragment : BottomSheetDialogFragment() {
             }
 
             val randomColor = predefinedColors.randomOrNull() ?: Color.LTGRAY
-            val savedImagePath = selectedPhotoUri?.let { saveImageToInternalStorage(requireContext(), it) }
             val (regionCode, flag) = getCountryCodeAndFlag(phone)
 
             val newContact = AllContact(
@@ -270,7 +280,7 @@ class AddContactBottomSheetFragment : BottomSheetDialogFragment() {
                 email = email,
                 address = address,
                 color = randomColor,
-                photoUri = savedImagePath ?: selectedPhotoUri?.toString(),
+                photoUri = selectedPhotoPath, // ✅ local file path (or null)
                 birthday = birthday,
                 flag = flag,
                 regionCode = regionCode

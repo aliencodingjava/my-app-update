@@ -4,10 +4,17 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -19,7 +26,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +49,7 @@ fun ReminderOptionsSheetContent(
     onCalendar: () -> Unit,
 ) {
     val sheetShape = RoundedCornerShape(24.dp)
+    val isDark = isSystemInDarkTheme()
 
     Box(
         modifier = Modifier
@@ -60,19 +67,28 @@ fun ReminderOptionsSheetContent(
                     shape = { sheetShape },
                     effects = {
                         vibrancy()
-                        blur(1.dp.toPx())
+                        blur(4.dp.toPx())
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             lens(
-                                refractionHeight = 15.dp.toPx(),
-                                refractionAmount = 56.dp.toPx(),
+                                refractionHeight = 8.dp.toPx(),
+                                refractionAmount = 48.dp.toPx(),
                                 chromaticAberration = true
                             )
                         }
                     },
                     onDrawSurface = {
-                        // 0f keeps it clear; tweak if you want tint
-                        drawRect(Color.White.copy(alpha = 0f))
+
+                        val tint = if (isDark) {
+                            // 🌙 Dark mode → subtle light frost
+                            Color.White.copy(alpha = 0.05f)
+                        } else {
+                            // ☀️ Light mode → subtle dark tint
+                            Color.Black.copy(alpha = 0.05f)
+                        }
+
+                        drawRect(tint)
                     }
+
                 )
         )
 
@@ -87,7 +103,7 @@ fun ReminderOptionsSheetContent(
                 modifier = Modifier
                     .size(width = 36.dp, height = 4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.45f))
+                    .background(Color.White.copy(alpha = 0.50f))
             )
             Spacer(Modifier.height(12.dp))
 
@@ -102,11 +118,11 @@ fun ReminderOptionsSheetContent(
                         shape = { headerShape },
                         effects = {
                             vibrancy()
-                            blur(6.dp.toPx())
+                            blur(4.dp.toPx())
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 lens(
-                                    refractionHeight = 25.dp.toPx(),
-                                    refractionAmount = 64.dp.toPx(),
+                                    refractionHeight = 8.dp.toPx(),
+                                    refractionAmount = 48.dp.toPx(),
                                     chromaticAberration = true
                                 )
                             }
@@ -115,7 +131,6 @@ fun ReminderOptionsSheetContent(
                             drawRect(Color.Black.copy(alpha = 0.50f)) // subtle tint
                         }
                     )
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), headerShape)
                     .padding(vertical = 16.dp, horizontal = 16.dp)
             ) {
                 Column(
@@ -134,7 +149,7 @@ fun ReminderOptionsSheetContent(
                     Text(
                         text = stringResource(id = R.string.choose_reminder_type),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = colorResource(id = R.color.color_success),
+                        color = MaterialTheme.colorScheme.secondaryFixed,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -142,7 +157,7 @@ fun ReminderOptionsSheetContent(
                     Text(
                         text = stringResource(id = R.string.reminder_hint_short),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        color = MaterialTheme.colorScheme.secondaryFixed,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -190,7 +205,7 @@ fun ReminderOptionsSheetContentPreview() {
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(380.dp)
+                .height(400.dp)
                 .layerBackdrop(backdrop as LayerBackdrop)              // was .backdrop(...)
                 .background(Color(0xFF0E0E10))       // opaque base
         ) {
@@ -286,17 +301,16 @@ private fun GlassOptionCard(
                     blur(4.dp.toPx())
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         lens(
-                            refractionHeight = 15.dp.toPx(),
-                            refractionAmount = 56.dp.toPx(),
+                            refractionHeight = 8.dp.toPx(),
+                            refractionAmount = 48.dp.toPx(),
                             chromaticAberration = true
                         )
                     }
                 },
                 onDrawSurface = {
-                    drawRect(Color.Blue.copy(alpha = 0.50f))
+                    drawRect(Color.DarkGray.copy(alpha = 0.50f))
                 }
             )
-            .border(1.dp, Color.White.copy(alpha = 0.06f), cardShape)
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
@@ -306,7 +320,7 @@ private fun GlassOptionCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
+                    .size(50.dp)
                     .clip(CircleShape)
                     .background(Color.Black.copy(alpha = 0.40f)),
                 contentAlignment = Alignment.Center
@@ -320,13 +334,13 @@ private fun GlassOptionCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = colorResource(id = R.color.color_success),
+                color = MaterialTheme.colorScheme.secondaryFixed,
                 modifier = Modifier.padding(top = 10.dp)
             )
             Text(
                 text = caption,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = MaterialTheme.colorScheme.secondaryFixed,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }

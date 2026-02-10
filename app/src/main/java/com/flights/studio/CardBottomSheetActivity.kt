@@ -290,7 +290,7 @@ class CardBottomSheetActivity : AppCompatActivity() {
 
 
     private fun startIosPlayer() {
-        startActivity(Intent(this, IosPlayerActivity::class.java))
+        startActivity(Intent(this, IosPlayerActivity1::class.java))
         finish()
     }
 
@@ -518,7 +518,7 @@ class CardBottomSheetActivity : AppCompatActivity() {
                     true
                 }
                 R.id.nav_welcome -> {
-                    startActivity(Intent(this, IosPlayerActivity::class.java))
+                    startActivity(Intent(this, IosPlayerActivity1::class.java))
                     drawerLayout.closeDrawer(navigationView)
                     true
                 }

@@ -4,13 +4,12 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.res.Configuration
-import android.graphics.Color
-import android.graphics.Rect
+import android.content.res.ColorStateList
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -22,7 +21,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowInsetsController
+import android.view.Window
 import android.view.WindowManager
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
@@ -36,30 +35,27 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
-import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import androidx.core.text.HtmlCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
@@ -68,8 +64,10 @@ import com.google.android.material.badge.ExperimentalBadgeUtils
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.datepicker.MaterialDatePicker
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
+import com.google.android.material.transition.platform.MaterialSharedAxis
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import io.github.jan.supabase.auth.auth
@@ -81,12 +79,13 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-
 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
 class AllNotesActivity : AppCompatActivity() {
 
     private lateinit var notesAdapter: NotesAdapter
-    private val notes = mutableListOf<String>()
+    private val allNotes = mutableListOf<String>()
+    private val notesText = mutableStateListOf<String>()          // adapter + legacy logic
+    private val noteRows  = mutableStateListOf<NoteRow>()         // compose UI list with ids
     private val sharedPreferences by lazy { getSharedPreferences("notes_prefs", MODE_PRIVATE) }
     private var isMultiSelectMode = false
     private val handler = Handler(Looper.getMainLooper())
@@ -95,6 +94,7 @@ class AllNotesActivity : AppCompatActivity() {
     // FAB badge (legacy view path – now no-op in Compose mode)
     private var hasInitializedBadge = false
     private var notesCount by mutableIntStateOf(0)
+
 
     private val metaPrefs by lazy { getSharedPreferences("notes_meta", MODE_PRIVATE) }
     private fun now() = System.currentTimeMillis()
@@ -106,31 +106,110 @@ class AllNotesActivity : AppCompatActivity() {
     private val idPrefs by lazy { getSharedPreferences("notes_ids", MODE_PRIVATE) }
     private var setDeleteVisibleFromActivity: ((Boolean) -> Unit)? = null
 
-    // Compose → Activity bridge for opening the sheet with provider captured
-    private lateinit var openReminderSheet: (String) -> Unit
+
+
+    private var openReminderSheet: (String) -> Unit = {}
     // === local UID map storage (content <-> localUid) for unsynced notes ===
     private val uidToContent = mutableMapOf<String, String>()
     private val contentToUid = mutableMapOf<String, String>()
     private val uidPrefs by lazy { getSharedPreferences("notes_uids", MODE_PRIVATE) }
 
+    private fun rebuildNoteRowsFromDisplay(display: List<String>) {
+        noteRows.clear()
+
+        val used = HashSet<String>() // track keys used in this render
+
+        display.forEachIndexed { index, text ->
+            val baseUid = contentToUid[text] ?: ensureLocalUid(text)
+
+            // If two notes share same base uid (same content), make UI key unique
+            var key = baseUid
+            if (!used.add(key)) {
+                key = "$baseUid#$index"
+                used.add(key)
+            }
+
+            val imagesCount = NoteMediaStore.getUris(this, text).size
+            val title = resolveTitle(text).orEmpty()   // ✅ pull from adapter/cache
+
+            val bellOn = getSharedPreferences("reminder_flags", MODE_PRIVATE)
+                .getBoolean(text.hashCode().toString(), false)
+
+            val badgeOn = getSharedPreferences("reminder_badges", MODE_PRIVATE)
+                .getBoolean(text.hashCode().toString(), false)
+
+            noteRows.add(
+                NoteRow(
+                    id = key,
+                    text = text,
+                    imagesCount = imagesCount,
+                    title = title,
+                    hasReminder = bellOn,
+                    hasBadge = badgeOn
+                )
+            )
+
+
+        }
+    }
+
+
+
+    private fun rebuildBoth(display: List<String>) {
+        notesText.clear()
+        notesText.addAll(display)
+        rebuildNoteRowsFromDisplay(display)
+    }
+
+
     // ----------------------- Lifecycle -----------------------
 
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
+
+        window.requestFeature(Window.FEATURE_ACTIVITY_TRANSITIONS)
+
+        // Going FORWARD to AddNote = forward = true
+        window.exitTransition = MaterialSharedAxis(MaterialSharedAxis.X, true).apply {
+            addTarget(android.R.id.content)
+        }
+
+        // Coming BACK from AddNote = forward = false
+        window.reenterTransition = MaterialSharedAxis(MaterialSharedAxis.X, false).apply {
+            addTarget(android.R.id.content)
+        }
+
+        // Let them overlap (looks more modern)
+        window.allowEnterTransitionOverlap = true
+        window.allowReturnTransitionOverlap = true
         super.onCreate(savedInstanceState)
 
         // ✅ Create adapter BEFORE Compose (Compose uses it)
         notesAdapter = NotesAdapter(
-            notes,
+            notesText,
             applicationContext,
             ::onNoteLongClick,
             ::onNoteClick,
             { note, position ->
                 val title = resolveTitle(note)
-                val intent = EditNoteActivity.newIntent(this, note, position, title)
-                editNoteLauncher.launch(intent)
-                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                val images = NoteMediaStore.getUris(this, note)
+
+                val wantsReminder = getSharedPreferences("reminder_flags", MODE_PRIVATE)
+                    .getBoolean(note.hashCode().toString(), false)
+
+                val intent = EditNoteComposeActivity.newIntent(
+                    context = this,
+                    note = note,
+                    title = title,
+                    images = images,
+                    wantsReminder = wantsReminder,
+                    position = position
+                )
+
+                val opts = ActivityOptionsCompat.makeSceneTransitionAnimation(this)
+                editNoteLauncher.launch(intent, opts)
             },
+
             { note, _ -> openReminderSheet(note) },
         ).also { adapter ->
             adapter.provideKeyResolver { note ->
@@ -148,67 +227,90 @@ class AllNotesActivity : AppCompatActivity() {
 
         // ✅ Compose root (no XML setContentView)
         setContent {
-            MaterialTheme {
-                var isDeleteVisible by remember { mutableStateOf(false) }
+            FlightsTheme {
+                val topBarColor = MaterialTheme.colorScheme.surfaceVariant
+                val view = LocalView.current
+                val isDark = isSystemInDarkTheme()
                 var reminderNote by rememberSaveable { mutableStateOf<String?>(null) }
 
-                // one place for the sheet to open
-                LaunchedEffect(Unit) {
-                    openReminderSheet = { note -> reminderNote = note }
-                    setDeleteVisibleFromActivity = { active -> isDeleteVisible = active }
+
+                SideEffect {
+                    val w = (view.context as Activity).window
+
+                    // ✅ solid bar color
+                    w.statusBarColor = topBarColor.toArgb()
+
+                    // ✅ stop “auto dim” behavior as much as possible
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        w.isStatusBarContrastEnforced = false
+                    }
+
+                    // ✅ IMPORTANT: remove translucent flags (some OEMs add them)
+                    w.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS)
+
+                    // ✅ icons
+                    WindowCompat.getInsetsController(w, view).apply {
+                        isAppearanceLightStatusBars = !isDark
+                    }
+                    openReminderSheet = { note ->
+                        reminderNote = note
+                    }
                 }
 
-                // --- helper functions (silence "Assigned value is never read") ---
-                fun dismissReminder() {
-                    reminderNote = null
-                }
 
-                fun openTimerForCurrent() {
-                    reminderNote?.let { openMaterialTimePickerDialog(it) }
-                    dismissReminder()
-                }
 
-                fun openCalendarForCurrent() {
-                    reminderNote?.let { openMaterialDateTimePickerDialog(it) }
-                    dismissReminder()
-                }
+                fun dismissReminder() { reminderNote = null }
+                fun openTimerForCurrent() { reminderNote?.let { openMaterialTimePickerDialog(it) }; dismissReminder() }
+                fun openCalendarForCurrent() { reminderNote?.let { openMaterialDateTimePickerDialog(it) }; dismissReminder() }
 
-                // ✅ Wrap everything in ReminderHost – it owns the LayerBackdrop
                 ReminderHost(
                     visible = reminderNote != null,
                     onDismiss = ::dismissReminder,
                     onTimer = ::openTimerForCurrent,
                     onCalendar = ::openCalendarForCurrent
                 ) {
-                    // 🔵 Your page content now lives inside the provider
                     Box(
                         Modifier
                             .fillMaxSize()
-                            .background(colorResource(R.color.box_qrcode))
-                            .windowInsetsPadding(WindowInsets.safeDrawing)
                     ) {
                         AllNotesScreen(
                             notesAdapter = notesAdapter,
-                            notes = notes,
+                            notes = noteRows,
                             notesSize = notesCount,
                             onAddNote = {
-                                val intent = AddNoteActivity.newIntent(this@AllNotesActivity)
-                                addNoteLauncher.launch(intent)
-                                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                                val intent = AddNoteComposeActivity.newIntent(this@AllNotesActivity)
+                                val opts = ActivityOptionsCompat.makeSceneTransitionAnimation(this@AllNotesActivity)
+                                addNoteLauncher.launch(intent, opts)
+                            },
+                            onOpenSearch = { onDismiss ->
+                                openSearchView(onDismiss)
                             },
                             onNavItemClick = { id ->
                                 when (id) {
                                     R.id.nav_home -> goToHomeScreen()
                                     R.id.nav_contacts -> goToContactScreen()
                                     R.id.nav_all_contacts -> goToAllContactsScreen()
-                                    R.id.nav_settings -> goToSettingsScreen()
+                                    R.id.nav_settings -> {
+                                        startActivity(NotesSettingsComposeActivity.newIntent(this@AllNotesActivity))
+                                        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                                    }
                                     R.id.openAddNoteScreen -> Unit
-                                    R.id.action_search -> openSearchView()
-                                    R.id.action_delete -> if (isMultiSelectMode) deleteSelectedNotes()
+                                    R.id.action_delete -> deleteSelectedNotes()
                                 }
                             },
-                            isDeleteVisible = isDeleteVisible
-                        )
+
+                            onDeleteSelected = { selectedRowKeys ->
+                                selectedKeys.clear()
+                                selectedKeys.addAll(selectedRowKeys.map { it.substringBefore('#') }) // ✅ uid only
+                                isMultiSelectMode = selectedKeys.isNotEmpty()
+                                deleteSelectedNotes()
+                            }
+
+
+
+                        ) { finish() }
+
+
                     }
                 }
             }
@@ -223,7 +325,6 @@ class AllNotesActivity : AppCompatActivity() {
         })
 
         NotesCacheManager.preloadResources(this)
-        adjustStatusBarIcons()
         loadIdMaps()
         loadUidMaps()
 
@@ -251,16 +352,19 @@ class AllNotesActivity : AppCompatActivity() {
 
     }
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onStart() {
         super.onStart()
 
-        // 1) badge receiver
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            badgeChangedReceiver,
-            IntentFilter(ReminderDismissReceiver.ACTION_BADGE_CHANGED)
-        )
+        val filter = IntentFilter(ReminderDismissReceiver.ACTION_BADGE_CHANGED)
 
-        // 2) Load notes, then let DiffUtil dispatch granular updates
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(badgeChangedReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(badgeChangedReceiver, filter)
+        }
+
         val newNotes: List<String> = when {
             NotesCacheManager.cachedNotes.isNotEmpty() -> NotesCacheManager.cachedNotes.toList()
             else -> {
@@ -273,22 +377,41 @@ class AllNotesActivity : AppCompatActivity() {
             }
         }
 
-        // keep your source-of-truth list in sync
-        notes.clear()
-        notes.addAll(newNotes)
+        val settings = readNotesPageSettings()
 
-        // 🔹 DiffUtil-based updates (replaces notifyDataSetChanged)
-        notesAdapter.updateList(newNotes)
+        allNotes.clear()
+        allNotes.addAll(newNotes)
 
-        // Per-row state after the data is in the adapter
+        val sorted = applyNotesSort(allNotes, settings.sortMode)
+
+        // ✅ 1) apply flags FIRST
+        notesAdapter.applyPageSettings(
+            compact = settings.compact,
+            showImagesBadge = settings.showImagesBadge,
+            showReminderBadge = settings.showReminderBadge,
+            showReminderBell = settings.showReminderBell,
+            titleTopCompactDp = settings.titleTopCompactDp,
+            titleTopNormalDp = settings.titleTopNormalDp
+        )
+
+        // ✅ 2) preload BEFORE building UI
         notesAdapter.preloadReminderFlags(this)
-        notesCount = newNotes.size
-        updateNotePlaceholder() // no-op
-        showFabBadge(null)      // no-op
+        notesAdapter.preloadBadgeStates(this)
+
+        // ✅ 3) submit list
+        notesAdapter.submit(sorted)
+
+        // ✅ 4) now rebuild Compose models last (so UI reads fresh adapter state)
+        rebuildBoth(sorted)
+
+        notesCount = sorted.size
+        updateNotePlaceholder()
+        showFabBadge(null)
     }
 
+
     override fun onStop() {
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(badgeChangedReceiver)
+        unregisterReceiver(badgeChangedReceiver)
         super.onStop()
     }
 
@@ -328,7 +451,7 @@ class AllNotesActivity : AppCompatActivity() {
                         putBoolean(newNoteContent.hashCode().toString(), true)
                     }
                     notesAdapter.preloadReminderFlags(this)
-                    val idx = notes.indexOf(newNoteContent)
+                    val idx = notesText.indexOf(newNoteContent)
                     if (idx != -1) notesAdapter.notifyItemChanged(idx)
 
                     // Open glass sheet via provider captured in Compose
@@ -402,45 +525,70 @@ class AllNotesActivity : AppCompatActivity() {
     @Suppress("DEPRECATION")
     private val editNoteLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                val data        = result.data ?: return@registerForActivityResult
-                val updatedNote = data.getStringExtra("UPDATED_NOTE")
-                val updatedTitle= data.getStringExtra("UPDATED_TITLE")
-                val position    = data.getIntExtra("NOTE_POSITION", -1)
+            if (result.resultCode != RESULT_OK) return@registerForActivityResult
+            val data = result.data ?: return@registerForActivityResult
 
-                val updatedImageStrings = data.getStringArrayListExtra("UPDATED_IMAGES") ?: arrayListOf()
-                val updatedImageUris = updatedImageStrings.mapNotNull { runCatching { it.toUri() }.getOrNull() }
+            val updatedNote  = data.getStringExtra("UPDATED_NOTE").orEmpty()
+            val updatedTitle = data.getStringExtra("UPDATED_TITLE").orEmpty()
+            val position     = data.getIntExtra("NOTE_POSITION", -1)
 
-                if (!updatedNote.isNullOrEmpty() && position in notes.indices) {
-                    val oldNote = notes[position]
+            val updatedImageStrings = data.getStringArrayListExtra("UPDATED_IMAGES") ?: arrayListOf()
+            val updatedImageUris = updatedImageStrings.mapNotNull { runCatching { it.toUri() }.getOrNull() }
 
-                    if (oldNote != updatedNote) notesAdapter.migrateUserTitle(oldNote, updatedNote)
-                    NoteMediaStore.setUris(this, updatedNote, updatedImageUris)
+            if (updatedNote.isBlank()) return@registerForActivityResult
 
-                    notes[position] = updatedNote
-                    if (oldNote == updatedNote) {
-                        // position might be wrong if user was searching; use content-based notify:
-                        notesAdapter.notifyByContent(updatedNote, NotesAdapter.PAYLOAD_IMAGES)
-                    } else {
-                        notesAdapter.submit(notes.toList())
+            // ✅ IMPORTANT: capture what was edited from the CURRENT visible list
+            val oldNote = notesText.getOrNull(position) ?: return@registerForActivityResult
+
+            // ✅ 1) Update RAW truth (allNotes) by CONTENT, not by visible position
+            val rawIdx = allNotes.indexOf(oldNote)
+            if (rawIdx != -1) {
+                if (oldNote != updatedNote) {
+                    // move title mapping + images key if your images are keyed by note text
+                    notesAdapter.migrateUserTitle(oldNote, updatedNote)
+                    NoteMediaStore.migrateNoteKey(this, oldNote, updatedNote)
+
+                    // keep uid maps consistent
+                    contentToUid[updatedNote] = contentToUid.remove(oldNote) ?: ensureLocalUid(updatedNote)
+                    uidToContent.entries.firstOrNull { it.value == oldNote }?.let { entry ->
+                        uidToContent[entry.key] = updatedNote
                     }
-
-
-                    saveNotes()
-                    if (oldNote != updatedNote) queueEditForSync(oldNote, updatedNote)
-
-                    if (updatedTitle != null) {
-                        if (updatedTitle.isNotBlank()) {
-                            notesAdapter.setUserTitle(updatedNote, updatedTitle)
-                        } else {
-                            notesAdapter.removeUserTitle(updatedNote)
-                        }
-                    }
-
-                    val root = findViewById<View>(R.id.container) ?: findViewById(android.R.id.content)
-                    com.google.android.material.snackbar.Snackbar.make(root, "Note updated successfully", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT).show()
+                    saveUidMaps()
                 }
+
+                allNotes[rawIdx] = updatedNote
+            } else {
+                // fallback: if somehow not found, replace in visible list only
+                notesText[position] = updatedNote
+                rebuildNoteRowsFromDisplay(notesText)   // keep Compose UI in sync
             }
+
+            // ✅ 2) Persist images under the NEW content
+            NoteMediaStore.setUris(this, updatedNote, updatedImageUris)
+
+            // ✅ 2.5) Title store FIRST (so rebuild reads fresh title)
+            if (updatedTitle.isNotBlank()) notesAdapter.setUserTitle(updatedNote, updatedTitle)
+            else notesAdapter.removeUserTitle(updatedNote)
+
+
+            val settings = readNotesPageSettings()
+            val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
+
+            notesText.clear()
+            notesText.addAll(sorted)
+            notesAdapter.submit(sorted)
+            rebuildNoteRowsFromDisplay(sorted)
+
+            // ✅ 5) Persist + sync
+            saveNotes()
+            if (oldNote != updatedNote) queueEditForSync(oldNote, updatedNote)
+
+            FancyPillToast.show(
+                activity = this,
+                text = "Note updated successfully",
+                durationMs = 2200L // optional
+            )
+
         }
 
     // ----------------------- Data / Sync helpers -----------------------
@@ -463,28 +611,46 @@ class AllNotesActivity : AppCompatActivity() {
     }
 
     private fun addLocalNote(content: String) {
-        notes.add(content)
-//        notesAdapter.notifyItemInserted(notes.size - 1)
-        notesAdapter.submit(notes.toList())
-        notesCount = notes.size
+
+        // 1) add to RAW list only
+        allNotes.add(content)
+
+        // 2) build DISPLAY list (sorted copy)
+        val settings = readNotesPageSettings()
+        val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
+
+        // ✅ adapter/legacy list
+        notesText.clear()
+        notesText.addAll(sorted)
+        notesAdapter.submit(sorted)
+
+        // ✅ compose list (ids)
+        rebuildNoteRowsFromDisplay(sorted)
+
+        // 3) persist RAW
+        notesCount = allNotes.size
         saveNotes()
         updateNotePlaceholder()
-        showFabBadge(null) // no-op
+        showFabBadge(null)
 
-        // mark for later sync
+        // 4) pending sync
         val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
         val pending = sp.getStringSet("pending_adds", emptySet())!!.toMutableSet()
         pending.add(content)
         sp.edit { putStringSet("pending_adds", pending) }
     }
 
+
     private fun saveNotes() {
-        val notesJson = Gson().toJson(notes)
+        val notesJson = Gson().toJson(allNotes) // ✅ raw list only
         sharedPreferences.edit { putString("notes_list", notesJson) }
-        NotesCacheManager.cachedNotes = notes.toMutableList()
-        notesCount = notes.size
-        showFabBadge(null) // no-op
+
+        // cache should also be raw, not sorted
+        NotesCacheManager.cachedNotes = allNotes.toMutableList()
+        notesCount = allNotes.size
+        showFabBadge(null)
     }
+
 
     // Make sure your upload loop NEVER uploads something in pending_deletes
     private suspend fun syncPendingAddsOnly() {
@@ -601,7 +767,7 @@ class AllNotesActivity : AppCompatActivity() {
         val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return
         val userId  = session.user?.id ?: return
 
-        // 1) Fetch COMPLETE remote snapshot
+        // 1) fetch remote snapshot
         val remoteRows: List<UserNote> = SupabaseManager.client
             .postgrest
             .from("user_notes")
@@ -610,29 +776,26 @@ class AllNotesActivity : AppCompatActivity() {
 
         val remoteContents = remoteRows.map { it.content }.toSet()
 
-        // 2) Load local pending sets so we don’t accidentally delete unsynced local adds
+        // 2) load pending sets
         val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
-        val pendingAdds    = sp.getStringSet("pending_adds", emptySet())!!.toMutableSet()
-        val pendingDeletes = sp.getStringSet("pending_deletes", emptySet())!!.toMutableSet()
+        val pendingAdds    = sp.getStringSet("pending_adds", emptySet())!!.toSet()
+        val pendingDeletes = sp.getStringSet("pending_deletes", emptySet())!!.toSet()
 
-        // 3) Build maps for fast lookups
-        val localSet = notes.toSet()
+        // ✅ IMPORTANT: local truth is allNotes (RAW)
+        val localSet = allNotes.toSet()
 
-        // 4) Detect remote→local INSERTS (present remotely, missing locally, not locally deleted)
-        val toInsertLocally = remoteContents
-            .filter { it !in localSet && it !in pendingDeletes }
+        // 3) remote -> local inserts
+        val toInsertLocally = remoteContents.filter { it !in localSet && it !in pendingDeletes }
 
-        // 5) Detect remote→local DELETES (present locally, missing remotely)
-        //    but DO NOT delete notes that are pending local-add (not yet uploaded)
-        val toDeleteLocally = localSet
-            .filter { it !in remoteContents && it !in pendingAdds }
+        // ✅ delete locally only if it was a remote note before (has remote id)
+        val toDeleteLocally = localSet.filter { content ->
+            content !in remoteContents &&
+                    content !in pendingAdds &&
+                    contentToId.containsKey(content)
+        }
 
-        // 6) Detect remote→local UPDATES (same row id, different content)
-        //    We’ll use your id<->content maps to find content changes.
-        val remoteIdToContent = remoteRows
-            .mapNotNull { r -> r.id?.let { it to r.content } }
-            .toMap()
-
+        // 4) remote -> local updates by id map
+        val remoteIdToContent = remoteRows.mapNotNull { r -> r.id?.let { it to r.content } }.toMap()
         val updates: List<Pair<String, String>> = buildList {
             for ((rid, rContent) in remoteIdToContent) {
                 val old = idToContent[rid]
@@ -640,14 +803,17 @@ class AllNotesActivity : AppCompatActivity() {
             }
         }
 
-        // 7) Apply to UI on main thread
         withContext(Dispatchers.Main) {
 
-            // 7a) Apply updates (content changed for the same row id)
+            // ✅ APPLY EVERYTHING TO allNotes (raw)
+
+            // updates
             for ((oldContent, newContent) in updates) {
-                val idx = notes.indexOf(oldContent)
+                val idx = allNotes.indexOf(oldContent)
                 if (idx != -1 && oldContent !in pendingDeletes) {
-                    // migrate user title + flags/badges
+                    allNotes[idx] = newContent
+
+                    // migrate titles/badges/bells (same as you did)
                     notesAdapter.migrateUserTitle(oldContent, newContent)
 
                     val badgePrefs = getSharedPreferences("reminder_badges", MODE_PRIVATE)
@@ -663,12 +829,10 @@ class AllNotesActivity : AppCompatActivity() {
                         remove(oldContent.hashCode().toString())
                         if (hadBell) putBoolean(newContent.hashCode().toString(), true)
                     }
-
-                    notes[idx] = newContent
                 }
+
                 // refresh id maps
-                val rid = contentToId[oldContent] ?: remoteIdToContent.entries
-                    .firstOrNull { it.value == newContent }?.key
+                val rid = contentToId[oldContent] ?: remoteIdToContent.entries.firstOrNull { it.value == newContent }?.key
                 rid?.let {
                     idToContent[it] = newContent
                     contentToId.remove(oldContent)
@@ -676,42 +840,41 @@ class AllNotesActivity : AppCompatActivity() {
                 }
             }
 
-            // 7b) Inserts
-            for (c in toInsertLocally) {
-                notes.add(c)
-            }
+            // inserts
+            toInsertLocally.forEach { allNotes.add(it) }
 
-            // 7c) Deletes (remote deleted → remove locally)
+            // deletes
             if (toDeleteLocally.isNotEmpty()) {
                 toDeleteLocally.forEach { c ->
                     notesAdapter.removeUserTitle(c)
                     NotesCacheManager.cachedTitles.remove(c)
-                    getSharedPreferences("reminder_badges", MODE_PRIVATE).edit {
-                        remove(c.hashCode().toString())
-                    }
-                    getSharedPreferences("reminder_flags", MODE_PRIVATE).edit {
-                        remove(c.hashCode().toString())
-                    }
+                    getSharedPreferences("reminder_badges", MODE_PRIVATE).edit { remove(c.hashCode().toString()) }
+                    getSharedPreferences("reminder_flags", MODE_PRIVATE).edit { remove(c.hashCode().toString()) }
                     NoteMediaStore.deleteAllForNote(this@AllNotesActivity, c)
                     removeUidFor(c)
                 }
-                notes.removeAll(toDeleteLocally.toSet())
+                allNotes.removeAll(toDeleteLocally.toSet())
             }
 
-            // 7d) Refresh adapter once with DiffUtil
-            notesAdapter.submit(notes.toList())
+            // ✅ now rebuild DISPLAY list from allNotes
+            val settings = readNotesPageSettings()
+            val sorted = applyNotesSort(allNotes, settings.sortMode)
 
-            // 7e) Persist
+            notesText.clear()
+            notesText.addAll(sorted)
+            notesAdapter.submit(sorted)
+
+// ✅ compose list (ids)
+            rebuildNoteRowsFromDisplay(sorted)
+
+            // ✅ persist raw
             saveNotes()
             saveIdMaps()
 
-            // optional cosmetics
-            notesCount = notes.size
-            updateNotePlaceholder()
+            notesCount = sorted.size
             showFabBadge(null)
         }
 
-        // We pulled a full snapshot; we can move the last_server_updated_at up to "now"
         metaPrefs.edit { putLong("last_server_updated_at", System.currentTimeMillis()) }
     }
 
@@ -728,13 +891,22 @@ class AllNotesActivity : AppCompatActivity() {
     private fun onNoteClick(note: String, position: Int) {
         if (isMultiSelectMode) {
             toggleNoteSelection(note)
-        } else {
-            val title = resolveTitle(note)
-            val intent = ViewNoteActivity.newIntent(this, note, position, title)
-            viewNoteLauncher.launch(intent)
-            overridePendingTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
+            return
         }
+
+        val title = resolveTitle(note)
+
+        // 🔴 TEMP UID (works but not ideal)
+        val uid = note
+
+        val i = ViewNoteComposeActivity.newIntent(this, uid, note, position, title)
+        viewNoteLauncher.launch(i)
+
+        overridePendingTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
     }
+
+
+
 
     private fun onNoteLongClick(note: String) {
         isMultiSelectMode = true
@@ -752,40 +924,60 @@ class AllNotesActivity : AppCompatActivity() {
                 val updatedImageStrings = data?.getStringArrayListExtra("UPDATED_IMAGES") ?: arrayListOf()
                 val updatedImageUris = updatedImageStrings.mapNotNull { runCatching { it.toUri() }.getOrNull() }
 
-                if (!updatedNote.isNullOrEmpty() && position in notes.indices) {
-                    val oldNote = notes[position]
+                if (!updatedNote.isNullOrEmpty() && position in notesText.indices) {
 
+                    // old note from CURRENT VISIBLE list
+                    val oldNote = notesText[position]
+
+                    // 1) migrate title + media key if content changed
                     if (oldNote != updatedNote) {
                         notesAdapter.migrateUserTitle(oldNote, updatedNote)
+                        NoteMediaStore.migrateNoteKey(this, oldNote, updatedNote)
+
+                        // keep uid mapping consistent
+                        contentToUid[updatedNote] = contentToUid.remove(oldNote) ?: ensureLocalUid(updatedNote)
+                        uidToContent.entries.firstOrNull { it.value == oldNote }?.let { entry ->
+                            uidToContent[entry.key] = updatedNote
+                        }
+                        saveUidMaps()
                     }
 
+                    // 2) update RAW truth (allNotes)
+                    val rawIdx = allNotes.indexOf(oldNote)
+                    if (rawIdx != -1) {
+                        allNotes[rawIdx] = updatedNote
+                    } else {
+                        // fallback: if raw not found, at least update display list item
+                        notesText[position] = updatedNote
+                    }
+
+                    // 3) persist images under NEW content
                     NoteMediaStore.setUris(this, updatedNote, updatedImageUris)
 
-                    notes[position] = updatedNote
-                    if (oldNote == updatedNote) {
-                        notesAdapter.notifyItemChanged(position, NotesAdapter.PAYLOAD_IMAGES)
-                    } else {
-                        notesAdapter.notifyItemChanged(position)
-                    }
+                    // 4) rebuild DISPLAY from RAW (sort applied)
+                    val settings = readNotesPageSettings()
+                    val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
 
+                    notesText.clear()
+                    notesText.addAll(sorted)
+                    notesAdapter.submit(sorted)
+
+                    // 5) rebuild compose rows (ids)
+                    rebuildNoteRowsFromDisplay(sorted)
+
+                    // 6) apply title store
+                    if (!updatedTitle.isNullOrBlank()) notesAdapter.setUserTitle(updatedNote, updatedTitle)
+                    else notesAdapter.removeUserTitle(updatedNote)
+
+                    // 7) persist + sync
                     saveNotes()
+                    if (oldNote != updatedNote) queueEditForSync(oldNote, updatedNote)
 
-                    if (oldNote != updatedNote) {
-                        queueEditForSync(oldNote, updatedNote)
-                    }
-
-                    if (updatedTitle != null) {
-                        if (updatedTitle.isNotBlank()) {
-                            notesAdapter.setUserTitle(updatedNote, updatedTitle)
-                        } else {
-                            notesAdapter.removeUserTitle(updatedNote)
-                        }
-                    }
-
-                    val root = findViewById<View>(R.id.container) ?: findViewById(android.R.id.content)
-                    com.google.android.material.snackbar.Snackbar
-                        .make(root, "Note updated successfully", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT)
-                        .show()
+                    FancyPillToast.show(
+                        activity = this,
+                        text = "Note updated successfully",
+                        durationMs = 2200L
+                    )
                 }
             }
         }
@@ -846,23 +1038,49 @@ class AllNotesActivity : AppCompatActivity() {
         val deleted: List<Triple<String, Int, String?>> =
             selectedKeys.mapNotNull { key ->
                 val note = uidToContent[key] ?: return@mapNotNull null
-                val idx = notes.indexOf(note)
+                val idx = notesText.indexOf(note)
                 if (idx != -1) Triple(note, idx, notesAdapter.getUserTitle(note)) else null
             }.sortedByDescending { it.second }
+
+        // ✅ if nothing resolved, do nothing (prevents "deleted" toast with no real delete)
+        if (deleted.isEmpty()) {
+            selectedKeys.clear()
+            isMultiSelectMode = false
+            notesAdapter.clearSelection()
+            setDeleteVisibleFromActivity?.invoke(false)
+            return
+        }
 
         val imagesByNote: Map<String, List<android.net.Uri>> =
             deleted.associate { (note, _, _) -> note to NoteMediaStore.getUris(this, note) }
 
-        // 🚩 the contents you will delete
         val notesToDelete: List<String> = deleted.map { it.first }
+
+// ✅ count how many copies will be deleted (because removeAll deletes ALL duplicates by content)
+        val distinctSelected = notesToDelete.distinct()
+        val totalCopiesDeleted = distinctSelected.sumOf { text ->
+            allNotes.count { it == text }
+        }
+
+// ✅ build correct message (single vs multiple / duplicates vs normal)
+        val deleteMsg = when (distinctSelected.size) {
+            1 if totalCopiesDeleted > 1 -> "Deleted all duplicates of this note"
+            1 -> "Note deleted"
+            else -> "Deleted selected notes"
+        }
+
+// ✅ delete from RAW truth (this deletes ALL duplicates by content)
+        allNotes.removeAll(distinctSelected.toSet())
+        NotesCacheManager.cachedNotes.removeAll(distinctSelected.toSet())
+
 
         // 1) queue for server-side delete
         val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
         val pendingDeletes = sp.getStringSet("pending_deletes", emptySet())!!.toMutableSet()
-        notesToDelete.forEach { pendingDeletes.add(it) }
+        distinctSelected.forEach { pendingDeletes.add(it) }
         sp.edit { putStringSet("pending_deletes", pendingDeletes) }
 
-        // 👉 NEW (A): also yank them out of pending_adds so they can't be uploaded later
+        // also yank them out of pending_adds so they can't be uploaded later
         run {
             val pendingAdds = sp.getStringSet("pending_adds", emptySet())!!.toMutableSet()
             var changed = false
@@ -875,19 +1093,22 @@ class AllNotesActivity : AppCompatActivity() {
             notesToDelete.forEach { deleteNoteFromSupabase(it) }
         }
 
-        // 3) local cleanup (UI state, titles, flags, media, list)
+        // 3) local cleanup (titles, flags, etc.)
         deleted.forEach { (note, _, _) ->
             notesAdapter.removeUserTitle(note)
             NotesCacheManager.cachedTitles.remove(note)
-            getSharedPreferences("reminder_badges", MODE_PRIVATE)
-                .edit { remove(note.hashCode().toString()) }
-            getSharedPreferences("reminder_flags", MODE_PRIVATE)
-                .edit { remove(note.hashCode().toString()) }
+            getSharedPreferences("reminder_badges", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
+            getSharedPreferences("reminder_flags", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
         }
 
-        deleted.forEach { (_, index, _) -> notes.removeAt(index) }
-        notesAdapter.submit(notes.toList())
-        if (notes.isEmpty()) removeFabBadge(null)
+        // ✅ IMPORTANT: rebuild DISPLAY from RAW (no removeAt(index))
+        run {
+            val settings = readNotesPageSettings()
+            val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
+            rebuildBoth(sorted)
+            notesAdapter.submit(sorted)
+            if (sorted.isEmpty()) removeFabBadge(null)
+        }
 
         // 4) clear selection
         selectedKeys.clear()
@@ -895,33 +1116,59 @@ class AllNotesActivity : AppCompatActivity() {
         notesAdapter.clearSelection()
         setDeleteVisibleFromActivity?.invoke(false)
 
+        // persist
+        // ✅ now persist (saves allNotes + refreshes cache)
         saveNotes()
-        notesCount = notes.size
+
+// ✅ FORCE DISK WRITE (apply() can be lost if you restart fast)
+        sharedPreferences.edit(commit = true) {
+            putString("notes_list", Gson().toJson(allNotes))
+        }
+        NotesCacheManager.cachedNotes = allNotes.toMutableList()
+
+        notesCount = notesText.size
         updateNotePlaceholder()
 
-        // 5) Snackbar UNDO
-        val parentView = findViewById<View>(R.id.container) ?: findViewById(android.R.id.content)
-        com.google.android.material.snackbar.Snackbar
-            .make(parentView, "Note deleted", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT)
-            .setAction("UNDO") {
-                deleted.sortedBy { it.second }.forEach { (note, index, savedTitle) ->
-                    val insertAt = index.coerceIn(0, notes.size)
-                    if (!notes.contains(note)) notes.add(insertAt, note)
+
+        FancyPillToast.showUndo(
+            activity = this,
+            text = deleteMsg,
+            actionText = "UNDO",
+            durationMs = 3500L,
+            onAction = {
+                // ✅ restore RAW first
+                notesToDelete.forEach { note ->
+                    if (!allNotes.contains(note)) allNotes.add(note)
+                }
+                NotesCacheManager.cachedNotes = allNotes.toMutableList()
+
+                // restore titles + images
+                deleted.forEach { (note, _, savedTitle) ->
                     if (!savedTitle.isNullOrBlank()) notesAdapter.setUserTitle(note, savedTitle)
                     imagesByNote[note]?.let { uris -> NoteMediaStore.setUris(this, note, uris) }
                 }
-                notesAdapter.submit(notes.toList())
+
+                // ✅ rebuild DISPLAY from RAW again
+                val settingsU = readNotesPageSettings()
+                val sortedU = applyNotesSort(allNotes.toList(), settingsU.sortMode)
+                rebuildBoth(sortedU)
+                notesAdapter.submit(sortedU)
+
                 saveNotes()
+
+                sharedPreferences.edit(commit = true) {
+                    putString("notes_list", Gson().toJson(allNotes))
+                }
+                NotesCacheManager.cachedNotes = allNotes.toMutableList()
+
                 updateNotePlaceholder()
                 showFabBadge(null)
 
-                val sp2 = getSharedPreferences("notes_prefs", MODE_PRIVATE)
 
-                // remove from pending_deletes (you already had this)
+                val sp2 = getSharedPreferences("notes_prefs", MODE_PRIVATE)
                 val pDel2 = sp2.getStringSet("pending_deletes", emptySet())!!.toMutableSet()
                 notesToDelete.forEach { pDel2.remove(it) }
 
-                // 👉 NEW (B): add restored notes back to pending_adds so they can (re)upload if needed
                 val pAdd2 = sp2.getStringSet("pending_adds", emptySet())!!.toMutableSet()
                 notesToDelete.forEach { pAdd2.add(it) }
 
@@ -936,127 +1183,359 @@ class AllNotesActivity : AppCompatActivity() {
                 setDeleteVisibleFromActivity?.invoke(false)
                 updateDeleteButtonUI(false)
                 enableDeleteInNavigationRail(false)
-            }
-            .addCallback(object : com.google.android.material.snackbar.Snackbar.Callback() {
-                override fun onDismissed(sb: com.google.android.material.snackbar.Snackbar, event: Int) {
-                    // if UNDO wasn't pressed, finalize local cleanup
-                    if (event != DISMISS_EVENT_ACTION) {
-                        deleted.forEach { (note, _, _) ->
-                            NoteMediaStore.deleteAllForNote(this@AllNotesActivity, note)
-                            removeUidFor(note)
-                        }
-                    }
+            },
+            onTimeout = {
+                // finalize media + uid cleanup
+                deleted.forEach { (note, _, _) ->
+                    NoteMediaStore.deleteAllForNote(this@AllNotesActivity, note)
+                    removeUidFor(note)
                 }
-            })
-            .show()
 
-        updateDeleteButtonUI(false)
-        enableDeleteInNavigationRail(false)
+                // safety persist
+                allNotes.removeAll(notesToDelete.toSet())
+                NotesCacheManager.cachedNotes.removeAll(notesToDelete.toSet())
+
+                // ✅ FORCE DISK WRITE so delete survives restart
+                saveNotes()
+                sharedPreferences.edit(commit = true) {
+                    putString("notes_list", Gson().toJson(allNotes))
+                }
+                NotesCacheManager.cachedNotes = allNotes.toMutableList()
+            }
+
+        )
     }
 
-    // ----------------------- Search & pickers (can stay XML-based dialogs) -----------------------
+
+        // ----------------------- Search & pickers (can stay XML-based dialogs) -----------------------
 
     private fun loadNotesHeadless() {
         val cached = NotesCacheManager.cachedNotes
-        if (cached.isNotEmpty()) {
-            notes.addAll(cached)
-            Log.d("DEBUG", "✅ Loaded ${cached.size} notes from MEMORY cache")
-        } else {
-            val notesJson = sharedPreferences.getString("notes_list", null)
-            if (!notesJson.isNullOrEmpty()) {
-                val type = object : TypeToken<MutableList<String>>() {}.type
-                val savedNotes: MutableList<String> = Gson().fromJson(notesJson, type)
-                notes.addAll(savedNotes)
-                NotesCacheManager.cachedNotes.addAll(savedNotes)
-                Log.d("DEBUG", "✅ Loaded ${savedNotes.size} notes from SharedPreferences")
+        val base: List<String> = when {
+            cached.isNotEmpty() -> cached.toList()
+            else -> {
+                val notesJson = sharedPreferences.getString("notes_list", null)
+                if (!notesJson.isNullOrEmpty()) {
+                    val type = object : TypeToken<MutableList<String>>() {}.type
+                    val saved: MutableList<String> = Gson().fromJson(notesJson, type)
+                    NotesCacheManager.cachedNotes = saved.toMutableList()
+                    saved.toList()
+                } else emptyList()
             }
         }
+
+        // ✅ keep RAW truth consistent
+        allNotes.clear()
+        allNotes.addAll(base)
+
+        // ✅ build DISPLAY list using your sort setting
+        val settings = readNotesPageSettings()
+        val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
+
+        notesText.clear()
+        notesText.addAll(sorted)
+
+        // ✅ rebuild NoteRow models (this will read badge/bell prefs now)
+        rebuildNoteRowsFromDisplay(sorted)
+
         updateNotePlaceholder()
         showFabBadge(null)
     }
 
-    private fun openSearchView() {
+
+    private fun resolveThemeColor(attr: Int): Int {
+        val tv = android.util.TypedValue()
+        theme.resolveAttribute(attr, tv, true)
+        return if (tv.resourceId != 0) {
+            ContextCompat.getColor(this, tv.resourceId)
+        } else {
+            tv.data
+        }
+    }
+
+    private fun openSearchView(onDismiss: () -> Unit) {
         val parentView = findViewById<ViewGroup>(android.R.id.content)
         val inflater = LayoutInflater.from(this)
         val rootLayout = inflater.inflate(
-            R.layout.dialog_search_all_notes,
+            R.layout.dialog_search_all_notes2,
             parentView,
             false
         ) as androidx.coordinatorlayout.widget.CoordinatorLayout
 
-        val searchView = rootLayout.findViewById<androidx.appcompat.widget.SearchView>(R.id.material_search_view)
+        // ✅ NEW: EditText + icon (from your XML)
+        val etSearch = rootLayout.findViewById<EditText>(R.id.et_search)
+        val searchIcon = rootLayout.findViewById<ImageView>(R.id.search_icon)
+        val onSurfaceVariant = resolveThemeColor(com.google.android.material.R.attr.colorOnSurfaceVariant)
+        etSearch.setHintTextColor((onSurfaceVariant))
+        etSearch.highlightColor = (onSurfaceVariant and 0x00FFFFFF) or (0x33000000) // soft highlight
 
-        searchView.isIconified = false
-        searchView.requestFocus()
+        // ✅ split button refs
+        val btnFilter = rootLayout.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_filter)
+        val btnClose  = rootLayout.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_close)
 
-        val searchPlate = searchView.findViewById<View>(androidx.appcompat.R.id.search_plate)
-        searchPlate.setBackgroundColor(Color.TRANSPARENT)
+        // ✅ mode state
+        var mode = loadSearchMode()
+// ✅ apply persisted mode to hint immediately (so it shows on open)
+        etSearch.hint = when (mode) {
+            SearchMode.NOTE  -> "Search in note"
+            SearchMode.TITLE -> "Search title…"
+            SearchMode.BOTH  -> "Search title or note…"
+        }
 
-        val searchText = searchView.findViewById<EditText>(androidx.appcompat.R.id.search_src_text)
-        searchText.setTextColor(Color.GRAY)
-        searchText.setHintTextColor("#B3FFFFFF".toColorInt())
+        fun applyFilterNow() {
+            val text = etSearch.text?.toString().orEmpty()
+            filterNotes(text, mode)
+        }
 
-        val searchDialog = BottomSheetDialog(this).apply {
+        // ✅ theme-aware tint (so it looks correct light/dark)
+        val onSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
+        btnFilter.iconTint = ColorStateList.valueOf(onSurface)
+        btnClose.iconTint  = ColorStateList.valueOf(onSurface)
+        searchIcon.imageTintList = ColorStateList.valueOf(onSurface)
+
+        btnFilter.setOnClickListener {
+
+            val items = arrayOf("Note content", "Title only", "Title & note")
+
+            val checkedIndex = when (mode) {
+                SearchMode.NOTE  -> 0
+                SearchMode.TITLE -> 1
+                SearchMode.BOTH  -> 2
+            }
+
+            var pendingIndex = checkedIndex
+
+            fun hintFor(m: SearchMode) = when (m) {
+                SearchMode.NOTE  -> "Search in note"
+                SearchMode.TITLE -> "Search title…"
+                SearchMode.BOTH  -> "Search title or note…"
+            }
+
+            fun modeForIndex(i: Int) = when (i) {
+                1 -> SearchMode.TITLE
+                2 -> SearchMode.BOTH
+                else -> SearchMode.NOTE
+            }
+
+            fun dialogPanel(d: android.app.Dialog): View? {
+                val content = d.findViewById<ViewGroup>(android.R.id.content) ?: return null
+                return content.getChildAt(0) // ✅ visible rounded dialog panel
+            }
+
+            fun dp(v: View, value: Float): Float = value * v.resources.displayMetrics.density
+
+            // ✅ M3 motion: fade + subtle scale + lift (NO height hack => NO blink)
+            fun motionPrepare(panel: View) {
+                panel.alpha = 0f
+                panel.scaleX = 0.985f
+                panel.scaleY = 0.985f
+                panel.translationY = dp(panel, 10f)
+            }
+
+            fun motionEnter(panel: View) {
+                panel.animate()
+                    .alpha(1f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .translationY(0f)
+                    .setDuration(220L)
+                    .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
+                    .start()
+            }
+
+            fun motionExit(panel: View, end: () -> Unit) {
+                panel.animate()
+                    .alpha(0f)
+                    .scaleX(0.985f)
+                    .scaleY(0.985f)
+                    .translationY(dp(panel, 10f))
+                    .setDuration(160L)
+                    .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
+                    .withEndAction(end)
+                    .start()
+            }
+
+            val dlg = MaterialAlertDialogBuilder(this)
+                .setTitle("Search in")
+                .setSingleChoiceItems(items, checkedIndex) { _, which ->
+                    pendingIndex = which
+                }
+                .setNegativeButton("Cancel", null)
+                .setNeutralButton("Reset", null)
+                .setPositiveButton("OK", null)
+                .create()
+
+
+            // 🚫 disable default window animation (so ONLY our motion runs)
+            dlg.window?.setWindowAnimations(0)
+
+            fun dismissWithMotion() {
+                val panel = dialogPanel(dlg)
+                if (panel == null) {
+                    dlg.dismiss()
+                    return
+                }
+                motionExit(panel) { dlg.dismiss() }
+            }
+
+            dlg.setOnShowListener {
+                val panel = dialogPanel(dlg) ?: return@setOnShowListener
+
+                // ✅ prepare instantly (prevents blink)
+                motionPrepare(panel)
+
+                // ✅ start motion next frame
+                panel.post { motionEnter(panel) }
+
+                dlg.getButton(android.app.AlertDialog.BUTTON_NEGATIVE)?.setOnClickListener {
+                    dismissWithMotion()
+                }
+
+                dlg.getButton(android.app.AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
+                    mode = SearchMode.NOTE
+                    saveSearchMode(mode)
+
+                    etSearch.hint = hintFor(mode)
+                    applyFilterNow()
+                    etSearch.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+
+                    dismissWithMotion()
+                }
+
+                dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+                    val newMode = modeForIndex(pendingIndex)
+                    etSearch.hint = hintFor(newMode)
+
+                    if (newMode != mode) {
+                        mode = newMode
+                        saveSearchMode(mode)
+                        applyFilterNow()
+                        etSearch.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                    }
+
+                    dismissWithMotion()
+                }
+            }
+
+            // back press -> animate out
+            dlg.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_BACK &&
+                    event.action == android.view.KeyEvent.ACTION_UP
+                ) {
+                    dismissWithMotion()
+                    true
+                } else false
+            }
+
+            // outside tap -> animate out
+            dlg.setOnCancelListener { dismissWithMotion() }
+            dlg.setCanceledOnTouchOutside(true)
+
+            dlg.show()
+        }
+
+
+
+
+        // ✅ close/clear on CLOSE split button
+        btnClose.setOnClickListener {
+            etSearch.setText("")
+            etSearch.requestFocus()
+            applyFilterNow()
+
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etSearch, InputMethodManager.SHOW_IMPLICIT)
+        }
+
+        // ✅ live filtering (NO SearchView X ever again)
+        etSearch.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                applyFilterNow()
+            }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+
+        // ✅ BottomSheetDialog (Material 3 rounded corners)
+        val searchDialog = BottomSheetDialog(
+            this,
+            com.google.android.material.R.style.ThemeOverlay_Material3_BottomSheetDialog
+        ).apply {
             setContentView(rootLayout)
             window?.setBackgroundDrawableResource(android.R.color.transparent)
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        }
 
-        val bottomSheet = searchDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-        bottomSheet?.let {
-            val behavior = BottomSheetBehavior.from(it)
-            behavior.isHideable = true
-            behavior.skipCollapsed = true
-
-            rootLayout.viewTreeObserver.addOnGlobalLayoutListener {
-                val rect = Rect()
-                rootLayout.getWindowVisibleDisplayFrame(rect)
-                val screenHeight = rootLayout.rootView.height
-                val keyboardHeight = screenHeight - rect.bottom
-
-                behavior.peekHeight = if (keyboardHeight > 300) {
-                    val maxHeight = screenHeight - keyboardHeight - 10
-                    maxHeight.coerceAtMost(screenHeight / 12)
-                } else {
-                    screenHeight / 4
-                }
+            setOnDismissListener {
+                onDismiss()
+                filterNotes("", loadSearchMode())
             }
+            setOnCancelListener { onDismiss() }    // optional safety
         }
 
         searchDialog.show()
 
-        val animator = ObjectAnimator.ofFloat(searchView, "translationY", 0f, 30f).apply {
+
+        searchDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.let { sheet ->
+
+            val shape = com.google.android.material.shape.MaterialShapeDrawable.createWithElevationOverlay(this)
+
+            // 🔵 pick radius you want (28dp-ish). This number is pixels, so use dp->px:
+            val r = (28 * resources.displayMetrics.density)
+
+            shape.shapeAppearanceModel = shape.shapeAppearanceModel
+                .toBuilder()
+                .setTopLeftCornerSize(r)
+                .setTopRightCornerSize(r)
+                .build()
+
+            // Optional: make sure it uses your surface color instead of weird gray
+            shape.fillColor = ColorStateList.valueOf(
+                resolveThemeColor(com.google.android.material.R.attr.colorSurface)
+            )
+
+            sheet.background = shape
+
+            BottomSheetBehavior.from(sheet).apply {
+                isHideable = true
+                skipCollapsed = true
+            }
+        }
+
+
+
+        // ✅ focus + show keyboard
+        rootLayout.post {
+            etSearch.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etSearch, InputMethodManager.SHOW_IMPLICIT)
+        }
+
+        // optional cute animation (animate the whole pill, not searchView)
+        ObjectAnimator.ofFloat(rootLayout.findViewById<View>(R.id.search_pill), "translationY", 0f, 30f).apply {
             duration = 200
             interpolator = DecelerateInterpolator()
+            start()
         }
-        animator.start()
 
-        searchView.queryHint = ""
-        searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean = false
-            override fun onQueryTextChange(newText: String?): Boolean {
-                filterNotes(newText.orEmpty()); return true
-            }
-        })
+        // initial render
+        applyFilterNow()
+    }
+    private companion object {
+        private const val PREF_SEARCH_MODE = "pref_search_mode"
+    }
 
-        val closeButton = searchView.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)
-        closeButton?.let {
-            it.setImageResource(R.drawable.baseline_close_24)
-            it.visibility = View.VISIBLE
-            val lp = it.layoutParams
-            lp.width = 90; lp.height = 90
-            it.layoutParams = lp
-            it.scaleType = ImageView.ScaleType.CENTER_INSIDE
-            it.setBackgroundResource(R.drawable.custom_clear_button)
-            it.setColorFilter(Color.BLACK, android.graphics.PorterDuff.Mode.SRC_IN)
-            it.setOnClickListener {
-                searchView.setQuery("", false)
-                searchView.requestFocus()
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showSoftInput(searchView, InputMethodManager.SHOW_IMPLICIT)
-            }
+    private fun saveSearchMode(mode: SearchMode) {
+        getSharedPreferences("ui_prefs", MODE_PRIVATE).edit {
+            putInt(PREF_SEARCH_MODE, mode.ordinal)
         }
     }
+
+    private fun loadSearchMode(): SearchMode {
+        val ord = getSharedPreferences("ui_prefs", MODE_PRIVATE)
+            .getInt(PREF_SEARCH_MODE, SearchMode.NOTE.ordinal)
+        return SearchMode.entries.getOrElse(ord) { SearchMode.NOTE }
+    }
+
 
     fun openMaterialDateTimePickerDialog(note: String) {
         val datePicker = MaterialDatePicker.Builder.datePicker()
@@ -1245,6 +1724,13 @@ class AllNotesActivity : AppCompatActivity() {
             timeErrorText.text = bottomSheetView.context.getString(R.string.time_in_past)
             return
         }
+        runOnUiThread {
+            val settings = readNotesPageSettings()
+            val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
+            rebuildBoth(sorted)
+            notesAdapter.submit(sorted)
+        }
+
 
         timeErrorText.visibility = View.GONE
         timeSuccessText.visibility = View.VISIBLE
@@ -1266,19 +1752,38 @@ class AllNotesActivity : AppCompatActivity() {
 
         WorkManager.getInstance(this).enqueue(workRequest)
 
-        // badge + bell flags
-        getSharedPreferences("reminder_badges", MODE_PRIVATE)
-            .edit { putBoolean(note.hashCode().toString(), true) }
+        // badge + bell flags (force write)
+        getSharedPreferences("reminder_badges", MODE_PRIVATE).edit(commit = true) {
+            putBoolean(note.hashCode().toString(), true)
+        }
+        getSharedPreferences("reminder_flags", MODE_PRIVATE).edit(commit = true) {
+            putBoolean(note.hashCode().toString(), true)
+        }
+
+        refreshRowFor(note)
+
         notesAdapter.preloadBadgeStates(this)
-
-        getSharedPreferences("reminder_flags", MODE_PRIVATE)
-            .edit { putBoolean(note.hashCode().toString(), true) }
         notesAdapter.preloadReminderFlags(this)
-
-        // refresh only this row
         notesAdapter.notifyByContent(note)
 
+
     }
+    private fun refreshRowFor(note: String) {
+        val idx = noteRows.indexOfFirst { it.text == note }
+        if (idx == -1) return
+
+        val bellOn = getSharedPreferences("reminder_flags", MODE_PRIVATE)
+            .getBoolean(note.hashCode().toString(), false)
+
+        val badgeOn = getSharedPreferences("reminder_badges", MODE_PRIVATE)
+            .getBoolean(note.hashCode().toString(), false)
+
+        noteRows[idx] = noteRows[idx].copy(
+            hasReminder = bellOn,
+            hasBadge = badgeOn
+        )
+    }
+
 
 
     private fun findNumberPickers(viewGroup: ViewGroup): List<NumberPicker> {
@@ -1314,46 +1819,76 @@ class AllNotesActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun goToSettingsScreen() {
-        startActivity(Intent(this, SettingsActivity::class.java))
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-        finish()
-    }
-
     // ----------------------- Misc -----------------------
 
-    private fun adjustStatusBarIcons() {
-        val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
-        when (nightModeFlags) {
-            Configuration.UI_MODE_NIGHT_YES -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2) {
-                    window.insetsController?.setSystemBarsAppearance(
-                        0,
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    )
-                } else {
-                    @Suppress("DEPRECATION")
-                    window.decorView.systemUiVisibility = 0
-                }
-            }
-            Configuration.UI_MODE_NIGHT_NO -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2) {
-                    window.insetsController?.setSystemBarsAppearance(
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
-                        WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                    )
-                } else {
-                    @Suppress("DEPRECATION")
-                    window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+    private enum class SearchMode { NOTE, TITLE, BOTH }
+
+    // ✅ mode-aware + always uses RAW list
+    private fun filterNotes(query: String, mode: SearchMode) {
+        val q = query.trim()
+        val base = allNotes.toList() // RAW truth
+
+        val filtered = if (q.isEmpty()) {
+            base
+        } else {
+            base.filter { note ->
+                val title = resolveTitle(note).orEmpty() // IMPORTANT: your resolveTitle strips html
+                when (mode) {
+                    SearchMode.NOTE  -> note.contains(q, ignoreCase = true)
+                    SearchMode.TITLE -> title.contains(q, ignoreCase = true)
+                    SearchMode.BOTH  -> note.contains(q, true) || title.contains(q, true)
                 }
             }
         }
+
+        val settings = readNotesPageSettings()
+        val result = applyNotesSort(filtered, settings.sortMode)
+
+        // ✅ update COMPOSE list (what you actually see)
+        rebuildBoth(result)
+
+        // ✅ keep adapter in sync too
+        notesAdapter.submit(result)
+
+        // ✅ keep bell/badge maps correct for the new displayed list
+        notesAdapter.preloadReminderFlags(this)
+        notesAdapter.preloadBadgeStates(this)
+
+        notesCount = result.size
+        showFabBadge(null)
     }
 
-    private fun filterNotes(query: String) {
-        val filtered = if (query.isEmpty()) notes else notes.filter { it.contains(query, true) }
-        notesAdapter.updateList(filtered)
+    private fun applyNotesSort(list: List<String>, sortMode: String): List<String> {
+        val base = list.toList() // always use a safe copy
+
+        return when (sortMode) {
+
+            // ✅ Oldest first = keep as-is (assuming saved order is oldest->newest)
+            NotesPagePrefs.SORT_OLDEST -> base
+
+            // ✅ Newest first = reversed
+            NotesPagePrefs.SORT_NEWEST -> base.asReversed()
+
+            NotesPagePrefs.SORT_TITLE -> base.sortedWith(
+                compareBy(String.CASE_INSENSITIVE_ORDER) { note ->
+                    resolveTitle(note).orEmpty()
+                }
+            )
+
+            NotesPagePrefs.SORT_REMINDERS_FIRST -> {
+                val bellPrefs = getSharedPreferences("reminder_flags", MODE_PRIVATE)
+                base.sortedWith(
+                    compareByDescending<String> { note ->
+                        bellPrefs.getBoolean(note.hashCode().toString(), false)
+                    }.thenBy(String.CASE_INSENSITIVE_ORDER) { resolveTitle(it).orEmpty() }
+                )
+            }
+
+            else -> base
+        }
     }
+
+
 
 
     private fun queueEditForSync(oldNote: String, newNote: String) {
@@ -1403,11 +1938,13 @@ class AllNotesActivity : AppCompatActivity() {
     private val badgeChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
             val badgeKey = intent.getStringExtra(ReminderDismissReceiver.EXTRA_BADGE_KEY) ?: return
-            val changedIndex = notes.indexOfFirst { it.hashCode().toString() == badgeKey }
+            val changedIndex = notesText.indexOfFirst { it.hashCode().toString() == badgeKey } // ✅ was notes
             if (changedIndex != -1) {
                 notesAdapter.preloadBadgeStates(ctx)
                 notesAdapter.notifyItemChanged(changedIndex)
             }
         }
     }
+
 }
+

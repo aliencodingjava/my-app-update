@@ -26,7 +26,6 @@ fun rememberUiScales(debugLog: Boolean = false): UiScales {
 
     return remember(sw, fontScale) {
         val base = uiScaleForWidth(swDp = sw)
-
         val comp = (base / lerp(1f, fontScale, 0.70f)).coerceIn(0.82f, 1.06f)
 
         val tight = when {
@@ -37,8 +36,12 @@ fun rememberUiScales(debugLog: Boolean = false): UiScales {
             else -> 1.00f
         }
 
-        val body = (comp * tight).coerceIn(0.82f, 1.06f)
-        val label = (body * 0.92f).coerceIn(0.78f, 1.00f)
+
+// iOS-style: button labels should NOT grow with accessibility fontScale
+        val body = (comp * tight).coerceIn(0.72f, 1.06f)
+        val label = (base * tight).coerceIn(0.70f, 1.00f)
+
+
 
         if (debugLog) {
             Log.d("SCALES", "sw=$sw fontScale=$fontScale body=$body label=$label")
@@ -54,7 +57,7 @@ fun rememberUiScale(debugLog: Boolean = false): Float =
 
 @Composable
 fun rememberUiTight(debugLog: Boolean = false): Float =
-    rememberUiScales(debugLog).body
+    rememberUiScales(debugLog).label
 
 fun uiScaleForWidth(swDp: Int): Float {
     val sw = swDp.toFloat()

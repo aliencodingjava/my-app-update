@@ -315,7 +315,7 @@ Scan QR codes, share moments, and enjoy a seamless experience.
     <string name="All_contacts">All contacts</string>
     <string name="Import_contacts">import contacts</string>
     <string name="new_contacts_count">New contacts count</string>
-    <string name="total_contacts">Total contacts</string>
+    <string name="total_contacts">Contacts</string>
     <string name="make_a_call">Make a call</string>
     <string name="edit_contact">Edit contact</string>
     <string name="add_account">Add account</string>
@@ -451,8 +451,8 @@ Scan QR codes, share moments, and enjoy a seamless experience.
     <string name="photo" translatable="false">Photo</string>
     <string name="privacy" translatable="false">Privacy</string>
     <string name="quick_actions" translatable="false">Quick actions</string>
-    <string name="logo">logo</string>
-    <string name="scan_qr_code">Scan QR Code</string>
+    <string name="logo" translatable="false">logo</string>
+    <string name="scan_qr_code" translatable="false">Scan QR Code</string>
 
 
 </resources>

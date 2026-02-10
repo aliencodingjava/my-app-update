@@ -7,9 +7,26 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
@@ -33,6 +50,8 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -128,7 +147,7 @@ fun FlightsGlassScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()          // ✅ correct bottom inset (instead of +16dp hack)
-                .padding(horizontal = 26.dp)
+                .padding(horizontal = 30.dp)
                 .height(64.dp),                   // ✅ match LiquidBottomTabs back plate height
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -236,6 +255,23 @@ fun LiquidFab(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { CircleShape },
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.45.dp,
+                            blurRadius = 1.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.0.dp,
+                            alpha = 0.35f,
+                            style = HighlightStyle.Plain // very subtle
+                        )
+                    }
+                },
                 effects = {
                     vibrancy()
                     blur(if (isDark) 4.dp.toPx() else 8.dp.toPx())
@@ -252,14 +288,14 @@ fun LiquidFab(
                         val height = size.height
 
                         val press = interactiveHighlight.pressProgress
-                        val zoomAmountPx = 1.5.dp.toPx()
+                        val zoomAmountPx = 3.5.dp.toPx()
                         val baseScale = lerp(1f, 1f + zoomAmountPx / size.height, press)
 
                         val maxOffset = size.minDimension
                         val k = 0.025f
                         val offset = interactiveHighlight.offset
 
-                        val maxDragScale = 1.5.dp.toPx() / size.height
+                        val maxDragScale = 4.5.dp.toPx() / size.height
                         val ang = atan2(offset.y, offset.x)
 
                         val pressDragScaleX =

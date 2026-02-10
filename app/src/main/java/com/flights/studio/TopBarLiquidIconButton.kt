@@ -27,6 +27,8 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -60,10 +62,18 @@ fun TopBarLiquidIconButton(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { CircleShape },
+                highlight = {
+                    Highlight(
+                        width = 0.35.dp,
+                        blurRadius = 1.2.dp,
+                        alpha = 0.55f,
+                        style = HighlightStyle.Plain // softer than Default
+                    )
+                },
                 effects = {
                     vibrancy()
                     blur(0.5f.dp.toPx())
-                    lens(6f.dp.toPx(), 32f.dp.toPx())
+                    lens(10f.dp.toPx(), 10f.dp.toPx())
                 },
                 layerBlock = if (isInteractive) {
                     {
