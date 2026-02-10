@@ -1,14 +1,15 @@
 ## ✨ What’s New (Now Available)
 
-The new screen animation and photo movement within the display have been **successfully released** and are now part of the app.
+The latest UI and animation updates have been **successfully released** and are now live in the app.
 
-- **Colorful profile blob backgrounds**  
-- **Glassmorphism blur & light diffusion**  
-- **Smoother transitions and visual depth**  
-- **Fluid drag transitions & photo movement**  
-- **New glass elevation animations**  
-- **More Jetpack Compose activities**  
-- And more improvements…
+- **Colorful profile blob backgrounds** with dynamic depth
+- **Glassmorphism blur & light diffusion** for a more premium look
+- **Smoother screen transitions** with improved visual continuity
+- **Fluid drag gestures & photo movement** across image previews
+- **New glass elevation animations** for cards, sheets, and menus
+- **Expanded Jetpack Compose adoption** across core screens
+- Additional visual refinements and polish throughout the app
+
 
 ---
 
