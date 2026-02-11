@@ -224,12 +224,13 @@ class CardBottomSheetActivity : AppCompatActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             startActivity(home)
-            overridePendingTransition(0, R.anim.zoom_out)
+            overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
             finish()
         } else {
             // normal behavior
             finish()
-            overridePendingTransition(0, R.anim.zoom_out)
+            overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         }
     }
 
@@ -259,12 +260,11 @@ class CardBottomSheetActivity : AppCompatActivity() {
     }
 
 
-
-
     fun showCreateProfileSheet() {
-        // Open Compose profile screen (AuthScreen is handled inside it)
         startActivity(Intent(this, ProfileDetailsComposeActivity::class.java))
-        overridePendingTransition(0, R.anim.zoom_out)
+
+        @Suppress("DEPRECATION")
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
 
 

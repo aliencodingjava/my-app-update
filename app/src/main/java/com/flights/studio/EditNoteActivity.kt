@@ -305,8 +305,7 @@ class EditNoteActivity : AppCompatActivity() {
             overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, enterAnim, exitAnim)
         } else {
             @Suppress("DEPRECATION")
-            overridePendingTransition(enterAnim, exitAnim)
-        }
+            overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)        }
     }
 
 //    private fun applyOpenTransition(@AnimRes enterAnim: Int, @AnimRes exitAnim: Int) {
@@ -445,18 +444,17 @@ class EditNoteActivity : AppCompatActivity() {
                 .setMessage(getString(R.string.confirm_exit_message))
                 .setPositiveButton(getString(R.string.exit)) { _, _ ->
                     finish()
-                    applyCloseTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
+                    applyCloseTransition(R.anim.enter_animation, R.anim.exit_animation)
 
                 }
                 .setNegativeButton(getString(R.string.cancel), null)
                 .show()
         } else {
             finish()
-            applyCloseTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
+            applyCloseTransition(R.anim.enter_animation, R.anim.exit_animation)
 
         }
     }
-
 
     private val pickImagesLauncher =
         registerForActivityResult(

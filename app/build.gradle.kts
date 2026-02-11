@@ -5,12 +5,12 @@ import java.util.Properties
 plugins {
     id("com.android.application")
 //    kotlin("android")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.3.0"   // ✅ REQUIRED
+    id("org.jetbrains.kotlin.plugin.compose") version "2.3.10"   // ✅ REQUIRED
 //    kotlin("kapt")
     id("com.google.devtools.ksp") version "2.3.2" // ✅ KSP2 works with Kotlin 2.2.x
 
     id("com.google.gms.google-services")
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.10"
 
 }
 
@@ -75,10 +75,10 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 231
-        versionName = "0.2.227"
+        versionCode = 232
+        versionName = "0.2.228"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Feb-10-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Feb-11-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
@@ -285,6 +285,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
+    implementation("androidx.datastore:datastore-preferences:1.2.0")
 
     // ----- Desugaring -----
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")

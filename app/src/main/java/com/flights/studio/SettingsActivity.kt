@@ -39,6 +39,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.graphics.toColorInt
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -65,7 +66,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import androidx.core.view.isVisible
 
 
 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
@@ -158,8 +158,7 @@ class SettingsActivity : LocaleActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 finish()
-                overridePendingTransition(R.anim.enter_animation, de.dlyt.yanndroid.samsung.R.anim.abc_tooltip_exit)
-            }
+                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)            }
         })
 
 
@@ -324,19 +323,19 @@ class SettingsActivity : LocaleActivity() {
     private fun goToHomeScreen() {
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
 
     private fun goToContactScreen() {
         val intent = Intent(this, Contact::class.java)
         startActivity(intent)
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
 
     private fun openQRCodeScanner() {
         val intent = Intent(this, QRCodeComposeActivity::class.java)
         startActivity(intent)
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
     private fun showFeedbackDialog() {
         val feedbackBottomSheet = FeedbackBottomSheet()
@@ -377,7 +376,6 @@ class SettingsActivity : LocaleActivity() {
                 startActivity(intent)
                 finish()
                 overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-
                 true
             }
 

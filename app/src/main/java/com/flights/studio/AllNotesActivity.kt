@@ -292,8 +292,7 @@ class AllNotesActivity : AppCompatActivity() {
                                     R.id.nav_all_contacts -> goToAllContactsScreen()
                                     R.id.nav_settings -> {
                                         startActivity(NotesSettingsComposeActivity.newIntent(this@AllNotesActivity))
-                                        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
-                                    }
+                                        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)                                }
                                     R.id.openAddNoteScreen -> Unit
                                     R.id.action_delete -> deleteSelectedNotes()
                                 }
@@ -320,7 +319,7 @@ class AllNotesActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 finish()
-                overridePendingTransition(R.anim.enter_animation, de.dlyt.yanndroid.samsung.R.anim.abc_popup_exit)
+                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
             }
         })
 
@@ -902,7 +901,7 @@ class AllNotesActivity : AppCompatActivity() {
         val i = ViewNoteComposeActivity.newIntent(this, uid, note, position, title)
         viewNoteLauncher.launch(i)
 
-        overridePendingTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
 
 
@@ -1801,21 +1800,21 @@ class AllNotesActivity : AppCompatActivity() {
     // NEW: MainActivity::class.java (Compose home / dashboard)
     private fun goToHomeScreen() {
         startActivity(Intent(this, MainActivity::class.java))
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         finish()
     }
 
 
     private fun goToContactScreen() {
         startActivity(Intent(this, Contact::class.java))
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         finish()
     }
 
     private fun goToAllContactsScreen() {
         val intent = Intent(this, AllContactsActivity::class.java)
         startActivity(intent)
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         finish()
     }
 

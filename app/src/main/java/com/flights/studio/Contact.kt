@@ -54,7 +54,7 @@ class Contact : AppCompatActivity() {
     // NEW: MainActivity::class.java (Compose home / dashboard)
     private fun goToHomeScreen() {
         startActivity(Intent(this, MainActivity::class.java))
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         finish()
     }
 
@@ -62,12 +62,12 @@ class Contact : AppCompatActivity() {
     private fun goToAllContactsScreen() {
         val intent = Intent(this, AllContactsActivity::class.java)
         startActivity(intent)
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
     private fun goToSettingsScreen() {
         val intent = Intent(this, SettingsActivity::class.java)
         startActivity(intent)
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
 
 

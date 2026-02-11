@@ -45,7 +45,7 @@ fun HomeGlassZoomImage(
     onImageLoadedOk: () -> Unit = {},
     onImageLoadFailed: () -> Unit = {},
     onBitmapReady: (Bitmap) -> Unit = {},
-    cornerRadiusDp: Dp = 20.dp, // keep 0 if your outer card already clips
+    cornerRadiusDp: Dp = 12.dp, // keep 0 if your outer card already clips
 ) {
     ZoomableImageContentInlineImpl(
         model = model,

@@ -207,10 +207,8 @@ class AddNoteComposeActivity : ComponentActivity() {
     private fun finishWithAnim() {
         finish()
         @Suppress("DEPRECATION")
-        overridePendingTransition(
-            androidx.navigation.ui.R.anim.nav_default_enter_anim,
-            androidx.navigation.ui.R.anim.nav_default_exit_anim
-        )
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
     }
 }
 private enum class SheetViewMode { Grid, Large, List }

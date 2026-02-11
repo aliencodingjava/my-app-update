@@ -10,6 +10,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.WindowInsetsController
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.text.HtmlCompat
@@ -26,14 +27,22 @@ class LicensesActivity : AppCompatActivity() {
 
 
         setSupportActionBar(findViewById(R.id.toolbar))
-        supportActionBar?.setDisplayHomeAsUpEnabled(true) // Enable back arrow
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setHomeButtonEnabled(true)
-        val drawable = AppCompatResources.getDrawable(
-            this,
-            R.drawable.layered_arrow
-        ) // Use the layered drawable
-        supportActionBar?.setHomeAsUpIndicator(drawable)
+        supportActionBar?.setHomeAsUpIndicator(
+            AppCompatResources.getDrawable(this, R.drawable.layered_arrow)
+        )
 
+        // ✅ One exit path for BOTH back + up
+        val exit = { exitToSettings() }
+
+        // ✅ Back button + back gesture
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() = exit()
+            }
+        )
         val fab = findViewById<FloatingActionButton>(R.id.logo)
 
         fab.setOnClickListener {
@@ -75,23 +84,25 @@ class LicensesActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
-                onBackPressed()
-                finish()
-                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                exitToSettings() // ✅ toolbar up uses same exit
                 true
             }
             else -> super.onOptionsItemSelected(item)
         }
     }
 
-    override fun onBackPressed() {
-        super.onBackPressed()
-        val intent = Intent(this, SettingsActivity::class.java)
+    private fun exitToSettings() {
+        // ✅ Don’t create multiple Settings screens
+        val intent = Intent(this, SettingsActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
         startActivity(intent)
         finish()
+
+        // ✅ Your custom animation
+        @Suppress("DEPRECATION")
         overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
-
 
     private fun adjustStatusBarIcons() {
         val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK

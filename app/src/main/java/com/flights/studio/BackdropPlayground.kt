@@ -24,8 +24,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -73,13 +73,13 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import kotlinx.coroutines.delay
 import java.util.Calendar
-import kotlin.math.atan2
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
-import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 class BackdropPlaygroundActivity : ComponentActivity() {
@@ -497,9 +497,10 @@ private fun navigateToMain(activity: Activity, openLogin: Boolean = false) {
     }
     val options = ActivityOptionsCompat.makeCustomAnimation(
         activity,
-        android.R.anim.fade_in,
-        android.R.anim.fade_out
+        R.anim.enter_animation,
+        R.anim.exit_animation
     )
+
     activity.startActivity(intent, options.toBundle())
     activity.finish()
 }

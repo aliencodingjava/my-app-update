@@ -283,10 +283,8 @@ class AddNoteActivity : AppCompatActivity() {
                 }
                 setResult(RESULT_OK, result)
                 finish()
-                overridePendingTransition(
-                    androidx.navigation.ui.R.anim.nav_default_enter_anim,
-                    androidx.navigation.ui.R.anim.nav_default_exit_anim
-                )
+                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
             } else {
                 noteEditText.error = "Note cannot be empty"
             }

@@ -4,7 +4,6 @@ package com.flights.studio
 
 // ✅ Kyant Backdrop
 import android.os.Bundle
-import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -89,18 +88,13 @@ class QRCodeComposeActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.statusBarColor = Color.Transparent.toArgb()
         @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility =
-            (View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN)
 
         setContent {
             AppM3Theme {
                 QRCodeScreen(
                     onBack = {
                         finish()
-                        overridePendingTransition(
-                            R.anim.enter_animation,
-                            de.dlyt.yanndroid.samsung.R.anim.abc_tooltip_exit
-                        )
+                        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
                     }
                 )
             }

@@ -177,7 +177,7 @@ class ViewNoteComposeActivity : ComponentActivity() {
     }
 
     private fun applyTransition() {
-        overridePendingTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
 }
 

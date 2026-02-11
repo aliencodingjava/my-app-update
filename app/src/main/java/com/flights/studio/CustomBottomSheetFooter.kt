@@ -84,10 +84,9 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
 
         val options = ActivityOptions.makeCustomAnimation(
             requireContext(),
-            R.anim.m3_motion_fade_enter,
-            R.anim.slide_out_left
+            R.anim.enter_animation,
+            R.anim.exit_animation
         )
-
         Handler(Looper.getMainLooper()).postDelayed({
             startActivity(intent, options.toBundle())
             // If navigating to SplashActivity, finish the current activity so that it is removed from the back stack.

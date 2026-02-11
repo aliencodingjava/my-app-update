@@ -43,7 +43,7 @@ class ContactFragment : PreferenceFragmentCompat() {
         findPreference<Preference>("custom_note")?.setOnPreferenceClickListener {
             val intent = Intent(requireContext(), AllNotesActivity::class.java)
             requireActivity().startActivity(intent)
-            requireActivity().overridePendingTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
+            requireActivity().overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
             true
         }
 
@@ -94,7 +94,7 @@ class ContactFragment : PreferenceFragmentCompat() {
 
             // Add a slide-out animation when the Snackbar is dismissed
             Handler(Looper.getMainLooper()).postDelayed({
-                snackbar.view.startAnimation(AnimationUtils.loadAnimation(context, R.anim.slide_in_left))
+                snackbar.view.startAnimation(AnimationUtils.loadAnimation(context, R.anim.slide_in_left_ios))
             }, 9000)
 
             true
@@ -152,7 +152,7 @@ class ContactFragment : PreferenceFragmentCompat() {
         // Navigate to a new fragment or activity
         val intent = Intent(requireContext(), AllContactsActivity::class.java)
         requireActivity().startActivity(intent)
-        requireActivity().overridePendingTransition(R.anim.m3_motion_fade_enter, R.anim.m3_motion_fade_exit)
+        requireActivity(). overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
     }
 
 

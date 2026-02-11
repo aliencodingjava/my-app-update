@@ -37,6 +37,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 
 @Composable
 fun FlightsMenuLiquidSheetContent(
@@ -123,6 +124,23 @@ fun FlightsMenuLiquidSheetContent(
                     backdrop = sheetBackdrop,
                     shape = { cardShape },
                     shadow = null,
+                    highlight = {
+                        if (isDark) {
+                            Highlight(
+                                width = 0.45.dp,
+                                blurRadius = 1.6.dp,
+                                alpha = 0.50f,
+                                style = HighlightStyle.Plain
+                            )
+                        } else {
+                            Highlight(
+                                width = 0.30.dp,
+                                blurRadius = 1.0.dp,
+                                alpha = 0.35f,
+                                style = HighlightStyle.Plain // very subtle
+                            )
+                        }
+                    },
                     effects = {
                         vibrancy()
 //                        blur(2.dp.us(ui).toPx())
@@ -312,6 +330,23 @@ private fun CountChip(
                 backdrop = backdrop,
                 shape = { shape },
                 shadow = null,
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.45.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.0.dp,
+                            alpha = 0.35f,
+                            style = HighlightStyle.Plain // very subtle
+                        )
+                    }
+                },
                 effects = {
                     vibrancy()
                     blur(3.dp.us(ui).toPx())
@@ -375,6 +410,23 @@ private fun MenuRow(
                 backdrop = backdrop,
                 shape = { shape },
                 shadow = null,
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.45.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.0.dp,
+                            alpha = 0.35f,
+                            style = HighlightStyle.Plain // very subtle
+                        )
+                    }
+                },
                 effects = {
                     vibrancy()
 //                    blur(2.dp.us(ui).toPx())

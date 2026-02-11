@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.graphics.RenderEffect
 import android.os.Build
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.Animatable
@@ -99,19 +100,22 @@ fun HomeScreenRouteContent(
     openFullScreenImages: (String) -> Unit,
     openMenuSheet: () -> Unit,
     triggerRefreshNow: (String?) -> Unit,
-    finishApp: () -> Unit,
-    showExitDialog: Boolean,
     isInteractive: Boolean = true,
-    onDismissExit: () -> Unit,
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
-    onConfirmExit: () -> Unit
+    exitApp: () -> Unit,
 ) {
     val activity = LocalActivity.current
     val hostActivity = activity as? FragmentActivity
     val isDark = isSystemInDarkTheme()
     val ui = rememberUiScale()
 
+    var exitRevealed by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler {
+        if (!exitRevealed) exitRevealed = true
+        else exitApp()
+    }
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -312,7 +316,7 @@ fun HomeScreenRouteContent(
     val openActivityByCard: (String) -> Unit = { id ->
         fun launchPlain(cls: Class<*>) {
             activity?.startActivity(Intent(activity, cls))
-            activity?.overridePendingTransition(R.anim.zoom_in, 0)
+            activity?.  overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         }
 
         fun launchCardScreen(cardId: String) {
@@ -321,7 +325,7 @@ fun HomeScreenRouteContent(
                 putExtra("RETURN_HOME", true)
             }
             activity?.startActivity(i)
-            activity?.overridePendingTransition(R.anim.zoom_in, 0)
+            activity?.  overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         }
 
         fun launchPlayerScreen() {
@@ -329,7 +333,7 @@ fun HomeScreenRouteContent(
                 putExtra("RETURN_HOME", true)
             }
             activity?.startActivity(i)
-            activity?.overridePendingTransition(R.anim.zoom_in, 0)
+            activity?.  overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         }
 
         when (id) {
@@ -346,10 +350,10 @@ fun HomeScreenRouteContent(
         }
     }
 
-    val cardShape = RoundedCornerShape(20.dp)
+    val cardShape = RoundedCornerShape(12.dp)
     val extraScale = 0.006f * sin(camProgress * PI).toFloat()
     val cardScale = 1f + extraScale
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(16.dp)
     val themedSurface =
         MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
 
@@ -453,7 +457,7 @@ fun HomeScreenRouteContent(
                                         if (isDark) {
                                             Highlight(
                                                 width = 0.45.dp,
-                                                blurRadius = 1.6.dp,
+                                                blurRadius = 1.dp,
                                                 alpha = 0.50f,
                                                 style = HighlightStyle.Ambient
                                             )
@@ -462,11 +466,11 @@ fun HomeScreenRouteContent(
                                                 width = 0.30.dp,
                                                 blurRadius = 1.0.dp,
                                                 alpha = 0.35f,
-                                                style = HighlightStyle.Plain // very subtle
+                                                style = HighlightStyle.Plain
                                             )
                                         }
                                     },
-                                    effects = {
+                                            effects = {
                                         // ✅ YOU WANTED THIS EVEN WHILE LOADING
                                         vibrancy()
                                         colorControls(
@@ -658,21 +662,7 @@ fun HomeScreenRouteContent(
                         }
                     }
 
-
-
-                    // EXIT DIALOG (RESTORED)
-                        if (showExitDialog) {
-                            ExitLiquidDialog(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .zIndex(3f),
-                                backdrop = cameraBackdrop,
-                                onCancel = { onDismissExit() },
-                                onConfirmExit = { onConfirmExit() }
-                            )
-                        }
-
-                        // OFFLINE HUD (RESTORED)
+                    // OFFLINE HUD (RESTORED)
                         if (!hasInternet || isUserOffline) {
                             CameraErrorOverlay(
                                 modifier = Modifier
@@ -697,28 +687,23 @@ fun HomeScreenRouteContent(
                             )
                         }
 
-                        // TOP ICONS (RESTORED)
-                        TopBarLiquidIconButton(
-                            iconRes = R.drawable.ic_oui_arrow_to_left,
-                            backdrop = cameraBackdrop,
-                            onClick = { finishApp() },
-                            modifier = Modifier
-                                .zIndex(5f)
-                                .align(Alignment.TopStart)
-                                .padding(start = 12.dp, top = 24.dp)
-                        )
+                    TopLeftPillActions(
+                        backdrop = cameraBackdrop,
+                        backIconRes = R.drawable.baseline_arrow_back_ios_24,
+                        menuIconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
+                        exitIconRes = R.drawable.ic_samsung_close,
+                        onMenu = { openMenuSheet() },
+                        onExit = { exitApp() },
+                        modifier = Modifier
+                            .zIndex(5f)
+                            .align(Alignment.TopStart)
+                            .padding(start = 12.dp, top = 24.dp)
+                    )
 
-                        TopBarLiquidIconButton(
-                            iconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
-                            backdrop = cameraBackdrop,
-                            onClick = { openMenuSheet() },
-                            modifier = Modifier
-                                .zIndex(5f)
-                                .align(Alignment.TopEnd)
-                                .padding(end = 12.dp, top = 24.dp)
-                        )
 
-                        // REFRESH PILL (RESTORED)
+
+
+                    // REFRESH PILL (RESTORED)
                         RefreshStatusPill(
                             backdrop = cameraBackdrop,
                             isRefreshing = isRefreshing,
@@ -746,7 +731,7 @@ fun HomeScreenRouteContent(
                         selectedTab = currentTab,
                         onTabChanged = { tab -> onTabChangeInternal(tab) },
                         onFullScreen = { openFullScreenImages(currentCamUrl) },
-                        onBack = { finishApp() },
+                        onBack = { exitApp() },
                         onMenu = { openMenuSheet() },
                         onOpenCard = { cardId -> openActivityByCard(cardId) },
                         showTopArea = false,
@@ -817,24 +802,18 @@ half4 main(float2 coord) {
         contentAlignment = Alignment.Center
     ) { content() }
 }
-
-
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-@Preview(showBackground = true, device = "id:pixel_8")
+@Preview(showBackground = true)
 @Composable
-fun HomeScreenPreview() {
-    val mockBackdrop = rememberLayerBackdrop()
-    MaterialTheme {
+fun HomeScreenRouteContentPreview() {
+    FlightsTheme {
+        val backdrop = rememberLayerBackdrop()
         HomeScreenRouteContent(
-            backdrop = mockBackdrop,
+            backdrop = backdrop,
             openFullScreenImages = {},
             openMenuSheet = {},
-            triggerRefreshNow = {}, // ✅ ADD THIS
-            finishApp = {},
-            showExitDialog = false,
-            isInteractive = true,
-            onDismissExit = {},
-            onConfirmExit = {}
+            triggerRefreshNow = {},
+            exitApp = {}
         )
     }
 }

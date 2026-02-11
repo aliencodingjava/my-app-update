@@ -131,7 +131,8 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                 OnBackInvokedDispatcher.PRIORITY_DEFAULT
             ) {
                 finish()
-                overridePendingTransition(0, R.anim.zoom_out)
+                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
             }
         }
 
@@ -494,7 +495,7 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                         hostActivity = this@ProfileDetailsComposeActivity,
                         onNavigateBack = {
                             finish()
-                            overridePendingTransition(0, R.anim.zoom_out)
+                            overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
                         },
                         themeMode = profileThemeModeState.intValue,
                         onThemeModeChange = { newMode ->
@@ -509,15 +510,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
 
     }
 
-    @SuppressLint("GestureBackNavigation")
-    @Deprecated(
-        "Deprecated in favor of OnBackPressedDispatcher",
-        ReplaceWith("onBackPressedDispatcher.onBackPressed()")
-    )
-    override fun onBackPressed() {
-        super.onBackPressed()
-        overridePendingTransition(0, R.anim.zoom_out)
-    }
 }
 
 // ----------------------------
@@ -1456,7 +1448,7 @@ private fun ProfileDetailsRoute(
                         editProfileLauncher.launch(
                             Intent(hostActivity, EditProfileComposeActivity::class.java)
                         )
-                        hostActivity.overridePendingTransition(R.anim.zoom_in, 0)
+                        hostActivity.  overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
                     },
 
                     onLogin = {

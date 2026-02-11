@@ -111,18 +111,17 @@ fun FlightsGlassScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TopBarLiquidIconButton(
-                    iconRes = R.drawable.ic_oui_arrow_to_left,
+                TopLeftPillActions(
                     backdrop = backdrop,
-                    onClick = { haptics.tick(); onBack() }
-                )
-                TopBarLiquidIconButton(
-                    iconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
-                    backdrop = backdrop,
-                    onClick = { haptics.tick(); onMenu() }
+                    backIconRes = R.drawable.baseline_arrow_back_ios_24,
+                    menuIconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
+                    exitIconRes = R.drawable.ic_samsung_close,
+                    onMenu = { haptics.tick(); onMenu() },
+                    onExit = { haptics.tick(); onBack() } // in this screen, exit can just behave like back
                 )
             }
         }
+
 
         // ---- GRID ----
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {

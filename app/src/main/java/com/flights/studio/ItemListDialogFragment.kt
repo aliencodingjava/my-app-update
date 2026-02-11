@@ -92,7 +92,7 @@ class ItemListDialogFragment : BottomSheetDialogFragment() {
         snackbar.view.startAnimation(slideInAnimation)
         snackbar.show()
         Handler(Looper.getMainLooper()).postDelayed({
-            snackbar.view.startAnimation(AnimationUtils.loadAnimation(context, R.anim.slide_in_left))
+            snackbar.view.startAnimation(AnimationUtils.loadAnimation(context, R.anim.slide_in_left_ios))
         }, 9000)
     }
 

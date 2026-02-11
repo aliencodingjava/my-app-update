@@ -57,6 +57,7 @@ class AllContactsActivity : AppCompatActivity() {
                     else -> {
                         finish()
                         overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
                     }
                 }
             }
@@ -112,7 +113,8 @@ class AllContactsActivity : AppCompatActivity() {
 
                 R.id.openAddNoteScreen -> {
                     startActivity(Intent(this, AllNotesActivity::class.java))
-                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+                    overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
                     finish()
                     true
                 }
@@ -137,18 +139,21 @@ class AllContactsActivity : AppCompatActivity() {
     // NEW: MainActivity::class.java (Compose home / dashboard)
     private fun goToHomeScreen() {
         startActivity(Intent(this, MainActivity::class.java))
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
         finish()
     }
 
     private fun goToContactScreen() {
         startActivity(Intent(this, Contact::class.java))
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
     }
 
     private fun goToSettingsScreen() {
         startActivity(Intent(this, SettingsActivity::class.java))
-        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -157,6 +162,7 @@ class AllContactsActivity : AppCompatActivity() {
                 onBackPressed()
                 finish()
                 overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
                 true
             }
 

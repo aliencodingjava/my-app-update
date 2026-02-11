@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.View
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
+import com.flights.studio.R
 
 class AppLanguageManager : Application() {
 
@@ -49,9 +50,11 @@ class AppLanguageManager : Application() {
                     a.overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, 0, 0)
                 } else {
                     @Suppress("DEPRECATION")
-                    a.overridePendingTransition(0, 0)
+                    a. overridePendingTransition(
+                        R.anim.enter_animation,
+                        R.anim.exit_animation
+                    )
                 }
-
                 // start new content invisible; we’ll fade it in on resume
                 a.findViewById<View>(android.R.id.content)?.alpha = 0f
             }
