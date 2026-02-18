@@ -1,18 +1,104 @@
 ## ✨ What’s New (Now Available)
 
-The latest UI and animation updates have been **successfully released** and are now live in the app.
+# ✨ Flights Studio — UI & Animation Update
 
-- **Colorful profile blob backgrounds** with dynamic depth
-- **Glassmorphism blur & light diffusion** for a more premium look
-- **Smoother screen transitions** with improved visual continuity
-- **Fluid drag gestures & photo movement** across image previews
-- **New glass elevation animations** for cards, sheets, and menus
-- **Expanded Jetpack Compose adoption** across core screens
-- Additional visual refinements and polish throughout the app
+The latest UI and animation improvements have been successfully implemented and are now live in the app.
+
+---
+
+## ✨ Major Enhancements
+
+### 🎨 Glass & Visual System
+- Refined **glassmorphism rendering** with improved blur diffusion and light scattering
+- Enhanced **chromatic refraction & lens depth** across buttons and surfaces
+- Adaptive luminance highlights for better contrast in both Light and Dark modes
+- Warmer surface blending in Light mode to prevent over-bright glass
+
+### 🧠 AI & Smart Interactions
+- **AI-Powered Title Suggestions**
+  - Real-time Gemini title placeholders
+  - Shimmering adaptive preview text
+  - Tap-to-accept or manual override
+  - Context-aware dynamic icon styling
+
+### 🚀 Motion & Physics
+
+- Migrated `NoteItem` to the new **InteractiveHighlight system**
+  - Faster press scaling response
+  - Spring-based 3D lens deformation
+  - Magnetic drag offsets
+  - Improved snap-back timing
+
+- Implemented **OffsetOverscrollEffect**
+  - Tanh-based rubber-band physics
+  - Continuous stretch without hard stop
+  - Samsung-style elastic bounce
+
+- Refined screen transitions for smoother visual continuity
+
+---
+
+## 📱 Feature Additions
+
+### 🪟 Notes Onboarding Overlay
+- Introduced `NotesWelcomeOnboardingOverlay`
+- Glass-morphic feature grid
+- Animated highlights
+- First-launch smart detection
+
+### 🎥 Liquid Gallery Improvements
+- Draggable video menu with elastic reveal
+- Fluid drag gestures on image previews
+- Improved glass elevation animation for sheets & menus
+
+---
+
+## ⚡ Performance Improvements
+
+- Optimized image URI loading using `produceState + Dispatchers.IO`
+- Rebuilt `ShimmerThinkingText` using `drawWithCache`
+- Reduced unnecessary recompositions in note list
+- Improved compact mode density
+
+---
+
+## 🛠 Fixes & Polish
+
+- Fixed pill split “fly-back” state issue
+- Added haptic feedback refinement
+- Standardized `ProfileBackdropImageLayer` across note screens
+- Unified grid background resources (Light/Dark optimized)
+- Minor layout and spacing refinements
+
+---
+
+## 📦 Dependency Updates
+
+- `io.github.kyant0:backdrop` → `1.0.6`
+- Compose Material3 → `1.5.0-alpha14`
+- Activity → `1.12.4`
+- Other AndroidX libraries updated
+
+---
+
+## ℹ️ Update Notes
+
+- AI title suggestions require network connectivity.
+- Onboarding overlay appears only for empty note lists.
+- Improved responsiveness across lists and gestures.
 
 
 ---
 
+
+
+---
+
+> ℹ️ **Note:**  
+> The section above highlights **upcoming / in-progress features**.  
+> Everything below reflects the **current, existing implementation**.
+
+---
 ## 📸 Preview
 
 <!-- FIRST ROW -->
@@ -53,20 +139,14 @@ The latest UI and animation updates have been **successfully released** and are 
   </tr>
 </table>
 
-
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/5ba7da30-c838-4f80-a14a-81548684a7b9" width="220"/>
+  <img src="https://github.com/user-attachments/assets/134b1219-51fe-42f5-ba97-11666e26e69f" width="220"/>
+  <img src="https://github.com/user-attachments/assets/bb712e7b-c25a-41a0-91bb-cf31513a16d2" width="220"/>
+  <img src="https://github.com/user-attachments/assets/53fecc52-410d-44e2-a2f7-ff703a090c50" width="220"/>
+</p>
 
 ---
-
-> ℹ️ **Note:**  
-> The section above highlights **upcoming / in-progress features**.  
-> Everything below reflects the **current, existing implementation**.
-
----
-
-
-
-
-<img width="7449" height="4142" alt="banner jh air tracker2" src="https://github.com/user-attachments/assets/9bf4be42-e09f-48a3-a7d0-e325ad46def8" />
 
 <div align="center">
   <h1>✈️ Jack Flight Studio</h1>
