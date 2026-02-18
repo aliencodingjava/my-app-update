@@ -1,102 +1,54 @@
-## ✨ What’s New (Now Available)
+<table align="center" width="100%">
+<tr>
 
-# ✨ Flights Studio — UI & Animation Update
+<td width="25%" valign="top">
 
-The latest UI and animation improvements have been successfully implemented and are now live in the app.
+### 🎨 Glass System
+- Refined glassmorphism blur  
+- Enhanced chromatic refraction  
+- Lens depth improvements  
+- Adaptive luminance highlights  
+- Warmer Light mode blending  
 
----
+</td>
 
-## ✨ Major Enhancements
+<td width="25%" valign="top">
 
-### 🎨 Glass & Visual System
-- Refined **glassmorphism rendering** with improved blur diffusion and light scattering
-- Enhanced **chromatic refraction & lens depth** across buttons and surfaces
-- Adaptive luminance highlights for better contrast in both Light and Dark modes
-- Warmer surface blending in Light mode to prevent over-bright glass
+### 🧠 AI & Smart
+- Gemini title suggestions  
+- Shimmer preview text  
+- Tap-to-accept / override  
+- Dynamic icon styling  
+- Network-aware handling  
 
-### 🧠 AI & Smart Interactions
-- **AI-Powered Title Suggestions**
-  - Real-time Gemini title placeholders
-  - Shimmering adaptive preview text
-  - Tap-to-accept or manual override
-  - Context-aware dynamic icon styling
+</td>
+
+<td width="25%" valign="top">
 
 ### 🚀 Motion & Physics
+- InteractiveHighlight migration  
+- Faster press scaling  
+- 3D lens deformation  
+- Magnetic drag offsets  
+- Tanh rubber-band overscroll  
+- Elastic bounce refinement  
 
-- Migrated `NoteItem` to the new **InteractiveHighlight system**
-  - Faster press scaling response
-  - Spring-based 3D lens deformation
-  - Magnetic drag offsets
-  - Improved snap-back timing
+</td>
 
-- Implemented **OffsetOverscrollEffect**
-  - Tanh-based rubber-band physics
-  - Continuous stretch without hard stop
-  - Samsung-style elastic bounce
+<td width="25%" valign="top">
 
-- Refined screen transitions for smoother visual continuity
+### 📱 Features & Polish
+- Notes onboarding overlay  
+- Liquid gallery improvements  
+- Optimized image loading  
+- Reduced recompositions  
+- Haptic refinement  
+- Dependency updates  
 
----
+</td>
 
-## 📱 Feature Additions
-
-### 🪟 Notes Onboarding Overlay
-- Introduced `NotesWelcomeOnboardingOverlay`
-- Glass-morphic feature grid
-- Animated highlights
-- First-launch smart detection
-
-### 🎥 Liquid Gallery Improvements
-- Draggable video menu with elastic reveal
-- Fluid drag gestures on image previews
-- Improved glass elevation animation for sheets & menus
-
----
-
-## ⚡ Performance Improvements
-
-- Optimized image URI loading using `produceState + Dispatchers.IO`
-- Rebuilt `ShimmerThinkingText` using `drawWithCache`
-- Reduced unnecessary recompositions in note list
-- Improved compact mode density
-
----
-
-## 🛠 Fixes & Polish
-
-- Fixed pill split “fly-back” state issue
-- Added haptic feedback refinement
-- Standardized `ProfileBackdropImageLayer` across note screens
-- Unified grid background resources (Light/Dark optimized)
-- Minor layout and spacing refinements
-
----
-
-## 📦 Dependency Updates
-
-- `io.github.kyant0:backdrop` → `1.0.6`
-- Compose Material3 → `1.5.0-alpha14`
-- Activity → `1.12.4`
-- Other AndroidX libraries updated
-
----
-
-## ℹ️ Update Notes
-
-- AI title suggestions require network connectivity.
-- Onboarding overlay appears only for empty note lists.
-- Improved responsiveness across lists and gestures.
-
-
----
-
-Working on next update
-
----
-
-> ℹ️ **Note:**  
-> The section above highlights **upcoming / in-progress features**.  
-> Everything below reflects the **current, existing implementation**.
+</tr>
+</table>
 
 ---
 ## 📸 Preview
