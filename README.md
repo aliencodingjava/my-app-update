@@ -101,7 +101,6 @@ Working on next update
 ---
 ## 📸 Preview
 
-<!-- ROW 1 -->
 <table align="center" cellspacing="6" cellpadding="0">
   <tr>
     <td><img src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939" width="200"/></td>
@@ -109,24 +108,14 @@ Working on next update
     <td><img src="https://github.com/user-attachments/assets/cd7f5624-0b57-49ad-ab71-da1ba0794b6a" width="200"/></td>
     <td><img src="https://github.com/user-attachments/assets/3fcaae20-848d-4f8c-98e0-14db771155d0" width="200"/></td>
   </tr>
-</table>
 
-<br>
-
-<!-- ROW 2 -->
-<table align="center" cellspacing="6" cellpadding="0">
   <tr>
     <td><img src="https://github.com/user-attachments/assets/4ca04e57-b8f4-46dd-819a-c507ef191c31" width="200"/></td>
     <td><img src="https://github.com/user-attachments/assets/ee5b4f8c-b4fc-47dd-a7e2-c6af9087b4ae" width="200"/></td>
     <td><img src="https://github.com/user-attachments/assets/ccd14678-1270-4a26-9bc8-c5ec4329b82a" width="200"/></td>
     <td><img src="https://github.com/user-attachments/assets/85f01932-bdce-4069-9636-b2f1294ded68" width="200"/></td>
   </tr>
-</table>
 
-<br>
-
-<!-- ROW 3 -->
-<table align="center" cellspacing="6" cellpadding="0">
   <tr>
     <td><img src="https://github.com/user-attachments/assets/5ba7da30-c838-4f80-a14a-81548684a7b9" width="200"/></td>
     <td><img src="https://github.com/user-attachments/assets/134b1219-51fe-42f5-ba97-11666e26e69f" width="200"/></td>
@@ -134,6 +123,7 @@ Working on next update
     <td><img src="https://github.com/user-attachments/assets/53fecc52-410d-44e2-a2f7-ff703a090c50" width="200"/></td>
   </tr>
 </table>
+
 
 ---
 
