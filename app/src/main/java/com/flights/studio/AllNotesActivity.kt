@@ -1831,7 +1831,7 @@ class AllNotesActivity : AppCompatActivity() {
             base
         } else {
             base.filter { note ->
-                val title = resolveTitle(note).orEmpty() // IMPORTANT: your resolveTitle strips html
+                val title = resolveTitle(note).orEmpty() // IMPORTANT: your resolveTitle strips HTML
                 when (mode) {
                     SearchMode.NOTE  -> note.contains(q, ignoreCase = true)
                     SearchMode.TITLE -> title.contains(q, ignoreCase = true)

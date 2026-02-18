@@ -18,11 +18,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +47,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -55,9 +61,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -78,6 +86,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.SplitButtonLayout
+import androidx.compose.material3.SplitButtonShapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -86,6 +95,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -101,13 +111,18 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityCompat
@@ -122,6 +137,10 @@ import com.flights.studio.GeminiTitles.looksLikeCode
 import com.google.android.material.transition.platform.MaterialSharedAxis
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.itemsIndexed as listItemsIndexed
 
@@ -135,6 +154,7 @@ data class TitleSuggestion(
     val title: String,
     val why: String
 )
+
 
 
 class AddNoteComposeActivity : ComponentActivity() {
@@ -167,7 +187,7 @@ class AddNoteComposeActivity : ComponentActivity() {
 
         setContent {
             // ✅ match your other pages: set bar icon colors from Compose (no NPE)
-            val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val isDark = isSystemInDarkTheme()
             val view = LocalView.current
 
             SideEffect {
@@ -231,6 +251,47 @@ private fun AddNoteScreen(
     val noteTap = remember { MutableInteractionSource() }
     val noteFocusRequester = remember { FocusRequester() }
     var noteFocused by rememberSaveable { mutableStateOf(false) }
+    val isDark = isSystemInDarkTheme()
+    val scheme = MaterialTheme.colorScheme
+
+    @Stable
+    data class NoteUiPalette(
+        val topBarBg: Color,
+        val cardBg: Color,
+        val cardBgStrong: Color,
+        val titleColor: Color,
+        val secondaryText: Color,
+        val outline: Color,
+    )
+
+    val ui = remember(isDark, scheme) {
+
+        val baseCard = if (isDark) {
+            scheme.surface
+        } else {
+            scheme.surfaceContainerHigh
+        }
+
+        NoteUiPalette(
+
+            // Header slightly separated from panels
+            topBarBg = if (isDark) {
+                scheme.surface
+            } else {
+                scheme.surfaceContainerHigh
+            },
+
+            // One unified panel color
+            cardBg = baseCard,
+            cardBgStrong = baseCard,
+
+            titleColor = scheme.onSurface,
+
+            secondaryText = scheme.onSurfaceVariant,
+
+            outline = scheme.outline
+        )
+    }
 
 
 
@@ -255,6 +316,13 @@ private fun AddNoteScreen(
     LaunchedEffect(showManualTitle) {
         if (showManualTitle) titleFocusRequester.requestFocus()
     }
+    // ---- AI placeholder (title field) ----
+    var aiPlaceholder by rememberSaveable { mutableStateOf<String?>(null) }
+    var aiPlaceholderLoading by rememberSaveable { mutableStateOf(false) }
+    var lastAiPlaceholderKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var titleFromAi by rememberSaveable { mutableStateOf(false) }
+
+
 
 
 
@@ -287,6 +355,13 @@ private fun AddNoteScreen(
             showNotifDialog = true
         }
     }
+    fun closeManualTitleOnly() {
+        showManualTitle = false
+        titleFocused = false
+        focusManager.clearFocus(force = true)
+        keyboard?.hide()
+    }
+
 
 
 
@@ -370,28 +445,130 @@ private fun AddNoteScreen(
 
             Surface(
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,   // ✅ ONLY one color
-                shadowElevation = 1.dp
+                color = ui.topBarBg,
+                shadowElevation = if (isDark) 0.dp else 1.dp
             ) {
                 CenterAlignedTopAppBar(
                     title = {
                         val t = MaterialTheme.typography.titleLarge
                         Text(
                             text = "Add Note",
-                            style = t.copy(fontWeight = FontWeight.SemiBold)
+                            style = t.copy(fontWeight = FontWeight.SemiBold),
+                            color = ui.titleColor     // ✅ slightly softer in light mode
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                                contentDescription = "Back"
+                                contentDescription = "Back",
+                                tint = ui.titleColor  // ✅ optional, matches title
                             )
                         }
                     },
                     actions = {
+                        val isDark = isSystemInDarkTheme()
+                        val scheme = MaterialTheme.colorScheme
+
+                        // ✅ same glass fill like Notes
+                        val glassFill = scheme.surfaceVariant.copy(alpha = if (isDark) 0.35f else 0.25f)
+                        val glassContent = scheme.onSurface
+
                         val canSave = note.isNotBlank()
                         var menuOpen by remember { mutableStateOf(false) }
+                        val titleTint = when {
+                            aiPlaceholderLoading -> MaterialTheme.colorScheme.onSurfaceVariant
+                            aiPlaceholder != null -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        val dynamicColor = if (canSave) titleTint else glassContent
+
+                        val btnColors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = dynamicColor,
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = dynamicColor
+                        )
+                        val aiActive = titleFromAi || aiPlaceholder != null
+
+                        val titleBoxTint = when {
+                            aiActive && isDark -> MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+                            aiActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                            else -> Color.Transparent
+                        }
+
+                        val tintAlpha by animateFloatAsState(
+                            targetValue = if (canSave) 1f else 0f,
+                            animationSpec = tween(160),
+                            label = "saveTintAlpha"
+                        )
+
+
+
+
+
+                        // --- pressed tracking (hoisted) ---
+                        val leadIS = remember { MutableInteractionSource() }
+                        val trailIS = remember { MutableInteractionSource() }
+                        val leadPressed by leadIS.collectIsPressedAsState()
+                        val trailPressed by trailIS.collectIsPressedAsState()
+
+                        // ✅ smooth press morph (prevents 1-frame square glitch)
+                        val leadPressT by animateFloatAsState(
+                            targetValue = if (leadPressed) 1f else 0f,
+                            animationSpec = tween(durationMillis = 90),
+                            label = "leadPressT"
+                        )
+                        val trailPressT by animateFloatAsState(
+                            targetValue = if (trailPressed) 1f else 0f,
+                            animationSpec = tween(durationMillis = 90),
+                            label = "trailPressT"
+                        )
+
+                        // --- menu morph (right side opens) ---
+                        val shapeT by animateFloatAsState(
+                            targetValue = if (menuOpen) 1f else 0f,
+                            label = "splitShapeT"
+                        )
+
+                        fun lerpDp(a: Dp, b: Dp, t: Float): Dp = a + (b - a) * t
+
+                        val outer = 50.dp
+                        val innerClosed = 5.dp
+                        val innerOpen = 24.dp
+                        val pressedInner = 14.dp
+
+                        // ✅ base inner when menu opens
+                        val rightInnerBase = lerpDp(innerClosed, innerOpen, shapeT)
+
+                        // ✅ EFFECTIVE inners (press morph applied smoothly)
+                        val leftInner = lerpDp(innerClosed, pressedInner, leadPressT)
+                        val rightInner = lerpDp(rightInnerBase, pressedInner, trailPressT)
+
+                        // ✅ EFFECTIVE shapes (single source of truth)
+                        val leftEffectiveShape = RoundedCornerShape(
+                            topStart = outer,
+                            bottomStart = outer,
+                            topEnd = leftInner,
+                            bottomEnd = leftInner
+                        )
+                        val rightEffectiveShape = RoundedCornerShape(
+                            topStart = rightInner,
+                            bottomStart = rightInner,
+                            topEnd = outer,
+                            bottomEnd = outer
+                        )
+
+                        val leftShapes = SplitButtonShapes(
+                            shape = leftEffectiveShape,
+                            pressedShape = leftEffectiveShape,
+                            checkedShape = leftEffectiveShape
+                        )
+                        val rightShapes = SplitButtonShapes(
+                            shape = rightEffectiveShape,
+                            pressedShape = rightEffectiveShape,
+                            checkedShape = rightEffectiveShape
+                        )
 
                         val scale by animateFloatAsState(
                             targetValue = if (menuOpen) 1.00f else 1f,
@@ -405,6 +582,7 @@ private fun AddNoteScreen(
                         ) {
                             val scope = rememberCoroutineScope()
                             var saving by rememberSaveable { mutableStateOf(false) }
+                            val hlColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
 
 
                             SplitButtonLayout(
@@ -432,13 +610,14 @@ private fun AddNoteScreen(
                                                             }.orEmpty()
                                                         }.getOrDefault("")
                                                     }
-
+                                                    if (title.isBlank() && finalTitle.isNotBlank()) {
+                                                        titleFromAi = true
+                                                    }
 
                                                     val finalWantsReminder =
                                                         wantsReminder && NotificationGate.areNotificationsEnabled(context)
 
                                                     if (wantsReminder && !finalWantsReminder) {
-                                                        // user wanted reminders but it's not allowed
                                                         showNotifDialog = true
                                                         return@launch
                                                     }
@@ -448,10 +627,47 @@ private fun AddNoteScreen(
                                                     saving = false
                                                 }
                                             }
-                                        }
+                                        },
+                                        colors = btnColors,
+                                        shapes = leftShapes,
+                                        interactionSource = leadIS,
+                                        modifier = Modifier
+                                            .zIndex(1f)
+                                            .clip(leftEffectiveShape)
+                                            .drawBackdrop(
+                                                backdrop = pageBackdrop, // ✅ uses your existing backdrop
+                                                shape = { leftEffectiveShape },
+                                                shadow = null,
+                                                highlight = {
+                                                    Highlight(
+                                                        width = 0.50.dp,
+                                                        blurRadius = 1.dp,
+                                                        alpha = 0.96f,
+                                                        style = HighlightStyle.Plain(color = hlColor)
+                                                    )
+                                                },
+                                                effects = { blur(radius = 2f.dp.toPx(), edgeTreatment = TileMode.Clamp) },
+                                                onDrawSurface = {
+                                                    drawRect(glassFill) // base glass
+                                                    if (aiActive) {
+                                                        drawRect(titleBoxTint.copy(alpha = titleBoxTint.alpha * tintAlpha)) // ✅ overlay tint
+                                                    }
+                                                }
+                                            )
                                     ) {
-                                        Text(if (saving) "Saving…" else "Save")
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text("Save", color = dynamicColor)
+
+                                            if (saving) {
+                                                Spacer(Modifier.width(8.dp))
+                                                androidx.compose.material3.CircularProgressIndicator(
+                                                    strokeWidth = 2.dp,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
                                     }
+
                                 },
                                 trailingButton = {
                                     val rotation by animateFloatAsState(
@@ -461,22 +677,45 @@ private fun AddNoteScreen(
 
                                     // ✅ you want it to LOOK disabled when nothing is set
                                     val trailEnabled = wantsReminder || images.isNotEmpty()
+                                    val hlColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+
 
                                     Box(Modifier.wrapContentSize()) {
-
-                                        // ✅ SELECTED STATE support (the "circle" when open)
                                         SplitButtonDefaults.TrailingButton(
-                                            checked = menuOpen,                   // ✅ makes it selected when open
-                                            onCheckedChange = { menuOpen = it },  // ✅ toggle
-                                            enabled = trailEnabled                // ✅ Material disabled visuals
+                                            checked = menuOpen,
+                                            onCheckedChange = { menuOpen = it },
+                                            enabled = trailEnabled,
+                                            colors = btnColors,
+                                            shapes = rightShapes,
+                                            interactionSource = trailIS,
+                                            modifier = Modifier
+                                                .zIndex(0f)
+                                                .clip(rightEffectiveShape)
+                                                .drawBackdrop(
+                                                    backdrop = pageBackdrop, // ✅ uses your existing backdrop
+                                                    shape = { rightEffectiveShape },
+                                                    shadow = null,
+                                                    highlight = {
+                                                        Highlight(
+                                                            width = 0.50.dp,
+                                                            blurRadius = 1.dp,
+                                                            alpha = 0.96f,
+                                                            style = HighlightStyle.Plain(color = hlColor)
+                                                        )
+                                                    },
+                                                    effects = { blur(radius = 8f.dp.toPx(), edgeTreatment = TileMode.Clamp) },
+                                                    onDrawSurface = { drawRect(glassFill) }
+                                                )
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Filled.KeyboardArrowDown,
                                                 contentDescription = "More",
+                                                tint = dynamicColor,
                                                 modifier = Modifier
                                                     .size(SplitButtonDefaults.TrailingIconSize)
                                                     .graphicsLayer { rotationZ = rotation }
                                             )
+
                                         }
 
                                         // ✅ still allow opening even when visually disabled
@@ -492,9 +731,9 @@ private fun AddNoteScreen(
                                         }
                                     }
                                 }
-
                             )
 
+                            // ✅ YOUR MENU: unchanged
                             DropdownMenuPopup(
                                 expanded = menuOpen,
                                 onDismissRequest = { menuOpen = false }
@@ -512,17 +751,9 @@ private fun AddNoteScreen(
                                             picker.launch(arrayOf("image/*"))
                                         },
                                         text = { Text("Add photo") },
-                                        shapes = MenuDefaults.itemShape(
-                                            index = 0,
-                                            count = itemCount
-                                        ),
+                                        shapes = MenuDefaults.itemShape(index = 0, count = itemCount),
                                         colors = MenuDefaults.itemColors(),
-                                        trailingIcon = {
-                                            Icon(
-                                                Icons.Filled.PhotoCamera,
-                                                contentDescription = null
-                                            )
-                                        }
+                                        trailingIcon = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) }
                                     )
 
                                     DropdownMenuItem(
@@ -531,16 +762,13 @@ private fun AddNoteScreen(
                                             menuOpen = false
 
                                             if (wantsReminder) {
-                                                // turning OFF is always allowed
                                                 wantsReminder = false
                                                 return@DropdownMenuItem
                                             }
 
-                                            // turning ON: gate it
                                             if (NotificationGate.areNotificationsEnabled(context)) {
                                                 wantsReminder = true
                                             } else {
-                                                // Android 13+: request permission first if missing
                                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                                                     ActivityCompat.checkSelfPermission(
                                                         context, Manifest.permission.POST_NOTIFICATIONS
@@ -548,16 +776,12 @@ private fun AddNoteScreen(
                                                 ) {
                                                     notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                                 } else {
-                                                    // permission not missing, but notifications disabled at system/app/channel level
                                                     showNotifDialog = true
                                                 }
                                             }
                                         },
                                         text = { Text(if (wantsReminder) "Remove reminder" else "Add reminder") },
-                                        shapes = MenuDefaults.itemShape(
-                                            index = 1,
-                                            count = itemCount
-                                        ),
+                                        shapes = MenuDefaults.itemShape(index = 1, count = itemCount),
                                         colors = MenuDefaults.itemColors(),
                                         trailingIcon = { Text(if (wantsReminder) "⏰" else "⏱️") }
                                     )
@@ -567,42 +791,26 @@ private fun AddNoteScreen(
                                         onClick = {
                                             menuOpen = false
                                             if (tipEnabled) {
-                                                showTitleTip(expanded = false) // ✅ Info opens straight into suggestions
+                                                showTitleTip(expanded = false)
                                             } else {
-                                                // optional: take user to settings instead of doing nothing
                                                 context.startActivity(Intent(context, NotesSettingsComposeActivity::class.java))
                                             }
                                         },
                                         text = {
                                             Column {
+                                                Text("Info", style = MaterialTheme.typography.labelLarge)
                                                 Text(
-                                                    "Info",
-                                                    style = MaterialTheme.typography.labelLarge
-                                                )
-
-                                                // ✅ smaller supporting text
-                                                Text(
-                                                    text = if (tipEnabled)
-                                                        "Smart suggestions active"
-                                                    else
-                                                        "Turn on in settings",
-                                                    style = MaterialTheme.typography.labelSmall,   // 🔽 smaller
+                                                    text = if (tipEnabled) "Smart suggestions active" else "Turn on in settings",
+                                                    style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
                                         },
-                                        shapes = MenuDefaults.itemShape(
-                                            index = 2,
-                                            count = itemCount
-                                        ),
+                                        shapes = MenuDefaults.itemShape(index = 2, count = itemCount),
                                         colors = MenuDefaults.itemColors(),
-                                        leadingIcon = {
-                                            Icon(Icons.Filled.Info, contentDescription = null)
-                                        },
+                                        leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
                                         trailingIcon = {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-
-                                                // red dot (only when tips are enabled + not seen)
                                                 if (showDot) {
                                                     Box(
                                                         Modifier
@@ -613,7 +821,6 @@ private fun AddNoteScreen(
                                                     Spacer(Modifier.width(10.dp))
                                                 }
 
-                                                // ON/OFF badge
                                                 Surface(
                                                     shape = RoundedCornerShape(999.dp),
                                                     color = if (tipEnabled)
@@ -627,10 +834,7 @@ private fun AddNoteScreen(
                                                 ) {
                                                     Text(
                                                         text = if (tipEnabled) "On" else "Off",
-                                                        modifier = Modifier.padding(
-                                                            horizontal = 10.dp,
-                                                            vertical = 5.dp
-                                                        ),
+                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                                         style = MaterialTheme.typography.labelSmall,
                                                         color = if (tipEnabled)
                                                             MaterialTheme.colorScheme.primary
@@ -659,763 +863,717 @@ private fun AddNoteScreen(
             Modifier
                 .fillMaxSize()
                 .background(pageBg)
-                .layerBackdrop(pageBackdrop)
+                .layerBackdrop(pageBackdrop) // ✅ record ONCE here
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .imePadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // ---- AI placeholder (title field) ----
-                var aiPlaceholder by rememberSaveable { mutableStateOf<String?>(null) }
-                var aiPlaceholderLoading by rememberSaveable { mutableStateOf(false) }
-                var lastAiPlaceholderKey by rememberSaveable { mutableStateOf<String?>(null) }
+            // ✅ pattern is inside the recorded content already
+            val isDark = isSystemInDarkTheme()
+            ProfileBackdropImageLayer(
+                modifier = Modifier.matchParentSize(), // ❌ remove .layerBackdrop(pageBackdrop)
+                lightRes = R.drawable.lightgridpattern,
+                darkRes = R.drawable.darkgridpattern,
+                imageAlpha = if (isDark) 1f else 0.8f,
+                scrimDark = 0f,
+                scrimLight = 0f
+            )
+            Box(Modifier.fillMaxSize()) {
 
-                fun placeholderKey(noteText: String, imgCount: Int): String {
-                    val t = noteText.trim()
-                    // stable key that changes when content meaningfully changes
-                    return buildString {
-                        append(t.take(350))
-                        append("|")
-                        append(t.takeLast(350))
-                        append("|img=")
-                        append(imgCount)
-                        append("|len=")
-                        append(t.length)
-                    }
+                // ✅ Tap outside to close the manual title + return suggestion text
+                if (showManualTitle || titleFocused) {
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .pointerInput(showManualTitle, titleFocused) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+
+                                    // If the tap was already consumed (e.g. by the title TextField),
+                                    // do nothing — this is the key part.
+                                    if (down.isConsumed) return@awaitEachGesture
+
+                                    closeManualTitleOnly()
+                                    noteFocusRequester.requestFocus()
+                                    keyboard?.show()
+                                }
+                            }
+                    )
                 }
-
-                LaunchedEffect(note, images.size, tipEnabled, showManualTitle, titleFocused) {
-
-                // reset conditions
-                    if (!tipEnabled || title.isNotBlank()) {
-                        aiPlaceholderLoading = false
-                        aiPlaceholder = null
-                        lastAiPlaceholderKey = null
-                        return@LaunchedEffect
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .imePadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    fun placeholderKey(noteText: String, imgCount: Int): String {
+                        val t = noteText.trim()
+                        // stable key that changes when content meaningfully changes
+                        return buildString {
+                            append(t.take(350))
+                            append("|")
+                            append(t.takeLast(350))
+                            append("|img=")
+                            append(imgCount)
+                            append("|len=")
+                            append(t.length)
+                        }
                     }
 
-                    val trimmed = note.trim()
-                    if (trimmed.length < AI_PLACEHOLDER_MIN_CHARS) {
-                        aiPlaceholderLoading = false
-                        aiPlaceholder = null
-                        lastAiPlaceholderKey = null
-                        return@LaunchedEffect
-                    }
+                    LaunchedEffect(note, images.size, tipEnabled, title) {
 
-                    val key = placeholderKey(trimmed, images.size)
+                        if (showManualTitle || titleFocused) return@LaunchedEffect
 
-                    // if nothing meaningful changed, skip
-                    if (key == lastAiPlaceholderKey) return@LaunchedEffect
+                    // reset conditions
+                        if (!tipEnabled || title.isNotBlank()) {
+                            aiPlaceholderLoading = false
+                            aiPlaceholder = null
+                            lastAiPlaceholderKey = null
+                            return@LaunchedEffect
+                        }
 
-                    // show thinking every time we need a new one
-                    aiPlaceholderLoading = true
-                    aiPlaceholder = null
+                        val trimmed = note.trim()
+                        if (trimmed.length < AI_PLACEHOLDER_MIN_CHARS) {
+                            aiPlaceholderLoading = false
+                            aiPlaceholder = null
+                            lastAiPlaceholderKey = null
+                            return@LaunchedEffect
+                        }
 
-                    // debounce (this coroutine will be cancelled automatically when note changes)
-                    kotlinx.coroutines.delay(500)
+                        val key = placeholderKey(trimmed, images.size)
 
-                    // re-check after debounce (note could have changed)
-                    if (!tipEnabled || title.isNotBlank()) {
-                        aiPlaceholderLoading = false
-                        return@LaunchedEffect
-                    }
+                        // if nothing meaningful changed, skip
+                        if (key == lastAiPlaceholderKey) return@LaunchedEffect
 
-                    val nowTrimmed = note.trim()
-                    if (nowTrimmed.length < AI_PLACEHOLDER_MIN_CHARS) {
-                        aiPlaceholderLoading = false
-                        aiPlaceholder = null
-                        lastAiPlaceholderKey = null
-                        return@LaunchedEffect
-                    }
+                        // show thinking every time we need a new one
+                        if (aiPlaceholder == null) aiPlaceholderLoading = true
 
 
-                    val nowKey = placeholderKey(nowTrimmed, images.size)
-                    if (nowKey != key) {
-                        // user typed again during debounce; new run will handle it
-                        aiPlaceholderLoading = false
-                        return@LaunchedEffect
-                    }
+                        // debounce (this coroutine will be canceled automatically when note changes)
+                        kotlinx.coroutines.delay(500)
 
-                    try {
-                        val out = GeminiTitles.generateTitles(
-                            note = note,
-                            hasImages = images.isNotEmpty(),
-                            currentTitle = ""
-                        )
-                        aiPlaceholder = out.firstOrNull()?.title?.let {
-                            enforceMeaningfulTitle(
-                                aiTitle = it,
+                        // re-check after debounce (note could have changed)
+                        if (!tipEnabled || title.isNotBlank()) {
+                            aiPlaceholderLoading = false
+                            return@LaunchedEffect
+                        }
+
+                        val nowTrimmed = note.trim()
+                        if (nowTrimmed.length < AI_PLACEHOLDER_MIN_CHARS) {
+                            aiPlaceholderLoading = false
+                            aiPlaceholder = null
+                            lastAiPlaceholderKey = null
+                            return@LaunchedEffect
+                        }
+
+
+                        val nowKey = placeholderKey(nowTrimmed, images.size)
+                        if (nowKey != key) {
+                            // user typed again during debounce; new run will handle it
+                            aiPlaceholderLoading = false
+                            return@LaunchedEffect
+                        }
+
+                        try {
+                            val out = GeminiTitles.generateTitles(
                                 note = note,
                                 hasImages = images.isNotEmpty(),
+                                currentTitle = ""
                             )
-                        }
-                        lastAiPlaceholderKey = key
-                    } catch (_: Throwable) {
-                        aiPlaceholder = null
-                        lastAiPlaceholderKey = null
-                    } finally {
-                        aiPlaceholderLoading = false
-                    }
-                }
-
-
-
-                // ✅ Figma stack: Title AI box BEHIND the Note card
-                Box(modifier = Modifier.fillMaxWidth()) {
-
-                    // ✅ treat title-focus / manual-title like focus too
-                    val titleActive = showManualTitle || titleFocused
-                    val anyFocused = noteFocused || titleActive
-
-                    // ✅ animate the WHOLE hint box + spacing so it never overlaps "Write your note"
-                    val hintLiftY by animateDpAsState(
-                        targetValue = if (anyFocused) (-12).dp else 0.dp, // 🔼 whole box up on focus
-                        animationSpec = spring(
-                            dampingRatio = 0.85f,
-                            stiffness = 450f
-                        ),
-                        label = "hintBoxLiftY"
-                    )
-
-                    val hintTextScale by animateFloatAsState(
-                        targetValue = if (anyFocused) 1.14f else 1.00f,
-                        label = "hintTextScale"
-                    )
-
-                    // ✅ Push note card down a bit MORE when focused so hint never covers "Write your note"
-                    val noteTopPadTarget = when {
-                        titleActive -> 65.dp   // ✅ more space so hint never overlaps
-                        anyFocused  -> 50.dp
-                        else        -> 34.dp
-                    }
-
-                    val noteTopPad by animateDpAsState(
-                        targetValue = noteTopPadTarget,
-                        animationSpec = spring(dampingRatio = 0.85f, stiffness = 450f),
-                        label = "noteTopPad"
-                    )
-
-
-                    // --- Title AI box (BACKGROUND / BEHIND) ---
-                    val showTitleBox = tipEnabled
-                    if (showTitleBox) {
-
-                        val boxText = when {
-                            title.isNotBlank() -> title
-                            aiPlaceholderLoading -> "Thinking…"
-                            aiPlaceholder != null -> aiPlaceholder!!
-                            else -> "Suggestion ✨"
-                        }
-
-                        val fieldPlaceholder = when {
-                            aiPlaceholderLoading -> "Thinking…"
-                            aiPlaceholder != null -> aiPlaceholder!!
-                            else -> "Title"
-                        }
-
-
-
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 18.dp)
-                                .padding(top = 10.dp)
-                                .offset(y = hintLiftY)      // ✅ MOVE WHOLE BOX
-                                .zIndex(0f)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    showManualTitle = true
-                                },
-                                    shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shadowElevation = 1.dp
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 30.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                val hintTextLiftY by animateDpAsState(
-                                    targetValue = if (anyFocused) (-10).dp else (-25).dp,
-                                    animationSpec = spring(dampingRatio = 0.85f, stiffness = 450f),
-                                    label = "hintTextLiftY"
+                            aiPlaceholder = out.firstOrNull()?.title?.let {
+                                enforceMeaningfulTitle(
+                                    aiTitle = it,
+                                    note = note,
+                                    hasImages = images.isNotEmpty(),
                                 )
-
-                                // ✅ if manual title is open -> show input
-                                if (showManualTitle) {
-
-                                    OutlinedTextField(
-                                        value = title,
-                                        onValueChange = { title = it },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .offset(y = hintTextLiftY)
-                                            .focusRequester(titleFocusRequester)
-                                            .onFocusChanged { titleFocused = it.isFocused },
-                                        singleLine = true,
-                                        shape = RoundedCornerShape(12.dp),
-                                        placeholder = {
-                                            Text(
-                                                text = fieldPlaceholder,
-                                                style = MaterialTheme.typography.labelLarge
-                                            )
-                                        },
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
-                                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                            focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                                            unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                                        )
-                                    )
-
-                                } else {
-
-                                    Text(
-                                        text = boxText,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.90f),
-                                        maxLines = 1,
-                                        modifier = Modifier
-                                            .offset(y = hintTextLiftY)
-                                            .graphicsLayer {
-                                                scaleX = hintTextScale
-                                                scaleY = hintTextScale
-                                            }
-                                    )
-                                }
                             }
+                            lastAiPlaceholderKey = key
+                        } catch (_: Throwable) {
+                            aiPlaceholder = null
+                            lastAiPlaceholderKey = null
+                        } finally {
+                            aiPlaceholderLoading = false
                         }
                     }
 
-                    // --- Note card (FOREGROUND / ON TOP) ---
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = noteTopPad) // ✅ animated so hint never covers header
-                            .zIndex(1f)
-                            .clickable(
-                                interactionSource = noteTap,
-                                indication = null
-                            ) {
-                                // ✅ touching note closes manual title + focuses note
-                                showManualTitle = false
-                                noteFocusRequester.requestFocus()
-                                keyboard?.show()
-                            },
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shadowElevation = 1.dp
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
 
-                            Box {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Write your note",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                    // ✅ STACK like your sketch: big title box, note overlaps it (no gap)
+                    Box(modifier = Modifier.fillMaxWidth()) {
 
-                                    Spacer(Modifier.weight(1f))
+                        // treat title-focus / manual-title like focus too
+                        val titleActive = showManualTitle || titleFocused
+                        val anyFocused = noteFocused || titleActive
 
-                                    Text(
-                                        text = "${note.length}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f)
-                                    )
-                                }
+                        // ✅ big title box height + overlap amount
+                        val titleBoxH = 92.dp
+                        val overlap = 28.dp
+                        val topEdgePad = 16.dp // title text ALWAYS near top edge
 
-                                if (wantsReminder) {
-                                    AssistChip(
-                                        onClick = { wantsReminder = false },
-                                        label = { Text("Reminder set", style = MaterialTheme.typography.labelSmall) },
-                                        colors = AssistChipDefaults.assistChipColors(
-                                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                                            labelColor = MaterialTheme.colorScheme.primary
-                                        ),
-                                        border = null,
-                                        modifier = Modifier
-                                            .align(Alignment.CenterStart)
-                                            .padding(start = 130.dp)
-                                            .height(20.dp)
-                                    )
-                                }
+                        // ✅ lift BOTH together (so overlap never changes, no gap)
+                        val stackLiftY by animateDpAsState(
+                            targetValue = if (anyFocused) (-10).dp else 0.dp,
+                            animationSpec = spring(dampingRatio = 0.85f, stiffness = 450f),
+                            label = "stackLiftY"
+                        )
+
+                        val hintTextScale by animateFloatAsState(
+                            targetValue = if (anyFocused) 1.14f else 1.00f,
+                            label = "hintTextScale"
+                        )
+
+                        // --- Title AI box (BACKGROUND) ---
+                        val showTitleBox = tipEnabled
+                        if (showTitleBox) {
+
+                            val boxText = when {
+                                title.isNotBlank() -> title
+                                aiPlaceholderLoading -> "Thinking…"
+                                aiPlaceholder != null -> aiPlaceholder!!
+                                else -> "Suggestion"
                             }
 
-                            Spacer(Modifier.height(4.dp))
+                            val fieldPlaceholder = when {
+                                aiPlaceholderLoading -> "Thinking…"
+                                aiPlaceholder != null -> aiPlaceholder!!
+                                else -> "Title"
+                            }
 
-                            Text(
-                                text = "Paste links, add details, dump ideas — anything",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f)
-                            )
+                            val aiActive = titleFromAi || aiPlaceholder != null
 
-                            Spacer(Modifier.height(10.dp))
+                            val boxColor = when {
+                                aiActive && isDark -> MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+                                aiActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                else -> ui.cardBg
+                            }
 
-                            OutlinedTextField(
-                                value = note,
-                                onValueChange = { new ->
-                                    val old = note
+                            val aiBorder = when {
+                                aiActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                                else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+                            }
 
-                                    if (new.length > MAX_NOTE_CHARS) {
-                                        note = new.take(MAX_NOTE_CHARS)
-                                        return@OutlinedTextField
-                                    }
 
-                                    val jump = new.length - old.length
-                                    val looksLikePaste = jump > PASTE_JUMP
-
-                                    if (looksLikePaste && new.startsWith(old)) {
-                                        val pasted = new.substring(old.length)
-                                        val sb = StringBuilder(old.length + pasted.length).apply { append(old) }
-
-                                        var i = 0
-                                        while (i < pasted.length) {
-                                            val end = (i + PASTE_CHUNK).coerceAtMost(pasted.length)
-                                            sb.append(pasted, i, end)
-                                            i = end
-                                        }
-                                        note = sb.toString()
-                                    } else {
-                                        note = new
-                                    }
-                                },
+                            Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(210.dp)
-                                    .focusRequester(noteFocusRequester)
-                                    .onFocusChanged { noteFocused = it.isFocused },
-                                shape = RoundedCornerShape(14.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
-                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
-                                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
-                                )
-                            )
-                        }
-                    }
-                }
-
-                // ---- Images preview (clean grid) ----
-// ---- Images preview (clean grid) ----
-                if (images.isNotEmpty()) {
-                    val maxShow = 6
-                    val extra = (images.size - maxShow).coerceAtLeast(0)
-
-                    Card(
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        elevation = CardDefaults.cardElevation(0.dp)
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
-
-                            // ✅ header is clickable -> opens "All images"
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 28.dp)
+                                    .padding(top = 10.dp)
+                                    .height(titleBoxH)               // ✅ BIG box
+                                    .offset(y = stackLiftY)          // ✅ lift with note
+                                    .zIndex(0f)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null
-                                    ) { showAllImages = true }
-                                    .padding(vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    ) { showManualTitle = true },
+                                shape = RoundedCornerShape(12.dp),
+                                color = boxColor,
+                                shadowElevation = 0.dp,
+                                border = BorderStroke(1.dp, aiBorder)
+
                             ) {
-                                Text(
-                                    text = "Images (${images.size})",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Text(
-                                    text = "View all",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
-                                )
-                            }
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .padding(start = 14.dp, end = 14.dp, top = topEdgePad, bottom = 10.dp),
+                                    contentAlignment = Alignment.TopCenter
+                                ) {
 
-                            Spacer(Modifier.height(10.dp))
-
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
-                                state = rememberLazyGridState(),
-                                userScrollEnabled = false, // ✅ let parent scroll handle it
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(
-                                        when {
-                                            images.size <= 2 -> 180.dp
-                                            images.size <= 4 -> 370.dp
-                                            else -> 560.dp
-                                        }
-                                    )
-                            ) {
-                                itemsIndexed(images.take(maxShow)) { index, uri ->
-                                    val shape = RoundedCornerShape(14.dp)
-
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(1.25f)
-                                            .clip(shape)
-                                            .border(
-                                                width = 1.dp,
-                                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                                                shape = shape
-                                            )
-                                    ) {
-                                        AsyncImage(
-                                            model = uri,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-
-                                        // ✅ Remove button (top-right)
-                                        FilledTonalIconButton(
-                                            onClick = { images.remove(uri) },
+                                    // ✅ PINNED to top ALWAYS
+                                    if (showManualTitle) {
+                                        OutlinedTextField(
+                                            value = title,
+                                            onValueChange = {
+                                                title = it
+                                                titleFromAi = false
+                                            },
                                             modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .padding(6.dp)
-                                                .size(28.dp)
-                                                .zIndex(2f),
-                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.surface.copy(
-                                                    alpha = 0.70f
-                                                ),
-                                                contentColor = MaterialTheme.colorScheme.onSurface
+                                                .fillMaxWidth()
+                                                .focusRequester(titleFocusRequester)
+                                                .onFocusChanged { titleFocused = it.isFocused },
+                                            singleLine = true,
+                                            shape = RoundedCornerShape(12.dp),
+                                            placeholder = {
+                                                Text(fieldPlaceholder, style = MaterialTheme.typography.labelSmall)
+                                            },
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedContainerColor = Color.Transparent,
+                                                unfocusedContainerColor = Color.Transparent,
+                                                focusedBorderColor = Color.Transparent,
+                                                unfocusedBorderColor = Color.Transparent,
+                                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                                             )
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Close,
-                                                contentDescription = "Remove",
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
+                                        )
+                                    } else {
 
-                                        // ✅ "+N" overlay on last tile -> opens sheet
-                                        if (extra > 0 && index == maxShow - 1) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .background(Color.Black.copy(alpha = 0.45f))
-                                                    .clickable(
-                                                        interactionSource = remember { MutableInteractionSource() },
-                                                        indication = null
-                                                    ) { showAllImages = true }, // ✅ OPEN
-                                                contentAlignment = Alignment.Center
-                                            ) {
+                                        val showAiIcon = aiPlaceholderLoading || aiPlaceholder != null || titleFromAi
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .wrapContentWidth()
+                                                .graphicsLayer {
+                                                    scaleX = hintTextScale
+                                                    scaleY = hintTextScale
+                                                    transformOrigin = TransformOrigin(0.5f, 0.5f)
+                                                }
+                                        ) {
+                                            if (showAiIcon && !aiPlaceholderLoading) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.AutoAwesome,
+                                                    contentDescription = "AI",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier
+                                                        .size(18.dp)
+                                                        .padding(end = 6.dp)
+                                                )
+                                            }
+
+                                            if (aiPlaceholderLoading) {
+                                                ShimmerThinkingTextCompat(
+                                                    text = "Thinking…",
+                                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                                )
+                                            } else {
                                                 Text(
-                                                    text = "+$extra",
-                                                    style = MaterialTheme.typography.titleLarge.copy(
-                                                        fontWeight = FontWeight.Black
-                                                    ),
-                                                    color = Color.White
+                                                    text = boxText,
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
                                                 )
                                             }
                                         }
+
+
                                     }
+
                                 }
                             }
                         }
-                    }
-                }
 
-                // ---- All Images Bottom Sheet (delete + full list + view toggle) ----
-                if (showAllImages) {
-                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-                    ModalBottomSheet(
-                        sheetState = sheetState,
-                        onDismissRequest = { showAllImages = false },
-                        dragHandle = null,                 // ✅ no drag = no fling handoff jump
-                        sheetGesturesEnabled = false       // ✅ if available in your version
-                    ) {
-
-                        Column(
-                            Modifier
+                        // --- Note card (FOREGROUND) overlaps title box ---
+                        Surface(
+                            modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                .padding(top = titleBoxH - overlap) // ✅ overlap = NO GAP visible
+                                .offset(y = stackLiftY)             // ✅ lift with title
+                                .zIndex(1f)
+                                .clickable(
+                                    interactionSource = noteTap,
+                                    indication = null
+                                ) {
+                                    showManualTitle = false
+                                    titleFocused = false
+                                    focusManager.clearFocus(force = true)
+                                    closeManualTitleOnly()
+                                    noteFocusRequester.requestFocus()
+                                    keyboard?.show()
+                                },
+                            shape = RoundedCornerShape(18.dp),
+                            color = ui.cardBg,
+                            shadowElevation = 1.dp
                         ) {
-                            // Header
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "All images (${images.size})",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Spacer(Modifier.weight(1f))
+                            Column(Modifier.padding(14.dp)) {
+
+                                Box {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Write your note",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+
+                                        Spacer(Modifier.weight(1f))
+
+                                        Text(
+                                            text = "${note.length}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                alpha = 0.70f
+                                            )
+                                        )
+                                    }
+
+                                    if (wantsReminder) {
+                                        AssistChip(
+                                            onClick = { wantsReminder = false },
+                                            label = {
+                                                Text(
+                                                    "Reminder set",
+                                                    style = MaterialTheme.typography.labelSmall
+                                                )
+                                            },
+                                            colors = AssistChipDefaults.assistChipColors(
+                                                containerColor = MaterialTheme.colorScheme.primary.copy(
+                                                    alpha = 0.18f
+                                                ),
+                                                labelColor = MaterialTheme.colorScheme.primary
+                                            ),
+                                            border = null,
+                                            modifier = Modifier
+                                                .align(Alignment.CenterStart)
+                                                .padding(start = 130.dp)
+                                                .height(20.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.height(4.dp))
 
                                 Text(
-                                    text = "Done",
+                                    text = "Paste links, add details, dump ideas — anything",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f)
+                                )
+
+                                Spacer(Modifier.height(10.dp))
+
+                                OutlinedTextField(
+                                    value = note,
+                                    onValueChange = { new ->
+                                        val old = note
+
+                                        if (new.length > MAX_NOTE_CHARS) {
+                                            note = new.take(MAX_NOTE_CHARS)
+                                            return@OutlinedTextField
+                                        }
+
+                                        val jump = new.length - old.length
+                                        val looksLikePaste = jump > PASTE_JUMP
+
+                                        if (looksLikePaste && new.startsWith(old)) {
+                                            val pasted = new.substring(old.length)
+                                            val sb =
+                                                StringBuilder(old.length + pasted.length).apply {
+                                                    append(old)
+                                                }
+
+                                            var i = 0
+                                            while (i < pasted.length) {
+                                                val end =
+                                                    (i + PASTE_CHUNK).coerceAtMost(pasted.length)
+                                                sb.append(pasted, i, end)
+                                                i = end
+                                            }
+                                            note = sb.toString()
+                                        } else {
+                                            note = new
+                                        }
+                                    },
                                     modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(210.dp)
+                                        .focusRequester(noteFocusRequester)
+                                        .onFocusChanged { fs ->
+                                            noteFocused = fs.isFocused
+
+                                            // ✅ when note gets focus, close title edit + return to centered suggestion
+                                            if (fs.isFocused) {
+                                                showManualTitle = false
+                                                titleFocused = false
+                                            }
+                                        },
+
+                                            shape = RoundedCornerShape(14.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(
+                                            alpha = 0.35f
+                                        ),
+                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(
+                                            alpha = 0.25f
+                                        ),
+                                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(
+                                            alpha = 0.35f
+                                        ),
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(
+                                            alpha = 0.18f
+                                        ),
+                                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                            alpha = 0.70f
+                                        ),
+                                        unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                            alpha = 0.70f
+                                        ),
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    // ---- Images preview (clean grid) ----
+                    if (images.isNotEmpty()) {
+                        val maxShow = 6
+                        val extra = (images.size - maxShow).coerceAtLeast(0)
+
+                        Card(
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = ui.cardBg),
+                            elevation = CardDefaults.cardElevation(0.dp)
+                        ) {
+                            Column(Modifier.padding(14.dp)) {
+
+                                // ✅ header is clickable -> opens "All images"
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
                                         .clip(RoundedCornerShape(10.dp))
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
-                                        ) { showAllImages = false }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                                        ) { showAllImages = true }
+                                        .padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Images (${images.size})",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.weight(1f))
+                                    Text(
+                                        text = "View all",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                                    )
+                                }
 
-                            // ✅ View toggle (Grid / Large / List) — INLINE COLORS (no helper function)
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                Spacer(Modifier.height(10.dp))
+
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    state = rememberLazyGridState(),
+                                    userScrollEnabled = false, // ✅ let parent scroll handle it
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(
+                                            when {
+                                                images.size <= 2 -> 180.dp
+                                                images.size <= 4 -> 370.dp
+                                                else -> 560.dp
+                                            }
+                                        )
+                                ) {
+                                    itemsIndexed(images.take(maxShow)) { index, uri ->
+                                        val shape = RoundedCornerShape(14.dp)
+
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1.25f)
+                                                .clip(shape)
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = MaterialTheme.colorScheme.outline.copy(
+                                                        alpha = 0.25f
+                                                    ),
+                                                    shape = shape
+                                                )
+                                        ) {
+                                            AsyncImage(
+                                                model = uri,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+
+                                            // ✅ Remove button (top-right)
+                                            FilledTonalIconButton(
+                                                onClick = { images.remove(uri) },
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(6.dp)
+                                                    .size(28.dp)
+                                                    .zIndex(2f),
+                                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                    containerColor = MaterialTheme.colorScheme.surface.copy(
+                                                        alpha = 0.70f
+                                                    ),
+                                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Close,
+                                                    contentDescription = "Remove",
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+
+                                            // ✅ "+N" overlay on last tile -> opens sheet
+                                            if (extra > 0 && index == maxShow - 1) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(Color.Black.copy(alpha = 0.45f))
+                                                        .clickable(
+                                                            interactionSource = remember { MutableInteractionSource() },
+                                                            indication = null
+                                                        ) { showAllImages = true }, // ✅ OPEN
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = "+$extra",
+                                                        style = MaterialTheme.typography.titleLarge.copy(
+                                                            fontWeight = FontWeight.Black
+                                                        ),
+                                                        color = Color.White
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ---- All Images Bottom Sheet (delete + full list + view toggle) ----
+                    if (showAllImages) {
+                        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                        ModalBottomSheet(
+                            sheetState = sheetState,
+                            onDismissRequest = { showAllImages = false },
+                            dragHandle = null,                 // ✅ no drag = no fling handoff jump
+                            sheetGesturesEnabled = false       // ✅ if available in your version
+                        ) {
+
+                            Column(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                AssistChip(
-                                    onClick = { sheetViewMode = SheetViewMode.Grid },
-                                    label = { Text("Grid") },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = if (sheetViewMode == SheetViewMode.Grid)
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant,
-                                        labelColor = if (sheetViewMode == SheetViewMode.Grid)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                    ),
-                                    border = null
-                                )
+                                // Header
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "All images (${images.size})",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(Modifier.weight(1f))
 
-                                AssistChip(
-                                    onClick = { sheetViewMode = SheetViewMode.Large },
-                                    label = { Text("Large") },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = if (sheetViewMode == SheetViewMode.Large)
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant,
-                                        labelColor = if (sheetViewMode == SheetViewMode.Large)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                    ),
-                                    border = null
-                                )
-
-                                AssistChip(
-                                    onClick = { sheetViewMode = SheetViewMode.List },
-                                    label = { Text("List") },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = if (sheetViewMode == SheetViewMode.List)
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant,
-                                        labelColor = if (sheetViewMode == SheetViewMode.List)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                    ),
-                                    border = null
-                                )
-                            }
-
-                            // Content
-                            when (sheetViewMode) {
-
-                                SheetViewMode.Grid -> {
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(3),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    Text(
+                                        text = "Done",
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(420.dp)
-                                    ) {
-                                        itemsIndexed(images) { _, uri ->
-                                            val shape = RoundedCornerShape(14.dp)
-
-                                            Box(
-                                                Modifier
-                                                    .aspectRatio(1f)
-                                                    .clip(shape)
-                                                    .border(
-                                                        1.dp,
-                                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                                                        shape
-                                                    )
-                                            ) {
-                                                AsyncImage(
-                                                    model = uri,
-                                                    contentDescription = null,
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-
-                                                FilledTonalIconButton(
-                                                    onClick = { images.remove(uri) },
-                                                    modifier = Modifier
-                                                        .align(Alignment.TopEnd)
-                                                        .padding(6.dp)
-                                                        .size(28.dp),
-                                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                                        containerColor = MaterialTheme.colorScheme.surface.copy(
-                                                            alpha = 0.70f
-                                                        ),
-                                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                                    )
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Close,
-                                                        contentDescription = "Remove",
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) { showAllImages = false }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
 
-                                SheetViewMode.Large -> {
-                                    LazyVerticalGrid(
-                                        columns = GridCells.Fixed(2),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(520.dp)
-                                    ) {
-                                        itemsIndexed(images) { _, uri ->
-                                            val shape = RoundedCornerShape(16.dp)
+                                // ✅ View toggle (Grid / Large / List) — INLINE COLORS (no helper function)
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AssistChip(
+                                        onClick = { sheetViewMode = SheetViewMode.Grid },
+                                        label = { Text("Grid") },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = if (sheetViewMode == SheetViewMode.Grid)
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                            else
+                                                MaterialTheme.colorScheme.surfaceVariant,
+                                            labelColor = if (sheetViewMode == SheetViewMode.Grid)
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        ),
+                                        border = null
+                                    )
 
-                                            Box(
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    .aspectRatio(1.35f)
-                                                    .clip(shape)
-                                                    .border(
-                                                        1.dp,
-                                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                                                        shape
-                                                    )
-                                            ) {
-                                                AsyncImage(
-                                                    model = uri,
-                                                    contentDescription = null,
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
+                                    AssistChip(
+                                        onClick = { sheetViewMode = SheetViewMode.Large },
+                                        label = { Text("Large") },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = if (sheetViewMode == SheetViewMode.Large)
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                            else
+                                                MaterialTheme.colorScheme.surfaceVariant,
+                                            labelColor = if (sheetViewMode == SheetViewMode.Large)
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        ),
+                                        border = null
+                                    )
 
-                                                FilledTonalIconButton(
-                                                    onClick = { images.remove(uri) },
-                                                    modifier = Modifier
-                                                        .align(Alignment.TopEnd)
-                                                        .padding(8.dp)
-                                                        .size(30.dp),
-                                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                                        containerColor = MaterialTheme.colorScheme.surface.copy(
-                                                            alpha = 0.70f
-                                                        ),
-                                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                                    )
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Filled.Close,
-                                                        contentDescription = "Remove",
-                                                        modifier = Modifier.size(16.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
+                                    AssistChip(
+                                        onClick = { sheetViewMode = SheetViewMode.List },
+                                        label = { Text("List") },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = if (sheetViewMode == SheetViewMode.List)
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                            else
+                                                MaterialTheme.colorScheme.surfaceVariant,
+                                            labelColor = if (sheetViewMode == SheetViewMode.List)
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        ),
+                                        border = null
+                                    )
                                 }
 
-                                SheetViewMode.List -> {
-                                    androidx.compose.foundation.lazy.LazyColumn(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(520.dp),
-                                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        listItemsIndexed(images) { _, uri ->
+                                // Content
+                                when (sheetViewMode) {
 
-                                            val shape = RoundedCornerShape(16.dp)
+                                    SheetViewMode.Grid -> {
+                                        LazyVerticalGrid(
+                                            columns = GridCells.Fixed(3),
+                                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(420.dp)
+                                        ) {
+                                            itemsIndexed(images) { _, uri ->
+                                                val shape = RoundedCornerShape(14.dp)
 
-                                            Surface(
-                                                shape = shape,
-                                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                                shadowElevation = 0.dp,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Row(
+                                                Box(
                                                     Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(10.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
+                                                        .aspectRatio(1f)
+                                                        .clip(shape)
+                                                        .border(
+                                                            1.dp,
+                                                            MaterialTheme.colorScheme.outline.copy(
+                                                                alpha = 0.25f
+                                                            ),
+                                                            shape
+                                                        )
                                                 ) {
-                                                    Box(
-                                                        Modifier
-                                                            .size(74.dp)
-                                                            .clip(RoundedCornerShape(14.dp))
-                                                            .border(
-                                                                1.dp,
-                                                                MaterialTheme.colorScheme.outline.copy(
-                                                                    alpha = 0.22f
-                                                                ),
-                                                                RoundedCornerShape(14.dp)
-                                                            )
-                                                    ) {
-                                                        AsyncImage(
-                                                            model = uri,
-                                                            contentDescription = null,
-                                                            contentScale = ContentScale.Crop,
-                                                            modifier = Modifier.fillMaxSize()
-                                                        )
-                                                    }
-
-                                                    Spacer(Modifier.width(10.dp))
-
-                                                    Column(Modifier.weight(1f)) {
-                                                        Text(
-                                                            text = "Image",
-                                                            style = MaterialTheme.typography.labelLarge,
-                                                            color = MaterialTheme.colorScheme.onSurface
-                                                        )
-                                                        Text(
-                                                            text = uri.lastPathSegment
-                                                                ?: uri.toString(),
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            maxLines = 2
-                                                        )
-                                                    }
+                                                    AsyncImage(
+                                                        model = uri,
+                                                        contentDescription = null,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
 
                                                     FilledTonalIconButton(
                                                         onClick = { images.remove(uri) },
-                                                        modifier = Modifier.size(40.dp),
+                                                        modifier = Modifier
+                                                            .align(Alignment.TopEnd)
+                                                            .padding(6.dp)
+                                                            .size(28.dp),
                                                         colors = IconButtonDefaults.filledTonalIconButtonColors(
                                                             containerColor = MaterialTheme.colorScheme.surface.copy(
                                                                 alpha = 0.70f
@@ -1425,52 +1583,188 @@ private fun AddNoteScreen(
                                                     ) {
                                                         Icon(
                                                             imageVector = Icons.Filled.Close,
-                                                            contentDescription = "Remove"
+                                                            contentDescription = "Remove",
+                                                            modifier = Modifier.size(16.dp)
                                                         )
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                            }
 
-                            Spacer(Modifier.height(8.dp))
+                                    SheetViewMode.Large -> {
+                                        LazyVerticalGrid(
+                                            columns = GridCells.Fixed(2),
+                                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(520.dp)
+                                        ) {
+                                            itemsIndexed(images) { _, uri ->
+                                                val shape = RoundedCornerShape(16.dp)
+
+                                                Box(
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                                        .aspectRatio(1.35f)
+                                                        .clip(shape)
+                                                        .border(
+                                                            1.dp,
+                                                            MaterialTheme.colorScheme.outline.copy(
+                                                                alpha = 0.25f
+                                                            ),
+                                                            shape
+                                                        )
+                                                ) {
+                                                    AsyncImage(
+                                                        model = uri,
+                                                        contentDescription = null,
+                                                        contentScale = ContentScale.Crop,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
+
+                                                    FilledTonalIconButton(
+                                                        onClick = { images.remove(uri) },
+                                                        modifier = Modifier
+                                                            .align(Alignment.TopEnd)
+                                                            .padding(8.dp)
+                                                            .size(30.dp),
+                                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                            containerColor = MaterialTheme.colorScheme.surface.copy(
+                                                                alpha = 0.70f
+                                                            ),
+                                                            contentColor = MaterialTheme.colorScheme.onSurface
+                                                        )
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Filled.Close,
+                                                            contentDescription = "Remove",
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    SheetViewMode.List -> {
+                                        androidx.compose.foundation.lazy.LazyColumn(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(520.dp),
+                                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            listItemsIndexed(images) { _, uri ->
+
+                                                val shape = RoundedCornerShape(16.dp)
+
+                                                Surface(
+                                                    shape = shape,
+                                                    color = ui.cardBgStrong,
+                                                    shadowElevation = 0.dp,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Row(
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(10.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Box(
+                                                            Modifier
+                                                                .size(74.dp)
+                                                                .clip(RoundedCornerShape(14.dp))
+                                                                .border(
+                                                                    1.dp,
+                                                                    MaterialTheme.colorScheme.outline.copy(
+                                                                        alpha = 0.22f
+                                                                    ),
+                                                                    RoundedCornerShape(14.dp)
+                                                                )
+                                                        ) {
+                                                            AsyncImage(
+                                                                model = uri,
+                                                                contentDescription = null,
+                                                                contentScale = ContentScale.Crop,
+                                                                modifier = Modifier.fillMaxSize()
+                                                            )
+                                                        }
+
+                                                        Spacer(Modifier.width(10.dp))
+
+                                                        Column(Modifier.weight(1f)) {
+                                                            Text(
+                                                                text = "Image",
+                                                                style = MaterialTheme.typography.labelLarge,
+                                                                color = MaterialTheme.colorScheme.onSurface
+                                                            )
+                                                            Text(
+                                                                text = uri.lastPathSegment
+                                                                    ?: uri.toString(),
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                maxLines = 2
+                                                            )
+                                                        }
+
+                                                        FilledTonalIconButton(
+                                                            onClick = { images.remove(uri) },
+                                                            modifier = Modifier.size(40.dp),
+                                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                                containerColor = MaterialTheme.colorScheme.surface.copy(
+                                                                    alpha = 0.70f
+                                                                ),
+                                                                contentColor = MaterialTheme.colorScheme.onSurface
+                                                            )
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Filled.Close,
+                                                                contentDescription = "Remove"
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(Modifier.height(8.dp))
+                            }
                         }
                     }
-                }
-                if (showNotifDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showNotifDialog = false },
-                        title = { Text("Enable notifications") },
-                        text = { Text("Reminders need notifications. Turn them on to set a reminder.") },
-                        confirmButton = {
-                            Text(
-                                "Open settings",
-                                modifier = Modifier
-                                    .clickable {
-                                        showNotifDialog = false
-                                        NotificationGate.openAppNotificationSettings(context)
-                                    }
-                                    .padding(12.dp),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        },
-                        dismissButton = {
-                            Text(
-                                "Cancel",
-                                modifier = Modifier
-                                    .clickable { showNotifDialog = false }
-                                    .padding(12.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    )
-                }
+                    if (showNotifDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showNotifDialog = false },
+                            title = { Text("Enable notifications") },
+                            text = { Text("Reminders need notifications. Turn them on to set a reminder.") },
+                            confirmButton = {
+                                Text(
+                                    "Open settings",
+                                    modifier = Modifier
+                                        .clickable {
+                                            showNotifDialog = false
+                                            NotificationGate.openAppNotificationSettings(context)
+                                        }
+                                        .padding(12.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            dismissButton = {
+                                Text(
+                                    "Cancel",
+                                    modifier = Modifier
+                                        .clickable { showNotifDialog = false }
+                                        .padding(12.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        )
+                    }
 
 
-
-                // ---- Help dialog ----
+                    // ---- Help dialog ----
 //                if (showHelp) {
 //                    AlertDialog(
 //                        onDismissRequest = { showHelp = false },
@@ -1485,7 +1779,8 @@ private fun AddNoteScreen(
 //                    )
 //                }
 
-                Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
     }
@@ -1548,7 +1843,7 @@ private fun AddNoteScreen(
 
         val picks = mutableListOf<TitleSuggestion>()
 
-        // 1) If has link -> link-based title
+        // 1) If it has link -> link-based title
         if (!link.isNullOrBlank()) {
             val domain = runCatching {
                 link.toUri().host?.removePrefix("www.")
@@ -1565,7 +1860,7 @@ private fun AddNoteScreen(
             )
         }
 
-        // 2) If has images -> image-based title
+        // 2) If it has images -> image-based title
         if (hasImages) {
             picks += TitleSuggestion(
                 title = "Photos",
@@ -1577,7 +1872,7 @@ private fun AddNoteScreen(
             )
         }
 
-        // 3) If looks like checklist -> list title
+        // 3) If it looks like checklist -> list title
         val hasChecklist = lines.any {
             it.startsWith("- ") || it.startsWith("• ") || it.matches(Regex("""\d+\.\s+.*"""))
         }
@@ -1685,11 +1980,13 @@ private fun AddNoteScreen(
 
         fun applyTitleAndClose() {
             title = picked.title
+            titleFromAi = true   // makes it “AI styled”
             showManualTitle = false
             titleFocused = false
             focusManager.clearFocus()
             closeDialog()
         }
+
 
 
         // Fetch AI when dialog is expanded (or when user enters expanded)
@@ -1915,8 +2212,9 @@ fun enforceMeaningfulTitle(
         base.contains("meet", true) || base.contains("meeting", true) -> "📅"
         base.contains("code", true) -> "💻"
         base.contains("bill", true) || base.contains("rent", true) || base.contains("pay", true) -> "💳"
-        else -> "✨"
+        else -> "" // ✅ no sparkle default
     }
 
-    return "$base $emoji"
+    return if (emoji.isNotBlank()) "$base $emoji" else base
+
 }

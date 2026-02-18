@@ -1,10 +1,6 @@
 package com.flights.studio
 
-import android.graphics.Bitmap
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector4D
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.TwoWayConverter
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -40,52 +36,28 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
-import androidx.core.graphics.scale
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.capsule.ContinuousRoundedRectangle
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.nio.IntBuffer
 import kotlin.math.abs
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.math.tanh
 
 private const val LIST_PREVIEW_CHARS = 50
@@ -99,12 +71,6 @@ private fun notePreview(s: String): String {
         .trim()
     return if (oneLine.length <= LIST_PREVIEW_CHARS) oneLine else oneLine.take(LIST_PREVIEW_CHARS) + "…"
 }
-
-private val ColorVectorConverter: TwoWayConverter<Color, AnimationVector4D> =
-    TwoWayConverter(
-        convertToVector = { c -> AnimationVector4D(c.red, c.green, c.blue, c.alpha) },
-        convertFromVector = { v -> Color(v.v1, v.v2, v.v3, v.v4) }
-    )
 
 
 @Composable
@@ -125,9 +91,9 @@ fun NoteItem(
     titleTopCompactDp: Int,
     titleTopNormalDp: Int,
     isInteractive: Boolean = true,
-    ) {
+) {
     val railW = if (compact) 45.dp else 60.dp
-    val h = if (compact) 80.dp else 120.dp
+    val h = if (compact) 80.dp else 140.dp
     val ui = rememberUiScales()
     val iconSize = if (dense) 18.dp else 24.dp
     val btnSize = if (dense) 36.dp else 44.dp
@@ -135,149 +101,83 @@ fun NoteItem(
     val titlePadH = if (compact) 10.dp else 12.dp
     val titleShape = RoundedCornerShape(if (compact) 10.dp else 12.dp)
     val noteMaxLines = if (compact) 2 else 4
-    val titleMaxLines = if (compact) 1 else 1
+    val titleMaxLines = 1
     val colBottom = if (compact) 6.dp else 10.dp
     val afterTitleSpace = if (compact) 4.dp else 10.dp
     val shape = RoundedCornerShape(18.dp)
-    val elev = if (selected) 0.dp else if (compact) 0.dp else 0.dp
-
+    val elev = if (selected) 0.dp else 0.dp
 
     val isDark = isSystemInDarkTheme()
     val scheme = MaterialTheme.colorScheme
 
-    val tintColor = scheme.primary.copy(alpha = if (isDark) 0.02f else 0.00f)
-    val selectedOverlay = scheme.primary.copy(alpha = 0.60f)
-    val containerColor =
-        if (!isDark) Color(0xFFFAFAFA).copy(0.0f)
-        else Color(0xFF121212).copy(0.1f)
+    val warmBase = Color(0xFFFFFFFF)
+    val warmShade = Color(0xFF000000)
 
-// ✅ KYANT adaptive luminance (inline, no handle)
-    val layer = rememberGraphicsLayer()
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    var boxSize by remember { mutableStateOf(IntSize.Zero) }
-
-    val luminanceAnimation = remember { Animatable(if (!isDark) 1f else 0f) }
-    val contentColorAnimation = remember {
-        Animatable(
-            initialValue = if (!isDark) Color.Black else Color.White,
-            typeConverter = ColorVectorConverter
-        )
+// Container: in light, use warmBase; in dark, keep your dark glass
+    val containerColor = if (isDark) {
+        Color(0xFF121212).copy(alpha = 0.12f)
+    } else {
+        // mix warm base with surface so it still feels Material
+        lerp(scheme.surface, warmBase, 0.55f).copy(alpha = 0.38f)
     }
 
-    LaunchedEffect(layer) {
-        val buffer = IntBuffer.allocate(25)
-        val ctx = currentCoroutineContext()
+// Warm tint overlay (IMPORTANT: not scheme.primary)
+    val tintColor = if (isDark) {
+        scheme.primary.copy(alpha = 0.045f) // ok in dark
+    } else {
+        lerp(warmShade, warmBase, 0.65f).copy(alpha = 0.12f) // warm glaze
+    }
 
-        while (ctx.isActive) {
-            // capture size at this tick
-            val w = boxSize.width
-            val h = boxSize.height
-            if (w <= 0 || h <= 0) {
-                delay(350)
-                continue
-            }
-
-            // 1) Fill buffer in IO (Kyant style), but SAFE
-            val sampled = withContext(Dispatchers.IO) {
-                runCatching {
-                    val imageBitmap = layer.toImageBitmap() // can throw when item not recorded / 0x0
-                    val thumbnail =
-                        imageBitmap.asAndroidBitmap()
-                            .scale(5, 5, false)
-                            .copy(Bitmap.Config.ARGB_8888, false)
-
-                    buffer.rewind()
-                    thumbnail.copyPixelsToBuffer(buffer)
-                    true
-                }.getOrElse {
-                    false
-                }
-            }
-
-            if (!sampled) {
-                // item got recycled / not ready -> skip this tick, no crash
-                delay(350)
-                continue
-            }
-
-            // 2) Compute luminance AFTER IO (Kyant style)
-            var sum = 0.0
-            for (i in 0 until 25) {
-                val c = buffer.get(i)
-                val r = (c shr 16 and 0xFF) / 255f
-                val g = (c shr 8 and 0xFF) / 255f
-                val b = (c and 0xFF) / 255f
-                sum += 0.2126 * r + 0.7152 * g + 0.0722 * b
-            }
-            val averageLuminance = (sum / 25.0).toFloat()
-
-            launch {
-                contentColorAnimation.animateTo(
-                    if (averageLuminance > 0.5f) Color.Black else Color.White,
-                    tween(1000)
-                )
-            }
-            luminanceAnimation.animateTo(averageLuminance, tween(1000))
-
-            delay(350)
-        }
+// Selected overlay should be weaker in light (or it turns “blue paint”)
+    val selectedOverlay = if (isDark) {
+        scheme.primary.copy(alpha = 0.22f)
+    } else {
+        scheme.primary.copy(alpha = 0.10f)
     }
 
 
 
-    val adaptiveColor = contentColorAnimation.value
+
+
+    val adaptiveColor = if (isDark) Color.White else Color.Black
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
+    //  ONE interaction source (don’t create inside modifier)
+    val interaction = remember { MutableInteractionSource() }
+
 
     val interactiveLayer = if (isInteractive) {
         Modifier
-//            .then(interactiveHighlight.modifier)
             .then(interactiveHighlight.gestureModifier)
             .graphicsLayer {
-                val width = size.width
-                val height = size.height
+                val p = interactiveHighlight.pressProgress
+                val o = interactiveHighlight.offset
 
-                val progress = interactiveHighlight.pressProgress
-                val baseScale = lerp(1f, 1f + 2f.dp.toPx() / height, progress)
+                val max = size.minDimension
+                val k = 0.02f
+                val tx = max * tanh(k * o.x / max)
+                val ty = max * tanh(k * o.y / max)
+                translationX = tx
+                translationY = ty
 
-                val maxOffset = size.minDimension
-                val initialDerivative = 0.02f
-                val offset = interactiveHighlight.offset
-                translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
-                translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+                val base = lerp(1f, 1.02f, p)
+                val stretch = (abs(o.x) + abs(o.y)) / (size.maxDimension.coerceAtLeast(1f))
+                val extra = 0.01f * stretch
 
-                val maxDragScale = 1f.dp.toPx() / height
-                val offsetAngle = atan2(offset.y, offset.x)
-
-                scaleX =
-                    baseScale +
-                            maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
-                            (width / height).fastCoerceAtMost(1f)
-
-                scaleY =
-                    baseScale +
-                            maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
-                            (height / width).fastCoerceAtMost(1f)
+                scaleX = base + extra
+                scaleY = base + extra
             }
     } else Modifier
 
-    // ✅ OUTER ELEVATION WRAPPER
+    //  OUTER ELEVATION WRAPPER (NO clickable here anymore)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .height(h)
-            .then(interactiveLayer)
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                role = Role.Carousel, // ✅ ROLE HERE
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
+            .then(interactiveLayer),
         shape = shape,
         color = Color.Transparent,
         tonalElevation = 0.dp,
@@ -285,7 +185,8 @@ fun NoteItem(
     ) {
         Box(
             modifier = Modifier
-                .onSizeChanged { boxSize = it }
+                .fillMaxWidth()
+                .height(h)
                 .drawBackdrop(
                     backdrop = backdrop,
                     shadow = null,
@@ -294,67 +195,40 @@ fun NoteItem(
                         if (isDark) {
                             Highlight(
                                 width = 0.45.dp,
-                                blurRadius = 1.6.dp,
+                                blurRadius = 1.dp,
                                 alpha = 0.30f,
                                 style = HighlightStyle.Plain
                             )
                         } else {
                             Highlight(
-                                width = 0.30.dp,
-                                blurRadius = 1.0.dp,
-                                alpha = 0.35f,
-                                style = HighlightStyle.Plain // very subtle
+                                width = 0.45.dp,
+                                blurRadius = 1.dp,
+                                alpha = 0.30f,
+                                style = HighlightStyle.Plain
                             )
                         }
                     },
                     effects = {
-                        vibrancy()
-
-                        colorControls(
-                            brightness = if (isDark) 0.06f else -0.06f,
-                            contrast   = if (isDark) 1.06f else 1.00f,
-                            saturation = if (isDark) 1.14f else 1.10f
-                        )
-                        blur(
-                            radius = 0f.dp.toPx(),
-                            edgeTreatment = TileMode.Clamp
-                        )
-
-                        lens(
-                            refractionHeight = 24f.dp.toPx(),
-                            refractionAmount = 24f.dp.toPx(),
-                            depthEffect = true,
-                            chromaticAberration = false
-                        )
-                    },
-                    onDrawBackdrop = { drawBackdrop ->
-                        drawBackdrop()
-                        if (boxSize.width > 0 && boxSize.height > 0) {
-                            layer.record(
-                                density = density,
-                                layoutDirection = layoutDirection,
-                                size = boxSize
-                            ) { drawBackdrop() }
-                        }
+                        blur(2f.dp.toPx())
+                        lens(24f.dp.toPx(), 24f.dp.toPx())
                     },
                     onDrawSurface = {
-                        if (selected) drawRect(selectedOverlay)
-                        drawRect(tintColor)
                         drawRect(containerColor)
+                        drawRect(tintColor)
+                        if (selected) drawRect(selectedOverlay)
                     }
+
+
                 )
+                // ✅ ONLY clickable here (single place)
                 .combinedClickable(
-//                    interactionSource = remember { MutableInteractionSource() },
-//                    indication = if (isInteractive) null else LocalIndication.current,
-                    onClick = onClick,
-                    onLongClick = onLongClick,
+                    interactionSource = interaction,
+                    indication = null,
                     role = Role.Carousel,
+                    onClick = onClick,
+                    onLongClick = onLongClick
                 )
-                .fillMaxWidth()
-                .height(h)
-
         ) {
-
             Box(Modifier.fillMaxSize()) {
 
                 // RIGHT ACTION RAIL
@@ -467,7 +341,6 @@ fun NoteItem(
                 }
 
 
-                // LEFT SELECT (Radio)
                 // LEFT SELECT (Radio) — smooth appear/disappear
                 androidx.compose.animation.AnimatedVisibility(
                     visible = selectionMode,
@@ -493,7 +366,7 @@ fun NoteItem(
 
 
 
-                // ✅ IMAGES BADGE — PRO (slightly bigger everywhere)
+                //  IMAGES BADGE — PRO (slightly bigger everywhere)
                 if (imagesCount > 0) {
                     val imgIconSize = when {
                         dense -> 19.dp
@@ -637,7 +510,7 @@ fun NoteItem(
                         }
                         Spacer(Modifier.height(afterTitleSpace))
                     }
-                    val preview = remember(note) { notePreview(note) }   // ✅ cached per note
+                    val preview = remember(note) { notePreview(note) }   //  cached per note
                     val primary = MaterialTheme.colorScheme.primary
 
                     val adaptiveStrength = if (isDark) 0.35f else 0.45f

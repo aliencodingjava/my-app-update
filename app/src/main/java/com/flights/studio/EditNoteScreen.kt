@@ -14,6 +14,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
@@ -46,6 +49,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SplitButtonDefaults
 import androidx.compose.material3.SplitButtonLayout
+import androidx.compose.material3.SplitButtonShapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -63,16 +67,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -115,7 +128,16 @@ fun EditNoteScreen(
     onBack: () -> Unit,
     onSave: (note: String, title: String, images: List<Uri>, wantsReminder: Boolean) -> Unit
 ) {
+
+    val pageBg = LocalAppPageBg.current
+    val pageBackdrop = rememberLayerBackdrop {
+        drawRect(pageBg)
+        drawContent()
+    }
+
+
     val context = LocalContext.current
+    val topBarBackdrop = rememberLayerBackdrop()
 
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -159,7 +181,7 @@ fun EditNoteScreen(
         )
     }
     // 🔁 inverted system bar logic
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = isSystemInDarkTheme()
     val view = LocalView.current
 
     SideEffect {
@@ -262,7 +284,7 @@ fun EditNoteScreen(
         topBar = {
             Surface(
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 1.dp
             ) {
                 CenterAlignedTopAppBar(
@@ -282,6 +304,87 @@ fun EditNoteScreen(
                         var saving by rememberSaveable { mutableStateOf(false) }
                         val canSave = note.isNotBlank()
 
+                        val isDark = isSystemInDarkTheme()
+                        val scheme = MaterialTheme.colorScheme
+
+                        // ✅ Glass
+                        val glassFill = scheme.surfaceVariant.copy(alpha = if (isDark) 0.35f else 0.25f)
+                        val glassContent = scheme.onSurface
+
+                        // ✅ kill Material container (prevents “2 shapes” flash)
+                        val btnColors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,
+                            contentColor = glassContent,
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = glassContent.copy(alpha = 0.40f)
+                        )
+
+                        // --- pressed tracking (hoisted) ---
+                        val leadIS = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                        val trailIS = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                        val leadPressed by leadIS.collectIsPressedAsState()
+                        val trailPressed by trailIS.collectIsPressedAsState()
+
+                        // ✅ smooth press morph (prevents 1-frame square)
+                        val leadPressT by animateFloatAsState(
+                            targetValue = if (leadPressed) 1f else 0f,
+                            animationSpec = androidx.compose.animation.core.tween(90),
+                            label = "editLeadPressT"
+                        )
+                        val trailPressT by animateFloatAsState(
+                            targetValue = if (trailPressed) 1f else 0f,
+                            animationSpec = androidx.compose.animation.core.tween(90),
+                            label = "editTrailPressT"
+                        )
+
+                        // ✅ right-only morph (menu open)
+                        val shapeT by animateFloatAsState(
+                            targetValue = if (menuOpen) 1f else 0f,
+                            label = "editSplitShapeT"
+                        )
+
+                        fun lerpDp(a: Dp, b: Dp, t: Float): Dp = a + (b - a) * t
+
+                        val outer = 50.dp
+                        val innerClosed = 5.dp
+                        val innerOpen = 24.dp
+                        val pressedInner = 14.dp
+
+                        // base inner when menu opens
+                        val rightInnerBase = lerpDp(innerClosed, innerOpen, shapeT)
+
+                        // ✅ EFFECTIVE inners (press morph blended smoothly)
+                        val leftInner = lerpDp(innerClosed, pressedInner, leadPressT)
+                        val rightInner = lerpDp(rightInnerBase, pressedInner, trailPressT)
+                        val hlColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+
+
+                        // ✅ EFFECTIVE shapes (single source of truth)
+                        val leftEffectiveShape = RoundedCornerShape(
+                            topStart = outer,
+                            bottomStart = outer,
+                            topEnd = leftInner,
+                            bottomEnd = leftInner
+                        )
+
+                        val rightEffectiveShape = RoundedCornerShape(
+                            topStart = rightInner,
+                            bottomStart = rightInner,
+                            topEnd = outer,
+                            bottomEnd = outer
+                        )
+
+                        // ✅ Kill SplitButton internal morphs + kill default checked CircleShape
+                        val leftShapes = SplitButtonShapes(
+                            shape = leftEffectiveShape,
+                            pressedShape = leftEffectiveShape,
+                            checkedShape = leftEffectiveShape
+                        )
+                        val rightShapes = SplitButtonShapes(
+                            shape = rightEffectiveShape,
+                            pressedShape = rightEffectiveShape,
+                            checkedShape = rightEffectiveShape
+                        )
 
                         SplitButtonLayout(
                             leadingButton = {
@@ -315,7 +418,27 @@ fun EditNoteScreen(
                                                 saving = false
                                             }
                                         }
-                                    }
+                                    },
+                                    colors = btnColors,
+                                    shapes = leftShapes,
+                                    interactionSource = leadIS,
+                                    modifier = Modifier
+                                        .clip(leftEffectiveShape) // ✅ clip always matches ripple/pressed
+                                        .drawBackdrop(
+                                            backdrop = topBarBackdrop,
+                                            shape = { leftEffectiveShape }, // ✅ glass follows same shape
+                                            shadow = null,
+                                            highlight = {
+                                                Highlight(
+                                                    width = 0.50.dp,
+                                                    blurRadius = 1.dp,
+                                                    alpha = 0.96f,
+                                                    style = HighlightStyle.Plain(color = hlColor)
+                                                )
+                                            },
+                                            effects = { blur(radius = 8f.dp.toPx(), edgeTreatment = TileMode.Clamp) },
+                                            onDrawSurface = { drawRect(glassFill) }
+                                        )
                                 ) { Text(if (saving) "Saving…" else "Save") }
                             },
                             trailingButton = {
@@ -327,7 +450,27 @@ fun EditNoteScreen(
                                 SplitButtonDefaults.TrailingButton(
                                     checked = menuOpen,
                                     onCheckedChange = { menuOpen = it },
-                                    enabled = true
+                                    enabled = true,
+                                    colors = btnColors,
+                                    shapes = rightShapes,
+                                    interactionSource = trailIS,
+                                    modifier = Modifier
+                                        .clip(rightEffectiveShape) // ✅ clip always matches ripple/pressed
+                                        .drawBackdrop(
+                                            backdrop = topBarBackdrop,
+                                            shape = { rightEffectiveShape }, // ✅ glass follows same shape
+                                            shadow = null,
+                                            highlight = {
+                                                Highlight(
+                                                    width = 0.50.dp,
+                                                    blurRadius = 1.dp,
+                                                    alpha = 0.96f,
+                                                    style = HighlightStyle.Plain(color = hlColor)
+                                                )
+                                            },
+                                            effects = { blur(radius = 8f.dp.toPx(), edgeTreatment = TileMode.Clamp) },
+                                            onDrawSurface = { drawRect(glassFill) }
+                                        )
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.KeyboardArrowDown,
@@ -383,117 +526,47 @@ fun EditNoteScreen(
             }
         }
     ) { padding ->
-
         Box(
             Modifier
                 .fillMaxSize()
-                .blur(if (showInstagramDialog) 8.dp else 0.dp) // ✅ BLUR WHOLE SCREEN
-                .background(
-                    if (showInstagramDialog)
-                        Color.Black.copy(alpha = 0.0f)   // ✨ light glass haze
-                    else
-                        Color.Transparent
-                )
-                .padding(padding)
-                .imePadding()
-                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .background(pageBg)
+                .layerBackdrop(pageBackdrop) // ✅ record ONCE (important)
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            // ✅ same grid pattern background (NO layerBackdrop here)
+            ProfileBackdropImageLayer(
+                modifier = Modifier.matchParentSize(),
+                lightRes = R.drawable.lightgridpattern,
+                darkRes = R.drawable.darkgridpattern,
+                imageAlpha = if (isDark) 1f else 0.8f,
+                scrimDark = 0f,
+                scrimLight = 0f
+            )
+
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .blur(if (showInstagramDialog) 8.dp else 0.dp) // ✅ BLUR WHOLE SCREEN
+                    .background(
+                        if (showInstagramDialog)
+                            Color.Black.copy(alpha = 20.0f)   // ✨ light glass haze
+                        else
+                            Color.Transparent
+                    )
+                    .padding(padding)
+                    .imePadding()
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
-                // ✅ PINNED images (fixed, not scroll)
-                if (images.isNotEmpty()) {
-                    Surface(
-                        modifier = Modifier,
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shadowElevation = 1.dp
-                    ) {
-                        Column(Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Images (${images.size})",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(Modifier.weight(1f))
-                                Text(
-                                    text = "Reorder",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f)
-                                )
-                            }
 
-                            Spacer(Modifier.size(10.dp))
-
-                            ReorderableImageRow(
-                                images = images,
-                                onRemove = { uri -> images.remove(uri) }
-
-                            ) { uri -> previewUri = uri }
-
-
-                            // ✅ open dialog
-                            val actions = rememberInstagramPreviewActions(
-                                context = context,
-                                noteProvider = { note },
-
-                                onRotate = { uri ->
-                                    scope.launch {
-                                        val out = rotate90AndSaveNewFile(context, uri) ?: return@launch
-                                        val newUri = Uri.fromFile(out)
-
-                                        val idx = images.indexOf(uri)
-                                        if (idx >= 0) images[idx] = newUri else images.add(newUri)
-                                        previewUri = newUri
-
-                                    }
-                                },
-
-                                onReplace = { uri ->
-                                    replaceTargetUri = uri
-                                    replacePicker.launch(arrayOf("image/*"))
-                                },
-
-                                onRemove = { uri ->
-                                    images.remove(uri)
-                                    previewUri = null
-                                }
-                            )
-
-
-                            InstagramPreviewOverlay(
-                                uri = previewUri,
-                                onDismiss = { previewUri = null },
-                                onShare = actions.onShare,
-                                onShareWithNote = actions.onShareWithNote,
-                                onRotate = actions.onRotate,
-                                onReplace = actions.onReplace,
-                                onRemove = actions.onRemove
-                            )
-
-                        }
-
-                    }
-
-                }
-
-
-                // ✅ ONLY the content below scrolls
-                androidx.compose.foundation.lazy.LazyColumn(
+                Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item {
-                        // --- TITLE card
+                    // ✅ PINNED images (fixed, not scroll)
+                    if (images.isNotEmpty()) {
                         Surface(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier,
                             shape = RoundedCornerShape(18.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            color = MaterialTheme.colorScheme.surface,
                             shadowElevation = 1.dp
                         ) {
                             Column(Modifier.padding(14.dp)) {
@@ -502,54 +575,13 @@ fun EditNoteScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Title",
+                                        text = "Images (${images.size})",
                                         style = MaterialTheme.typography.labelLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Spacer(Modifier.weight(1f))
                                     Text(
-                                        text = "Optional",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.70f
-                                        )
-                                    )
-                                }
-
-                                Spacer(Modifier.size(4.dp))
-
-                                OutlinedTextField(
-                                    value = title,
-                                    onValueChange = { title = it },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(14.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    item {
-                        // --- NOTE card
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shadowElevation = 1.dp
-                        ) {
-                            Column(Modifier.padding(14.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Write your note",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(Modifier.weight(1f))
-                                    Text(
-                                        text = "${note.length}",
+                                        text = "Reorder",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
                                             alpha = 0.70f
@@ -559,19 +591,152 @@ fun EditNoteScreen(
 
                                 Spacer(Modifier.size(10.dp))
 
-                                OutlinedTextField(
-                                    value = note,
-                                    onValueChange = { note = it },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    minLines = 6,
-                                    shape = RoundedCornerShape(14.dp)
+                                ReorderableImageRow(
+                                    images = images,
+                                    onRemove = { uri -> images.remove(uri) }
+
+                                ) { uri -> previewUri = uri }
+
+
+                                // ✅ open dialog
+                                val actions = rememberInstagramPreviewActions(
+                                    context = context,
+                                    noteProvider = { note },
+
+                                    onRotate = { uri ->
+                                        scope.launch {
+                                            val out = rotate90AndSaveNewFile(context, uri)
+                                                ?: return@launch
+                                            val newUri = Uri.fromFile(out)
+
+                                            val idx = images.indexOf(uri)
+                                            if (idx >= 0) images[idx] = newUri else images.add(
+                                                newUri
+                                            )
+                                            previewUri = newUri
+
+                                        }
+                                    },
+
+                                    onReplace = { uri ->
+                                        replaceTargetUri = uri
+                                        replacePicker.launch(arrayOf("image/*"))
+                                    },
+
+                                    onRemove = { uri ->
+                                        images.remove(uri)
+                                        previewUri = null
+                                    }
                                 )
+
+
+                                InstagramPreviewOverlay(
+                                    uri = previewUri,
+                                    onDismiss = { previewUri = null },
+                                    onShare = actions.onShare,
+                                    onShareWithNote = actions.onShareWithNote,
+                                    onRotate = actions.onRotate,
+                                    onReplace = actions.onReplace,
+                                    onRemove = actions.onRemove
+                                )
+
                             }
+
                         }
+
                     }
 
-                    // bottom padding so keyboard doesn't feel cramped
-                    item { Spacer(Modifier.size(18.dp)) }
+
+                    // ✅ ONLY the content below scrolls
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            // --- TITLE card
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(18.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                shadowElevation = 1.dp
+                            ) {
+                                Column(Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Title",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(Modifier.weight(1f))
+                                        Text(
+                                            text = "Optional",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                alpha = 0.70f
+                                            )
+                                        )
+                                    }
+
+                                    Spacer(Modifier.size(4.dp))
+
+                                    OutlinedTextField(
+                                        value = title,
+                                        onValueChange = { title = it },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(14.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        item {
+                            // --- NOTE card
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(18.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                shadowElevation = 1.dp
+                            ) {
+                                Column(Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Write your note",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Spacer(Modifier.weight(1f))
+                                        Text(
+                                            text = "${note.length}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                alpha = 0.70f
+                                            )
+                                        )
+                                    }
+
+                                    Spacer(Modifier.size(10.dp))
+
+                                    OutlinedTextField(
+                                        value = note,
+                                        onValueChange = { note = it },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        minLines = 6,
+                                        shape = RoundedCornerShape(14.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // bottom padding so keyboard doesn't feel cramped
+                        item { Spacer(Modifier.size(18.dp)) }
+                    }
                 }
             }
         }

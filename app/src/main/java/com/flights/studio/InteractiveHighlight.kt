@@ -24,7 +24,15 @@ class InteractiveHighlight(
     val position: (size: Size, offset: Offset) -> Offset = { _, offset -> offset }
 ) {
 
-    private val pressProgressAnimationSpec = spring(stiffness = 140f, dampingRatio = 0.95f, visibilityThreshold = 0.001f)
+    private val pressInSpec =
+        spring(stiffness = 900f, dampingRatio = 0.90f, visibilityThreshold = 0.001f)
+
+    private val pressOutSpec =
+        spring(stiffness = 450f, dampingRatio = 0.95f, visibilityThreshold = 0.001f)
+
+
+
+
     private val positionAnimationSpec = spring(stiffness = 110f, dampingRatio = 0.92f, visibilityThreshold = Offset.VisibilityThreshold)
 
 
@@ -105,7 +113,8 @@ class InteractiveHighlight(
                     startPosition = down.position
                     animationScope.launch {
                         launch {
-                            pressProgressAnimation.animateTo(1f, pressProgressAnimationSpec)
+                            pressProgressAnimation.stop()
+                            pressProgressAnimation.animateTo(1f, pressInSpec)
                         }
                         launch {
                             positionAnimation.snapTo(startPosition)
@@ -115,7 +124,8 @@ class InteractiveHighlight(
                 onDragEnd = {
                     animationScope.launch {
                         launch {
-                            pressProgressAnimation.animateTo(0f, pressProgressAnimationSpec)
+                            pressProgressAnimation.stop()
+                            pressProgressAnimation.animateTo(0f, pressOutSpec)
                         }
                         launch {
                             positionAnimation.animateTo(startPosition, positionAnimationSpec)
@@ -125,7 +135,8 @@ class InteractiveHighlight(
                 onDragCancel = {
                     animationScope.launch {
                         launch {
-                            pressProgressAnimation.animateTo(0f, pressProgressAnimationSpec)
+                            pressProgressAnimation.stop()
+                            pressProgressAnimation.animateTo(0f, pressOutSpec)
                         }
                         launch {
                             positionAnimation.animateTo(startPosition, positionAnimationSpec)

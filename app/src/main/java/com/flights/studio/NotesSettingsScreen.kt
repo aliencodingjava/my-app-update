@@ -17,8 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -113,7 +111,7 @@ fun NotesSettingsScreen(
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 shadowElevation = 1.dp,
-                tonalElevation = 0.dp
+                tonalElevation = 1.dp
             ) {
                 CenterAlignedTopAppBar(
                     navigationIcon = {
@@ -150,10 +148,11 @@ fun NotesSettingsScreen(
 
             // -------------------- Layout Card --------------------
             item {
-                Card(
+                Surface(
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 1.dp
                 ) {
                     Column(
                         Modifier.padding(14.dp),
@@ -229,10 +228,11 @@ fun NotesSettingsScreen(
 
             // -------------------- Badges Card --------------------
             item {
-                Card(
+                Surface(
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 1.dp
                 ) {
                     Column(
                         Modifier.padding(14.dp),
@@ -287,10 +287,11 @@ fun NotesSettingsScreen(
             }
             // -------------------- Suggestions Card --------------------
             item {
-                Card(
+                Surface(
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 1.dp
                 ) {
                     Column(
                         Modifier.padding(14.dp),
@@ -369,10 +370,11 @@ fun NotesSettingsScreen(
 
             // -------------------- Sort Card --------------------
             item {
-                Card(
+                Surface(
                     shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
-                    elevation = CardDefaults.cardElevation(1.dp)
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp,
+                    shadowElevation = 1.dp
                 ) {
                     Column(
                         Modifier.padding(14.dp),

@@ -92,12 +92,18 @@ fun OpenSplashBackdropScaffold(
         ) {
             // ✅ Background written into the same globalBackdrop
             // NOTE: CirclesBackground is defined elsewhere (keep only ONE copy in the project)
-            CirclesBackground(
+            val isDark = isSystemInDarkTheme()
+
+            ProfileBackdropImageLayer(
                 modifier = Modifier
                     .fillMaxSize()
-                    .layerBackdrop(globalBackdrop)
+                    .layerBackdrop(globalBackdrop),
+                lightRes = R.drawable.light_grid_pattern,
+                darkRes = R.drawable.dark_grid_pattern,
+                imageAlpha = if (isDark) 1f else 0.8f,
+                scrimDark = 0f,
+                scrimLight = 0f
             )
-
             // ✅ Foreground samples from the same globalBackdrop
             content(globalBackdrop)
         }

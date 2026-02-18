@@ -11,12 +11,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -391,7 +395,21 @@ private fun IosPlayerScreen(
     val duration = totalDurationSeconds.coerceAtLeast(0f)
     val safeCurrent = currentSecond.coerceIn(0f, if (duration > 0f) duration else 0f)
     val progress01 = if (duration > 0f) (safeCurrent / duration).coerceIn(0f, 1f) else 0f
+    val enterProgressAnimation = remember { Animatable(0f) }      // can go <0 or >1
+    val safeEnterProgressAnimation = remember { Animatable(0f) }  // clamped 0..1
 
+    LaunchedEffect(isMenuVisible) {
+        val target = if (isMenuVisible) 1f else 0f
+        // keep it snappy when toggled by button
+        enterProgressAnimation.animateTo(
+            targetValue = target,
+            animationSpec = spring(dampingRatio = 0.82f, stiffness = 520f)
+        )
+        safeEnterProgressAnimation.animateTo(
+            targetValue = target,
+            animationSpec = spring(dampingRatio = 0.86f, stiffness = 420f)
+        )
+    }
     LaunchedEffect(progress01, isUserSeeking) {
         if (!isUserSeeking) sliderValue = progress01
     }
@@ -498,14 +516,10 @@ private fun IosPlayerScreen(
             }
         )
 
-        val menuFrac by animateFloatAsState(
-            targetValue = if (isMenuVisible) 1f else 0f,
-            animationSpec = spring(
-                dampingRatio = 0.82f, // less bounce
-                stiffness = 520f      // snappy
-            ),
-            label = "menuFrac"
-        )
+        val safeMenuFrac by remember { derivedStateOf { safeEnterProgressAnimation.value } }
+
+        val maxDragHeight = 900f // tweak: bigger = heavier, smaller = more elastic
+
 
 
         val switchAlpha by animateFloatAsState(
@@ -587,14 +601,57 @@ private fun IosPlayerScreen(
             }
         )
 
-        if (menuFrac > 0.001f) {
+        val menuDrag = Modifier.draggable(
+            state = rememberDraggableState { delta ->
+                // drag UP opens (delta negative), drag DOWN closes (delta positive)
+                val target = enterProgressAnimation.value - (delta / maxDragHeight)
+
+                scope.launch {
+                    launch { enterProgressAnimation.snapTo(target) }
+                    launch { safeEnterProgressAnimation.snapTo(target.coerceIn(0f, 1f)) }
+                }
+            },
+            orientation = Orientation.Vertical,
+            onDragStopped = { velocity ->
+                // decide end state
+                val target = when {
+                    velocity < -300f -> 1f      // fling UP opens
+                    velocity > 300f -> 0f       // fling DOWN closes
+                    else -> if (enterProgressAnimation.value < 0.5f) 0f else 1f
+                }
+
+                isMenuVisible = target == 1f
+
+                scope.launch {
+                    launch {
+                        enterProgressAnimation.animateTo(
+                            targetValue = target,
+                            animationSpec = spring(dampingRatio = 0.78f, stiffness = 380f),
+                            initialVelocity = (-velocity / maxDragHeight)
+                        )
+                    }
+                    launch {
+                        safeEnterProgressAnimation.animateTo(
+                            targetValue = target,
+                            animationSpec = spring(dampingRatio = 0.86f, stiffness = 360f)
+                        )
+                    }
+                }
+            }
+        )
+
+        if (safeMenuFrac > 0.001f) {
             JhVideoMenuExpressive(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(bottom = controlsBarHeight + controlsBottomInset + menuGap),
+                    .padding(bottom = controlsBarHeight + controlsBottomInset + menuGap)
+                    .then(menuDrag),
                 backdrop = sceneBackdrop,
-                menuFrac = menuFrac,
+
+                // ✅ use SAFE for alpha and internal visuals
+                menuFrac = safeMenuFrac,
+
                 rows = menuRows,
                 videoCount = videoRows.size,
                 selectedVideoId = pendingVideoId ?: selectedVideoId,
@@ -620,7 +677,7 @@ private fun IosPlayerScreen(
                             val next = likesRepo.toggleLike(id)
                             likesMap = likesMap.toMutableMap().apply { put(id, next) }
                         } catch (t: Throwable) {
-                            t.printStackTrace() // <-- see the REAL reason it fails (RLS/auth/etc)
+                            t.printStackTrace()
                             likesMap = likesMap.toMutableMap().apply { put(id, prev.copy(isLoading = false)) }
                         }
                     }
@@ -633,6 +690,7 @@ private fun IosPlayerScreen(
                         p.play(); isPlaying = true
                     }
                 },
+
                 onPick = { _, id ->
                     if (pendingVideoId == id) return@JhVideoMenuExpressive
                     pendingVideoId = id
@@ -810,7 +868,7 @@ private fun JhVideoMenuExpressive(
     val maxStretchPx = with(density) { 140.dp.toPx() }
     val resistance = 0.55f
 
-    val stretch = remember { androidx.compose.animation.core.Animatable(0f) }
+    val stretch = remember { Animatable(0f) }
 
     val hasScrolledDown by remember { derivedStateOf { listState.canScrollBackward } }
     val isAtBottom by remember { derivedStateOf { isScrollable && hasScrolledDown && !listState.canScrollForward } }
@@ -862,6 +920,10 @@ private fun JhVideoMenuExpressive(
             .graphicsLayer {
                 translationY = stretch.value * 0.25f
                 alpha = menuFrac
+                val over = (menuFrac - 1f).coerceAtLeast(0f)
+                scaleX = 1f - 0.04f * over
+                scaleY = 1f + 0.04f * over
+
                 translationY += (1f - menuFrac) * 6f.dp.toPx()
             }
             .drawBackdrop(backdrop = backdrop, shape = { outerShape }, shadow = null, highlight = {

@@ -145,15 +145,15 @@ fun FlightsGlassScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()          // ✅ correct bottom inset (instead of +16dp hack)
+                .navigationBarsPadding()
                 .padding(horizontal = 30.dp)
-                .height(64.dp),                   // ✅ match LiquidBottomTabs back plate height
+                .height(64.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val actionSize = 60.dp
             val gap = 12.dp
 
-            // ✅ PILL takes remaining width
+            //  PILL takes remaining width
             BottomTabs(
                 tabs = FlightsTab.entries,
                 selectedTabState = uiTab,
@@ -173,7 +173,7 @@ fun FlightsGlassScreen(
 
             Spacer(Modifier.width(gap))
 
-            // ✅ FAB is separated BUT in the same row/layer as tabs
+            //  FAB is separated BUT in the same row/layer as tabs
             LiquidFab(
                 backdrop = backdrop,
                 isDark = isDark,
@@ -247,13 +247,15 @@ fun LiquidFab(
     isInteractive: Boolean,
     interactiveHighlight: InteractiveHighlight,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    tint: Color = Color.Unspecified
 ) {
     Box(
         modifier = modifier
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { CircleShape },
+                shadow = null,
                 highlight = {
                     if (isDark) {
                         Highlight(
@@ -273,10 +275,10 @@ fun LiquidFab(
                 },
                 effects = {
                     vibrancy()
-                    blur(if (isDark) 4.dp.toPx() else 8.dp.toPx())
+                    blur(if (isDark) 2.dp.toPx() else 2.dp.toPx())
                     lens(
-                        refractionHeight = 8.dp.toPx(),
-                        refractionAmount = if (isDark) 38.dp.toPx() else 48.dp.toPx(),
+                        refractionHeight = 24.dp.toPx(),
+                        refractionAmount = if (isDark) 24.dp.toPx() else 24.dp.toPx(),
                         depthEffect = true
                     )
                     colorControls(brightness = 0.0f, contrast = 1.0f, saturation = 1.5f)
@@ -318,10 +320,17 @@ fun LiquidFab(
                 } else null,
                 onDrawBehind = { drawRect(Color.Black, blendMode = BlendMode.Clear) },
                 onDrawSurface = {
-                    val color = if (surfaceColor.isSpecified) surfaceColor
-                    else Color.White.copy(alpha = if (isDark) 0.10f else 0.28f)
-                    drawRect(color)
+                    if (isDark) drawRect(Color.Black.copy(alpha = 0.10f))
+
+                    if (tint.isSpecified) {
+                        drawRect(tint, blendMode = BlendMode.Hue)
+                        drawRect(tint.copy(alpha = 0.65f))
+                    }
+                    if (surfaceColor.isSpecified) {
+                        drawRect(surfaceColor)
+                    }
                 }
+
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)

@@ -36,9 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -479,12 +477,12 @@ private fun EditProfileScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
 
-            // Avatar card
-            ElevatedCard(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
-                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
-                colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent)
+                color = Color.Transparent,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp
             ) {
                 val shape = RoundedCornerShape(28.dp)
                 Box(

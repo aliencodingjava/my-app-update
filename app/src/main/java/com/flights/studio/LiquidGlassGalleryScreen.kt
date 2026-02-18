@@ -13,6 +13,7 @@ import android.provider.OpenableColumns
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -104,6 +105,7 @@ fun LiquidGlassGalleryScreen(
     imageUrls: List<String>,
     startIndex: Int = 0,
 ) {
+    val isDark = isSystemInDarkTheme()
     val view = LocalView.current
     val ctx = view.context
     val haptic = LocalHapticFeedback.current
@@ -134,13 +136,30 @@ fun LiquidGlassGalleryScreen(
     val pillGlass = Modifier.drawBackdrop(
         backdrop = bottomTabsBackdrop,
         shape = { CircleShape },
-        highlight = null,
+        highlight = {
+            if (isDark) {
+                Highlight(
+                    width = 0.45.dp,
+                    blurRadius = 1.6.dp,
+                    alpha = 0.50f,
+                    style = HighlightStyle.Plain
+                )
+            } else {
+                Highlight(
+                    width = 0.30.dp,
+                    blurRadius = 1.0.dp,
+                    alpha = 0.95f,
+                    style = HighlightStyle.Plain
+                )
+            }
+        },
+        shadow = null,
         effects = {
             vibrancy()
-            blur(2.dp.toPx())
+            blur(1.dp.toPx())
             lens(
                 refractionHeight = 8.dp.toPx(),
-                refractionAmount = 48.dp.toPx(),
+                refractionAmount = 24.dp.toPx(),
                 depthEffect = true,
                 chromaticAberration = false
             )
@@ -151,13 +170,30 @@ fun LiquidGlassGalleryScreen(
     val iconButtonGlass = Modifier.drawBackdrop(
         backdrop = bottomTabsBackdrop,
         shape = { CircleShape },
-        highlight = null,
+        highlight = {
+            if (isDark) {
+                Highlight(
+                    width = 0.45.dp,
+                    blurRadius = 1.6.dp,
+                    alpha = 0.50f,
+                    style = HighlightStyle.Plain
+                )
+            } else {
+                Highlight(
+                    width = 0.30.dp,
+                    blurRadius = 1.0.dp,
+                    alpha = 0.95f,
+                    style = HighlightStyle.Plain
+                )
+            }
+        },
+        shadow = null,
         effects = {
             vibrancy()
-            blur(2.dp.toPx())
+            blur(1.dp.toPx())
             lens(
-                refractionHeight = 8.dp.toPx(),
-                refractionAmount = 48.dp.toPx(),
+                refractionHeight =8.dp.toPx(),
+                refractionAmount = 24.dp.toPx(),
                 depthEffect = true,
                 chromaticAberration = false
             )
@@ -314,7 +350,7 @@ fun LiquidGlassGalleryScreen(
             val textShadow = Shadow(
                 color = Color.Black.copy(alpha = 1f),
                 offset = Offset(0f, 3f),
-                blurRadius = 6f
+                blurRadius = 2f
             )
 
             Text(
@@ -336,7 +372,7 @@ fun LiquidGlassGalleryScreen(
     // ✅ INFO BOTTOM SHEET (thumbnail + clean info)
     if (infoOpen) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+        val isDark = isSystemInDarkTheme()
 
         val sheetTint = if (isDark) {
             Color.Black.copy(alpha = 0.24f)
@@ -378,7 +414,7 @@ fun LiquidGlassGalleryScreen(
                         },
                         effects = {
                             vibrancy()
-                            blur(18.dp.toPx())
+                            blur(8.dp.toPx())
                             lens(
                                 refractionHeight = 14.dp.toPx(),
                                 refractionAmount = 60.dp.toPx(),
@@ -421,29 +457,41 @@ private fun GalleryExpressiveMenuAnchored(
     if (!expanded || anchorBounds == null) return
     val density = LocalDensity.current
 
-    val positionProvider = remember(anchorBounds, density) {
+    val anchorRect = anchorBounds // <-- this is your menuAnchorBounds from onGloballyPositioned
+
+    val positionProvider = remember(anchorRect, density) {
         object : PopupPositionProvider {
             override fun calculatePosition(
-                anchorBounds: IntRect,
+                anchorBounds: IntRect, // IGNORE (Compose might pass full-window)
                 windowSize: IntSize,
                 layoutDirection: LayoutDirection,
                 popupContentSize: IntSize
             ): IntOffset {
                 val marginPx = with(density) { 8.dp.roundToPx() }
+                val liftPx = with(density) { 70.dp.roundToPx() } // tweak
 
-                var x = anchorBounds.right - popupContentSize.width
+                var x = anchorRect.right - popupContentSize.width
                 x = x.coerceIn(marginPx, windowSize.width - popupContentSize.width - marginPx)
 
-                var y = anchorBounds.bottom + marginPx
+                // default: below anchor, but lifted
+                var y = anchorRect.bottom + marginPx - liftPx
+
+                // if it would go off bottom, place above anchor
                 if (y + popupContentSize.height > windowSize.height - marginPx) {
-                    y = anchorBounds.top - popupContentSize.height - marginPx
+                    y = anchorRect.top - popupContentSize.height - marginPx - liftPx
                 }
-                y = y.coerceIn(marginPx, windowSize.height - popupContentSize.height - marginPx)
+
+                // allow up to top
+                y = y.coerceIn(
+                    0,
+                    windowSize.height - popupContentSize.height - marginPx
+                )
 
                 return IntOffset(x, y)
             }
         }
     }
+
 
     // Build a dynamic list so shapes indices are always correct.
     data class Action(
@@ -563,7 +611,7 @@ private fun ImageInfoSheetContentStyled(
     onShare: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = isSystemInDarkTheme()
 
     val cardFill = if (isDark) {
         Color.White.copy(alpha = 0.18f)

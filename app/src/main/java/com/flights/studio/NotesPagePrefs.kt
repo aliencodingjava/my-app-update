@@ -49,7 +49,6 @@ data class NotesPageSettings(
 
     fun Context.readNotesPageSettings(): NotesPageSettings {
         val sp = getSharedPreferences(NotesPagePrefs.NAME, Context.MODE_PRIVATE)
-        @Suppress("KotlinConstantConditions")
         return NotesPageSettings(
             compact = sp.getBoolean(NotesPagePrefs.KEY_COMPACT, false),
             twoColumns = sp.getBoolean(NotesPagePrefs.KEY_TWO_COLUMNS, false),

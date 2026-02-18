@@ -45,7 +45,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -57,6 +58,8 @@ import androidx.core.view.WindowCompat
 import coil.compose.SubcomposeAsyncImage
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ViewNoteComposeActivity : ComponentActivity() {
 
@@ -192,11 +195,14 @@ private fun ViewNoteScreen(
     onOpenImages: (urls: List<String>, startIndex: Int) -> Unit,
 ) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
-
-    val uris: List<Uri> = remember(uid) {
-        if (uid.isNullOrBlank()) emptyList()
-        else NoteMediaStore.getUris(ctx, uid)
+    val uris by produceState(
+        initialValue = emptyList(),
+        key1 = uid
+    ) {
+        value = if (uid.isNullOrBlank()) emptyList()
+        else withContext(Dispatchers.IO) { NoteMediaStore.getUris(ctx, uid) }
     }
+
 
     val canEdit = !uid.isNullOrBlank()
 

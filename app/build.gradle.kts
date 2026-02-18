@@ -45,7 +45,6 @@ java {
 android {
     namespace = "com.flights.studio"
     compileSdk = 36
-    buildToolsVersion = "35.0.0"
 
     buildFeatures {
         compose = true   // ← enable Compose
@@ -75,10 +74,10 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 232
-        versionName = "0.2.228"
+        versionCode = 233
+        versionName = "0.2.229"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Feb-11-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Feb-17-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
@@ -174,7 +173,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt:3.3.0")
 
     // ----- AndroidX Core -----
-    implementation("androidx.activity:activity:1.12.3")
+    implementation("androidx.activity:activity:1.12.4")
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.appcompat:appcompat-resources:1.7.1")
@@ -186,17 +185,17 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.11.1")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
     implementation("androidx.camera.viewfinder:viewfinder-core:1.5.3")
-    implementation("androidx.compose.foundation:foundation-layout:1.10.2")
+    implementation("androidx.compose.foundation:foundation-layout:1.10.3")
     implementation("androidx.compose.material3:material3:1.4.0")
 
     // ----- Jetpack Compose -----
 
-    implementation("androidx.activity:activity-compose:1.12.3")
+    implementation("androidx.activity:activity-compose:1.12.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
 
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material3:material3:1.5.0-alpha13")
+    implementation("androidx.compose.material3:material3:1.5.0-alpha14")
 
 
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.10.0")
@@ -207,7 +206,7 @@ dependencies {
     // ----- Imaging -----
     implementation("com.github.bumptech.glide:glide:5.0.5")
     implementation("com.google.android.gms:play-services-contextmanager:9.4.0")
-    implementation("androidx.compose.animation:animation-core:1.10.2")
+    implementation("androidx.compose.animation:animation-core:1.10.3")
     implementation("me.saket.telephoto:zoomable-image-glide:0.18.0")
 
 //    kapt("com.github.bumptech.glide:compiler:5.0.5") // ⬅️ not annotationProcessor
@@ -240,7 +239,7 @@ dependencies {
 //    implementation("com.google.firebase:firebase-analytics-ktx")
 //    implementation("com.google.firebase:firebase-database-ktx")
     implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
-    implementation(platform("androidx.compose:compose-bom:2026.01.01"))
+    implementation(platform("androidx.compose:compose-bom:2026.02.00"))
 
     implementation("com.google.firebase:firebase-analytics:23.0.0")
     implementation("com.google.firebase:firebase-database:22.0.1")
@@ -295,7 +294,7 @@ dependencies {
     implementation("androidx.dynamicanimation:dynamicanimation:1.1.0")
 
     // ----- AndroidLiquidGlass (Backdrop) -----
-    implementation("io.github.kyant0:backdrop:1.0.5")
+    implementation("io.github.kyant0:backdrop:1.0.6")
     implementation("io.github.kyant0:capsule:2.1.3")
 
     implementation("sh.calvin.reorderable:reorderable:3.0.0")
@@ -311,12 +310,12 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.10.2")
-    implementation("androidx.compose.ui:ui-graphics:1.10.2")
-    implementation("androidx.compose.ui:ui:1.10.2")
-    implementation("androidx.compose.animation:animation:1.10.2")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.10.2")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.10.2")
+    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.10.3")
+    implementation("androidx.compose.ui:ui-graphics:1.10.3")
+    implementation("androidx.compose.ui:ui:1.10.3")
+    implementation("androidx.compose.animation:animation:1.10.3")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.10.3")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.10.3")
     runtimeOnly("androidx.compose.material:material-icons-core:1.7.8")
 
     implementation("com.squareup.retrofit2:retrofit:3.0.0")

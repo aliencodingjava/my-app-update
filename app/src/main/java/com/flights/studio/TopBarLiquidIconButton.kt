@@ -1,9 +1,12 @@
+@file:Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+
 package com.flights.studio
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,15 +36,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.util.fastCoerceAtMost
-import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -57,7 +63,15 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.tanh
+import androidx.compose.ui.util.lerp as lerpFloat
 
+
+// -------------------------
+// Pill Actions
+// - Fix 1: when pressing X, bubble does NOT "fly back" -> it hides instantly for that close
+// - Fix 2: optional icon offsets for centering (because assets often have uneven padding)
+// - Fix 3: haptic vibration + micro shake when split starts
+// -------------------------
 @Composable
 fun TopLeftPillActions(
     modifier: Modifier = Modifier,
@@ -80,8 +94,13 @@ fun TopLeftPillActions(
     val scope = rememberCoroutineScope()
     val pillHighlight = remember(scope) { InteractiveHighlight(animationScope = scope) }
 
+    val haptic = LocalHapticFeedback.current
+
     var exitRevealed by rememberSaveable { mutableStateOf(false) }
     var lastTarget by remember { mutableStateOf(false) }
+
+    // ✅ NEW: once user taps X, hide its bubble so it doesn't animate back into the pill
+    var exitClicked by remember { mutableStateOf(false) }
 
     // Sizes
     val slot: Dp = 52.dp
@@ -93,16 +112,22 @@ fun TopLeftPillActions(
     val splitActive = splitAnim.value > 0.001f
     val gapDp = splitGap * splitAnim.value
 
-    // Pill width does NOT grow during split (otherwise it looks like “expanding again”)
+    // Pill width does NOT grow during split
     val pillWidth: Dp = lerp(collapsedWidth, expandedWidth, p)
+
+    // --- micro shake when split starts (visual snap) ---
+    val splitShake = remember { Animatable(0f) }
 
     // Animation driver: expand/collapse, then split pulse after fully expanded
     LaunchedEffect(exitRevealed) {
         val expanding = exitRevealed
         lastTarget = expanding
 
-        // Always reset split when state changes
+        // Reset split when state changes
         splitAnim.snapTo(0f)
+
+        // Reset click state when opening again
+        if (expanding) exitClicked = false
 
         // 1) Expand / collapse
         morph.animateTo(
@@ -122,6 +147,14 @@ fun TopLeftPillActions(
                 animationSpec = tween(140, easing = CubicBezierEasing(0.18f, 0.92f, 0.20f, 1.00f))
             )
 
+            // ✅ HAPTIC + SHAKE right at split start
+            haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) // ✅ single snap
+
+
+            // micro shake (2 quick pulses)
+            splitShake.snapTo(1f)
+            splitShake.animateTo(0f, tween(340, easing = FastOutSlowInEasing))
+
             delay(5000)
 
             // reunify
@@ -130,7 +163,6 @@ fun TopLeftPillActions(
                 animationSpec = tween(260, easing = FastOutSlowInEasing)
             )
 
-            // small beat so the reunify is visible
             delay(120)
 
             // collapse animation
@@ -157,13 +189,16 @@ fun TopLeftPillActions(
     val stretchX = 1f + 0.20f * tear
     val squishY = 1f - 0.16f * tear
 
-
+    // Split shake offset (very small)
+    val shakePx = 2.0f * splitShake.value
+    val shakeX = shakePx * sin(splitShake.value * 18f)
 
     // ---- RENDER ----
     Box(
         modifier = modifier
             .height(50.dp)
             .width(pillWidth)
+            .offset(x = with(LocalDensity.current) { shakeX.toDp() })
     ) {
         if (!splitActive) {
             // ✅ ONE pill (normal state)
@@ -216,7 +251,7 @@ fun TopLeftPillActions(
                                 val height = size.height
 
                                 val press = pillHighlight.pressProgress
-                                val base = lerp(1f, 1f + 6.dp.toPx() / height, press)
+                                val base = lerpFloat(1f, 1f + 6.dp.toPx() / height, press)
 
                                 val maxOffset = size.minDimension
                                 val k = 0.03f
@@ -264,13 +299,17 @@ fun TopLeftPillActions(
                     PillIconSlot(
                         slotWidth = slot,
                         iconRes = backIconRes,
-                        onClick = { exitRevealed = !exitRevealed }
+                        onClick = {
+                            exitClicked = false
+                            exitRevealed = !exitRevealed
+                        }
                     )
 
                     PillIconSlot(
                         slotWidth = slot,
                         iconRes = menuIconRes,
                         onClick = {
+                            exitClicked = false
                             exitRevealed = false
                             onMenu()
                         }
@@ -283,7 +322,12 @@ fun TopLeftPillActions(
                         slotWidth = slot,
                         iconRes = exitIconRes,
                         enabled = exitEnabled,
+                        bubbleMode = if (exitClicked) BubbleMode.Hide else BubbleMode.Normal,
+                        // ✅ no manual offsets now
+                        iconOffsetX = 0.dp,
+                        iconOffsetY = 0.dp,
                         onClick = {
+                            exitClicked = true
                             exitRevealed = false
                             onExit()
                         },
@@ -294,6 +338,7 @@ fun TopLeftPillActions(
                             translationX = slide
                         }
                     )
+
                 }
             }
         } else {
@@ -351,13 +396,15 @@ fun TopLeftPillActions(
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp
             ) {
-                // Just place two slots manually (no 3-child layout)
                 Box(Modifier.fillMaxSize()) {
                     Box(Modifier.width(slot).fillMaxHeight()) {
                         PillIconSlot(
                             slotWidth = slot,
                             iconRes = backIconRes,
-                            onClick = { exitRevealed = !exitRevealed }
+                            onClick = {
+                                exitClicked = false
+                                exitRevealed = !exitRevealed
+                            }
                         )
                     }
                     Box(
@@ -370,6 +417,7 @@ fun TopLeftPillActions(
                             slotWidth = slot,
                             iconRes = menuIconRes,
                             onClick = {
+                                exitClicked = false
                                 exitRevealed = false
                                 onMenu()
                             }
@@ -431,11 +479,19 @@ fun TopLeftPillActions(
                 shadowElevation = 0.dp
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    // In split state we keep bubble hidden for exit for clean look
+                    val exitIconOffsetX = 0.5.dp
+                    val exitIconOffsetY = (-0.5).dp
+
                     PillIconSlot(
                         slotWidth = slot,
                         iconRes = exitIconRes,
                         enabled = true,
+                        bubbleMode = BubbleMode.Hide,
+                        iconOffsetX = exitIconOffsetX,
+                        iconOffsetY = exitIconOffsetY,
                         onClick = {
+                            exitClicked = true
                             exitRevealed = false
                             onExit()
                         }
@@ -445,21 +501,15 @@ fun TopLeftPillActions(
         }
     }
 }
-private fun bglassTint(isDark: Boolean): Pair<Color, Color?> {
-    return if (isDark) {
-        // Dark mode: lift luminance slightly so icons pop
-        val base = Color.White.copy(alpha = 0.26f)
-        val contrast = Color.Black.copy(alpha = 0.03f)
-        base to contrast
-    } else {
-        // Light mode: add subtle depth without muddying
-        val base = Color.White.copy(alpha = 0.55f)
-        val contrast = Color.Black.copy(alpha = 0.03f)
-        base to contrast
-    }
-}
 
+// -------------------------
+// Bubble behavior
+// -------------------------
+private enum class BubbleMode { Normal, Freeze, Hide }
 
+// -------------------------
+// Icon slot with optional offsets + bubble mode
+// -------------------------
 @Composable
 private fun PillIconSlot(
     slotWidth: Dp,
@@ -467,6 +517,9 @@ private fun PillIconSlot(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    bubbleMode: BubbleMode = BubbleMode.Normal,
+    iconOffsetX: Dp = 0.dp,
+    iconOffsetY: Dp = 0.dp,
 ) {
     val isDark = isSystemInDarkTheme()
     val interaction = remember { MutableInteractionSource() }
@@ -475,20 +528,52 @@ private fun PillIconSlot(
     val hovered by interaction.collectIsHoveredAsState()
     val active = enabled && (pressed || hovered)
 
-    val pressAlpha by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (active) 1f else 0f,
-        animationSpec = tween(120, easing = FastOutSlowInEasing),
+    val bubbleTarget = when (bubbleMode) {
+        BubbleMode.Hide -> 0f
+        BubbleMode.Freeze -> 1f
+        BubbleMode.Normal -> if (active) 1f else 0f
+    }
+
+    val pressAlpha by animateFloatAsState(
+        targetValue = bubbleTarget,
+        animationSpec = if (bubbleMode == BubbleMode.Hide) {
+            tween(durationMillis = 0)          // ✅ instant disappear
+        } else {
+            tween(120, easing = FastOutSlowInEasing)
+        },
         label = "pressAlpha"
     )
 
-    val pressScale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (!enabled) 1f else if (pressed) 1.06f else if (hovered) 1.03f else 1.0f,
+    val pressScale by animateFloatAsState(
+        targetValue = when {
+            !enabled -> 1f
+            bubbleMode == BubbleMode.Hide -> 1f
+            pressed -> 1.06f
+            hovered -> 1.03f
+            else -> 1.0f
+        },
         animationSpec = tween(160, easing = FastOutSlowInEasing),
         label = "pressScale"
     )
 
     val bubbleColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.10f)
     val iconTint = if (isDark) Color.White.copy(alpha = 0.95f) else Color.Black.copy(alpha = 0.85f)
+
+    val painter = painterResource(iconRes)
+    val density = LocalDensity.current
+
+    // icon box size you use
+    val iconSize = 24.dp
+    val iconSizePx = with(density) { iconSize.toPx() }
+
+    // painter intrinsic (may differ and cause visual mis-centering)
+    val iw = painter.intrinsicSize.width
+    val ih = painter.intrinsicSize.height
+
+    // Auto centering offset (in PX) -> convert to DP
+    val auto = computePainterCenteringOffset(iw, ih, iconSizePx)
+    val autoDxDp = with(density) { auto.x.toDp() }
+    val autoDyDp = with(density) { auto.y.toDp() }
 
     Box(
         modifier = modifier
@@ -515,10 +600,46 @@ private fun PillIconSlot(
         )
 
         Icon(
-            painter = painterResource(iconRes),
+            painter = painter,
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier
+                .size(iconSize)
+                // ✅ auto-centering cancels intrinsic padding + your manual fine-tune stays
+                .offset(x = autoDxDp + iconOffsetX, y = autoDyDp + iconOffsetY)
         )
     }
 }
+
+private fun bglassTint(isDark: Boolean): Pair<Color, Color?> {
+    return if (isDark) {
+        val base = Color.White.copy(alpha = 0.26f)
+        val contrast = Color.Black.copy(alpha = 0.03f)
+        base to contrast
+    } else {
+        val base = Color.White.copy(alpha = 0.55f)
+        val contrast = Color.Black.copy(alpha = 0.03f)
+        base to contrast
+    }
+}
+
+private fun computePainterCenteringOffset(
+    painterWidth: Float,
+    painterHeight: Float,
+    targetSizePx: Float
+): Offset {
+    // If intrinsic size is unknown, do nothing.
+    if (painterWidth <= 0f || painterHeight <= 0f) return Offset.Zero
+
+    // Scale the intrinsic bounds to targetSizePx
+    val scale = targetSizePx / maxOf(painterWidth, painterHeight)
+    val w = painterWidth * scale
+    val h = painterHeight * scale
+
+    // Center the scaled content inside the target square
+    val dx = (targetSizePx - w) * 0.5f
+    val dy = (targetSizePx - h) * 0.5f
+
+    return Offset(dx, dy)
+}
+

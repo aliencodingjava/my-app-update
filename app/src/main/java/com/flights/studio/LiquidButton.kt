@@ -81,6 +81,7 @@ fun LiquidButton(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { RoundedCornerShape(percent = 50) },
+                shadow = null,
                 highlight = {
                     if (isDark) {
                         Highlight(
@@ -100,10 +101,10 @@ fun LiquidButton(
                 },
                 effects = {
                     vibrancy()
-                    blur(if (isDark) 8.dp.toPx() else 8.dp.toPx())
+                    blur(if (isDark) 1.dp.toPx() else 1.dp.toPx())
                     lens(
-                        refractionHeight = 8.dp.toPx(),
-                        refractionAmount = 28.dp.toPx(),
+                        refractionHeight = 12.dp.toPx(),
+                        refractionAmount = 12.dp.toPx(),
                         depthEffect = true,
                         chromaticAberration = false
                     )
@@ -144,16 +145,27 @@ fun LiquidButton(
                     }
                 } else null,
                 onDrawSurface = {
-                    if (isDark) drawRect(Color.Black.copy(alpha = 0.10f))
 
-                    if (tint.isSpecified) {
-                        drawRect(tint, blendMode = BlendMode.Hue)
-                        drawRect(tint.copy(alpha = 0.65f))
+                    // 1) Base glass surface
+                    val base = when {
+                        surfaceColor.isSpecified -> surfaceColor
+                        isDark -> Color.White.copy(alpha = 0.06f)       // subtle lift in dark
+                        else -> Color.Black.copy(alpha = 0.08f)         // subtle depth in light
                     }
-                    if (surfaceColor.isSpecified) {
-                        drawRect(surfaceColor)
+
+                    drawRect(base)
+
+                    // 2) Balanced tint
+                    if (tint.isSpecified) {
+                        val hueAlpha = if (isDark) 0.35f else 0.16f
+                        val washAlpha = if (isDark) 0.20f else 0.08f
+
+                        drawRect(tint.copy(alpha = hueAlpha), blendMode = BlendMode.Hue)
+                        drawRect(tint.copy(alpha = washAlpha))
                     }
                 }
+
+
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)

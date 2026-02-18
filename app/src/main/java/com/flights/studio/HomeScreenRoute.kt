@@ -762,13 +762,13 @@ fun BottomProgressiveBlurStrip(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(66.dp)
+            .height(76.dp)
             .drawPlainBackdrop(
                 backdrop = backdrop,
                 shape = { RectangleShape },
                 effects = {
-                    vibrancy()
-                    blur(0.dp.toPx())
+//                    vibrancy()
+                    blur(8.dp.toPx())
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
                         effect(

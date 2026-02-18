@@ -637,7 +637,7 @@ class EditNoteActivity : AppCompatActivity() {
            // toolbarView.elevation = if (scrollY > 0) 2f * d else 0f
         }
 
-        // While typing and we're scrolled (showing note title), update it live WITHOUT re-animating every keystroke
+        // While typing, and we're scrolled (showing note title), update it live WITHOUT re-animating every keystroke
         titleEt.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 if (showingNoteTitle && !isAnimating) {
