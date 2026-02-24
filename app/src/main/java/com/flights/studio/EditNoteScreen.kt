@@ -535,8 +535,8 @@ fun EditNoteScreen(
             // ✅ same grid pattern background (NO layerBackdrop here)
             ProfileBackdropImageLayer(
                 modifier = Modifier.matchParentSize(),
-                lightRes = R.drawable.lightgridpattern,
-                darkRes = R.drawable.darkgridpattern,
+                lightRes = R.drawable.light_grid_pattern,
+                darkRes = R.drawable.dark_grid_pattern,
                 imageAlpha = if (isDark) 1f else 0.8f,
                 scrimDark = 0f,
                 scrimLight = 0f

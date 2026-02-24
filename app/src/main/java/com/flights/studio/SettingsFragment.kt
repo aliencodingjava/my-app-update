@@ -55,15 +55,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     }
 
+    private fun openCardDrawer(cardId: String) {
+        val intent = Intent(requireContext(), webviewflightActivity::class.java)
+        intent.putExtra("start_card", cardId)
+        startActivity(intent)
+    }
 
     private fun setupPreferenceListeners() {
         findPreference<Preference>("license")?.setOnPreferenceClickListener {
-            openLicensesScreen()
+            openCardDrawer("licenses")
             true
         }
 
         findPreference<Preference>("privacy_policy")?.setOnPreferenceClickListener {
-            openPrivacyPolicyScreen()
+            openCardDrawer("privacy_policy")
             true
         }
 
@@ -188,15 +193,6 @@ class SettingsFragment : PreferenceFragmentCompat() {
         startActivity(Intent.createChooser(sendIntent, null))
     }
 
-    private fun openLicensesScreen() {
-        val intent = Intent(requireContext(), LicensesActivity::class.java)
-        startActivity(intent)
-    }
-
-    private fun openPrivacyPolicyScreen() {
-        val intent = Intent(requireContext(), PrivacyPolicyActivity::class.java)
-        startActivity(intent)
-    }
 
     private fun showChangelogDialog() {
         val ctx = requireContext()

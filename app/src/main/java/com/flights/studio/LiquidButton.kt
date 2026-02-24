@@ -21,11 +21,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
@@ -36,9 +35,7 @@ import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import kotlin.math.abs
@@ -55,14 +52,15 @@ fun LiquidButton(
     backdrop: LayerBackdrop,
     modifier: Modifier = Modifier,
     isInteractive: Boolean = true,
-    tint: Color = Color.Unspecified,
-    surfaceColor: Color = Color.Unspecified,
-) {
+    ) {
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
     val isDark = isSystemInDarkTheme()
+    val isLightTheme = !isSystemInDarkTheme()
+
+    val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(0.10f) else Color(0xFF1a1a1a).copy(0.01f)
 
     // ✅ single source of truth
     val scales = rememberUiScales()
@@ -81,14 +79,15 @@ fun LiquidButton(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { RoundedCornerShape(percent = 50) },
-                shadow = null,
+                // shadow null please
+//                shadow = null,
                 highlight = {
                     if (isDark) {
                         Highlight(
                             width = 0.45.dp,
                             blurRadius = 1.6.dp,
                             alpha = 0.50f,
-                            style = HighlightStyle.Ambient
+                            style = HighlightStyle.Default
                         )
                     } else {
                         Highlight(
@@ -100,18 +99,24 @@ fun LiquidButton(
                     }
                 },
                 effects = {
-                    vibrancy()
-                    blur(if (isDark) 1.dp.toPx() else 1.dp.toPx())
+//                    colorControls(
+//                        brightness = if (isDark) -0.03f else 0.00f,
+//                        contrast = if (isDark) 1.10f else 0.01f,
+//                        saturation = if (isDark) 1.10f else 1.05f
+//                    )
+
+//                    vibrancy()
+                    // Blur 0 = fine, lens will still work
+                    blur(radius = 0f, edgeTreatment = TileMode.Clamp)
+                    val cornerRadiusPx = size.height / 2f
+                    val safeHeight = cornerRadiusPx * 0.55f
                     lens(
-                        refractionHeight = 12.dp.toPx(),
-                        refractionAmount = 12.dp.toPx(),
+                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                        refractionAmount = (size.minDimension * 0.80f
+                                )
+                            .coerceIn(0f, size.minDimension),
                         depthEffect = true,
                         chromaticAberration = false
-                    )
-                    colorControls(
-                        brightness = 0.0f,
-                        contrast = 1.0f,
-                        saturation = 1.9f
                     )
                 },
                 layerBlock = if (isInteractive) {
@@ -144,26 +149,7 @@ fun LiquidButton(
                                 (height / width).fastCoerceAtMost(1f)
                     }
                 } else null,
-                onDrawSurface = {
-
-                    // 1) Base glass surface
-                    val base = when {
-                        surfaceColor.isSpecified -> surfaceColor
-                        isDark -> Color.White.copy(alpha = 0.06f)       // subtle lift in dark
-                        else -> Color.Black.copy(alpha = 0.08f)         // subtle depth in light
-                    }
-
-                    drawRect(base)
-
-                    // 2) Balanced tint
-                    if (tint.isSpecified) {
-                        val hueAlpha = if (isDark) 0.35f else 0.16f
-                        val washAlpha = if (isDark) 0.20f else 0.08f
-
-                        drawRect(tint.copy(alpha = hueAlpha), blendMode = BlendMode.Hue)
-                        drawRect(tint.copy(alpha = washAlpha))
-                    }
-                }
+                onDrawSurface = { drawRect(containerColor) }
 
 
             )

@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -191,9 +192,21 @@ fun LiquidBottomTabs(
                         }
                     },
                     effects = {
-                        vibrancy()
-                        blur(2.dp.us(ui).toPx())
-                        lens(8.dp.us(ui).toPx(), 48.dp.us(ui).toPx())
+
+                        // Blur 0 = fine, lens will still work
+                        blur(radius = 0f, edgeTreatment = TileMode.Clamp)
+
+                        val cornerRadiusPx = size.height / 2f
+                        val safeHeight = cornerRadiusPx * 0.55f
+
+                        lens(
+                            refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                            refractionAmount = (size.minDimension * 0.80f
+                                    )
+                                .coerceIn(0f, size.minDimension),
+                            depthEffect = true,
+                            chromaticAberration = false
+                        )
                     },
                     layerBlock = {
                         val progress = dampedDragAnimation.pressProgress

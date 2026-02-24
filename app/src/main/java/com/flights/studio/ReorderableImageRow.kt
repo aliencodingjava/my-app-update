@@ -231,9 +231,9 @@ fun ReorderableImageRow(
                                         if (isDark) {
                                             Highlight(
                                                 width = 0.45.dp,
-                                                blurRadius = 1.6.dp,
+                                                blurRadius = 1.dp,
                                                 alpha = 0.50f,
-                                                style = HighlightStyle.Ambient
+                                                style = HighlightStyle.Plain
                                             )
                                         } else {
                                             Highlight(

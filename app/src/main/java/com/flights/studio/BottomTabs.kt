@@ -94,7 +94,6 @@ fun <T> BottomTabs(
         onTabSelected = { idx ->
             val clamped = idx.coerceIn(0, tabs.lastIndex)
             if (clamped != selectedTabIndex) selectedTabIndex = clamped
-
             val tab = tabs[clamped]
             if (selectedTabState.value != tab) selectedTabState.value = tab
         },

@@ -9,7 +9,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -22,6 +25,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,9 +55,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -73,6 +90,8 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.delay
 import java.util.Calendar
 import kotlin.math.abs
@@ -219,6 +238,14 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
 
     OpenSplashBackdropScaffold { backdrop ->
         Box(Modifier.fillMaxSize()) {
+            SplashHeroBar(
+                uiTight = uiTight,
+                backdrop = backdrop,
+                visible = splashState != SplashState.Hidden,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 46.dp, start = 20.dp, end = 20.dp)
+            )
             AnimatedVisibility(
                 visible = isReady,
                 modifier = Modifier
@@ -349,6 +376,9 @@ private fun LiquidGlassRoundIconButton(
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
+    val labelColor = if (isDark) Color.White else Color(0xFF111111)
+    val iconFilter = remember(labelColor) { ColorFilter.tint(labelColor) }
+
 
     Box(
         modifier
@@ -357,19 +387,28 @@ private fun LiquidGlassRoundIconButton(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { RoundedCornerShape(50.dp) },
+                shadow = null,
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.45.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.0.dp,
+                            alpha = 0.35f,
+                            style = HighlightStyle.Plain // very subtle
+                        )
+                    }
+                },
                 effects = {
                     vibrancy()
-
-                    val blurPx = if (isDark) 4.dp.toPx() else 0.dp.toPx()
-                    blur(blurPx)
-
-                    lens(
-                        refractionHeight = 8.dp.toPx(),
-                        refractionAmount = 48.dp.toPx(),
-                        depthEffect = true,
-                        chromaticAberration = false
-                    )
-
+                    blur(2f.dp.toPx())
+                    lens(24f.dp.toPx(), 24f.dp.toPx())
                     colorControls(
                         brightness = 0.0f,
                         contrast = 1.0f,
@@ -463,8 +502,7 @@ private fun LiquidGlassRoundIconButton(
             contentDescription = contentDescription,
             colorFilter = when {
                 tint.isSpecified -> ColorFilter.tint(tint)
-                !isDark -> ColorFilter.tint(Color.Black)
-                else -> null
+                else -> iconFilter
             },
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -485,6 +523,229 @@ private fun ScreenLabel(@StringRes textRes: Int, uiTight: Float) {
         textAlign = TextAlign.Center
     )
 }
+
+//3 bands
+
+fun Modifier.movingTripleBandPacket(
+    enabled: Boolean,                 // TUNE here!!!
+    durationMillis: Int = 2200,      // speed
+    packetWidthFrac: Float = 0.30f, // wide
+    gapFrac: Float = 0.00f,        // gap
+    disabledAlpha: Float = 0.08f, // sides alpha
+    activeAlpha: Float = 0.12f,  // center alpha
+): Modifier = composed {
+
+    if (!enabled) return@composed this
+
+    val isDark = isSystemInDarkTheme()
+
+    val anim = remember { androidx.compose.animation.core.Animatable(0f) }
+
+    LaunchedEffect(Unit) {
+
+        // 🌊 First pass — calm glide
+        anim.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = durationMillis + 300,
+                easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
+            )
+        )
+
+        delay(700) // tighter pause feels more premium
+
+        anim.snapTo(0f)
+
+        // ⚡ Second pass — confident sweep
+        anim.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = durationMillis - 250,
+                easing = CubicBezierEasing(0.4f, 0.0f, 0.2f, 1f)
+            )
+        )
+
+        // 🧊 Soft settle (micro ease-out)
+        anim.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = 250,
+                easing = LinearEasing
+            )
+        )
+    }
+
+    val t = anim.value
+
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithCache {
+
+            val w = size.width
+            val h = size.height
+            val packetW = w * packetWidthFrac
+            val bandW = packetW / 3f
+            val gap = packetW * gapFrac
+
+            val x = -packetW + (w + packetW) * t
+
+            val disabled = if (isDark)
+                Color(0xFFB8C1CC).copy(alpha = disabledAlpha)
+            else
+                Color(0xFF7C8A99).copy(alpha = disabledAlpha * 2.4f)
+
+            val active = if (isDark)
+                Color(0xFFE6ECF5).copy(alpha = activeAlpha)
+            else
+                Color(0xFF4F5D6B).copy(alpha = activeAlpha * 2.0f)
+
+            onDrawWithContent {
+                drawContent()
+                clipRect {
+                    withTransform({
+                        rotate(22f, pivot = Offset(w / 2f, h / 2f))
+                    }) {
+                        val diagonal = kotlin.math.sqrt(w * w + h * h)
+                        val top = -diagonal
+                        val tall = diagonal * 2f
+
+                        var cx = x
+                        drawRect(disabled, Offset(cx, top), Size(bandW, tall), blendMode = BlendMode.Overlay)
+                        cx += bandW + gap
+                        drawRect(active, Offset(cx, top), Size(bandW, tall), blendMode = BlendMode.Overlay)
+                        cx += bandW + gap
+                        drawRect(disabled, Offset(cx, top), Size(bandW, tall), blendMode = BlendMode.Overlay)
+                    }
+                }
+            }
+        }
+}
+
+
+@Composable
+private fun SplashHeroBar(
+    uiTight: Float,
+    backdrop: LayerBackdrop,
+    visible: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+
+    val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val smartLine = remember(hour) {
+        when (hour) {
+            in 5..10 -> "Morning departures"
+            in 11..16 -> "Midday flow"
+            in 17..21 -> "Evening arrivals"
+            else -> "Quiet runway hours"
+        }
+    }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        label = "heroAlpha"
+    )
+
+    val lift by animateDpAsState(
+        targetValue = if (visible) 0.dp else 10.dp,
+        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        label = "heroLift"
+    )
+    val heroShape = RoundedCornerShape(28.dp)
+    Box(
+        modifier = modifier
+            .offset(y = lift)
+            .fillMaxWidth()
+            .alpha(alpha)
+            .height(130.dp)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { heroShape  },
+                shadow = null,
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.45.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.0.dp,
+                            alpha = 0.35f,
+                            style = HighlightStyle.Plain // very subtle
+                        )
+                    }
+                },
+                effects = {
+                    vibrancy()
+                    blur(if (isDark) 6.dp.toPx() else 3.dp.toPx())
+                    lens(12.dp.toPx(), 60.dp.toPx(), depthEffect = true)
+                },
+                onDrawSurface = {
+                    drawRect(
+                        if (isDark)
+                            Color.White.copy(alpha = 0.08f)
+                        else
+                            Color.White.copy(alpha = 0.22f)
+                    )
+                }
+            )
+            .clip(heroShape)
+            .movingTripleBandPacket(
+                enabled = true,
+            )
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            // MAIN TITLE
+            val title = MaterialTheme.typography.headlineMedium
+            Text(
+                text = "Flights Studio",
+                style = title,
+                fontSize = title.fontSize.us(uiTight),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            // SUBTITLE
+            Text(
+                text = "Jackson Hole • JAC",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+
+            // SMART LINE
+            @OptIn(ExperimentalAnimationApi::class)
+            AnimatedContent(
+                targetState = smartLine,
+                transitionSpec = {
+                    (fadeIn(tween(350)) + slideInVertically { it / 4 }) togetherWith
+                            (fadeOut(tween(250)) + slideOutVertically { -it / 4 })
+                },
+                label = "SmartLineTransition"
+            ) { targetText ->
+                Text(
+                    text = targetText,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 12.dp)
+                )
+            }
+        }
+    }
+}
+
+
 
 // -------------------------------------------------------------
 // Navigation

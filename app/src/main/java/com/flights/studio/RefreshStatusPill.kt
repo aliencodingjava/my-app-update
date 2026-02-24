@@ -45,7 +45,6 @@ import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousCapsule
@@ -67,6 +66,8 @@ fun RefreshStatusPill(
 ) {
     val isDark = isSystemInDarkTheme()
     val ui = rememberUiScale()
+    val isLightTheme = !isSystemInDarkTheme()
+    val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(0.30f) else Color(0xFF1a1a1a).copy(0.70f)
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -97,15 +98,6 @@ fun RefreshStatusPill(
 
     // ONLY this decides expanded vs collapsed layout
     val showExpandedLayout = expand && !refreshMoment
-
-    val expressiveProgress by animateFloatAsState(
-        targetValue = if (expand) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "pillExpressiveProgress"
-    )
 
     val secondsLeft = (safeCountdown / 1000L).coerceIn(0L, 99L).toInt()
     val secondsText = remember(secondsLeft) { String.format(Locale.US, "%02d", secondsLeft) }
@@ -164,30 +156,15 @@ fun RefreshStatusPill(
                 shape = { ContinuousCapsule },
                 effects = {
                     vibrancy()
-
-                    val ep = expressiveProgress.coerceIn(0f, 1f)
-
-                    val blurRadius = lerp(1.dp.toPx(), 4.dp.toPx(), ep)
-                    blur(radius = blurRadius, edgeTreatment = TileMode.Decal)
-
-                    val refractionHeight = lerp(6.dp.toPx(), 10.dp.toPx(), ep)
-                    val refractionAmount = lerp(6.dp.toPx(), 14.dp.toPx(), ep)
-
+                    blur(radius = 0f, edgeTreatment = TileMode.Clamp)
+                    val cornerRadiusPx = size.height / 2f
+                    val safeHeight = cornerRadiusPx * 0.55f
                     lens(
-                        refractionHeight = refractionHeight,
-                        refractionAmount = refractionAmount,
+                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                        refractionAmount = (size.minDimension * 0.80f)
+                        .coerceIn(0f, size.minDimension),
                         depthEffect = true,
                         chromaticAberration = false
-                    )
-
-                    val brightness = lerp(0.0f, if (isDark) 0.02f else 0.00f, ep)
-                    val contrast = lerp(1.0f, 1.18f, ep)
-                    val saturation = lerp(1.0f, 1.9f, ep)
-
-                    colorControls(
-                        brightness = brightness,
-                        contrast = contrast,
-                        saturation = saturation
                     )
                 },
                 layerBlock = if (isInteractive) {
@@ -225,12 +202,7 @@ fun RefreshStatusPill(
                         scaleY = pressDragScaleY
                     }
                 } else null,
-                onDrawSurface = {
-                    val baseTint = if (isDark) Color.Black.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.06f)
-                    val warmTint = if (isDark) Color(0xFFFFD54F).copy(alpha = 0.10f) else Color(0xFFFFD54F).copy(alpha = 0.06f)
-                    drawRect(baseTint)
-                    drawRect(warmTint)
-                }
+                onDrawSurface = { drawRect(containerColor) }
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
@@ -243,7 +215,7 @@ fun RefreshStatusPill(
             .padding(horizontal = horizontalPaddingDp.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val progressYellow = if (isDark) Color(0xFFFFD54F) else Color(0xFFFFC107)
+        val progressYellow = if (isDark) Color(0xFFFFFFFF) else Color(0xFF1a1a1a)
 
         LinearProgressIndicator(
             progress = { animatedProgress },

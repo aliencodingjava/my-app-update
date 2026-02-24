@@ -137,23 +137,20 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
         }
 
         setContent {
-            val isDark = isSystemInDarkTheme()
-            val view = LocalView.current
+            val profileThemeModeState = rememberSaveable { mutableIntStateOf(userPrefs.profileThemeMode) }
+            var isLoggedIn by rememberSaveable { mutableStateOf(userPrefs.isLoggedIn) }
 
-            SideEffect {
-                val window = (view.context as Activity).window
-                WindowCompat.getInsetsController(window, view).apply {
-                    isAppearanceLightStatusBars = !isDark
-                    isAppearanceLightNavigationBars = !isDark
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val obs = LifecycleEventObserver { _, e ->
+                    if (e == Lifecycle.Event.ON_RESUME) {
+                        val v = userPrefs.isLoggedIn
+                        if (v != isLoggedIn) isLoggedIn = v
+                    }
                 }
+                lifecycleOwner.lifecycle.addObserver(obs)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
             }
-
-            // ✅ you MUST keep this
-            val profileThemeModeState =
-                rememberSaveable { mutableIntStateOf(userPrefs.profileThemeMode) }
-
-            // ⚠️ keep as you had; just note this is not reactive (ok for your reinstall issue)
-            val isLoggedIn = remember { userPrefs.isLoggedIn }
 
             val effectiveMode = if (!isLoggedIn) 6 else profileThemeModeState.intValue
 
@@ -161,6 +158,20 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                 if (!isLoggedIn && userPrefs.profileThemeMode != 6) {
                     userPrefs.profileThemeMode = 6
                     profileThemeModeState.intValue = 6
+                }
+            }
+
+            val view = LocalView.current
+            val isDark = when (effectiveMode) {
+                6, 7 -> true
+                else -> isSystemInDarkTheme()
+            }
+
+            SideEffect {
+                val window = (view.context as Activity).window
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = !isDark
+                    isAppearanceLightNavigationBars = !isDark
                 }
             }
 
@@ -203,13 +214,11 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
 
                             if (res.isSuccess && SupabaseAuthRepo.hasSession()) {
                                 userPrefs.isLoggedIn = true
+                                isLoggedIn = true
 
-                                // ✅ default theme after login = Blur
                                 profileThemeModeState.intValue = 3
                                 userPrefs.profileThemeMode = 3
 
-
-                                // apply pending signup info if any
                                 val pendingEmail = userPrefs.pendingEmail
                                 val pendingName = userPrefs.pendingFullName
                                 val pendingPhone = userPrefs.pendingPhone
@@ -241,23 +250,19 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                 return@AuthScreen Result.success(Unit)
                             }
 
-                            // ❌ LOGIN FAILED → normalize error
                             val raw = res.exceptionOrNull()?.message.orEmpty()
                             val msg = raw.lowercase()
 
                             val shortMsg = when {
-                                // Supabase common invalid creds (covers wrong pass + non-existing email)
                                 msg.contains("invalid login credentials") ||
                                         msg.contains("invalid credentials") ||
                                         (msg.contains("invalid") && (msg.contains("email") || msg.contains("password") || msg.contains("login"))) ||
                                         msg.contains("credentials") ->
                                     "Invalid email or password"
 
-                                // Rate limit
                                 msg.contains("rate") || msg.contains("too many") ->
                                     "Too many attempts. Try later."
 
-                                // Email confirmation required (only if Supabase actually returns this)
                                 msg.contains("email not confirmed") || msg.contains("confirm") ->
                                     "Please confirm your email"
 
@@ -274,9 +279,7 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                             )
 
                             Result.failure(IllegalStateException(shortMsg))
-
                         },
-
                         onSignUp = { fullName, phone, email, password, avatarUri ->
                             val e = email.trim()
                             val p = SupabaseProfilesRepo.normalizePhone(phone)
@@ -285,23 +288,22 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                             if (n.isBlank() || p.isBlank() || e.isBlank() || password.isBlank()) {
                                 return@AuthScreen Result.failure(IllegalArgumentException("Fill all fields"))
                             }
-                            val available = runCatching { SupabaseProfilesRepo.isPhoneAvailable(p) }.getOrDefault(false)
+                            val available =
+                                runCatching { SupabaseProfilesRepo.isPhoneAvailable(p) }.getOrDefault(false)
                             if (!available) {
                                 return@AuthScreen Result.failure(IllegalStateException("PHONE_TAKEN"))
                             }
                             if (avatarUri != null) {
-                                userPrefs.setPhotoString(avatarUri.toString()) // content://...
+                                userPrefs.setPhotoString(avatarUri.toString())
                                 userPrefs.userInitials = null
                             }
 
-                            // 1) Attempt SIGN UP
                             val signUpRes = SupabaseAuthRepo.signUpWithProfileCheck(
                                 email = e,
                                 password = password,
                                 phone = p
                             )
 
-                            // If signup failed because already registered -> force Login mode
                             if (signUpRes.isFailure) {
                                 val raw = signUpRes.exceptionOrNull()?.message.orEmpty()
                                 val msg = raw.lowercase()
@@ -311,12 +313,12 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                 if (msg.contains("weak_password")) {
                                     return@AuthScreen Result.failure(IllegalArgumentException("WEAK_PASSWORD"))
                                 }
-                                // 0) LOG ALWAYS so you can see what Supabase actually returned
+
                                 Log.e("SIGNUP_FAIL", "raw=$raw", signUpRes.exceptionOrNull())
 
                                 val isWeakPassword =
-                                    msg.contains("weak_password") ||      // underscore variant
-                                            msg.contains("weak password") ||      // space variant (your screenshot shows this)
+                                    msg.contains("weak_password") ||
+                                            msg.contains("weak password") ||
                                             (msg.contains("password") && msg.contains("weak")) ||
                                             (msg.contains("password") && msg.contains("at least") && msg.contains("character")) ||
                                             (msg.contains("password") && msg.contains("minimum")) ||
@@ -325,8 +327,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                     return@AuthScreen Result.failure(IllegalArgumentException("WEAK_PASSWORD"))
                                 }
 
-
-                                // 2) ✅ CONFLICT (only strong signals)
                                 val isConflict =
                                     msg.contains("23505") ||
                                             msg.contains("unique_violation") ||
@@ -341,23 +341,15 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                     return@AuthScreen Result.failure(IllegalStateException("SIGNUP_CONFLICT"))
                                 }
 
-                                // 3) ✅ otherwise generic
                                 return@AuthScreen Result.failure(IllegalStateException("SIGNUP_FAILED"))
                             }
 
-
-
-                            // 2) If confirmations are ON, Supabase often returns NO SESSION.
-                            // Instead of acting like "signup worked again", we try SIGN IN immediately.
                             val sessionAfterSignUp = SupabaseManager.client.auth.currentSessionOrNull()
                             if (sessionAfterSignUp == null) {
-
-                                // Save pending profile info; after login we will upsert profile (your login block already does this)
                                 userPrefs.pendingEmail = e
                                 userPrefs.pendingFullName = n
                                 userPrefs.pendingPhone = p
 
-                                // Try to sign in right now (if account already existed, this succeeds)
                                 val signInRes = SupabaseAuthRepo.signIn(e, password)
                                 if (signInRes.isSuccess && SupabaseAuthRepo.hasSession()) {
                                     userPrefs.isLoggedIn = true
@@ -365,7 +357,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                     return@AuthScreen Result.success(Unit)
                                 }
 
-                                // New account but needs email confirmation
                                 FancyPillToast.show(
                                     activity = this@ProfileDetailsComposeActivity,
                                     text = "Confirm your email, then log in.",
@@ -374,12 +365,10 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                 return@AuthScreen Result.failure(IllegalStateException("SIGNUP_NO_SESSION"))
                             }
 
-                            // 3) We DO have a session -> can create profile + upload avatar
                             val userId = sessionAfterSignUp.user?.id
                                 ?: return@AuthScreen Result.failure(IllegalStateException("NO_USER_ID"))
                             val token = sessionAfterSignUp.accessToken
 
-                            // Upload avatar if chosen (store PATH)
                             var photoPathToStore: String? = null
                             if (avatarUri != null) {
                                 val path = SupabaseStorageUploader.uploadProfilePhotoAndReturnPath(
@@ -392,7 +381,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                 if (!path.isNullOrBlank()) photoPathToStore = path
                             }
 
-                            // Upsert profile (this should NOT crash once your DB rows are clean + unique constraint restored)
                             val profileRes = runCatching {
                                 SupabaseProfilesRepo.upsertMyProfile(
                                     fullName = n,
@@ -401,25 +389,18 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                     bio = null,
                                     birthday = null
                                 )
-
                             }
 
                             if (profileRes.isFailure) {
-                                // If you still hit this, your table has conflicting rows (same email on another id)
                                 FancyPillToast.show(
                                     activity = this@ProfileDetailsComposeActivity,
                                     text = "Could not save profile. Try again.",
                                     durationMs = 3000L
                                 )
-                                Log.e(
-                                    "PROFILE_SAVE",
-                                    "Profile save failed",
-                                    profileRes.exceptionOrNull()
-                                )
+                                Log.e("PROFILE_SAVE", "Profile save failed", profileRes.exceptionOrNull())
                                 return@AuthScreen Result.failure(IllegalStateException("PROFILE_SAVE_FAILED"))
                             }
 
-                            // Store photo path into DB
                             if (!photoPathToStore.isNullOrBlank()) {
                                 runCatching {
                                     SupabaseStorageUploader.updateProfilePhotoUrl(
@@ -430,7 +411,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                 }
                             }
 
-                            // Local prefs + go back to profile
                             userPrefs.userName = n
                             userPrefs.userPhone = p
                             userPrefs.userEmail = e
@@ -441,7 +421,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                 userPrefs.userInitials = null
                             }
 
-                            // Clear pending (not needed anymore)
                             userPrefs.pendingEmail = null
                             userPrefs.pendingFullName = null
                             userPrefs.pendingPhone = null
@@ -451,8 +430,7 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                             Log.d("AVATAR", "prefs.userPhotoUriString=${userPrefs.userPhotoUriString}")
 
                             Result.success(Unit)
-                        }
-,
+                        },
                         onForgotPassword = { prefill ->
                             val e = prefill.trim()
 
@@ -479,7 +457,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                         "Could not send reset email."
                                 }
 
-
                                 FancyPillToast.show(
                                     this@ProfileDetailsComposeActivity,
                                     msg,
@@ -487,7 +464,6 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                                 )
                             }
                         }
-
                     )
                 } else {
                     ProfileDetailsRoute(
@@ -502,7 +478,9 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                             profileThemeModeState.intValue = newMode
                             userPrefs.profileThemeMode = newMode
                         },
-                        onOpenLogin = openAuth // ✅ opens AuthScreen (starts on Login)
+                        onOpenLogin = openAuth,
+                        isLoggedIn = isLoggedIn,
+                        setLoggedIn = { v -> isLoggedIn = v }
                     )
                 }
             }
@@ -582,7 +560,9 @@ private fun ProfileDetailsRoute(
     onNavigateBack: () -> Unit,
     themeMode: Int,
     onThemeModeChange: (Int) -> Unit,
-    onOpenLogin: () -> Unit
+    onOpenLogin: () -> Unit,
+    isLoggedIn: Boolean,
+    setLoggedIn: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     var menuOpen by rememberSaveable { mutableStateOf(false) }
@@ -603,8 +583,6 @@ private fun ProfileDetailsRoute(
             }
         }
 
-
-    val isLoggedIn = userPrefs.isLoggedIn
     val style = LocalProfileBackdropStyle.current
     LaunchedEffect(style) {
         Log.d("PROFILE_STYLE", "style = $style")
@@ -889,15 +867,10 @@ private fun ProfileDetailsRoute(
                 TextButton(
                     onClick = {
                         dismissLogoutDialog()
-
-                        // ✅ logout
                         userPrefs.clear()
-
-                        // ✅ force solid theme after logout
+                        setLoggedIn(false)
                         onThemeModeChange(6)
                         userPrefs.profileThemeMode = 6
-
-                        // ✅ rebuild UI
                         refreshTick += 1
                     }
                 ) {
@@ -1199,7 +1172,8 @@ private fun ProfileDetailsRoute(
                                     val avatarState by produceState(
                                         initialValue = if (rawPhoto.isBlank()) AvatarLoadState.Idle else AvatarLoadState.Loading,
                                         key1 = rawPhoto,
-                                        key2 = refreshTick
+                                        key2 = refreshTick,
+                                        key3 = avatarVersion
                                     ) {
                                         if (rawPhoto.isBlank()) {
                                             value = AvatarLoadState.Idle
@@ -1705,18 +1679,4 @@ private fun InfoRow(
         }
     }
 }
-
-// BottomSheet opener (same behavior as your XML activity)
-//private fun showCreateProfileSheet(
-//    activity: AppCompatActivity,
-//    onProfileSaved: () -> Unit
-//) {
-//    CreateProfileBottomSheetFragment().apply {
-//        arguments = bundleOf("isEdit" to true)
-//        onProfileSavedListener = object :
-//            CreateProfileBottomSheetFragment.OnProfileSavedListener {
-//            override fun onProfileSaved() = onProfileSaved()
-//        }
-//    }.show(activity.supportFragmentManager, "CreateProfileSheet")
-//}
 

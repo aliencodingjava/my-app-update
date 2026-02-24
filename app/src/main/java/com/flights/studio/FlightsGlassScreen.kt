@@ -30,16 +30,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.paint
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
@@ -47,9 +45,7 @@ import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.delay
@@ -82,7 +78,6 @@ fun FlightsGlassScreen(
     showTopArea: Boolean = true,
     isInteractive: Boolean = true,
     backdropOverride: LayerBackdrop? = null,
-    surfaceColor: Color = Color.Unspecified,
 ) {
     val backdrop = backdropOverride ?: rememberLayerBackdrop { drawContent() }
     val isDark = isSystemInDarkTheme()
@@ -117,7 +112,12 @@ fun FlightsGlassScreen(
                     menuIconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
                     exitIconRes = R.drawable.ic_samsung_close,
                     onMenu = { haptics.tick(); onMenu() },
-                    onExit = { haptics.tick(); onBack() } // in this screen, exit can just behave like back
+                    onExit = { haptics.tick(); onBack() },
+
+                    menuExpanded = false,          // ✅ dummy
+                    onMenuDismiss = {},            // ✅ dummy
+                    notesCount = 0,                // ✅ dummy
+                    contactsCount = 0              // ✅ dummy
                 )
             }
         }
@@ -177,7 +177,6 @@ fun FlightsGlassScreen(
             LiquidFab(
                 backdrop = backdrop,
                 isDark = isDark,
-                surfaceColor = surfaceColor,
                 isInteractive = isInteractive,
                 interactiveHighlight = interactiveHighlight,
                 onClick = { haptics.tick(); onFullScreen() },
@@ -243,19 +242,22 @@ fun GlassButtonsGrid(
 fun LiquidFab(
     backdrop: LayerBackdrop,
     isDark: Boolean,
-    surfaceColor: Color,
     isInteractive: Boolean,
     interactiveHighlight: InteractiveHighlight,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    tint: Color = Color.Unspecified
 ) {
+    val isLightTheme = !isSystemInDarkTheme()
+
+    val containerColor =
+        if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
+        else Color(0xFF121212).copy(0.0f)
     Box(
         modifier = modifier
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { CircleShape },
-                shadow = null,
+//                shadow = null,
                 highlight = {
                     if (isDark) {
                         Highlight(
@@ -274,14 +276,21 @@ fun LiquidFab(
                     }
                 },
                 effects = {
-                    vibrancy()
-                    blur(if (isDark) 2.dp.toPx() else 2.dp.toPx())
+
+                    // Blur 0 = fine, lens will still work
+                    blur(radius = 0f, edgeTreatment = TileMode.Clamp)
+
+                    val cornerRadiusPx = size.height / 2f
+                    val safeHeight = cornerRadiusPx * 0.55f
+
                     lens(
-                        refractionHeight = 24.dp.toPx(),
-                        refractionAmount = if (isDark) 24.dp.toPx() else 24.dp.toPx(),
-                        depthEffect = true
+                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                        refractionAmount = (size.minDimension * 0.80f
+                                )
+                            .coerceIn(0f, size.minDimension),
+                        depthEffect = true,
+                        chromaticAberration = false
                     )
-                    colorControls(brightness = 0.0f, contrast = 1.0f, saturation = 1.5f)
                 },
                 layerBlock = if (isInteractive) {
                     {
@@ -318,18 +327,7 @@ fun LiquidFab(
                         scaleY = pressDragScaleY
                     }
                 } else null,
-                onDrawBehind = { drawRect(Color.Black, blendMode = BlendMode.Clear) },
-                onDrawSurface = {
-                    if (isDark) drawRect(Color.Black.copy(alpha = 0.10f))
-
-                    if (tint.isSpecified) {
-                        drawRect(tint, blendMode = BlendMode.Hue)
-                        drawRect(tint.copy(alpha = 0.65f))
-                    }
-                    if (surfaceColor.isSpecified) {
-                        drawRect(surfaceColor)
-                    }
-                }
+                onDrawSurface = { drawRect(containerColor) }
 
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
@@ -341,14 +339,20 @@ fun LiquidFab(
             ),
         contentAlignment = Alignment.Center
     ) {
-        val iconTint = if (isDark) Color.White else Color(0xFF111111)
+        // ✅ EXACT SAME as BottomTabs
+        val labelColor = if (isDark) Color.White else Color(0xFF111111)
+        val iconColorFilter = remember(labelColor) { ColorFilter.tint(labelColor) }
+
         Box(
-            Modifier.size(24.dp).paint(
-                painterResource(R.drawable.fullscreen_24dp_46152f_fill1_wght400_grad0_opsz24),
-                colorFilter = ColorFilter.tint(iconTint)
-            )
+            Modifier
+                .size(28.dp) // same as tabs icon size (tabs uses 28.dp.us(ui); keep 28.dp or use your scale)
+                .paint(
+                    painter = painterResource(R.drawable.fullscreen_24dp_46152f_fill1_wght400_grad0_opsz24),
+                    colorFilter = iconColorFilter
+                )
         )
     }
+
 }
 
 // --- HELPERS ---
@@ -384,15 +388,3 @@ class HapticHelper(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun FlightsGlassScreenPreview() {
-    FlightsGlassScreen(
-        selectedTab = FlightsTab.Curb,   // ✅ pick any default
-        onTabChanged = {},
-        onFullScreen = {},
-        onBack = {},
-        onMenu = {},
-        onOpenCard = {},
-    )
-}

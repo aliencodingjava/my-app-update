@@ -1,4 +1,4 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
     <!-- Base application theme. -->
     <style name="Base.Theme.Test" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowLightStatusBar">false</item>
@@ -6,16 +6,24 @@
         </item>
 
     </style>
+    <style name="SplashTheme" parent="Theme.SplashScreen">
+        <!-- FULL SCREEN -->
+        <item name="android:windowBackground">@color/app_topbar_base</item>
+        <item name="windowSplashScreenBackground">@color/app_topbar_base</item>
 
-    <!-- Theme for SplashActivity in Dark Theme -->
-    <style name="SplashTheme" parent="Base.Theme.Test">
-        <item name="android:statusBarColor">@color/darkSplashStatusBarColor</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="colorBox">@color/colorBoxDark</item>
-        <item name="colorButton">@color/button_color_dark</item>
-        <item name="bottomAppBarColor">@color/colorBoxDark</item>
+        <!-- HIDE ICON -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_transparent</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
 
+        <!-- No title -->
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+
+        <item name="postSplashScreenTheme">@style/Base.Theme.Test</item>
     </style>
+
+
 
     <style name="Theme.Test" parent="Base.Theme.Test">
         <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
@@ -99,6 +107,7 @@
 
     <color name="color_ok_update_alert">#6750A4</color>
     <color name="progress_bar_background">#FEF7FF</color> <!-- Example background color -->
+    <color name="app_topbar_base">#1A1A1A</color>
 
 
     <style name="SnackbarText" parent="TextAppearance.MaterialComponents.Body1">
@@ -172,10 +181,11 @@
         <item name="cornerSize">15dp</item> <!-- Additional customization for the overlay -->
     </style>
 
-    <style name="Theme.Test.AppBarOverlay" parent="ThemeOverlay.AppCompat.DayNight.ActionBar">
-        <item name="android:background">@color/bottom_bar</item> <!-- Background color -->
-        <item name="colorPrimary">@color/bottom_bar</item> <!-- Background for Toolbar/AppBar -->
+    <style name="Theme.Test.AppBarOverlay" parent="ThemeOverlay.Material3.Dark">
+        <item name="android:background">@color/bottom_bar</item>
+        <item name="colorPrimary">@color/bottom_bar</item>
     </style>
+
 
     <!-- ~15% white -->
     <color name="ios_icon">#E6E6E6</color>

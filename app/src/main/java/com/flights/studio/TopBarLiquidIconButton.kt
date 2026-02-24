@@ -7,6 +7,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -51,12 +53,9 @@ import androidx.compose.ui.util.fastCoerceAtMost
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
-import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -82,15 +81,20 @@ fun TopLeftPillActions(
     onMenu: () -> Unit,
     onExit: () -> Unit,
     isInteractive: Boolean = true,
+    menuExpanded: Boolean,
+    onMenuDismiss: () -> Unit,
+    notesCount: Int,
+    contactsCount: Int,
 ) {
     val splitAnim = remember { Animatable(0f) }
     val isDark = isSystemInDarkTheme()
     val morph = remember { Animatable(0f) }
-
+    val isLightTheme = !isSystemInDarkTheme()
     val p = morph.value.coerceIn(0f, 1f)
-    val shape = remember(p) { RightSquirclePillShape(progress = p, minRightRadiusFactor = 0.28f) }
-    val (tint, contrast) = bglassTint(isDark)
-
+    val animatedRadius = lerp(28.dp, 18.dp, p)
+    val shape = RoundedCornerShape(animatedRadius)
+//    val (tint, contrast) = bglassTint(isDark)
+    val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(0.30f) else Color(0xFF1a1a1a).copy(0.70f)
     val scope = rememberCoroutineScope()
     val pillHighlight = remember(scope) { InteractiveHighlight(animationScope = scope) }
 
@@ -141,37 +145,59 @@ fun TopLeftPillActions(
 
         // 2) After fully expanded -> split -> reunify -> collapse
         if (expanding) {
-            // split
+
+            // 🌊 1) SPLIT — elastic but controlled
             splitAnim.animateTo(
                 1f,
-                animationSpec = tween(140, easing = CubicBezierEasing(0.18f, 0.92f, 0.20f, 1.00f))
+                animationSpec = spring(
+                    dampingRatio = 0.80f,
+                    stiffness = 260f
+                )
             )
 
-            // ✅ HAPTIC + SHAKE right at split start
-            haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) // ✅ single snap
+            // 🔔 HAPTIC
+            haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
 
-
-            // micro shake (2 quick pulses)
+            // 💧 2) Liquid drift instead of vibration
             splitShake.snapTo(1f)
-            splitShake.animateTo(0f, tween(340, easing = FastOutSlowInEasing))
+            splitShake.animateTo(
+                0f,
+                animationSpec = spring(
+                    dampingRatio = 1.0f,   // no bounce
+                    stiffness = 140f      // slow dissolve
+                )
+            )
 
-            delay(5000)
+            splitAnim.animateTo(
+                1f,
+                animationSpec = tween(
+                    durationMillis = 5000,
+                    easing = { t ->
+                        // tiny breathing curve
+                        1f - 0.01f * (1f - t)
+                    }
+                )
+            )
 
-            // reunify
+            // 🌊 Liquid reunify
             splitAnim.animateTo(
                 0f,
-                animationSpec = tween(260, easing = FastOutSlowInEasing)
+                animationSpec = spring(
+                    dampingRatio = 0.88f,
+                    stiffness = 55f
+                )
             )
 
-            delay(120)
 
-            // collapse animation
+            // 🫧 4) COLLAPSE — heavy, glassy finish
             morph.animateTo(
                 targetValue = 0f,
-                animationSpec = tween(420, easing = FastOutSlowInEasing)
+                animationSpec = spring(
+                    dampingRatio = 0.95f,
+                    stiffness = 110f
+                )
             )
 
-            // reset state so next tap works
             exitRevealed = false
             lastTarget = false
         }
@@ -190,9 +216,8 @@ fun TopLeftPillActions(
     val squishY = 1f - 0.16f * tear
 
     // Split shake offset (very small)
-    val shakePx = 2.0f * splitShake.value
-    val shakeX = shakePx * sin(splitShake.value * 18f)
-
+    val shakePx = 3.5f * splitShake.value
+    val shakeX = shakePx * (1f - splitShake.value)
     // ---- RENDER ----
     Box(
         modifier = modifier
@@ -230,19 +255,30 @@ fun TopLeftPillActions(
                                 )
                             }
                         },
-                        shadow = null,
+//                        shadow = null,
                         effects = {
-                            colorControls(
-                                brightness = if (isDark) -0.03f else 0.02f,
-                                contrast = if (isDark) 1.10f else 1.05f,
-                                saturation = if (isDark) 1.10f else 1.05f
-                            )
-                            vibrancy()
-                            blur(4f.dp.toPx())
+
+//                            colorControls(
+//                                brightness = if (isDark) -0.03f else 0.02f,
+//                                contrast = if (isDark) 1.10f else 1.05f,
+//                                saturation = if (isDark) 1.10f else 1.05f
+//                            )
+
+//                            vibrancy()
+
+                            // Blur 0 = fine, lens will still work
+                            blur(radius = 0f, edgeTreatment = TileMode.Clamp)
+
+                            val cornerRadiusPx = size.height / 2f
+                            val safeHeight = cornerRadiusPx * 0.55f
+
                             lens(
-                                refractionHeight = 0f.dp.toPx(),
-                                refractionAmount = 0f.dp.toPx(),
-                                depthEffect = true
+                                refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                                refractionAmount = (size.minDimension * 0.80f
+                               )
+                                .coerceIn(0f, size.minDimension),
+                                depthEffect = true,
+                                chromaticAberration = false
                             )
                         },
                         layerBlock = if (isInteractive) {
@@ -274,10 +310,7 @@ fun TopLeftPillActions(
                                             (height / width).fastCoerceAtMost(1f)
                             }
                         } else null,
-                        onDrawSurface = {
-                            drawRect(tint)
-                            contrast?.let { drawRect(it) }
-                        }
+                        onDrawSurface = { drawRect(containerColor) }
                     )
                     .then(if (isInteractive) pillHighlight.modifier else Modifier)
                     .then(if (isInteractive) pillHighlight.gestureModifier else Modifier),
@@ -370,26 +403,23 @@ fun TopLeftPillActions(
                                 )
                             }
                         },
-                        shadow = null,
                         effects = {
-                            colorControls(
-                                brightness = if (isDark) -0.03f else 0.02f,
-                                contrast = if (isDark) 1.10f else 1.05f,
-                                saturation = if (isDark) 1.10f else 1.05f
-                            )
-                            vibrancy()
-                            blur(4f.dp.toPx())
+                            blur(radius = 0f, edgeTreatment = TileMode.Clamp)
+                            val cornerRadiusPx = size.height / 2f
+                            val safeHeight = cornerRadiusPx * 0.55f
+
                             lens(
-                                refractionHeight = 0f.dp.toPx(),
-                                refractionAmount = 0f.dp.toPx(),
-                                depthEffect = true
+                                refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                                refractionAmount = (size.minDimension * 0.80f
+
+                                )
+                                .coerceIn(0f, size.minDimension),
+                                depthEffect = true,
+                                chromaticAberration = false
                             )
                         },
                         layerBlock = null,
-                        onDrawSurface = {
-                            drawRect(tint)
-                            contrast?.let { drawRect(it) }
-                        }
+                        onDrawSurface = { drawRect(containerColor) }
                     ),
                 color = Color.Transparent,
                 shape = pillShape,
@@ -452,26 +482,35 @@ fun TopLeftPillActions(
                                 )
                             }
                         },
-                        shadow = null,
+//                        shadow = null,
                         effects = {
-                            colorControls(
-                                brightness = if (isDark) -0.03f else 0.02f,
-                                contrast = if (isDark) 1.10f else 1.05f,
-                                saturation = if (isDark) 1.10f else 1.05f
-                            )
-                            vibrancy()
-                            blur(4f.dp.toPx())
+
+//                            colorControls(
+//                                brightness = if (isDark) -0.03f else 0.02f,
+//                                contrast = if (isDark) 1.10f else 1.05f,
+//                                saturation = if (isDark) 1.10f else 1.05f
+//                            )
+//
+//                            vibrancy()
+
+                            // Blur 0 = fine, lens will still work
+                            blur(radius = 0f, edgeTreatment = TileMode.Clamp)
+
+                            val cornerRadiusPx = size.height / 2f
+                            val safeHeight = cornerRadiusPx * 0.55f
+
                             lens(
-                                refractionHeight = 0f.dp.toPx(),
-                                refractionAmount = 0f.dp.toPx(),
-                                depthEffect = true
+                                refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                                refractionAmount = (size.minDimension * 0.80f
+
+)
+                                    .coerceIn(0f, size.minDimension),
+                                depthEffect = true,
+                                chromaticAberration = false
                             )
                         },
                         layerBlock = null,
-                        onDrawSurface = {
-                            drawRect(tint)
-                            contrast?.let { drawRect(it) }
-                        }
+                        onDrawSurface = { drawRect(containerColor) }
                     ),
                 color = Color.Transparent,
                 shape = pillShape,
@@ -499,6 +538,12 @@ fun TopLeftPillActions(
                 }
             }
         }
+        FlightsMenuDropdown(
+            expanded = menuExpanded,
+            onDismiss = onMenuDismiss,
+            notesCount = notesCount,
+            contactsCount = contactsCount
+        )
     }
 }
 
@@ -611,17 +656,17 @@ private fun PillIconSlot(
     }
 }
 
-private fun bglassTint(isDark: Boolean): Pair<Color, Color?> {
-    return if (isDark) {
-        val base = Color.White.copy(alpha = 0.26f)
-        val contrast = Color.Black.copy(alpha = 0.03f)
-        base to contrast
-    } else {
-        val base = Color.White.copy(alpha = 0.55f)
-        val contrast = Color.Black.copy(alpha = 0.03f)
-        base to contrast
-    }
-}
+//private fun bglassTint(isDark: Boolean): Pair<Color, Color?> {
+//    return if (isDark) {
+//        val base = Color.White.copy(alpha = 0.26f)
+//        val contrast = Color.Black.copy(alpha = 0.03f)
+//        base to contrast
+//    } else {
+//        val base = Color.White.copy(alpha = 0.55f)
+//        val contrast = Color.Black.copy(alpha = 0.03f)
+//        base to contrast
+//    }
+//}
 
 private fun computePainterCenteringOffset(
     painterWidth: Float,

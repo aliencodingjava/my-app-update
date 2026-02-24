@@ -11,7 +11,7 @@ plugins {
 
     id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.plugin.serialization") version "2.3.10"
-
+    id("kotlin-parcelize")
 }
 
 val props = Properties().apply {
@@ -74,10 +74,10 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 233
-        versionName = "0.2.229"
+        versionCode = 234
+        versionName = "0.2.230"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Feb-17-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Feb-32-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
@@ -187,6 +187,9 @@ dependencies {
     implementation("androidx.camera.viewfinder:viewfinder-core:1.5.3")
     implementation("androidx.compose.foundation:foundation-layout:1.10.3")
     implementation("androidx.compose.material3:material3:1.4.0")
+    implementation("androidx.core:core-splashscreen:1.2.0")
+    implementation("androidx.webkit:webkit:1.15.0")
+
 
     // ----- Jetpack Compose -----
 
@@ -258,7 +261,7 @@ dependencies {
     // ----- Utilities -----
     implementation("com.airbnb.android:lottie:6.7.1")
     implementation("org.apache.commons:commons-text:1.15.0")
-    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.23")
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.24")
     implementation("io.coil-kt:coil:2.7.0")
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")

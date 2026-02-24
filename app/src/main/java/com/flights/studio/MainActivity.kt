@@ -47,15 +47,13 @@ class MainActivity : FragmentActivity() {
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.statusBars()) // ✅ hides time/battery/wifi
+            hide(WindowInsetsCompat.Type.statusBars())
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
         firebaseAnalytics = FirebaseAnalytics.getInstance(this)
         Log.d(TAG_MAIN, "FirebaseAnalytics initialized")
-
-        val activitySelf = this
 
         setContent {
             Log.d(TAG_MAIN, "setContent: root composition ENTER")
@@ -65,11 +63,11 @@ class MainActivity : FragmentActivity() {
 
                 val context = LocalContext.current
 
-                // ---- counts we will SHOW in the bottom sheet ----
+                // counts shown in menu sheet
                 var notesCountForSheet by remember { mutableIntStateOf(0) }
                 var contactsCountForSheet by remember { mutableIntStateOf(0) }
 
-                // --- state: menu bottom sheet visibility ---
+                // menu sheet visibility
                 var showMenuSheet by remember { mutableStateOf(false) }
 
                 fun actuallyExitApp() {
@@ -114,14 +112,12 @@ class MainActivity : FragmentActivity() {
 
                 fun openMenuSheet() {
                     Log.d(TAG_MAIN, "openMenuSheet() called")
-
                     notesCountForSheet = loadNotesCount().also {
                         Log.d(TAG_MAIN, "openMenuSheet(): notesCountForSheet=$it")
                     }
                     contactsCountForSheet = loadContactsCount().also {
                         Log.d(TAG_MAIN, "openMenuSheet(): contactsCountForSheet=$it")
                     }
-
                     showMenuSheet = true
                 }
 
@@ -130,60 +126,31 @@ class MainActivity : FragmentActivity() {
                     showMenuSheet = false
                 }
 
-                fun openFullScreenImages(currentCamUrl: String) {
-                    Log.d(TAG_MAIN, "openFullScreenImages(currentCamUrl=$currentCamUrl)")
-
-                    fun base(u: String) = u.substringBefore("?")
-
-                    val ts = System.currentTimeMillis()
-
-                    val curb =
-                        "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=$ts"
-                    val north =
-                        "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=$ts"
-                    val south =
-                        "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=$ts"
-
-                    val all = listOf(curb, north, south)
-                    val currentBase = base(currentCamUrl)
-                    val first = all.firstOrNull { base(it) == currentBase } ?: curb
-                    val ordered = listOf(first) + all.filter { it != first }
-
-                    val sheet = FullScreenImageBottomSheet.newInstance(
-                        ordered[0], ordered[1], ordered[2]
-                    )
-                    sheet.show(activitySelf.supportFragmentManager, "FullScreenImageBottomSheet")
-                }
-
-                // ✅ Back = close menu if open, else exit immediately (no dialog)
+                // ✅ Back: close menu first, else exit
                 BackHandler {
                     Log.d(TAG_MAIN, "BackHandler: showMenuSheet=$showMenuSheet")
                     if (showMenuSheet) closeMenuSheet() else actuallyExitApp()
                 }
 
-                FlightsBackdropScaffold { globalBackdrop, buttonsBackdrop ->
+                FlightsBackdropScaffold { globalBackdrop, _ ->
 
                     HomeScreenRouteContent(
                         backdrop = globalBackdrop,
-                        openFullScreenImages = { camUrl -> openFullScreenImages(camUrl) },
                         openMenuSheet = { openMenuSheet() },
+                        closeMenuSheet = { closeMenuSheet() },
+                        menuExpanded = showMenuSheet,
+                        notesCount = notesCountForSheet,
+                        contactsCount = contactsCountForSheet,
                         triggerRefreshNow = { newUrl ->
                             Log.d(TAG_MAIN, "triggerRefreshNow(newUrl=$newUrl)")
                         },
                         exitApp = {
                             Log.d(TAG_MAIN, "HomeScreenRouteContent -> exitApp()")
                             actuallyExitApp()
-                        },
-
+                        }
                     )
 
-                    FlightsMenuLiquidSheetModal(
-                        backdrop = buttonsBackdrop,
-                        visible = showMenuSheet,
-                        onDismissRequest = { closeMenuSheet() },
-                        notesCount = notesCountForSheet,
-                        contactsCount = contactsCountForSheet
-                    )
+                    Log.d(TAG_MAIN, "FlightsBackdropScaffold: composition EXIT")
                 }
 
                 Log.d(TAG_MAIN, "MaterialTheme: composition EXIT")

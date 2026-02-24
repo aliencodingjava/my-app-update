@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
@@ -80,13 +79,13 @@ fun TopRightPillActions(
                 },
                 shadow = null,
                 effects = {
-                    colorControls(
-                        brightness = if (isDark) -0.03f else 0.02f,
-                        contrast = if (isDark) 1.10f else 1.05f,
-                        saturation = if (isDark) 1.10f else 1.05f
-                    )
+//                    colorControls(
+//                        brightness = if (isDark) -0.03f else 0.02f,
+//                        contrast = if (isDark) 1.10f else 1.05f,
+//                        saturation = if (isDark) 1.10f else 1.05f
+//                    )
                     vibrancy()
-                    blur(3f.dp.toPx())
+                    blur(0f.dp.toPx())
                     lens(
                         refractionHeight = 10f.dp.toPx(),
                         refractionAmount = 22f.dp.toPx(),

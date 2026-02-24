@@ -9,15 +9,26 @@
 
     </style>
 
+    <style name="SplashTheme" parent="Theme.SplashScreen">
+        <!-- FULL SCREEN -->
+        <item name="android:windowBackground">@color/app_topbar_base</item>
+        <item name="windowSplashScreenBackground">@color/app_topbar_base</item>
 
-    <style name="SplashTheme" parent="Base.Theme.Test">
-        <item name="android:statusBarColor">@color/lightSplashStatusBarColor</item>
-        <item name="colorButton">@color/button_color_light</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="bottomAppBarColor">@color/lightBottomAppBarColor</item>
-        <item name="colorBox">@color/colorBoxLight</item>
+        <!-- HIDE ICON -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_transparent</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <item name="windowSplashScreenAnimationDuration">0</item>
 
+        <!-- No title -->
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+
+        <item name="postSplashScreenTheme">@style/Base.Theme.Test</item>
     </style>
+
+
+
+
 
 
     <style name="Theme.Test" parent="Base.Theme.Test">
@@ -98,6 +109,7 @@
     <color name="ripple_Color">#FF32302A</color>
 
     <color name="item_cards_day_night">#FEF7FF</color>
+    <color name="app_topbar_base">#FAFAFA</color>
 
     <color name="color_ok_update_alert">#6750A4</color>
     <color name="progress_bar_background">#81D4FA</color>

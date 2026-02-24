@@ -145,7 +145,7 @@ private fun rememberProfileBackdropSpec(
     style: ProfileBackdropStyle,
     colors: ColorScheme,
 ): ProfileBackdropSpec {
-    // Decide if we want fancy bg (so glass/blur looks different than solid)
+    // Decide if we want fancy bg (so glass/blur looks different from solid)
     val enableFancy = when (style) {
 
         // 🔒 Flat modes (no blobs / no glass background)
