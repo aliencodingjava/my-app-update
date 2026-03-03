@@ -42,13 +42,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
@@ -58,6 +59,9 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.capsule.ContinuousRoundedRectangle
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.tanh
 
 private const val LIST_PREVIEW_CHARS = 50
@@ -104,29 +108,19 @@ fun NoteItem(
     val titleMaxLines = 1
     val colBottom = if (compact) 6.dp else 10.dp
     val afterTitleSpace = if (compact) 4.dp else 10.dp
-    val shape = RoundedCornerShape(18.dp)
-    val elev = if (selected) 0.dp else 0.dp
-
     val isDark = isSystemInDarkTheme()
     val scheme = MaterialTheme.colorScheme
+    val isLightTheme = !isSystemInDarkTheme()
 
-    val warmBase = Color(0xFFFFFFFF)
-    val warmShade = Color(0xFF000000)
 
 // Container: in light, use warmBase; in dark, keep your dark glass
-    val containerColor = if (isDark) {
-        Color(0xFF121212).copy(alpha = 0.12f)
+    val containerColor = if (isLightTheme) {
+        Color(0xFFFAFAFA).copy(alpha = 0.10f)
     } else {
-        // mix warm base with surface so it still feels Material
-        lerp(scheme.surface, warmBase, 0.55f).copy(alpha = 0.38f)
+        Color(0xFF1a1a1a).copy(alpha = 0.01f)
     }
 
-// Warm tint overlay (IMPORTANT: not scheme.primary)
-    val tintColor = if (isDark) {
-        scheme.primary.copy(alpha = 0.045f) // ok in dark
-    } else {
-        lerp(warmShade, warmBase, 0.65f).copy(alpha = 0.12f) // warm glaze
-    }
+
 
 // Selected overlay should be weaker in light (or it turns “blue paint”)
     val selectedOverlay = if (isDark) {
@@ -134,9 +128,6 @@ fun NoteItem(
     } else {
         scheme.primary.copy(alpha = 0.10f)
     }
-
-
-
 
 
     val adaptiveColor = if (isDark) Color.White else Color.Black
@@ -149,86 +140,92 @@ fun NoteItem(
     val interaction = remember { MutableInteractionSource() }
 
 
-    val interactiveLayer = if (isInteractive) {
-        Modifier
-            .then(interactiveHighlight.gestureModifier)
-            .graphicsLayer {
-                val p = interactiveHighlight.pressProgress
-                val o = interactiveHighlight.offset
 
-                val max = size.minDimension
-                val k = 0.02f
-                val tx = max * tanh(k * o.x / max)
-                val ty = max * tanh(k * o.y / max)
-                translationX = tx
-                translationY = ty
-
-                val base = lerp(1f, 1.02f, p)
-                val stretch = (abs(o.x) + abs(o.y)) / (size.maxDimension.coerceAtLeast(1f))
-                val extra = 0.01f * stretch
-
-                scaleX = base + extra
-                scaleY = base + extra
-            }
-    } else Modifier
 
     //  OUTER ELEVATION WRAPPER (NO clickable here anymore)
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(h)
-            .then(interactiveLayer),
-        shape = shape,
-        color = Color.Transparent,
-        tonalElevation = 0.dp,
-        shadowElevation = elev
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(h)
-                .drawBackdrop(
-                    backdrop = backdrop,
-                    shadow = null,
-                    shape = { ContinuousRoundedRectangle(18f.dp) },
-                    highlight = {
-                        if (isDark) {
-                            Highlight(
-                                width = 0.45.dp,
-                                blurRadius = 1.dp,
-                                alpha = 0.30f,
-                                style = HighlightStyle.Plain
-                            )
-                        } else {
-                            Highlight(
-                                width = 0.45.dp,
-                                blurRadius = 1.dp,
-                                alpha = 0.30f,
-                                style = HighlightStyle.Plain
-                            )
-                        }
-                    },
-                    effects = {
-                        blur(2f.dp.toPx())
-                        lens(24f.dp.toPx(), 24f.dp.toPx())
-                    },
-                    onDrawSurface = {
-                        drawRect(containerColor)
-                        drawRect(tintColor)
-                        if (selected) drawRect(selectedOverlay)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { ContinuousRoundedRectangle(18f.dp) },
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.15.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
                     }
+                },
+                effects = {
+                    blur(8f, edgeTreatment = TileMode.Clamp)
 
+                    val cornerRadiusPx = size.height / 2f
+                    val safeHeight = cornerRadiusPx * 0.15f
 
-                )
-                // ✅ ONLY clickable here (single place)
-                .combinedClickable(
-                    interactionSource = interaction,
-                    indication = null,
-                    role = Role.Carousel,
-                    onClick = onClick,
-                    onLongClick = onLongClick
-                )
-        ) {
+                    lens(
+                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                        refractionAmount = (size.minDimension * 0.65f)
+                            .coerceIn(0f, size.minDimension),
+                        depthEffect = true,
+                        chromaticAberration = false
+                    )
+                },
+                layerBlock = if (isInteractive) {
+                    {
+                        val width = size.width
+                        val height = size.height
+                        val progress = interactiveHighlight.pressProgress
+
+                        val zoomAmountPx = 3.5.dp.toPx()
+                        val scale = lerp(1f, 1f + zoomAmountPx / size.height, progress)
+
+                        val maxOffset = size.minDimension
+                        val k = 0.025f
+                        val offset = interactiveHighlight.offset
+
+                        translationX = maxOffset * tanh(k * offset.x / maxOffset)
+                        translationY = maxOffset * tanh(k * offset.y / maxOffset)
+
+                        val maxDragScale = 1.5.dp.toPx() / size.height
+                        val ang = atan2(offset.y, offset.x)
+
+                        scaleX = scale +
+                                maxDragScale *
+                                abs(cos(ang) * offset.x / size.maxDimension) *
+                                (width / height).fastCoerceAtMost(1f)
+
+                        scaleY = scale +
+                                maxDragScale *
+                                abs(sin(ang) * offset.y / size.maxDimension) *
+                                (height / width).fastCoerceAtMost(1f)
+                    }
+                } else null,
+                onDrawSurface = {
+                    drawRect(containerColor)
+                    if (selected) drawRect(selectedOverlay)
+                }
+            )
+            .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
+            .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+    ) {
             Box(Modifier.fillMaxSize()) {
 
                 // RIGHT ACTION RAIL
@@ -536,4 +533,3 @@ fun NoteItem(
             }
         }
     }
-}

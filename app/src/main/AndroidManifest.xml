@@ -73,11 +73,25 @@
             tools:ignore="DiscouragedApi,LockedOrientationActivity"
             android:exported="false"/>
 
-        <activity
-            android:name=".CardBottomSheetActivity"
-            android:theme="@style/SplashTheme"
+<!--        <activity-->
+<!--            android:name=".CardBottomSheetActivity"-->
+<!--            android:theme="@style/Base.Theme.Test"-->
+<!--            android:hardwareAccelerated="true"-->
+<!--            android:exported="false" />-->
+
+        <activity android:name=".WebviewflightActivity"
             android:hardwareAccelerated="true"
             android:exported="false" />
+
+        <activity
+            android:name=".LiveCamerasActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".PlayerSettingsActivity"
+            android:hardwareAccelerated="true"
+            android:exported="false" />
+
 
         <activity
             android:name=".EditNoteComposeActivity"
@@ -154,9 +168,11 @@
 
         <activity
             android:name=".BackdropPlaygroundActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/SplashTheme">
 
-            <!-- App launcher -->
+
+        <!-- App launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -270,39 +286,13 @@
             android:theme="@style/SplashTheme"
             tools:ignore="DiscouragedApi,LockedOrientationActivity"
             tools:targetApi="tiramisu" />
-<!--        <activity-->
-<!--            android:name=".OpenSplash"-->
-<!--            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"-->
-<!--            android:exported="false"-->
-<!--            android:screenOrientation="portrait"-->
-<!--            android:theme="@style/OpenTheme"-->
-<!--            android:hardwareAccelerated="true"-->
-<!--            tools:ignore="DiscouragedApi,LockedOrientationActivity">-->
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.MAIN" />-->
 
-<!--                <category android:name="android.intent.category.LAUNCHER" />-->
-<!--            </intent-filter>-->
-<!--        </activity>-->
         <activity
             android:name=".QRCodeComposeActivity"
             android:configChanges="keyboardHidden|orientation"
             android:exported="false"
             android:theme="@style/Theme.Test" />
-        <activity
-            android:name=".LicensesActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.Test"
-            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
-        <activity
-            android:name=".PrivacyPolicyActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.Test"
-            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+
 
         <activity
             android:name=".AllContactsActivity"

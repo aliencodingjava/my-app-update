@@ -74,10 +74,10 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 234
-        versionName = "0.2.230"
+        versionCode = 236
+        versionName = "0.2.232"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Feb-32-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Mar-02-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
@@ -166,11 +166,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.10.0")
 
     // ----- Supabase (BOM) -----
-    implementation(platform("io.github.jan-tennert.supabase:bom:3.3.0"))
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.4.1"))
     implementation("io.github.jan-tennert.supabase:supabase-kt")
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt")
-    implementation("io.github.jan-tennert.supabase:storage-kt:3.3.0")
+    implementation("io.github.jan-tennert.supabase:storage-kt:3.4.1")
 
     // ----- AndroidX Core -----
     implementation("androidx.activity:activity:1.12.4")
@@ -185,7 +185,7 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.11.1")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.3.0")
     implementation("androidx.camera.viewfinder:viewfinder-core:1.5.3")
-    implementation("androidx.compose.foundation:foundation-layout:1.10.3")
+    implementation("androidx.compose.foundation:foundation-layout:1.10.4")
     implementation("androidx.compose.material3:material3:1.4.0")
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("androidx.webkit:webkit:1.15.0")
@@ -198,7 +198,7 @@ dependencies {
 
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material3:material3:1.5.0-alpha14")
+    implementation("androidx.compose.material3:material3:1.5.0-alpha15")
 
 
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.10.0")
@@ -209,7 +209,7 @@ dependencies {
     // ----- Imaging -----
     implementation("com.github.bumptech.glide:glide:5.0.5")
     implementation("com.google.android.gms:play-services-contextmanager:9.4.0")
-    implementation("androidx.compose.animation:animation-core:1.10.3")
+    implementation("androidx.compose.animation:animation-core:1.10.4")
     implementation("me.saket.telephoto:zoomable-image-glide:0.18.0")
 
 //    kapt("com.github.bumptech.glide:compiler:5.0.5") // ⬅️ not annotationProcessor
@@ -241,8 +241,8 @@ dependencies {
     // ----- Firebase -----
 //    implementation("com.google.firebase:firebase-analytics-ktx")
 //    implementation("com.google.firebase:firebase-database-ktx")
-    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
-    implementation(platform("androidx.compose:compose-bom:2026.02.00"))
+    implementation(platform("com.google.firebase:firebase-bom:34.10.0"))
+    implementation(platform("androidx.compose:compose-bom:2026.02.01"))
 
     implementation("com.google.firebase:firebase-analytics:23.0.0")
     implementation("com.google.firebase:firebase-database:22.0.1")
@@ -261,7 +261,7 @@ dependencies {
     // ----- Utilities -----
     implementation("com.airbnb.android:lottie:6.7.1")
     implementation("org.apache.commons:commons-text:1.15.0")
-    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.24")
+    implementation("com.googlecode.libphonenumber:libphonenumber:9.0.25")
     implementation("io.coil-kt:coil:2.7.0")
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
@@ -306,19 +306,19 @@ dependencies {
     implementation("androidx.compose.material:material-ripple")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.github.bumptech.glide:compose:1.0.0-beta08")
-    implementation("io.coil-kt.coil3:coil-compose:3.3.0")
-    implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
-    implementation("net.engawapg.lib:zoomable:2.11.0")
+    implementation("io.coil-kt.coil3:coil-compose:3.4.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
+    implementation("net.engawapg.lib:zoomable:2.11.1")
     implementation("androidx.constraintlayout:constraintlayout-compose:1.1.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.10.3")
-    implementation("androidx.compose.ui:ui-graphics:1.10.3")
-    implementation("androidx.compose.ui:ui:1.10.3")
-    implementation("androidx.compose.animation:animation:1.10.3")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.10.3")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.10.3")
+    androidTestImplementation("androidx.compose.ui:ui-test-manifest:1.11.0-alpha06")
+    implementation("androidx.compose.ui:ui-graphics:1.10.4")
+    implementation("androidx.compose.ui:ui:1.10.4")
+    implementation("androidx.compose.animation:animation:1.10.4")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.10.4")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.10.4")
     runtimeOnly("androidx.compose.material:material-icons-core:1.7.8")
 
     implementation("com.squareup.retrofit2:retrofit:3.0.0")

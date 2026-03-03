@@ -34,7 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -50,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
@@ -97,24 +95,62 @@ private fun camBaseUrl(tab: FlightsTab): String = when (tab) {
 @Composable
 fun HomeScreenRouteContent(
     backdrop: LayerBackdrop,
-    openFullScreenImages: (String) -> Unit,
     openMenuSheet: () -> Unit,
     triggerRefreshNow: (String?) -> Unit,
     isInteractive: Boolean = true,
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
     exitApp: () -> Unit,
+    closeMenuSheet: () -> Unit,     // ✅ NEW
+    menuExpanded: Boolean,          // ✅ NEW
+    notesCount: Int,                // ✅ NEW
+    contactsCount: Int,             // ✅ NEW
 ) {
     val activity = LocalActivity.current
     val hostActivity = activity as? FragmentActivity
     val isDark = isSystemInDarkTheme()
     val ui = rememberUiScale()
 
+
+    // ----------------------------
+    // ✅ LIVE CAMERAS OVERLAY STATE (MOVED HERE)
+    // ----------------------------
+    var showLiveCameras by rememberSaveable { mutableStateOf(false) }
+    var liveCameraCards by rememberSaveable {
+        mutableStateOf(
+            listOf(
+                CameraCard("Curb", camBaseUrl(FlightsTab.Curb)),
+                CameraCard("North", camBaseUrl(FlightsTab.North)),
+                CameraCard("South", camBaseUrl(FlightsTab.South)),
+            )
+        )
+    }
+    @Suppress("DEPRECATION")
+    fun openLiveCameras(currentCamUrl: String) {
+        fun base(u: String) = u.substringBefore("?")
+        val ts = System.currentTimeMillis()
+
+        val curb  = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=$ts"
+        val north = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=$ts"
+        val south = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=$ts"
+
+        val all = listOf(
+            CameraCard("Curb", curb),
+            CameraCard("North", north),
+            CameraCard("South", south),
+        )
+
+        val currentBase = base(currentCamUrl)
+        val first = all.firstOrNull { base(it.url) == currentBase } ?: all.first()
+        val ordered = listOf(first) + all.filter { it != first }
+
+        activity?.startActivity(LiveCamerasActivity.intent(activity, ordered))
+        activity?.overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+    }
     var exitRevealed by rememberSaveable { mutableStateOf(false) }
 
     BackHandler {
-        if (!exitRevealed) exitRevealed = true
-        else exitApp()
+        if (!exitRevealed) exitRevealed = true else exitApp()
     }
 
     val animationScope = rememberCoroutineScope()
@@ -320,12 +356,12 @@ fun HomeScreenRouteContent(
         }
 
         fun launchCardScreen(cardId: String) {
-            val i = Intent(activity, CardBottomSheetActivity::class.java).apply {
-                putExtra("CARD_ID", cardId)
+            val i = Intent(activity, WebviewflightActivity::class.java).apply {
+                putExtra("start_card", cardId)
                 putExtra("RETURN_HOME", true)
             }
             activity?.startActivity(i)
-            activity?.  overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+            activity?.overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         }
 
         fun launchPlayerScreen() {
@@ -354,8 +390,13 @@ fun HomeScreenRouteContent(
     val extraScale = 0.006f * sin(camProgress * PI).toFloat()
     val cardScale = 1f + extraScale
     val shape = RoundedCornerShape(16.dp)
-    val themedSurface =
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+
+
+    val themedSurface = if (isDark) {
+        Color(0xFF1A1A1A).copy(alpha = 0.92f)
+    } else {
+        Color(0xFFFDFDFD).copy(alpha = 0.92f)
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -374,11 +415,11 @@ fun HomeScreenRouteContent(
                         .matchParentSize()
 
                         // 1) SHADOW FIRST (this is what will move)
-                        .shadow(
-                            elevation = 0.dp,
-                            shape = shape,
-                            clip = false
-                        )
+//                        .shadow(
+//                            elevation = 0.dp,
+//                            shape = shape,
+//                            clip = false
+//                        )
 
                         // 2) then transform
                         .graphicsLayer {
@@ -459,7 +500,7 @@ fun HomeScreenRouteContent(
                                                 width = 0.45.dp,
                                                 blurRadius = 1.dp,
                                                 alpha = 0.50f,
-                                                style = HighlightStyle.Ambient
+                                                style = HighlightStyle.Plain
                                             )
                                         } else {
                                             Highlight(
@@ -616,52 +657,93 @@ fun HomeScreenRouteContent(
                             .align(Alignment.BottomCenter)
                             .padding(bottom = 15.dp.us(ui))
                     ) {
+
                         Column(
                             modifier = Modifier.graphicsLayer {
-                                // base nudge + our drift + a gentle breathe
-                                translationY = nudge.value + drift + lerp(-1.2f, 1.2f, breathe)
+
+                                // 🔥 stronger vertical breathe
+                                val breatheOffset = lerp(-2.4f, 2.4f, breathe)
+
+                                translationY = nudge.value + drift + breatheOffset
+
+                                // 🔥 slightly stronger pulse
+                                val scalePulse = lerp(0.978f, 1.022f, breathe)
+                                scaleX = scalePulse
+                                scaleY = scalePulse
+
                                 alpha = hintAlpha
                             },
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
-                            // ✅ Premium stagger: each line has slightly different width/alpha
-                            // Also, add subtle shimmer: middle line slightly brighter over time
-                            repeat(3) { i ->
-                                val t = (i / 2f) // 0..1
-                                val lineWidth = lerp(24f, 32f, 1f - abs(t - 0.5f) * 2f).dp
-                                val baseAlpha = lerp(0.70f, 0.92f, 1f - abs(t - 0.5f) * 2f)
 
-                                // shimmer gives a gentle “focus” to the middle line
-                                val shimmerBoost = if (i == 1) lerp(0.0f, 0.10f, shimmer) else 0f
+                            repeat(3) { i ->
+
+                                val position = i / 2f
+                                val centerFactor = 1f - abs(position - 0.5f) * 2f
+
+                                val lineWidth = lerp(22f, 34f, centerFactor).dp
+                                val baseAlpha = lerp(0.65f, 0.95f, centerFactor)
+
+                                val shimmerCurve = shimmer * shimmer * (3 - 2 * shimmer)
+                                val shimmerBoost = if (i == 1) shimmerCurve * 0.16f else 0f
+
+                                // 🔥 stronger depth shift
+                                val depthShift = lerp(-0.9f, 0.9f, breathe) * centerFactor
+
+                                // 🔥 tiny horizontal sway
+                                val horizontalDrift = lerp(-0.6f, 0.6f, breathe) * centerFactor
 
                                 Box(
                                     Modifier
-                                        .size(width = lineWidth.us(ui), height = 2.dp.us(ui))
+                                        .graphicsLayer {
+                                            translationY = depthShift
+                                            translationX = horizontalDrift
+                                        }
+                                        .size(
+                                            width = lineWidth.us(ui),
+                                            height = 3.dp.us(ui)
+                                        )
                                         .clip(CircleShape)
-                                        .background(handleUnder.copy(alpha = 0.22f + shimmerBoost))
+                                        .background(
+                                            handleUnder.copy(
+                                                alpha = (0.18f + shimmerBoost).coerceIn(0f, 1f)
+                                            )
+                                        )
                                         .padding(0.5.dp)
                                         .clip(CircleShape)
-                                        .background(handle.copy(alpha = baseAlpha + shimmerBoost))
+                                        .background(
+                                            handle.copy(
+                                                alpha = (baseAlpha + shimmerBoost).coerceIn(0f, 1f)
+                                            )
+                                        )
                                 )
                             }
 
                             Icon(
                                 imageVector = Icons.Filled.ExpandMore,
                                 contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.80f),
+                                tint = Color.White.copy(alpha = 0.82f),
                                 modifier = Modifier
                                     .size(18.dp.us(ui))
                                     .graphicsLayer {
+
                                         rotationZ = arrowRotation
-                                        // tiny follow drift + breathe
-                                        translationY = (drift * 0.35f) + lerp(-0.6f, 0.6f, breathe)
-                                        alpha = 0.85f
+
+                                        // 🔥 more noticeable float
+                                        translationY =
+                                            (drift * 0.4f) +
+                                                    lerp(-1.6f, 1.6f, breathe)
+
+                                        // 🔥 slightly stronger pulse
+                                        val arrowScale = lerp(0.94f, 1.06f, breathe)
+                                        scaleX = arrowScale
+                                        scaleY = arrowScale
+
+                                        alpha = 0.9f
                                     }
                             )
-                        }
-                    }
-
+                        }                    }
                     // OFFLINE HUD (RESTORED)
                         if (!hasInternet || isUserOffline) {
                             CameraErrorOverlay(
@@ -694,6 +776,10 @@ fun HomeScreenRouteContent(
                         exitIconRes = R.drawable.ic_samsung_close,
                         onMenu = { openMenuSheet() },
                         onExit = { exitApp() },
+                        menuExpanded = menuExpanded,          // ✅
+                        onMenuDismiss = { closeMenuSheet() }, // ✅
+                        notesCount = notesCount,              // ✅
+                        contactsCount = contactsCount,        // ✅
                         modifier = Modifier
                             .zIndex(5f)
                             .align(Alignment.TopStart)
@@ -730,7 +816,7 @@ fun HomeScreenRouteContent(
                     FlightsGlassScreen(
                         selectedTab = currentTab,
                         onTabChanged = { tab -> onTabChangeInternal(tab) },
-                        onFullScreen = { openFullScreenImages(currentCamUrl) },
+                        onFullScreen = { openLiveCameras(currentCamUrl) },
                         onBack = { exitApp() },
                         onMenu = { openMenuSheet() },
                         onOpenCard = { cardId -> openActivityByCard(cardId) },
@@ -740,8 +826,16 @@ fun HomeScreenRouteContent(
                     )
                 }
             }
+            // ✅ LIVE CAMERAS OVERLAY (NOW USED)
+            if (showLiveCameras) {
+                LiveCamerasPage(
+                    cards = liveCameraCards,
+                    onClose = { showLiveCameras = false }
+                )
+            }
         }
     }
+
 }
 
 
@@ -808,10 +902,14 @@ half4 main(float2 coord) {
 fun HomeScreenRouteContentPreview() {
     FlightsTheme {
         val backdrop = rememberLayerBackdrop()
+
         HomeScreenRouteContent(
             backdrop = backdrop,
-            openFullScreenImages = {},
             openMenuSheet = {},
+            closeMenuSheet = {},        // ✅ added
+            menuExpanded = false,       // ✅ added
+            notesCount = 3,             // ✅ fake preview value
+            contactsCount = 5,          // ✅ fake preview value
             triggerRefreshNow = {},
             exitApp = {}
         )

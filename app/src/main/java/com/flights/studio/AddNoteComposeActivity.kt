@@ -597,19 +597,34 @@ private fun AddNoteScreen(
                                             scope.launch {
                                                 saving = true
                                                 try {
-                                                    val finalTitle = if (title.isNotBlank() || !tipEnabled) {
-                                                        title
-                                                    } else {
-                                                        runCatching {
+
+                                                    // ✅ FINAL TITLE LOGIC — GENERATE ONLY IF ABSOLUTELY NEEDED
+                                                    val finalTitle = when {
+                                                        // User manually typed something
+                                                        title.isNotBlank() -> title
+
+                                                        // 👇 Reuse already generated placeholder
+                                                        !aiPlaceholder.isNullOrBlank() -> aiPlaceholder!!
+
+                                                        // 👇 Only generate if tips enabled AND nothing exists yet
+                                                        tipEnabled -> runCatching {
                                                             GeminiTitles.generateTitles(
                                                                 note = note,
                                                                 hasImages = images.isNotEmpty(),
-                                                                currentTitle = title
+                                                                currentTitle = ""
                                                             ).firstOrNull()?.title?.let {
-                                                                enforceMeaningfulTitle(it, note, images.isNotEmpty())
+                                                                enforceMeaningfulTitle(
+                                                                    aiTitle = it,
+                                                                    note = note,
+                                                                    hasImages = images.isNotEmpty()
+                                                                )
                                                             }.orEmpty()
                                                         }.getOrDefault("")
+
+                                                        else -> ""
                                                     }
+
+                                                    // mark as AI only if we actually used AI result
                                                     if (title.isBlank() && finalTitle.isNotBlank()) {
                                                         titleFromAi = true
                                                     }
@@ -623,11 +638,11 @@ private fun AddNoteScreen(
                                                     }
 
                                                     onSave(note, finalTitle, images.toList(), finalWantsReminder)
+
                                                 } finally {
                                                     saving = false
                                                 }
-                                            }
-                                        },
+                                            }                                        },
                                         colors = btnColors,
                                         shapes = leftShapes,
                                         interactionSource = leadIS,
@@ -871,8 +886,8 @@ private fun AddNoteScreen(
             val isDark = isSystemInDarkTheme()
             ProfileBackdropImageLayer(
                 modifier = Modifier.matchParentSize(), // ❌ remove .layerBackdrop(pageBackdrop)
-                lightRes = R.drawable.lightgridpattern,
-                darkRes = R.drawable.darkgridpattern,
+                lightRes = R.drawable.light_grid_pattern,
+                darkRes = R.drawable.dark_grid_pattern,
                 imageAlpha = if (isDark) 1f else 0.8f,
                 scrimDark = 0f,
                 scrimLight = 0f

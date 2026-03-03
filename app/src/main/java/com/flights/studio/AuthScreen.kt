@@ -57,6 +57,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +70,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -81,6 +83,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
@@ -91,6 +94,7 @@ enum class AuthMode { Login, SignUp }
 @Composable
 fun AuthScreen(
     modifier: Modifier = Modifier,
+    startMode: AuthMode = AuthMode.Login,
     onLogin: suspend (email: String, password: String) -> Result<Unit>,
     onSignUp: suspend (
         fullName: String,
@@ -101,12 +105,22 @@ fun AuthScreen(
     ) -> Result<Unit>,
     onForgotPassword: (prefillEmail: String) -> Unit,
 ) {
-    var mode by remember { mutableStateOf(AuthMode.Login) }
+    var mode by remember { mutableStateOf(startMode) }
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
 
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val dark = isSystemInDarkTheme()
+
+    val view = LocalView.current
+
+    SideEffect {
+        val window = (view.context as androidx.activity.ComponentActivity).window
+        val controller = WindowCompat.getInsetsController(window, view)
+
+        // 👇 THIS is the important part
+        controller.isAppearanceLightStatusBars = !dark
+    }
 
     val textScale = rememberUiTight()
 
@@ -655,7 +669,7 @@ fun ForgotPasswordDialogModern(
     // Modern-ish container + your colors
     AlertDialog(
         onDismissRequest = {
-            // Only allow dismiss on first step (so user doesn’t close while “sending”)
+            // Only allow to dismiss on first step (so user doesn’t close while “sending”)
             if (state == ForgotUiState.Confirm) onDismiss()
         },
         containerColor = if (!dark) Color.White else Color(0xFF111526),

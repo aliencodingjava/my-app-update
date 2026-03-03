@@ -135,6 +135,12 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
 
             }
         }
+        val openAuthDirectly = intent.getBooleanExtra("open_auth", false)
+
+        val startMode = when (intent.getStringExtra("auth_mode")) {
+            "signup" -> AuthMode.SignUp
+            else -> AuthMode.Login
+        }
 
         setContent {
             val profileThemeModeState = rememberSaveable { mutableIntStateOf(userPrefs.profileThemeMode) }
@@ -187,7 +193,7 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                     else -> ProfileBackdropStyle.Amoled
                 }
             ) {
-                var showAuth by rememberSaveable { mutableStateOf(false) }
+                var showAuth by rememberSaveable { mutableStateOf(openAuthDirectly) }
 
                 val closeAuth = remember { { showAuth = false } }
                 val openAuth = remember {
@@ -202,6 +208,7 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
 
                 if (showAuth) {
                     AuthScreen(
+                        startMode = startMode,
                         onLogin = { email, password ->
                             val e = email.trim()
                             if (e.isBlank() || password.isBlank()) {

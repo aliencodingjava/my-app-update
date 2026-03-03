@@ -56,7 +56,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
     }
 
     private fun openCardDrawer(cardId: String) {
-        val intent = Intent(requireContext(), webviewflightActivity::class.java)
+        val intent = Intent(requireContext(), WebviewflightActivity::class.java)
         intent.putExtra("start_card", cardId)
         startActivity(intent)
     }

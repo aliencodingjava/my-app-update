@@ -1,4 +1,4 @@
-@file:Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+@file:Suppress("COMPOSE_APPLIER_CALL_MISMATCH", "AssignedValueIsNeverRead")
 
 package com.flights.studio
 
@@ -11,11 +11,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -33,7 +39,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -73,7 +78,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -89,6 +93,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.datastore.preferences.core.edit
@@ -111,6 +116,7 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -127,30 +133,6 @@ import kotlinx.serialization.json.put
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.sin
-
-// -----------------------------
-// ✅ SUPABASE LIKES INTEGRATION
-// -----------------------------
-//
-// This file assumes you already have a SupabaseClient singleton in your app.
-// Replace SupabaseHolder.client with your own.
-// Works with your SQL RPC:
-//
-//   public.toggle_video_like(p_video_id text)
-//   returns table(is_liked boolean, like_count bigint)
-//
-// For initial state (isLiked + likeCount), we do 2 small queries per video:
-// - count(*) where video_id = id
-// - exists row where video_id=id AND user_id=auth.uid()
-//
-// If you want 1 query instead, create another RPC get_video_like_state(video_id).
-//
-
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-// Replace with your own Supabase singleton
-// Example (you likely already have something like this in your project):
-// object SupabaseHolder { lateinit var client: SupabaseClient }
-// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 private object JhIcons {
     val MenuClosed = R.drawable.folder_24dp_ffffff_fill1_wght400_grad0_opsz24
@@ -233,6 +215,11 @@ private fun IosPlayerScreen(
         LikesRepository(supabase)
     }
 
+    val settingsFlow = remember(context) {
+        context.playerSettingsFlow()
+    }
+
+    val settings by settingsFlow.collectAsState(initial = PlayerSettings())
 
     // ✅ Favorites persisted
     val favoriteIds by remember {
@@ -243,7 +230,6 @@ private fun IosPlayerScreen(
 
     // ✅ Likes UI state map (videoId -> ui state)
     var likesMap by remember { mutableStateOf<Map<String, LikeUiState>>(emptyMap()) }
-
     var cachedPlayer by remember { mutableStateOf<YouTubePlayer?>(null) }
     var isPlaying by remember { mutableStateOf(false) }
     var isMenuVisible by remember { mutableStateOf(false) }
@@ -256,6 +242,7 @@ private fun IosPlayerScreen(
     var suppressTimeUpdateUntil by remember { mutableLongStateOf(0L) }
 
     var showExitDialog by remember { mutableStateOf(false) }
+    var showLoginInfoDialog by remember { mutableStateOf(false) }
     var lastMenuToggleAt by remember { mutableLongStateOf(0L) }
 
     var isSwitchingVideo by remember { mutableStateOf(false) }
@@ -297,6 +284,8 @@ private fun IosPlayerScreen(
             }
     }
 
+
+
     /** ✅ MENU ORDER + HEADERS visible to user */
     val allRows = remember {
         listOf(
@@ -309,7 +298,7 @@ private fun IosPlayerScreen(
             MenuRow.Video("Day in the Life (KJAC)", "nquyjx53h2E"),
             MenuRow.Video("Jackson Hole Airport ARFF", "V6Q-Poslsxk"),
             MenuRow.Video("JAC Virtual Tour", "ZUkFLlWDQY8"),
-            MenuRow.Video("KJAC Flight Services", "kAdmU1M6qA"),
+            MenuRow.Video("KJAC Flight Services", "-kAdmU1M6qA"),
             MenuRow.Header("Grand Teton", iconRes = R.drawable.landscape_2_24dp_ffffff_fill1_wght400_grad0_opsz24),
             MenuRow.Video("Grand Teton (YouTube)", "O07ph1cZTR8"),
             MenuRow.Video("Jenny Lake & Canyon", "mmYjxQIQEsU"),
@@ -368,6 +357,9 @@ private fun IosPlayerScreen(
             }
         }
     }
+    LaunchedEffect(settings.playbackSpeed) {
+        cachedPlayer?.setPlaybackRate(settings.playbackSpeed.toPlaybackRate())
+    }
 
     BackHandler {
         if (isMenuVisible) isMenuVisible = false else showExitDialog = true
@@ -389,6 +381,66 @@ private fun IosPlayerScreen(
                     Text(stringResource(R.string.cancel))
                 }
             }
+        )
+    }
+
+    if (showLoginInfoDialog) {
+
+        val isDark = isSystemInDarkTheme()
+
+        AlertDialog(
+            onDismissRequest = { showLoginInfoDialog = false },
+
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLoginInfoDialog = false
+
+                        val intent = Intent(
+                            context,
+                            ProfileDetailsComposeActivity::class.java
+                        ).apply {
+                            putExtra("open_auth", true)
+                            putExtra("auth_mode", "signup")
+                        }
+
+                        context.startActivity(intent)
+                    }
+                ) {
+                    Text("Create Account")
+                }
+            },
+
+            dismissButton = {
+                TextButton(
+                    onClick = { showLoginInfoDialog = false }
+                ) {
+                    Text("Later")
+                }
+            },
+
+            title = {
+                val isDark = isSystemInDarkTheme()
+
+                Text(
+                    "Login Required",
+                    color = if (isDark) Color.White else Color.Black
+                )
+            },
+
+            text = {
+                Text(
+                    "To like videos and view like counts, you need to create an account or log in."
+                )
+            },
+
+            // 🔥 THIS is the important part
+            containerColor = if (isDark)
+                Color(0xFF1A1A1A)   // real dark surface
+            else
+                Color.White,
+
+            tonalElevation = 0.dp  // 🔥 disables bright overlay
         )
     }
 
@@ -423,7 +475,7 @@ private fun IosPlayerScreen(
             addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
                 override fun onReady(youTubePlayer: YouTubePlayer) {
                     cachedPlayer = youTubePlayer
-
+                    youTubePlayer.setPlaybackRate(settings.playbackSpeed.toPlaybackRate())
                     val defaultId = "yQkBQtWB5pc"
                     selectedVideoId = defaultId
                     youTubePlayer.loadVideo(defaultId, 0f)
@@ -461,9 +513,22 @@ private fun IosPlayerScreen(
                                     isPlaying = true
                                 }
                                 PlayerConstants.PlayerState.PAUSED,
+
                                 PlayerConstants.PlayerState.ENDED -> {
                                     isSwitchingVideo = false
                                     isPlaying = false
+
+                                    val reachedRealEnd =
+                                        totalDurationSeconds > 0f &&
+                                                currentSecond >= (totalDurationSeconds - 0.8f)
+
+                                    if (settings.autoplayNext && reachedRealEnd) {
+                                        val currentIndex = videoRows.indexOfFirst { it.id == selectedVideoId }
+                                        val next = videoRows.getOrNull(currentIndex + 1)
+                                        next?.let {
+                                            pendingVideoId = it.id
+                                        }
+                                    }
                                 }
                                 else -> Unit
                             }
@@ -511,7 +576,7 @@ private fun IosPlayerScreen(
             onHome = onExitToHome,
             onSettings = {
                 context.startActivity(
-                    Intent(context, SettingsActivity::class.java)
+                    Intent(context, PlayerSettingsActivity::class.java)
                 )
             }
         )
@@ -520,39 +585,29 @@ private fun IosPlayerScreen(
 
         val maxDragHeight = 900f // tweak: bigger = heavier, smaller = more elastic
 
+        val dimVisible = isMenuVisible || isSwitchingVideo
 
+        val baseDimAlpha = when (settings.dimStrength) {
+            0 -> 0f
+            2 -> if (isDark) 0.45f else 0.25f
+            else -> if (isDark) 0.35f else 0.18f
+        }
 
-        val switchAlpha by animateFloatAsState(
-            targetValue = if (isSwitchingVideo) 1f else 0f,
-            animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing),
-            label = "switchAlpha"
+        val animatedDimAlpha by animateFloatAsState(
+            targetValue = if (dimVisible) baseDimAlpha else 0f,
+            animationSpec = tween(200),
+            label = "dimAlpha"
         )
 
-        if (switchAlpha > 0.001f) {
+        if (animatedDimAlpha > 0f) {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .alpha(switchAlpha)
-                    .drawBackdrop(
-                        backdrop = sceneBackdrop,
-                        shape = { RoundedCornerShape(0.dp) },
-                        highlight = null,
-                        shadow = null,
-                        effects = {
-                            blur(0f.dp.toPx())
-                            lens(
-                                refractionHeight = 0f.dp.toPx(),
-                                refractionAmount = 0f.dp.toPx(),
-                                depthEffect = true
-                            )
-                        },
-                        onDrawSurface = {
-                            drawRect(Color.Black.copy(alpha = if (isDark) 0.35f else 0.18f))
-                        })
+                    .background(Color.Black.copy(alpha = animatedDimAlpha))
             )
         }
-
         JhVideoControlsBar(
+            settings = settings,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
@@ -579,7 +634,9 @@ private fun IosPlayerScreen(
                     }
                 }
             },
-            onSeekStart = { isUserSeeking = true },
+            onSeekStart = {
+                isUserSeeking = true
+            },
             onSeekChange = { v01 ->
                 sliderValue = v01
                 if (duration > 0f) currentSecond = v01 * duration
@@ -642,6 +699,7 @@ private fun IosPlayerScreen(
 
         if (safeMenuFrac > 0.001f) {
             JhVideoMenuExpressive(
+                settings = settings,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
@@ -668,17 +726,31 @@ private fun IosPlayerScreen(
                     }
                 },
                 onToggleLike = { id ->
+
+                    val isLoggedIn = supabase.auth.currentSessionOrNull() != null
+
+                    if (!isLoggedIn) {
+                        showLoginInfoDialog = true
+                        return@JhVideoMenuExpressive
+                    }
+
                     scope.launch {
                         val prev = likesMap[id] ?: LikeUiState(false, 0L, false)
 
-                        likesMap = likesMap.toMutableMap().apply { put(id, prev.copy(isLoading = true)) }
+                        likesMap = likesMap.toMutableMap().apply {
+                            put(id, prev.copy(isLoading = true))
+                        }
 
                         try {
                             val next = likesRepo.toggleLike(id)
-                            likesMap = likesMap.toMutableMap().apply { put(id, next) }
+                            likesMap = likesMap.toMutableMap().apply {
+                                put(id, next)
+                            }
                         } catch (t: Throwable) {
                             t.printStackTrace()
-                            likesMap = likesMap.toMutableMap().apply { put(id, prev.copy(isLoading = false)) }
+                            likesMap = likesMap.toMutableMap().apply {
+                                put(id, prev.copy(isLoading = false))
+                            }
                         }
                     }
                 },
@@ -705,6 +777,7 @@ private fun IosPlayerScreen(
 
 @Composable
 private fun JhVideoControlsBar(
+    settings: PlayerSettings,
     modifier: Modifier = Modifier,
     backdrop: Backdrop,
     barHeight: Dp,
@@ -748,11 +821,18 @@ private fun JhVideoControlsBar(
                         saturation = if (isDark) 1.45f else 1.40f
                     )
                     vibrancy()
-                    blur(2f.dp.toPx())
+                    val blurAmount = when (settings.glassIntensity) {
+                        0 -> 2f      // Light
+                        1 -> 4f      // Medium
+                        2 -> 6f      // Strong
+                        3 -> 9f      // Full
+                        else -> 4f
+                    }
+                    blur(blurAmount.dp.toPx())
                     lens(
-                        refractionHeight = 12f.dp.toPx(),
-                        refractionAmount = 12f.dp.toPx(),
-                        depthEffect = true
+                        refractionHeight = 10f.dp.toPx(),
+                        refractionAmount = 18f.dp.toPx(),
+                        depthEffect = false
                     )
                 },
                 onDrawSurface = {
@@ -811,8 +891,23 @@ private fun JhVideoControlsBar(
     }
 }
 
+private fun Float.toPlaybackRate(): PlayerConstants.PlaybackRate {
+    return when (this) {
+        0.25f -> PlayerConstants.PlaybackRate.RATE_0_25
+        0.5f  -> PlayerConstants.PlaybackRate.RATE_0_5
+        0.75f -> PlayerConstants.PlaybackRate.RATE_0_75
+        1f    -> PlayerConstants.PlaybackRate.RATE_1
+        1.25f -> PlayerConstants.PlaybackRate.RATE_1_25
+        1.5f  -> PlayerConstants.PlaybackRate.RATE_1_5
+        1.75f -> PlayerConstants.PlaybackRate.RATE_1_75
+        2f    -> PlayerConstants.PlaybackRate.RATE_2
+        else  -> PlayerConstants.PlaybackRate.RATE_1
+    }
+}
+
 @Composable
 private fun JhVideoMenuExpressive(
+    settings: PlayerSettings,
     modifier: Modifier = Modifier,
     backdrop: Backdrop,
     menuFrac: Float,
@@ -865,26 +960,40 @@ private fun JhVideoMenuExpressive(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
 
-    val maxStretchPx = with(density) { 140.dp.toPx() }
-    val resistance = 0.55f
+    val maxStretchPx = with(density) { 220.dp.toPx() }
+    val resistance = when (settings.menuElasticity) {
+        0 -> 0f     // NONE (completely rigid)
+        1 -> 0.9f   // Soft (big stretch)
+        2 -> 0.5f   // Normal
+        3 -> 0.2f   // Heavy (hard to stretch)
+        else -> 0.5f
+    }
 
     val stretch = remember { Animatable(0f) }
 
     val hasScrolledDown by remember { derivedStateOf { listState.canScrollBackward } }
     val isAtBottom by remember { derivedStateOf { isScrollable && hasScrolledDown && !listState.canScrollForward } }
 
+    val springSpec: androidx.compose.animation.core.SpringSpec<Float> =
+        when (settings.menuElasticity) {
+            1 -> spring(dampingRatio = 0.65f, stiffness = 250f)  // Soft
+            2 -> spring(dampingRatio = 0.72f, stiffness = 320f)  // Normal
+            3 -> spring(dampingRatio = 0.85f, stiffness = 420f)  // Heavy
+            else -> spring(dampingRatio = 1f, stiffness = 500f)  // None
+        }
+
     val rubberBand = remember(listState) {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val dy = available.y
 
-                if (dy < 0f && isAtBottom) {
+                if (settings.menuElasticity != 0 && dy < 0f && isAtBottom) {
                     val newValue = (stretch.value + dy * resistance).coerceIn(-maxStretchPx, 0f)
                     scope.launch { stretch.snapTo(newValue) }
                     return Offset(0f, dy)
                 }
 
-                if (stretch.value < 0f && dy > 0f) {
+                if (settings.menuElasticity != 0 && stretch.value < 0f && dy > 0f) {
                     val newValue = (stretch.value + dy).coerceIn(-maxStretchPx, 0f)
                     scope.launch { stretch.snapTo(newValue) }
                     return Offset(0f, dy)
@@ -895,14 +1004,14 @@ private fun JhVideoMenuExpressive(
 
             override suspend fun onPreFling(available: Velocity): Velocity {
                 if (stretch.value != 0f) {
-                    stretch.animateTo(0f, spring(dampingRatio = 0.72f, stiffness = 320f))
+                    stretch.animateTo(0f, springSpec)
                 }
                 return Velocity.Zero
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                 if (stretch.value != 0f) {
-                    stretch.animateTo(0f, spring(dampingRatio = 0.72f, stiffness = 320f))
+                    stretch.animateTo(0f, springSpec)
                 }
                 return super.onPostFling(consumed, available)
             }
@@ -949,11 +1058,18 @@ private fun JhVideoMenuExpressive(
                     saturation = if (isDark) 1.18f else 1.12f
                 )
                 vibrancy()
-                blur(3f.dp.toPx())
+                val blurAmount = when (settings.glassIntensity) {
+                    0 -> 2f
+                    1 -> 4f
+                    2 -> 6f
+                    3 -> 9f
+                    else -> 4f
+                }
+                blur(blurAmount.dp.toPx())
                 lens(
                     refractionHeight = 10f.dp.toPx(),
-                    refractionAmount = 26f.dp.toPx(),
-                    depthEffect = true
+                    refractionAmount = 18f.dp.toPx(),
+                    depthEffect = false
                 )
             }, onDrawSurface = {
                 drawRect(tint)
@@ -1100,7 +1216,12 @@ private fun JhVideoMenuExpressive(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(999.dp))
-                                            .background(Color.Black.copy(alpha = 0.28f))
+                                            .background(
+                                                if (isPlaying)
+                                                    Color(0xFF2EA8FF).copy(alpha = 0.25f)
+                                                else
+                                                    Color.Black.copy(alpha = 0.22f)
+                                            )
                                             .padding(horizontal = 10.dp, vertical = 6.dp)
                                     ) {
                                         val bands =
@@ -1134,41 +1255,73 @@ private fun JhVideoMenuExpressive(
                                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                                 ) {
                                     // --- Heart with count badge (NO CLIP) ---
-                                    Box(
-                                        modifier = Modifier.size(40.dp),
-                                        contentAlignment = Alignment.Center
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                        modifier = Modifier.width(40.dp)
                                     ) {
+
                                         IconButton(
                                             onClick = { if (!likeState.isLoading) onToggleLike(id) },
-                                            modifier = Modifier.matchParentSize()
+                                            modifier = Modifier.size(32.dp)
                                         ) {
                                             Icon(
-                                                imageVector = if (likeState.isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                                imageVector = if (likeState.isLiked)
+                                                    Icons.Filled.Favorite
+                                                else
+                                                    Icons.Filled.FavoriteBorder,
                                                 contentDescription = null,
-                                                tint = if (likeState.isLiked) Color(0xFFD50000) else menuTextColor.copy(alpha = 0.75f),
-                                                modifier = Modifier.size(22.dp)
+                                                tint = if (likeState.isLiked)
+                                                    Color(0xFFD50000)
+                                                else
+                                                    menuTextColor.copy(alpha = 0.75f),
+                                                modifier = Modifier.size(20.dp)
                                             )
                                         }
 
-                                        // ✅ Badge (top-right) — kept INSIDE the 40dp box
-                                        if (badgeText.isNotEmpty()) {
-                                            Surface(
-                                                modifier = Modifier
-                                                    .align(Alignment.TopEnd)
-                                                    .offset(x = (-2).dp, y = 4.dp), // inside the box
-                                                shape = RoundedCornerShape(999.dp),
-                                                color = Color.Black.copy(alpha = 0.40f),
-                                                tonalElevation = 0.dp,
-                                                shadowElevation = 0.dp
+
+                                        if (settings.animateLikes) {
+
+                                            AnimatedVisibility(
+                                                visible = badgeText.isNotEmpty(),
+                                                enter = fadeIn(tween(150)),
+                                                exit = fadeOut(tween(100))
                                             ) {
+                                                AnimatedContent(
+                                                    targetState = badgeText,
+                                                    transitionSpec = {
+                                                        slideInVertically(
+                                                            animationSpec = tween(180),
+                                                            initialOffsetY = { it }
+                                                        ) + fadeIn(tween(120)) togetherWith
+                                                                slideOutVertically(
+                                                                    animationSpec = tween(150),
+                                                                    targetOffsetY = { -it }
+                                                                ) + fadeOut(tween(100))
+                                                    },
+                                                    label = "likeCount"
+                                                ) { value ->
+                                                    Text(
+                                                        text = value,
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                        color = menuTextColor.copy(alpha = 0.85f)
+                                                    )
+                                                }
+                                            }
+
+                                        } else {
+
+                                            if (badgeText.isNotEmpty()) {
                                                 Text(
                                                     text = badgeText,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = Color.White.copy(alpha = 0.92f),
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                    color = menuTextColor.copy(alpha = 0.85f)
                                                 )
                                             }
                                         }
+
+
+
                                     }
 
                                     // --- Bookmark (close) ---

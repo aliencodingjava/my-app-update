@@ -217,9 +217,9 @@ fun AllNotesScreen(
             val topBarShape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
             val isDark = isSystemInDarkTheme()
             val scheme = MaterialTheme.colorScheme
+            val isLightTheme = !isSystemInDarkTheme()
 
-            // Top bar glass tint
-            val tint = scheme.surface.copy(alpha = if (isDark) 0.92f else 0.80f)
+            val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(0.60f) else Color(0xFF1a1a1a).copy(0.80f)
 
             // Glass fill for split buttons
             val glassFill = scheme.surfaceVariant.copy(alpha = if (isDark) 0.35f else 0.25f)
@@ -323,7 +323,7 @@ fun AllNotesScreen(
                             chromaticAberration = false
                         )
                     },
-                    onDrawSurface = { drawRect(tint) }
+                    onDrawSurface = { drawRect(containerColor) }
 
                 )
             ) {
@@ -522,8 +522,8 @@ fun AllNotesScreen(
                     modifier = Modifier
                         .matchParentSize()
                         .layerBackdrop(itemBackdrop),
-                    lightRes = R.drawable.lightgridpattern,
-                    darkRes = R.drawable.darkgridpattern,
+                    lightRes = R.drawable.light_grid_pattern,
+                    darkRes = R.drawable.dark_grid_pattern,
                     imageAlpha = if (isDark) 1f else 0.8f,
                     scrimDark = 0f,
                     scrimLight = 0f

@@ -39,7 +39,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.graphics.toColorInt
-import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -58,7 +57,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.BufferedInputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -180,9 +178,6 @@ class SettingsActivity : LocaleActivity() {
         }
     }
 
-    private fun imageAlreadyShown(iv: ImageView): Boolean {
-        return iv.isVisible && iv.drawable != null
-    }
 
     private fun refreshRailAvatar() {
         val navRail = findViewById<NavigationRailView>(R.id.navigation_rail)
@@ -215,7 +210,7 @@ class SettingsActivity : LocaleActivity() {
 
     override fun onResume() {
         super.onResume()
-//        refreshRailAvatar()
+        refreshRailAvatar()
     }
 
 
@@ -888,65 +883,73 @@ class SettingsActivity : LocaleActivity() {
         speedTextView: TextView,
         internetStrengthText: TextView,
         internetStrengthIcon: ImageView,
-    ): Uri {
-        val connection = URL(apkUrl).openConnection() as HttpURLConnection
-        connection.requestMethod = "GET"
-        connection.connect()
+    ): Uri = withContext(Dispatchers.IO) {
+
+        val connection = (URL(apkUrl).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15_000
+            readTimeout = 30_000
+            connect()
+        }
 
         if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+            connection.disconnect()
             throw IOException("Server returned HTTP ${connection.responseCode}")
         }
 
         val fileLength = connection.contentLength
-        val uri = createDownloadUri() ?: throw IOException("Failed to create URI for download.")
-
-        val input = BufferedInputStream(connection.inputStream)
-        val output = contentResolver.openOutputStream(uri)
-            ?: throw IOException("Failed to open output stream.")
-
-        val data = ByteArray(4096)
-        var total: Long = 0
-        var count: Int
-        val startTime = System.currentTimeMillis()
-
-        while (input.read(data).also { count = it } != -1) {
-            total += count
-            val progress = (total * 100 / fileLength).toInt()
-            val timeLeft = calculateTimeLeft(total, fileLength, startTime)
-
-            // Calculate download speed (MB/sec)
-            val elapsedTime = (System.currentTimeMillis() - startTime) / 1000.0 // in seconds
-            val downloadSpeed = if (elapsedTime > 0) total / 1024.0 / 1024.0 / elapsedTime else 0.0 // MB/sec
-            val totalDownloaded = total / 1024.0 / 1024.0 // in MB
-
-            // Check if the device is on Wi-Fi or Cellular connection
-            val connectionStrength = getConnectionStrength(internetStrengthText.context)
-
-            // Update progress, download speed, total downloaded size, and update the speed icon on the main thread
-            withContext(Dispatchers.Main) {
-                progressBar.progress = progress
-                progressText.text = "$progress% ($timeLeft left)"
-                speedTextView.text = String.format("%.2f MB (%.2f MB/sec)", totalDownloaded, downloadSpeed)
-
-                // Check if the connection is Wi-Fi or Cellular and update the icon accordingly
-                if (connectionStrength == ConnectionStrength.STRONG || connectionStrength == ConnectionStrength.MODERATE) {
-                    if (isWifiConnected(internetStrengthText.context)) {
-                        // Wi-Fi connection, update the Wi-Fi icon
-                        updateWifiSpeedIcon(downloadSpeed, internetStrengthText, internetStrengthIcon)
-                    } else {
-                        // Mobile connection, update the Cellular icon
-                        updateCellularSpeedIcon(downloadSpeed, internetStrengthText, internetStrengthIcon)
-                    }
-                }
-            }
-            output.write(data, 0, count)
+        val uri = createDownloadUri() ?: run {
+            connection.disconnect()
+            throw IOException("Failed to create URI for download.")
         }
 
-        output.flush()
-        output.close()
-        input.close()
+        val startTime = System.currentTimeMillis()
+        var total: Long = 0
 
-        return uri
+        connection.inputStream.buffered().use { input ->
+            contentResolver.openOutputStream(uri)?.buffered().use { output ->
+                if (output == null) throw IOException("Failed to open output stream.")
+
+                val data = ByteArray(8 * 1024)
+                while (true) {
+                    val count = input.read(data)
+                    if (count == -1) break
+
+                    output.write(data, 0, count)
+                    total += count
+
+                    val progress = if (fileLength > 0) ((total * 100) / fileLength).toInt() else 0
+                    val timeLeft = if (fileLength > 0) calculateTimeLeft(total, fileLength, startTime) else "--:--"
+
+                    val elapsedTime = (System.currentTimeMillis() - startTime) / 1000.0
+                    val downloadSpeed = if (elapsedTime > 0) total / 1024.0 / 1024.0 / elapsedTime else 0.0
+                    val totalDownloaded = total / 1024.0 / 1024.0
+
+                    val connectionStrength = getConnectionStrength(internetStrengthText.context)
+
+                    // UI updates on Main
+                    withContext(Dispatchers.Main) {
+                        progressBar.progress = progress
+                        progressText.text = "$progress% ($timeLeft left)"
+                        speedTextView.text =
+                            String.format("%.2f MB (%.2f MB/sec)", totalDownloaded, downloadSpeed)
+
+                        if (connectionStrength == ConnectionStrength.STRONG || connectionStrength == ConnectionStrength.MODERATE) {
+                            if (isWifiConnected(internetStrengthText.context)) {
+                                updateWifiSpeedIcon(downloadSpeed, internetStrengthText, internetStrengthIcon)
+                            } else {
+                                updateCellularSpeedIcon(downloadSpeed, internetStrengthText, internetStrengthIcon)
+                            }
+                        }
+                    }
+                }
+
+                // buffered().use will flush/close automatically
+            }
+        }
+
+        connection.disconnect()
+        uri
     }
 
     // Function to check if device is connected to Wi-Fi
