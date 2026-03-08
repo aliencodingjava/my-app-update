@@ -11,6 +11,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @Suppress("DEPRECATION")
 class WebviewflightActivity : ComponentActivity() {
@@ -44,8 +45,6 @@ class WebviewflightActivity : ComponentActivity() {
                     startCardId = startCardId,
                     returnHome = returnHome,
 
-                    onExitNormal = { finishWithAnim() },
-
                     onExitToHome = {
                         val home = Intent(this, MainActivity::class.java).apply {
                             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -60,8 +59,16 @@ class WebviewflightActivity : ComponentActivity() {
                         )
                         finish()
                     },
+                    onExitNormal = { finishWithAnim() },
 
-                    onOpenWelcome = { }
+
+                    onOpenWelcome = { },
+
+                    backdrop = rememberLayerBackdrop(),
+
+
+                    onClick = { finishWithAnim() },
+                    isInteractive = true
                 )
             }
         }

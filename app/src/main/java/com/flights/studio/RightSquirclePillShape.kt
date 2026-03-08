@@ -38,5 +38,5 @@ class RightSquirclePillShape(
     }
 }
 
-private fun lerpFloat(a: Float, b: Float, t: Float): Float =
+fun lerpFloat(a: Float, b: Float, t: Float): Float =
     a + (b - a) * t.coerceIn(0f, 1f)

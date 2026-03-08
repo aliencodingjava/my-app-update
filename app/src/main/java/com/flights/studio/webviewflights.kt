@@ -1,7 +1,11 @@
 package com.flights.studio
 
+
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Bitmap
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.text.method.LinkMovementMethod
 import android.view.MotionEvent
 import android.view.View
@@ -14,6 +18,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -21,10 +26,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,13 +41,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
@@ -47,6 +56,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.DismissibleNavigationDrawer
 import androidx.compose.material3.DrawerValue
@@ -79,28 +89,48 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastCoerceAtMost
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.text.HtmlCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.flights.studio.FlightsTabsInjector.injectHideTriggers
+import com.flights.studio.SettingsStore.prefs
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tanh
 
 @Composable
 private fun SystemBarsSync() {
 
 }
-
+fun hasInternet(context: Context): Boolean {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = cm.activeNetwork ?: return false
+    val caps = cm.getNetworkCapabilities(network) ?: return false
+    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,39 +140,61 @@ fun WebviewFlights(
     onExitToHome: () -> Unit,
     onExitNormal: () -> Unit,
     onOpenWelcome: () -> Unit,
-) {
+    modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop,
+    onClick: () -> Unit,
+    isInteractive: Boolean = true,
+    ) {
     SystemBarsSync()
-
     val scope = rememberCoroutineScope()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var screenVisible by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        screenVisible = true
+    }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val animationScope = rememberCoroutineScope()
     var cardId by rememberSaveable { mutableStateOf(startCardId) }
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(
+            animationScope = animationScope
+        )
+    }
 
     LaunchedEffect(cardId) {
         if (cardId == "card1") onOpenWelcome()
     }
+    val context = LocalContext.current
+    val online = hasInternet(context)
 
     val screenTitle = when (cardId) {
         "card1" -> "Welcome"
         "card2" -> "News"
         "card3" -> "Flights"
         "card4" -> "FBO"
+        "settings" -> "⚙ Web Settings"
         "about_us" -> "About Us"
         "contact_us" -> "Contact Us"
         "privacy_policy" -> "Privacy Policy"
         "licenses" -> "Licenses"
         else -> "Flight Tracker"
     }
+    var previousCard by remember { mutableStateOf(startCardId) }
 
     fun setCard(id: String) {
+        previousCard = cardId
         cardId = id
         scope.launch { drawerState.close() }
+    }
+
+    BackHandler(enabled = cardId != startCardId) {
+        cardId = previousCard
     }
 
 
     DismissibleNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = true,
+        gesturesEnabled = false,
         drawerContent = {
 
             ModalDrawerSheet(drawerShape = RectangleShape) {
@@ -270,31 +322,75 @@ fun WebviewFlights(
                 )
             }
         )
-        Box(modifier = Modifier.fillMaxSize()) {
+
+
+        val alpha by animateFloatAsState(
+            targetValue = if (screenVisible) 1f else 0f,
+            animationSpec = if (online)
+                tween(durationMillis = 0)
+            else
+                tween(durationMillis = 300, easing = FastOutSlowInEasing),
+            label = "screenAlpha"
+        )
+
+        val offsetX by animateFloatAsState(
+            targetValue = if (screenVisible) 0f else 40f,
+            animationSpec = if (online)
+                tween(durationMillis = 0)
+            else
+                tween(durationMillis = 300, easing = FastOutSlowInEasing),
+            label = "screenOffset"
+        )
+
+        val scale by animateFloatAsState(
+            targetValue = if (screenVisible) 1f else 1.04f,
+            animationSpec = if (online)
+                tween(durationMillis = 0)
+            else
+                tween(durationMillis = 300, easing = FastOutSlowInEasing),
+            label = "screenScale"
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    this.alpha = alpha
+                    translationX = offsetX
+                    scaleX = scale
+                    scaleY = scale
+                }
+        ) {
 
             // ===== FULLSCREEN CONTENT =====
             when (cardId) {
 
-                "privacy_policy" -> {
-                    PrivacyPolicyScreen(
+                "settings" -> {
+                    SettingsScreen(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 90.dp)
+                            .padding(top = 0.dp)
+                    )
+                }
+
+                "privacy_policy" -> {
+                    PrivacyPolicyScreen(
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
                 "licenses" -> {
                     LicensesScreen(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 90.dp)
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
                 else -> {
                     key(cardId) {
                         WebCardContent(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .layerBackdrop(backdrop),
                             cardId = cardId
                         )
                     }
@@ -308,8 +404,12 @@ fun WebviewFlights(
                     .height(90.dp)
                     .background(gradient)
                     .align(Alignment.TopCenter)
-            ) {
 
+            ) {
+                val isDark = isSystemInDarkTheme()
+                val shape = RoundedCornerShape(999.dp)
+
+                val (tint, contrast) = glassTint(isDark)
                 TopAppBar(
                     title = {
                         Text(
@@ -321,24 +421,128 @@ fun WebviewFlights(
                         IconButton(
                             onClick = {
                                 scope.launch {
-                                    if (drawerState.isClosed) drawerState.open()
-                                    else drawerState.close()
+                                    drawerState.open()
                                 }
                             }
                         ) {
                             Icon(Icons.Default.Menu, null, tint = topBarFg)
                         }
                     },
+
                     actions = {
-                        IconButton(
-                            onClick = {
-                                if (returnHome) onExitToHome()
-                                else onExitNormal()
-                            }
+
+                        Row(
+                            modifier
+                                .height(45.dp)
+                                .width(98.dp)
+                                .padding(end = 7.dp)
+                                .drawBackdrop(
+                                    backdrop = backdrop,
+                                    shape = { shape },
+                                    highlight = {
+                                        if (isDark) {
+                                            Highlight(
+                                                width = 0.45.dp,
+                                                blurRadius = 1.6.dp,
+                                                alpha = 0.50f,
+                                                style = HighlightStyle.Plain
+                                            )
+                                        } else {
+                                            Highlight(
+                                                width = 0.30.dp,
+                                                blurRadius = 1.0.dp,
+                                                alpha = 0.95f,
+                                                style = HighlightStyle.Plain // very subtle
+                                            )
+                                        }
+                                    },
+                                    shadow = null,
+                                    effects = {
+                                        vibrancy()
+                                        blur(radius = 1f, edgeTreatment = TileMode.Clamp)
+                                        val cornerRadiusPx = size.height / 2f
+                                        val safeHeight = cornerRadiusPx * 0.55f
+                                        lens(
+                                            refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                                            refractionAmount = (size.minDimension * 0.80f
+                                                    )
+                                                .coerceIn(0f, size.minDimension),
+                                            depthEffect = true,
+                                            chromaticAberration = false
+                                        )
+                                    },
+                                    layerBlock = if (isInteractive) {
+                                        {
+                                            val width = size.width
+                                            val height = size.height
+
+                                            val progress = interactiveHighlight.pressProgress
+                                            val scale = lerp(1f, 1f + 4f.dp.toPx() / size.height, progress)
+
+                                            val maxOffset = size.minDimension
+                                            val initialDerivative = 0.05f
+                                            val offset = interactiveHighlight.offset
+                                            translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+                                            translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+
+                                            val maxDragScale = 1f.dp.toPx() / size.height
+                                            val offsetAngle = atan2(offset.y, offset.x)
+                                            scaleX =
+                                                scale +
+                                                        maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                                                        (width / height).fastCoerceAtMost(1f)
+                                            scaleY =
+                                                scale +
+                                                        maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                                                        (height / width).fastCoerceAtMost(1f)
+                                        }
+                                    } else {
+                                        null
+                                    },
+                                    onDrawSurface = {
+                                        drawRect(tint)
+                                        contrast?.let { drawRect(it) }
+                                    }
+                                )
+                                .clickable(
+                                    interactionSource = null,
+                                    indication = if (isInteractive) null else LocalIndication.current,
+                                    role = Role.Button,
+                                    onClick = onClick
+                                )
+                                .then(
+                                    if (isInteractive) {
+                                        Modifier
+                                            .then(interactiveHighlight.modifier)
+                                            .then(interactiveHighlight.gestureModifier)
+                                    } else {
+                                        Modifier
+                                    }
+                                ),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Default.Close, null, tint = topBarFg)
+
+
+                                IconButton(
+                                    onClick = {
+                                        if (returnHome) onExitToHome()
+                                        else onExitNormal()
+                                    },
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Icon(Icons.Default.Home, null, tint = topBarFg)
+                                }
+
+                                IconButton(
+                                    onClick = { setCard("settings") },
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Icon(Icons.Default.Settings, null, tint = topBarFg)
+                                }
                         }
                     },
+
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
                         scrolledContainerColor = Color.Transparent
@@ -355,41 +559,57 @@ fun LegalHtmlScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val backgroundColor = MaterialTheme.colorScheme.background
+    val isDark = isSystemInDarkTheme()
     val textColor = MaterialTheme.colorScheme.onBackground
 
-    AndroidView(
-        modifier = modifier
-            .fillMaxSize()
-            .background(backgroundColor),
-        factory = {
+    Box(
+        modifier = modifier.fillMaxSize()
+    ) {
 
-            val scrollView = ScrollView(context).apply {
-                isFillViewport = true
-                overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+        // Same background as Settings screen
+        ProfileBackdropImageLayer(
+            modifier = Modifier.matchParentSize(),
+            lightRes = R.drawable.light_grid_pattern,
+            darkRes = R.drawable.dark_grid_pattern,
+            imageAlpha = if (isDark) 1f else 0.8f,
+            scrimDark = 0f,
+            scrimLight = 0f
+        )
+
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = {
+
+                val scrollView = ScrollView(context).apply {
+                    isFillViewport = true
+                    overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                }
+
+                val textView = TextView(context).apply {
+
+
+                    text = HtmlCompat.fromHtml(
+                        html,
+                        HtmlCompat.FROM_HTML_MODE_COMPACT
+                    )
+
+                    setTextColor(textColor.toArgb())
+                    textSize = 16f
+                    setLineSpacing(12f, 1.2f)
+
+                    movementMethod = LinkMovementMethod.getInstance()
+
+                    setPadding(40, 290, 40, 120)
+                }
+
+                scrollView.addView(textView)
+                scrollView
             }
-
-            val textView = TextView(context).apply {
-
-                text = HtmlCompat.fromHtml(
-                    html,
-                    HtmlCompat.FROM_HTML_MODE_COMPACT
-                )
-
-                setTextColor(textColor.toArgb())
-                textSize = 16f
-                setLineSpacing(12f, 1.2f)
-
-                movementMethod = LinkMovementMethod.getInstance()
-
-                setPadding(40, 60, 40, 120)
-            }
-
-            scrollView.addView(textView)
-            scrollView
-        }
-    )
+        )
+    }
 }
+
+
 @Composable
 fun PrivacyPolicyScreen(modifier: Modifier = Modifier) {
     LegalHtmlScreen(
@@ -439,28 +659,23 @@ private fun WebCardContent(
 
     var hasMainFrameError by remember(url) { mutableStateOf(false) }
 
+
+
 // Create ONE WebView and remember it
     val webView = remember {
 
         WebView(context).apply {
-
-            setLayerType(View.LAYER_TYPE_HARDWARE, null)
-            alpha = 0f
-
-            settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = true
-                cacheMode = WebSettings.LOAD_DEFAULT
-                textZoom = 80
-                setSupportZoom(false)
-                builtInZoomControls = false
-                displayZoomControls = false
-                useWideViewPort = true
-                loadWithOverviewMode = true
-                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                allowFileAccess = false
-                allowContentAccess = false
+            setBackgroundColor(baseWebColor.toArgb())
+            if (prefs(context).getBoolean("hw_accel", true)) {
+                setLayerType(View.LAYER_TYPE_HARDWARE, null)
+            } else {
+                setLayerType(View.LAYER_TYPE_SOFTWARE, null)
             }
+
+            alpha = 0f
+            overScrollMode = WebView.OVER_SCROLL_IF_CONTENT_SCROLLS
+            isVerticalScrollBarEnabled = true
+
 
             setOnTouchListener(object : View.OnTouchListener {
 
@@ -478,13 +693,25 @@ private fun WebCardContent(
                         }
 
                         MotionEvent.ACTION_MOVE -> {
+
                             val dx = abs(event.x - startX)
                             val dy = abs(event.y - startY)
 
                             if (dy > dx) {
+                                // vertical scroll → WebView handles it
                                 v.parent?.requestDisallowInterceptTouchEvent(true)
+
                             } else {
-                                v.parent?.requestDisallowInterceptTouchEvent(false)
+
+                                // horizontal gesture
+
+                                // allow drawer ONLY near screen edge
+                                if (startX < 60) {
+                                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                                } else {
+                                    // allow inner DOM scroll (weather banner)
+                                    v.parent?.requestDisallowInterceptTouchEvent(true)
+                                }
                             }
                         }
 
@@ -499,28 +726,33 @@ private fun WebCardContent(
                 }
             })
 
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                cacheMode = WebSettings.LOAD_DEFAULT
+                textZoom = prefs(context).getInt("text_zoom", 80)
+
+                setSupportZoom(false)
+                builtInZoomControls = false
+                displayZoomControls = false
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                allowFileAccess = false
+                allowContentAccess = false
+                applyWebViewDarkMode(this, prefs(context).getBoolean("dark_web", true))
+
+            }
+
+
+
             webViewClient = object : WebViewClient() {
 
-                override fun onPageStarted(view: WebView?, u: String?, favicon: Bitmap?) {
+                override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                     showError = false
                     progress = 0
-
-                    // Hide page immediately before it paints
                     view?.alpha = 0f
-                    view?.animate()?.cancel()
-
-                    view?.animate()
-                        ?.alpha(0f)
-                        ?.translationX(-30f)
-                        ?.scaleX(0.98f)
-                        ?.scaleY(0.98f)
-                        ?.alpha(0f)
-                        ?.translationX(-30f)
-                        ?.setDuration(180)
-                        ?.setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
-                        ?.start()
-
-                    super.onPageStarted(view, u, favicon)
+                    super.onPageStarted(view, url, favicon)
                 }
 
                 override fun shouldInterceptRequest(
@@ -567,8 +799,8 @@ private fun WebCardContent(
                         view?.animate()?.cancel()
 
                         // Initial state (before animation)
-                        view?.scaleX = 1.02f
-                        view?.scaleY = 1.02f
+                        view?.scaleX = 1.04f
+                        view?.scaleY = 1.04f
                         view?.translationX = 40f
                         view?.alpha = 0f
 
@@ -615,19 +847,22 @@ private fun WebCardContent(
         AndroidView(
             modifier = Modifier
                 .background(baseWebColor)
-                .fillMaxSize()
-                .nestedScroll(rememberNestedScrollInteropConnection()),
+                .fillMaxSize(),
             factory = { webView },
             update = { wv ->
 
-                wv.setBackgroundColor(baseWebColor.toArgb())
                 applyWebViewDarkMode(wv.settings, isDark)
 
                 // Only load first time
                 if (wv.url == null) {
+
+                    if (!hasInternet(context)) {
+                        showError = true
+                        return@AndroidView
+                    }
+
                     wv.loadUrl(url)
                 }
-
                 if (reloadTick > 0) {
                     progress = 0
                     showError = false
@@ -712,9 +947,9 @@ private fun WebCardContent(
                         .clip(RoundedCornerShape(70))
                         .background(
                             if (isDark)
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                                Color(0xFF2B2924).copy(alpha = 0.65f)
                             else
-                                MaterialTheme.colorScheme.surfaceVariant
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                         )
                 ) {
 
@@ -736,8 +971,16 @@ private fun WebCardContent(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background)
             ) {
+
+                ProfileBackdropImageLayer(
+                    modifier = Modifier.matchParentSize(),
+                    lightRes = R.drawable.light_grid_pattern,
+                    darkRes = R.drawable.dark_grid_pattern,
+                    imageAlpha = if (isDark) 1f else 0.8f,
+                    scrimDark = 0f,
+                    scrimLight = 0f
+                )
 
                 Column(
                     modifier = Modifier
@@ -757,7 +1000,8 @@ private fun WebCardContent(
 
                     Text(
                         text = "No internet connection",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -772,6 +1016,11 @@ private fun WebCardContent(
 
                     Button(
                         onClick = {
+
+                            if (!hasInternet(context)) {
+                                return@Button
+                            }
+
                             hasMainFrameError = false
                             showError = false
                             reloadTick++
