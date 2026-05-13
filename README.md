@@ -2,23 +2,23 @@
 
 JH AirTracker brings Jackson Hole airport tools, live flight information, notes, contacts, profile tools, QR, and travel shortcuts into one polished Android app.
 
-The V248 release focuses on a smoother everyday experience: cleaner navigation, stronger account security, better notes and contacts onboarding, and a much richer flight screen with modern tables, live arrival status, weather, and inbound aircraft insight.
+The V249 release focuses on a smoother everyday experience: cleaner navigation, stronger account security, better notes and contacts onboarding, and a much richer flight screen with modern tables, live arrival status, weather, and inbound aircraft insight.
 
 ---
 
 ## Status
 
-| Area | Status |
-| --- | --- |
-| App version | V248FLIGHTS |
-| Build | 0.2.244 / versionCode 248 |
-| Release date | May 12, 2026 |
-| Android | Android 8.0+ |
+| Area            | Status                                   |
+|-----------------|------------------------------------------|
+| App version     | V248FLIGHTS                              |
+| Build           | 0.2.245 / versionCode 249                |
+| Release date    | May 12, 2026                             |
+| Android         | Android 8.0+                             |
 | Main experience | Home, Contacts, Notes, Settings, Flights |
 
 ---
 
-## What's New in V248
+## What's New in V249
 
 | Feature | What it means for users |
 | --- | --- |
@@ -89,7 +89,7 @@ The flight screen was rebuilt to feel more like a real airport companion:
 
 ## Update Notes
 
-V248 continues the move to a cleaner pager-style app experience and adds stronger security with 2FA support. The flights screen is now much easier to read, with a modern table, status pills, live arrival cards, weather context, and inbound traffic details.
+V249 continues the move to a cleaner pager-style app experience and adds stronger security with 2FA support. The flights screen is now much easier to read, with a modern table, status pills, live arrival cards, weather context, and inbound traffic details.
 
 Notes and contacts now feel more welcoming for first-time users, while the home screen brings airport tools and travel shortcuts closer to the first tap.
 
