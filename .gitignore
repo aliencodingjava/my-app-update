@@ -15,7 +15,7 @@ gradle/gradle-daemon-jvm.properties
 .externalNativeBuild/
 .cxx/
 
-# ---- Local config & keys (keep out of Git) ----
+# ---- Local config & keys ----
 local.properties
 keystore.properties
 *.jks
