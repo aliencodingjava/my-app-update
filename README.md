@@ -10,7 +10,7 @@ The V249 release focuses on a smoother everyday experience: cleaner navigation, 
 
 | Area            | Status                                   |
 |-----------------|------------------------------------------|
-| App version     | V248FLIGHTS                              |
+| App version     | V249FLIGHTS                              |
 | Build           | 0.2.245 / versionCode 249                |
 | Release date    | May 12, 2026                             |
 | Android         | Android 8.0+                             |
