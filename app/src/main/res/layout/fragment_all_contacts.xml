@@ -6,12 +6,22 @@
     android:layout_height="match_parent"
     tools:context=".AllContactsFragment">
 
-    <!-- RecyclerView to display the list of contacts -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/contactsComposeView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Kept only so older fragment helper code still has a binding target while the list runs in Compose. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        android:paddingStart="14dp"
         android:paddingTop="0dp"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:paddingEnd="14dp"
+        android:paddingBottom="0dp"
+        android:visibility="gone"
         tools:listitem="@layout/item_contact" />
 
 

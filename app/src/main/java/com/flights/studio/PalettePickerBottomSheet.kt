@@ -272,7 +272,7 @@ class PalettePickerBottomSheet(
             sat < 0.2f -> "Gray"
 
             hue in 15.0..45.0 && value < 0.5f -> "Brown" // NEW
-            hue < 15 || hue >= 345 -> "Red"
+            hue !in 15.0..344.999 -> "Red"
             hue in 15.0..45.0 -> "Orange"
             hue in 45.0..65.0 -> "Yellow"
             hue in 65.0..85.0 -> "Lime"
@@ -343,8 +343,8 @@ class PalettePickerBottomSheet(
                 val btn3 = previewContainer.findViewById<MaterialCardView>(R.id.fab_delete)
 
                 val item = getItem(position)
-                title.text = item?.name ?: "Unnamed Palette"
-                val palette = item?.palette
+                title.text = item.name
+                val palette = item.palette
 
                 val labelReset = context.getString(R.string.label_reset)
 

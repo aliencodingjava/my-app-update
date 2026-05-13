@@ -2,6 +2,7 @@
 
 package com.flights.studio
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -30,27 +32,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.unit.LayoutDirection
 
 // ---------- Defaults ----------
 private val MenuIconSize = 20.dp
-val MenuMinWidth = 200.dp
+val MenuMinWidth = 168.dp
+private val MenuMaxWidth = 220.dp
 
 private const val KEY_EDIT = "edit"
 private const val KEY_PHOTO = "photo"
+private const val KEY_SECURITY = "security"
 private const val KEY_PRIVACY = "privacy"
 private const val KEY_AUTH = "auth"
 
 data class MenuFeatureFlags(
-    val vibrant: Boolean = true,
+    val vibrant: Boolean = false,
     val groupLabels: Boolean = false,
     val groupDividers: Boolean = false,
     val supportingText: Boolean = false,
@@ -69,6 +74,7 @@ fun ProfileExpressiveMenuPopupAnchored(
     isLoggedIn: Boolean,
     onEdit: () -> Unit,
     onChangePhoto: () -> Unit,
+    onSecurity: () -> Unit,
     onPrivacy: () -> Unit,
     onLoginLogout: () -> Unit,
     modifier: Modifier = Modifier,
@@ -122,7 +128,7 @@ fun ProfileExpressiveMenuPopupAnchored(
         MenuContent(
             modifier = modifier
                 .wrapContentWidth()
-                .widthIn(min = MenuMinWidth),
+                .widthIn(min = MenuMinWidth, max = MenuMaxWidth),
             hasProfile = hasProfile,
             isLoggedIn = isLoggedIn,
             flags = flags,
@@ -131,6 +137,7 @@ fun ProfileExpressiveMenuPopupAnchored(
             containerColor = containerColor,
             onEdit = onEdit,
             onChangePhoto = onChangePhoto,
+            onSecurity = onSecurity,
             onPrivacy = onPrivacy,
             onLoginLogout = onLoginLogout,
             onDismiss = onDismiss
@@ -146,9 +153,10 @@ private fun MenuContent(
     flags: MenuFeatureFlags,
     selectedKey: String?,
     scales: UiScales,
-    containerColor: androidx.compose.ui.graphics.Color,
+    containerColor: Color,
     onEdit: () -> Unit,
     onChangePhoto: () -> Unit,
+    onSecurity: () -> Unit,
     onPrivacy: () -> Unit,
     onLoginLogout: () -> Unit,
     onDismiss: () -> Unit
@@ -180,6 +188,16 @@ private fun MenuContent(
                         onClick = onChangePhoto
                     )
                 )
+                add(
+                    MenuEntry(
+                        key = KEY_SECURITY,
+                        label = "Two-factor auth",
+                        leadingIcon = Icons.Filled.Security,
+                        supportingText = if (flags.supportingText) "Authenticator app" else null,
+                        trailingIcon = if (flags.trailingIcon) Icons.AutoMirrored.Filled.KeyboardArrowRight else null,
+                        onClick = onSecurity
+                    )
+                )
             }
             add(
                 MenuEntry(
@@ -207,20 +225,10 @@ private fun MenuContent(
             containerColor = containerColor,
         ) {
             topItems.forEachIndexed { index, item ->
-                val hasPhoto = topItems.any { it.key == KEY_PHOTO }
-
-                val itemShapes = when (item.key) {
-                    KEY_PRIVACY if topItems.size == 1 ->
-                        MenuDefaults.itemShape(index = 0, count = 2)
-                    KEY_PRIVACY if hasPhoto ->
-                        MenuDefaults.itemShape(index = 1, count = 3)
-                    else -> MenuDefaults.itemShape(index = index, count = topItems.size)
-                }
-
                 ExpressiveMenuItem(
                     entry = item,
                     selected = flags.persistentSelection && (selectedKey == item.key),
-                    shapes = itemShapes,
+                    shapes = MenuDefaults.itemShape(index = index, count = topItems.size + 1),
                     flags = flags,
                     scales = scales
                 )
@@ -243,12 +251,12 @@ private fun MenuContent(
 
         DropdownMenuGroup(
             shapes = MenuDefaults.groupShape(index = 1, count = totalGroups),
-            containerColor = MenuDefaults.groupVibrantContainerColor,
+            containerColor = containerColor,
         ) {
             ExpressiveMenuItem(
                 entry = authEntry,
                 selected = flags.persistentSelection && (selectedKey == KEY_AUTH),
-                shapes = MenuDefaults.itemShape(index = 1, count = 2),
+                shapes = MenuDefaults.itemShape(index = topItems.size, count = topItems.size + 1),
                 flags = flags,
                 scales = scales,
                 colors = MenuDefaults.itemColors(
@@ -327,22 +335,27 @@ private fun ExpressiveMenuItem(
         }
     }
 
-    DropdownMenuItem(
-        selected = selected,
-        onClick = entry.onClick,
-        shapes = shapes,
-        colors = colors ?: MenuDefaults.itemColors(),
-        leadingIcon = {
-            Icon(
-                imageVector = entry.leadingIcon,
-                contentDescription = null,
-                modifier = Modifier.size(leadingIconSize)
-            )
-        },
-        text = {
-            if (flags.supportingText && entry.supportingText != null) {
-                MenuDefaults.LabelWithSupportingText(
-                    supportingText = {
+        DropdownMenuItem(
+            selected = selected,
+            onClick = entry.onClick,
+            shapes = shapes,
+            colors = colors ?: MenuDefaults.itemColors(),
+            leadingIcon = {
+                Icon(
+                    imageVector = entry.leadingIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(leadingIconSize)
+                )
+            },
+            text = {
+                if (flags.supportingText && entry.supportingText != null) {
+                    Column {
+                        Text(
+                            text = entry.label,
+                            style = labelStyle.copy(
+                                fontSize = labelStyle.fontSize.us(bodyS)
+                            )
+                        )
                         Text(
                             text = entry.supportingText,
                             style = supportingStyle.copy(
@@ -351,7 +364,7 @@ private fun ExpressiveMenuItem(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                ) {
+                } else {
                     Text(
                         text = entry.label,
                         style = labelStyle.copy(
@@ -359,18 +372,10 @@ private fun ExpressiveMenuItem(
                         )
                     )
                 }
-            } else {
-                Text(
-                    text = entry.label,
-                    style = labelStyle.copy(
-                        fontSize = labelStyle.fontSize.us(bodyS)
-                    )
-                )
-            }
-        },
-        trailingIcon = trailingContent
-    )
-}
+            },
+            trailingIcon = trailingContent
+        )
+    }
 
 @Composable
 private fun BadgePill(text: String, scales: UiScales) {

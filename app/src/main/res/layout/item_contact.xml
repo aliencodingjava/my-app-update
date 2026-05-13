@@ -7,8 +7,8 @@
     android:layout_marginBottom="4dp"
     android:clipChildren="false"
     android:clipToPadding="false"
-    android:layout_marginStart="3dp"
-    android:layout_marginEnd="3dp">
+    android:layout_marginStart="0dp"
+    android:layout_marginEnd="0dp">
 
     <!-- Background View for Deleting Animation -->
     <com.google.android.material.card.MaterialCardView
@@ -49,7 +49,7 @@
         android:id="@+id/combined_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="0dp"
+        app:cardCornerRadius="12dp"
         app:cardElevation="0dp"
         app:strokeColor="@color/transparent"
         app:strokeWidth="0dp">
@@ -78,8 +78,8 @@
                 <!-- Icon Image (invisible by default) -->
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/iconImage"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_marginStart="5dp"
                     android:layout_marginEnd="10dp"
                     android:contentDescription="@string/icon_image"
@@ -92,14 +92,14 @@
                 <!-- Initials -->
                 <TextView
                     android:id="@+id/iconInitials"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_marginStart="5dp"
                     android:layout_marginEnd="10dp"
                     android:gravity="center"
                     android:text=""
                     android:textColor="@android:color/white"
-                    android:textSize="14sp"
+                    android:textSize="16sp"
                     app:layout_constraintBottom_toBottomOf="@id/iconImage"
                     app:layout_constraintStart_toEndOf="@id/iconImage"
                     app:layout_constraintTop_toTopOf="@id/iconImage" />

@@ -1,12 +1,17 @@
 package com.flights.studio
 
 import android.content.Context
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,8 +40,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.platform.LocalContext
@@ -51,7 +59,8 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
-
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,12 +90,12 @@ fun NotesSettingsScreen(
             )
         )
     }
-
+    val scope = rememberCoroutineScope()
+    var resetActionText by remember { mutableStateOf("Reset") }
 
     var sortMode by remember {
         mutableStateOf(prefs.getString(NotesPagePrefs.KEY_SORT, NotesPagePrefs.SORT_NEWEST)!!)
     }
-
 
     var titleTopCompact by remember {
         mutableIntStateOf(
@@ -104,14 +113,19 @@ fun NotesSettingsScreen(
             )
         )
     }
+
     val topBarShape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
     val isDark = isSystemInDarkTheme()
     val scheme = MaterialTheme.colorScheme
-    val glassTint = scheme.surface.copy(alpha = if (isDark) 0.55f else 0.60f)
-    val isLightTheme = !isSystemInDarkTheme()
-    val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(0.60f) else Color(0xFF1a1a1a).copy(0.80f)
-
-//    val tint = scheme.surface.copy(alpha = if (isDark) 0.52f else 0.80f)
+    val glassTint = if (isDark) {
+        Color(0xFF1D1726).copy(alpha = 0.88f)
+    } else {
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
+    }
+    val primaryText = if (isDark) Color.White else scheme.onSurface
+    val secondaryText = if (isDark) Color.White.copy(alpha = 0.78f) else scheme.onSurfaceVariant
+    val mutedText = if (isDark) Color.White.copy(alpha = 0.58f) else scheme.onSurfaceVariant.copy(alpha = 0.7f)
+    val containerColor = if (!isDark) Color(0xFFFAFAFA).copy(0.60f) else Color(0xFF1A1A1A).copy(0.80f)
 
     val topBarBackdrop = rememberLayerBackdrop()
 
@@ -140,10 +154,8 @@ fun NotesSettingsScreen(
                         val safeHeight = cornerRadiusPx * 0.35f
                         lens(
                             refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
-                            refractionAmount = (size.minDimension * 0.30f
-                                    )
-                                .coerceIn(0f, size.minDimension),
-                            depthEffect = true,
+                            refractionAmount = (size.minDimension * 0.30f).coerceIn(0f, size.minDimension),
+                            depthEffect = false,
                             chromaticAberration = false
                         )
                     },
@@ -157,24 +169,26 @@ fun NotesSettingsScreen(
                         }
                     },
                     title = {
-                        val t = MaterialTheme.typography.titleLarge
                         Text(
-                            "Customize Notes",
-                            style = t.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp)
+                            text = "Customize Notes",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0.2.sp
+                            ),
+                            color = primaryText
                         )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
                         scrolledContainerColor = Color.Transparent,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                        navigationIconContentColor = primaryText,
+                        titleContentColor = primaryText,
+                        actionIconContentColor = primaryText
                     )
                 )
             }
         }
     ) { padding ->
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -188,7 +202,7 @@ fun NotesSettingsScreen(
                     .layerBackdrop(itemBackdrop),
                 lightRes = R.drawable.light_grid_pattern,
                 darkRes = R.drawable.dark_grid_pattern,
-                imageAlpha = if (isSystemInDarkTheme()) 1f else 0.8f,
+                imageAlpha = if (isDark) 1f else 0.8f,
                 scrimDark = 0f,
                 scrimLight = 0f
             )
@@ -203,421 +217,333 @@ fun NotesSettingsScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-
-                // -------------------- Layout Card --------------------
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .drawBackdrop(
-                                backdrop = itemBackdrop,
-                                shape = { RoundedCornerShape(18.dp) },
-                                highlight = {
-                                    Highlight(
-                                        width = 0.45.dp,
-                                        blurRadius = 1.2.dp,
-                                        alpha = 0.25f,
-                                        style = HighlightStyle.Plain
-                                    )
-                                },
-                                effects = {
-                                    blur(radius = 3f, edgeTreatment = TileMode.Clamp)
-                                    val cornerRadiusPx = size.height / 2f
-                                    val safeHeight = cornerRadiusPx * 0.15f
-                                    lens(
-                                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
-                                        refractionAmount = (size.minDimension * 0.40f
-                                                )
-                                            .coerceIn(0f, size.minDimension),
-                                        depthEffect = true,
-                                        chromaticAberration = false
-                                    )
-                                },
-                                onDrawSurface = { drawRect(glassTint) }
-                            )
+                    SettingsGlassCard(
+                        backdrop = itemBackdrop,
+                        glassTint = glassTint
                     ) {
-                        Column(
-                            Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        Text("Layout", style = MaterialTheme.typography.titleMedium, color = primaryText)
+
+                        SettingsSwitchRow(
+                            title = "Compact rows",
+                            checked = compact,
+                            secondaryText = secondaryText
                         ) {
-
-                            Text("Layout", style = MaterialTheme.typography.titleMedium)
-
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "Compact rows",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Switch(
-                                    checked = compact,
-                                    onCheckedChange = {
-                                        compact = it
-                                        prefs.edit { putBoolean(NotesPagePrefs.KEY_COMPACT, it) }
-                                    }
-                                )
-                            }
-
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "Two columns grid",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Switch(
-                                    checked = twoColumns,
-                                    onCheckedChange = {
-                                        twoColumns = it
-                                        prefs.edit {
-                                            putBoolean(
-                                                NotesPagePrefs.KEY_TWO_COLUMNS,
-                                                it
-                                            )
-                                        }
-                                    }
-                                )
-                            }
-
-                            Text("Title position", style = MaterialTheme.typography.titleMedium)
-
-                            Text(
-                                "Compact title top: ${titleTopCompact}dp",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Slider(
-                                value = titleTopCompact.toFloat(),
-                                onValueChange = { v ->
-                                    titleTopCompact = v.toInt()
-                                    prefs.edit {
-                                        putInt(
-                                            NotesPagePrefs.KEY_TITLE_TOP_COMPACT,
-                                            titleTopCompact
-                                        )
-                                    }
-                                },
-                                valueRange = 0f..24f,
-                                steps = 23
-                            )
-
-                            Text(
-                                "Normal title top: ${titleTopNormal}dp",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Slider(
-                                value = titleTopNormal.toFloat(),
-                                onValueChange = { v ->
-                                    titleTopNormal = v.toInt()
-                                    prefs.edit {
-                                        putInt(NotesPagePrefs.KEY_TITLE_TOP_NORMAL, titleTopNormal)
-                                    }
-                                },
-                                valueRange = 0f..32f,
-                                steps = 31
-                            )
+                            compact = it
+                            prefs.edit { putBoolean(NotesPagePrefs.KEY_COMPACT, it) }
                         }
-                    }
-                }
 
-                // -------------------- Badges Card --------------------
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .drawBackdrop(
-                                backdrop = itemBackdrop,
-                                shape = { RoundedCornerShape(18.dp) },
-                                highlight = {
-                                    Highlight(
-                                        width = 0.45.dp,
-                                        blurRadius = 1.2.dp,
-                                        alpha = 0.25f,
-                                        style = HighlightStyle.Plain
-                                    )
-                                },
-                                effects = {
-                                    blur(radius = 3f, edgeTreatment = TileMode.Clamp)
-                                    val cornerRadiusPx = size.height / 2f
-                                    val safeHeight = cornerRadiusPx * 0.15f
-                                    lens(
-                                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
-                                        refractionAmount = (size.minDimension * 0.40f
-                                                )
-                                            .coerceIn(0f, size.minDimension),
-                                        depthEffect = true,
-                                        chromaticAberration = false
-                                    )
-                                },
-                                onDrawSurface = { drawRect(glassTint) }
-                            )
-                    ) {
-                        Column(
-                            Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        SettingsSwitchRow(
+                            title = "Two columns grid",
+                            checked = twoColumns,
+                            secondaryText = secondaryText
                         ) {
-
-                            Text("Badges", style = MaterialTheme.typography.titleMedium)
-
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "Images badge (count)",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Switch(
-                                    checked = showImagesBadge,
-                                    onCheckedChange = {
-                                        showImagesBadge = it
-                                        prefs.edit {
-                                            putBoolean(
-                                                NotesPagePrefs.KEY_SHOW_IMAGES_BADGE,
-                                                it
-                                            )
-                                        }
-                                    }
-                                )
-                            }
-
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "Reminder pulse dot",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Switch(
-                                    checked = showReminderBadge,
-                                    onCheckedChange = {
-                                        showReminderBadge = it
-                                        prefs.edit {
-                                            putBoolean(
-                                                NotesPagePrefs.KEY_SHOW_REMINDER_BADGE,
-                                                it
-                                            )
-                                        }
-                                    }
-                                )
-                            }
-
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "Reminder bell icon",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Switch(
-                                    checked = showReminderBell,
-                                    onCheckedChange = {
-                                        showReminderBell = it
-                                        prefs.edit {
-                                            putBoolean(
-                                                NotesPagePrefs.KEY_SHOW_REMINDER_BELL,
-                                                it
-                                            )
-                                        }
-                                    }
-                                )
-                            }
+                            twoColumns = it
+                            prefs.edit { putBoolean(NotesPagePrefs.KEY_TWO_COLUMNS, it) }
                         }
-                    }
-                }
-                // -------------------- Suggestions Card --------------------
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .drawBackdrop(
-                                backdrop = itemBackdrop,
-                                shape = { RoundedCornerShape(18.dp) },
-                                highlight = {
-                                    Highlight(
-                                        width = 0.45.dp,
-                                        blurRadius = 1.2.dp,
-                                        alpha = 0.25f,
-                                        style = HighlightStyle.Plain
-                                    )
-                                },
-                                effects = {
-                                    blur(radius = 3f, edgeTreatment = TileMode.Clamp)
-                                    val cornerRadiusPx = size.height / 2f
-                                    val safeHeight = cornerRadiusPx * 0.15f
-                                    lens(
-                                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
-                                        refractionAmount = (size.minDimension * 0.40f
-                                                )
-                                            .coerceIn(0f, size.minDimension),
-                                        depthEffect = true,
-                                        chromaticAberration = false
-                                    )
-                                },
-                                onDrawSurface = { drawRect(glassTint) }
-                            )
-                    ) {
-                        Column(
-                            Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text("Suggestions", style = MaterialTheme.typography.titleMedium)
 
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(
-                                        "Title suggestions in Add Note",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        if (enableTitleTips) "On" else "Off",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.75f
-                                        )
-                                    )
+                        Text("Title position", style = MaterialTheme.typography.titleMedium, color = primaryText)
+
+                        Text("Compact title top: ${titleTopCompact}dp", color = secondaryText)
+                        Slider(
+                            value = titleTopCompact.toFloat(),
+                            onValueChange = { v ->
+                                titleTopCompact = v.toInt()
+                                prefs.edit {
+                                    putInt(NotesPagePrefs.KEY_TITLE_TOP_COMPACT, titleTopCompact)
                                 }
+                            },
+                            valueRange = 0f..24f,
+                            steps = 23
+                        )
 
-                                Switch(
-                                    checked = enableTitleTips,
-                                    onCheckedChange = { on ->
-                                        enableTitleTips = on
-                                        prefs.edit {
-                                            putBoolean(NotesPagePrefs.KEY_ENABLE_TITLE_TIPS, on)
-                                        }
-                                    }
-                                )
-                            }
+                        Text("Normal title top: ${titleTopNormal}dp", color = secondaryText)
+                        Slider(
+                            value = titleTopNormal.toFloat(),
+                            onValueChange = { v ->
+                                titleTopNormal = v.toInt()
+                                prefs.edit {
+                                    putInt(NotesPagePrefs.KEY_TITLE_TOP_NORMAL, titleTopNormal)
+                                }
+                            },
+                            valueRange = 0f..32f,
+                            steps = 31
+                        )
+                    }
+                }
 
-                            // Optional: give them a way to re-show the dot by resetting "seen"
-                            // (Only show when tips are enabled)
-                            if (enableTitleTips) {
-                                Spacer(Modifier.height(6.dp))
+                item {
+                    SettingsGlassCard(
+                        backdrop = itemBackdrop,
+                        glassTint = glassTint
+                    ) {
+                        Text("Badges", style = MaterialTheme.typography.titleMedium, color = primaryText)
 
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    border = BorderStroke(
-                                        1.dp,
-                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
-                                    ),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            prefs.edit { putBoolean("seen_title_tip", false) }
-                                        }
-                                ) {
-                                    Row(
-                                        Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(
-                                                "Reset suggestion dot",
-                                                style = MaterialTheme.typography.labelLarge
-                                            )
-                                            Text(
-                                                "It will appear again in Add Note (when note is long enough).",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        Text(
-                                            "Reset",
-                                            color = MaterialTheme.colorScheme.primary,
-                                            style = MaterialTheme.typography.labelLarge
-                                        )
+                        SettingsSwitchRow(
+                            title = "Images badge (count)",
+                            checked = showImagesBadge,
+                            secondaryText = secondaryText
+                        ) {
+                            showImagesBadge = it
+                            prefs.edit { putBoolean(NotesPagePrefs.KEY_SHOW_IMAGES_BADGE, it) }
+                        }
+
+                        SettingsSwitchRow(
+                            title = "Reminder pulse dot",
+                            checked = showReminderBadge,
+                            secondaryText = secondaryText
+                        ) {
+                            showReminderBadge = it
+                            prefs.edit { putBoolean(NotesPagePrefs.KEY_SHOW_REMINDER_BADGE, it) }
+                        }
+
+                        SettingsSwitchRow(
+                            title = "Reminder bell icon",
+                            checked = showReminderBell,
+                            secondaryText = secondaryText
+                        ) {
+                            showReminderBell = it
+                            prefs.edit { putBoolean(NotesPagePrefs.KEY_SHOW_REMINDER_BELL, it) }
+                        }
+                    }
+                }
+
+                item {
+                    SettingsGlassCard(
+                        backdrop = itemBackdrop,
+                        glassTint = glassTint
+                    ) {
+                        Text("Suggestions", style = MaterialTheme.typography.titleMedium, color = primaryText)
+
+                        SettingsSwitchRow(
+                            title = "Title suggestions in Add Note",
+                            subtitle = if (enableTitleTips) "On" else "Off",
+                            checked = enableTitleTips,
+                            secondaryText = secondaryText,
+                            mutedText = mutedText
+                        ) { on ->
+                            enableTitleTips = on
+                            prefs.edit { putBoolean(NotesPagePrefs.KEY_ENABLE_TITLE_TIPS, on) }
+                        }
+
+                        if (enableTitleTips) {
+                            Spacer(Modifier.height(4.dp))
+
+                            ResetSuggestionButton(
+                                isDark = isDark,
+                                primaryText = primaryText,
+                                secondaryText = secondaryText,
+                                actionText = resetActionText,
+                                onClick = {
+                                    prefs.edit { putBoolean("seen_title_tip", false) }
+
+                                    scope.launch {
+                                        resetActionText = "Resetting..."
+                                        delay(750)
+                                        resetActionText = "Please wait"
+                                        delay(550)
+                                        resetActionText = "Done"
                                     }
                                 }
-                            }
-
+                            )
                         }
                     }
                 }
 
-
-                // -------------------- Sort Card --------------------
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .drawBackdrop(
-                                backdrop = itemBackdrop,
-                                shape = { RoundedCornerShape(18.dp) },
-                                highlight = {
-                                    Highlight(
-                                        width = 0.45.dp,
-                                        blurRadius = 1.2.dp,
-                                        alpha = 0.25f,
-                                        style = HighlightStyle.Plain
-                                    )
-                                },
-                                effects = {
-                                    blur(radius = 3f, edgeTreatment = TileMode.Clamp)
-                                    val cornerRadiusPx = size.height / 2f
-                                    val safeHeight = cornerRadiusPx * 0.15f
-                                    lens(
-                                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
-                                        refractionAmount = (size.minDimension * 0.40f
-                                                )
-                                            .coerceIn(0f, size.minDimension),
-                                        depthEffect = true,
-                                        chromaticAberration = false
-                                    )
-                                },
-                                onDrawSurface = { drawRect(glassTint) }
-                            )
+                    SettingsGlassCard(
+                        backdrop = itemBackdrop,
+                        glassTint = glassTint
                     ) {
-                        Column(
-                            Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
+                        Text("Sort", style = MaterialTheme.typography.titleMedium, color = primaryText)
 
-                            Text("Sort", style = MaterialTheme.typography.titleMedium)
-
-                            SortRadio("Newest first", NotesPagePrefs.SORT_NEWEST, sortMode) {
-                                sortMode = it
-                                prefs.edit { putString(NotesPagePrefs.KEY_SORT, it) }
-                            }
-
-                            SortRadio("Oldest first", NotesPagePrefs.SORT_OLDEST, sortMode) {
-                                sortMode = it
-                                prefs.edit { putString(NotesPagePrefs.KEY_SORT, it) }
-                            }
-
-                            SortRadio("A–Z by title", NotesPagePrefs.SORT_TITLE, sortMode) {
-                                sortMode = it
-                                prefs.edit { putString(NotesPagePrefs.KEY_SORT, it) }
-                            }
-
-                            SortRadio(
-                                "Reminders first",
-                                NotesPagePrefs.SORT_REMINDERS_FIRST,
-                                sortMode
-                            ) {
-                                sortMode = it
-                                prefs.edit { putString(NotesPagePrefs.KEY_SORT, it) }
-                            }
-
-                            Text(
-                                "Sorting will apply when you go back to Notes.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
+                        SortRadio("Newest first", NotesPagePrefs.SORT_NEWEST, sortMode) {
+                            sortMode = it
+                            prefs.edit { putString(NotesPagePrefs.KEY_SORT, it) }
                         }
+
+                        SortRadio("Oldest first", NotesPagePrefs.SORT_OLDEST, sortMode) {
+                            sortMode = it
+                            prefs.edit { putString(NotesPagePrefs.KEY_SORT, it) }
+                        }
+
+                        SortRadio("A-Z by title", NotesPagePrefs.SORT_TITLE, sortMode) {
+                            sortMode = it
+                            prefs.edit { putString(NotesPagePrefs.KEY_SORT, it) }
+                        }
+
+                        SortRadio("Reminders first", NotesPagePrefs.SORT_REMINDERS_FIRST, sortMode) {
+                            sortMode = it
+                            prefs.edit { putString(NotesPagePrefs.KEY_SORT, it) }
+                        }
+
+                        Text(
+                            "Sorting will apply when you go back to Notes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = mutedText
+                        )
                     }
                 }
 
-                // little extra bottom breathing room
                 item { Spacer(Modifier.height(6.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsGlassCard(
+    backdrop: com.kyant.backdrop.Backdrop,
+    glassTint: Color,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { RoundedCornerShape(18.dp) },
+                highlight = {
+                    Highlight(
+                        width = 0.45.dp,
+                        blurRadius = 1.2.dp,
+                        alpha = 0.25f,
+                        style = HighlightStyle.Plain
+                    )
+                },
+                effects = {
+                    blur(radius = 3f, edgeTreatment = TileMode.Clamp)
+                    val cornerRadiusPx = size.height / 2f
+                    val safeHeight = cornerRadiusPx * 0.15f
+                    lens(
+                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                        refractionAmount = (size.minDimension * 0.40f).coerceIn(0f, size.minDimension),
+                        depthEffect = false,
+                        chromaticAberration = false
+                    )
+                },
+                onDrawSurface = { drawRect(glassTint) }
+            )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    checked: Boolean,
+    secondaryText: Color,
+    subtitle: String? = null,
+    mutedText: Color = secondaryText,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(start = 2.dp, end = 0.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 14.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = title,
+                color = secondaryText,
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    color = mutedText,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+    }
+}
+
+@Composable
+private fun ResetSuggestionButton(
+    isDark: Boolean,
+    primaryText: Color,
+    secondaryText: Color,
+    actionText: String,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(18.dp)
+
+
+    Surface(
+        shape = shape,
+        color = if (isDark) {
+            Color.White.copy(alpha = 0.14f)
+        } else {
+            Color.White.copy(alpha = 0.96f)
+        },
+        contentColor = primaryText,
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(72.dp)
+            .clip(shape)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Reset suggestion dot",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = primaryText
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Show suggestion dot again.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = secondaryText
+                )
+            }
+
+            AnimatedContent(
+                targetState = actionText,
+                transitionSpec = {
+                    fadeIn() togetherWith fadeOut()
+                },
+                label = "resetActionText"
+            ) { text ->
+                Text(
+                    text = text,
+                    color = if (isDark) Color(0xFF8FC7FF) else MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
     }
@@ -630,8 +556,28 @@ private fun SortRadio(
     selected: String,
     onSelect: (String) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val textColor = if (isSystemInDarkTheme()) {
+        Color.White.copy(alpha = 0.78f)
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onSelect(value) }
+            .padding(start = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium
+        )
+
         RadioButton(
             selected = selected == value,
             onClick = { onSelect(value) }

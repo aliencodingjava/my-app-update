@@ -15,9 +15,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -33,19 +31,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -54,6 +48,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
@@ -121,6 +116,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -879,8 +875,6 @@ private fun AddNoteScreen(
                 .fillMaxSize()
                 .background(pageBg)
                 .layerBackdrop(pageBackdrop) // ✅ record ONCE here
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
             // ✅ pattern is inside the recorded content already
             val isDark = isSystemInDarkTheme()
@@ -1018,25 +1012,15 @@ private fun AddNoteScreen(
                     Box(modifier = Modifier.fillMaxWidth()) {
 
                         // treat title-focus / manual-title like focus too
-                        val titleActive = showManualTitle || titleFocused
-                        val anyFocused = noteFocused || titleActive
-
                         // ✅ big title box height + overlap amount
                         val titleBoxH = 92.dp
                         val overlap = 28.dp
                         val topEdgePad = 16.dp // title text ALWAYS near top edge
 
                         // ✅ lift BOTH together (so overlap never changes, no gap)
-                        val stackLiftY by animateDpAsState(
-                            targetValue = if (anyFocused) (-10).dp else 0.dp,
-                            animationSpec = spring(dampingRatio = 0.85f, stiffness = 450f),
-                            label = "stackLiftY"
-                        )
+                        val stackLiftY = 0.dp
 
-                        val hintTextScale by animateFloatAsState(
-                            targetValue = if (anyFocused) 1.14f else 1.00f,
-                            label = "hintTextScale"
-                        )
+                        val hintTextScale = 1f
 
                         // --- Title AI box (BACKGROUND) ---
                         val showTitleBox = tipEnabled
@@ -1075,7 +1059,7 @@ private fun AddNoteScreen(
                                     .padding(horizontal = 28.dp)
                                     .padding(top = 10.dp)
                                     .height(titleBoxH)               // ✅ BIG box
-                                    .offset(y = stackLiftY)          // ✅ lift with note
+                                    .offset { androidx.compose.ui.unit.IntOffset(0, stackLiftY.roundToPx()) }
                                     .zIndex(0f)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
@@ -1107,6 +1091,10 @@ private fun AddNoteScreen(
                                                 .focusRequester(titleFocusRequester)
                                                 .onFocusChanged { titleFocused = it.isFocused },
                                             singleLine = true,
+                                            keyboardOptions = KeyboardOptions(
+                                                capitalization = KeyboardCapitalization.Sentences,
+                                                autoCorrectEnabled = false
+                                            ),
                                             shape = RoundedCornerShape(12.dp),
                                             placeholder = {
                                                 Text(fieldPlaceholder, style = MaterialTheme.typography.labelSmall)
@@ -1175,7 +1163,7 @@ private fun AddNoteScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = titleBoxH - overlap) // ✅ overlap = NO GAP visible
-                                .offset(y = stackLiftY)             // ✅ lift with title
+                                .offset { androidx.compose.ui.unit.IntOffset(0, stackLiftY.roundToPx()) }
                                 .zIndex(1f)
                                 .clickable(
                                     interactionSource = noteTap,
@@ -1296,7 +1284,11 @@ private fun AddNoteScreen(
                                             }
                                         },
 
-                                            shape = RoundedCornerShape(14.dp),
+                                    keyboardOptions = KeyboardOptions(
+                                        capitalization = KeyboardCapitalization.Sentences,
+                                        autoCorrectEnabled = false
+                                    ),
+                                    shape = RoundedCornerShape(14.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedContainerColor = MaterialTheme.colorScheme.surface.copy(
                                             alpha = 0.35f

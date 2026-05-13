@@ -153,7 +153,7 @@ fun PlayerSettingsScreen() {
                         lens(
                             refractionHeight = 60f,
                             refractionAmount = 80f,
-                            depthEffect = true,
+                            depthEffect = false,
                             chromaticAberration = false
                         )
                     },

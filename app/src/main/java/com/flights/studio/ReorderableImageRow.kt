@@ -253,7 +253,7 @@ fun ReorderableImageRow(
                                         lens(
                                             refractionHeight = 8.dp.toPx(),
                                             refractionAmount = 8.dp.toPx(),
-                                            depthEffect = true,
+                                            depthEffect = false,
                                             chromaticAberration = false
                                         )
                                         // 4) Final tone tuning

@@ -2,18 +2,11 @@
 
 package com.flights.studio
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
-import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.Dialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.media.SoundPool
 import android.net.ConnectivityManager
@@ -21,44 +14,95 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
-import android.text.Editable
-import android.text.SpannableStringBuilder
-import android.text.Spanned
-import android.text.TextWatcher
-import android.text.style.BulletSpan
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.view.WindowManager
-import android.view.animation.AccelerateInterpolator
-import android.view.animation.DecelerateInterpolator
-import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.ProgressBar
-import android.widget.TextView
 import android.widget.Toast
-import androidx.annotation.ColorInt
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.GppMaybe
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
-import androidx.core.graphics.drawable.DrawableCompat
-import androidx.core.graphics.toColorInt
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.android.material.card.MaterialCardView
-import com.google.android.material.checkbox.MaterialCheckBox
-import com.google.android.material.color.MaterialColors
+import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -75,21 +119,22 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.TimeZone
+import androidx.compose.ui.graphics.Color as ComposeColor
 
 @Suppress("DEPRECATION")
-class FeedbackBottomSheet : BottomSheetDialogFragment() {
-    // ────── view references ──────
-    private lateinit var feedbackInputLayout: TextInputLayout
-    private lateinit var feedbackEditText: TextInputEditText
-    private lateinit var progressBar: ProgressBar
-    private lateinit var submitButton: TextView
-    private lateinit var soundCheck: MaterialCheckBox
-    private lateinit var statusText: TextView
-    private lateinit var statusIndicator: View
+class FeedbackBottomSheet : DialogFragment() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NO_FRAME, android.R.style.Theme_Translucent_NoTitleBar)
+    }
 
-    // ────── other state ──────
+    private enum class FeedbackServerState {
+        Checking,
+        Online,
+        Offline
+    }
+
     private lateinit var soundPool: SoundPool
-    private var soundId: Int = 0
     private var clickSoundId: Int = 0
     private var successSoundId: Int = 0
     private var isServerOnline = false
@@ -99,25 +144,44 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
     private var banEndEpoch: Long? = null
     private var banStatusChecked = false
     private var banCountdownTimer: Job? = null
+    private var typingPulseJob: Job? = null
     private var fcmToken: String? = null
     private val sharedClient = OkHttpClient()
 
+    private var feedbackText by mutableStateOf("")
+    private var soundEnabled by mutableStateOf(true)
+    private var serverState by mutableStateOf(FeedbackServerState.Checking)
+    private var statusMessage by mutableStateOf("")
+    private var isSending by mutableStateOf(false)
+    private var inputEnabled by mutableStateOf(true)
+    private var soundControlsEnabled by mutableStateOf(true)
+    private var typingPulseActive by mutableStateOf(false)
+    private var successEffectActive by mutableStateOf(false)
 
     companion object {
         private const val PREFS_NAME = "feedback_prefs"
         private const val SOUND_ENABLED_KEY = "feedback_sound_enabled"
         private const val REQUEST_BT_CONNECT = 42
-
+        private const val SUPABASE_KEY =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU"
+        private const val FEEDBACK_URL =
+            "https://ylgvdeiqaaikcohhpwfi.supabase.co/rest/v1/feedback"
     }
-    private fun ensureBluetoothPermissionAndThenRun(block: () -> Unit) {
-        val connectPerm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2)
-            "android.permission.BLUETOOTH_CONNECT"
-        else
-            null
 
-        if (connectPerm != null &&
-            ContextCompat.checkSelfPermission(requireContext(), connectPerm)
-            != PackageManager.PERMISSION_GRANTED
+    private val prefs by lazy {
+        requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    private fun ensureBluetoothPermissionAndThenRun(block: () -> Unit) {
+        val connectPerm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2) {
+            "android.permission.BLUETOOTH_CONNECT"
+        } else {
+            null
+        }
+
+        if (
+            connectPerm != null &&
+            ContextCompat.checkSelfPermission(requireContext(), connectPerm) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(connectPerm), REQUEST_BT_CONNECT)
         } else {
@@ -138,160 +202,157 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-    private val prefs by lazy {
-        requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    }
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        return BottomSheetDialog(requireContext(), theme).apply {
+        return Dialog(requireContext(), theme).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setCanceledOnTouchOutside(true)
+            window?.setWindowAnimations(0)
             setOnShowListener {
-                findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.let { sheet ->
-                    BottomSheetBehavior.from(sheet).apply {
-                        skipCollapsed = true
-                        state = BottomSheetBehavior.STATE_EXPANDED
+                window?.let { dialogWindow ->
+                    dialogWindow.setLayout(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    dialogWindow.setBackgroundDrawableResource(android.R.color.transparent)
+                    dialogWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                    dialogWindow.decorView.setPadding(0, 0, 0, 0)
+                    dialogWindow.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                    val attrs = dialogWindow.attributes
+                    attrs.dimAmount = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 0.48f else 0.42f
+                    attrs.windowAnimations = android.R.style.Animation_Dialog
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        attrs.blurBehindRadius = 32
+                        dialogWindow.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
                     }
-                    sheet.setBackgroundColor(Color.TRANSPARENT)
-                    behavior.isDraggable = false
-                }
-                feedbackEditText.post {
-                    feedbackEditText.requestFocus()
-                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE)
-                            as InputMethodManager
-                    imm.showSoftInput(feedbackEditText, InputMethodManager.SHOW_IMPLICIT)
+                    dialogWindow.attributes = attrs
                 }
             }
         }
     }
 
-
-
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?,
-    ): View? {
-        return inflater.inflate(R.layout.dialog_feedback, container, false)
-
+    ): View {
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                FlightsTheme {
+                    ModernFeedbackSheet(
+                        text = feedbackText,
+                        soundEnabled = soundEnabled,
+                        soundControlsEnabled = soundControlsEnabled,
+                        serverState = serverState,
+                        statusMessage = statusMessage,
+                        isSending = isSending,
+                        inputEnabled = inputEnabled,
+                        isBanned = isBanned,
+                        pulseActive = typingPulseActive && soundEnabled,
+                        successActive = successEffectActive,
+                        onTextChange = ::handleFeedbackTextChange,
+                        onSoundChange = ::updateSoundPreference,
+                        onDismiss = ::dismiss,
+                        onSend = {
+                            ensureBluetoothPermissionAndThenRun {
+                                actuallySendFeedback()
+                            }
+                        },
+                        onRules = ::showRulesDialog,
+                    )
+                }
+            }
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        initializeUI(view)
+        initializeRuntime()
         updateStatusUI(null)
-        adjustSubmitButtonTextColor()
 
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             fcmToken = token
             Log.d("FCM", "FCM token cached: $token")
         }
 
-        view.findViewById<ImageView>(R.id.rulesButton)
-            ?.setOnClickListener { showRulesDialog() }
-
-        // Check ban status immediately
-        CoroutineScope(Dispatchers.IO).launch {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val deviceId = getHardDeviceId()
             try {
                 val (banned, banEnd) = checkBanStatus(deviceId)
                 isBanned = banned
                 banEndEpoch = banEnd
                 withContext(Dispatchers.Main) {
-                    if (isBanned) showBanStatus()
-                    else startPeriodicServerChecks()
+                    if (isBanned) {
+                        showBanStatus()
+                    } else {
+                        startPeriodicServerChecks()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("BanCheck", "Error checking ban status: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    statusText.text = getString(R.string.ban_status_unavailable)
-                    progressBar.visibility = View.GONE
-                    feedbackEditText.isEnabled = false
-                    feedbackEditText.hint = getString(R.string.ban_status_error_hint)
-                    submitButton.isEnabled = false
+                    inputEnabled = false
+                    isSending = false
+                    statusMessage = getString(R.string.ban_status_unavailable)
                     startPeriodicServerChecks()
                 }
             }
         }
-
-        feedbackEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun afterTextChanged(s: Editable?) {}
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                if (s.isNullOrEmpty()) {
-                    submitButton.setBackgroundResource(R.drawable.bg_feedback_button)
-                    submitButton.setTextColor(
-                        ContextCompat.getColor(requireContext(), R.color.neon_blue)
-                    )
-                } else {
-                    submitButton.setBackgroundResource(R.drawable.bg_feedback_button_focused)
-                    adjustSubmitButtonTextColor()
-                }
-            }
-        })
     }
-
 
     override fun onDestroyView() {
-        super.onDestroyView()
         banCountdownTimer?.cancel()
-        soundPool.release()
-        stopPeriodicServerChecks()
-    }
-
-
-    @SuppressLint("MissingInflatedId")
-    private fun initializeUI(view: View) {
-        feedbackInputLayout = view.findViewById(R.id.feedbackInputLayout)
-        feedbackEditText    = view.findViewById(R.id.feedbackEditText)
-        progressBar         = view.findViewById(R.id.feedbackProgressBar)
-        submitButton        = view.findViewById(R.id.submitFeedbackButton)
-        soundCheck          = view.findViewById(R.id.feedbackSoundCheck)
-        statusText          = view.findViewById(R.id.feedbackStatusText)
-        statusIndicator     = view.findViewById(R.id.statusIndicator)
-
-
-
-        soundPool = SoundPool.Builder().setMaxStreams(1).build().also {
-            clickSoundId   = it.load(requireContext(), R.raw.time_click, 1)
-            successSoundId = it.load(requireContext(), R.raw.success,    1)
+        typingPulseJob?.cancel()
+        if (::soundPool.isInitialized) {
+            soundPool.release()
         }
-
-        submitButton.setBackgroundResource(R.drawable.bg_feedback_button)
-        submitButton.setTextColor(
-            ContextCompat.getColor(requireContext(), android.R.color.primary_text_light)
-        )
-
-        setupTypingVisualizer(view)
-        setupVibrationWatcher()
-        setupSoundCheck(soundCheck)
-        setupSubmitButton()
+        stopPeriodicServerChecks()
+        super.onDestroyView()
     }
-    private fun showRulesDialog() {
-        val rules = listOf(
-            "No profanity or hate speech",
-            "No personal data or doxxing",
-            "Violations incur a 60‑day ban",
-            "No harassment or bullying",
-            "No spam, advertising, or self‑promotion"
-        )
-        val gapPx = (8 * resources.displayMetrics.density).toInt()
-        val ssb = SpannableStringBuilder().apply {
-            rules.forEachIndexed { i, rule ->
-                val start = length
-                append(rule)
-                if (i != lastIndex) append("\n")
-                setSpan(
-                    BulletSpan(gapPx, ContextCompat.getColor(requireContext(), R.color.color_success)),
-                    start, start + rule.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+
+    private fun initializeRuntime() {
+        soundEnabled = prefs.getBoolean(SOUND_ENABLED_KEY, true)
+        soundControlsEnabled = true
+        soundPool = SoundPool.Builder().setMaxStreams(2).build().also {
+            clickSoundId = it.load(requireContext(), R.raw.time_click, 1)
+            successSoundId = it.load(requireContext(), R.raw.success, 1)
+        }
+    }
+
+    private fun updateSoundPreference(enabled: Boolean) {
+        soundEnabled = enabled
+        prefs.edit { putBoolean(SOUND_ENABLED_KEY, enabled) }
+    }
+
+    private fun handleFeedbackTextChange(value: String) {
+        val grew = value.length > feedbackText.length
+        feedbackText = value
+        if (grew && soundEnabled && ::soundPool.isInitialized) {
+            playClickFeedback(requireContext())
+            typingPulseActive = true
+            typingPulseJob?.cancel()
+            typingPulseJob = viewLifecycleOwner.lifecycleScope.launch {
+                delay(700)
+                typingPulseActive = false
             }
         }
+    }
+
+    private fun showRulesDialog() {
+        val rules = arrayOf(
+            "No profanity or hate speech",
+            "No personal data or doxxing",
+            "Violations incur a 60-day ban",
+            "No harassment or bullying",
+            "No spam, advertising, or self-promotion"
+        ).joinToString("\n") { "• $it" }
+
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.feedback_rules)
-            .setMessage(ssb)
+            .setMessage(rules)
             .setPositiveButton(android.R.string.ok, null)
             .show()
     }
-
 
     private fun getHardDeviceId(): String {
         val rawId = listOf(
@@ -308,19 +369,14 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
             .joinToString("") { "%02x".format(it) }
     }
 
-
     private fun showBanStatus() {
-        // disable everything
-        feedbackInputLayout.isEnabled = false
-        feedbackEditText.isEnabled = false
-        submitButton.isEnabled = false
-        soundCheck.isEnabled = false
-
-        // update hint
-        feedbackInputLayout.hint = getString(R.string.ban_reason_hint)
+        inputEnabled = false
+        soundControlsEnabled = false
+        isSending = false
+        serverState = FeedbackServerState.Offline
 
         banCountdownTimer?.cancel()
-        banCountdownTimer = CoroutineScope(Dispatchers.Main).launch {
+        banCountdownTimer = viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
             while (isActive) {
                 val timeLeft = (banEndEpoch ?: 0L) - (System.currentTimeMillis() / 1000)
                 if (timeLeft <= 0) {
@@ -328,6 +384,8 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
                         isBanned = false
                         banEndEpoch = null
                         banStatusChecked = false
+                        inputEnabled = true
+                        soundControlsEnabled = true
                         updateStatusUI(true)
                     }
                     break
@@ -336,313 +394,22 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
                 val hours = (timeLeft % 86400) / 3600
                 val minutes = (timeLeft % 3600) / 60
                 val seconds = timeLeft % 60
-                val message = when {
-                    days > 0    -> getString(R.string.ban_days_full, days, hours, minutes, seconds)
-                    hours > 0   -> getString(R.string.ban_hours_full, hours, minutes, seconds)
+                statusMessage = when {
+                    days > 0 -> getString(R.string.ban_days_full, days, hours, minutes, seconds)
+                    hours > 0 -> getString(R.string.ban_hours_full, hours, minutes, seconds)
                     minutes > 0 -> getString(R.string.ban_minutes_full, minutes, seconds)
-                    else        -> getString(R.string.ban_seconds_only, seconds)
+                    else -> getString(R.string.ban_seconds_only, seconds)
                 }
-                statusText.text = message
                 delay(500L)
             }
         }
     }
 
-    @SuppressLint("MissingInflatedId")
-    private fun setupTypingVisualizer(view: View) {
-        val visualizer = view.findViewById<LinearLayout>(R.id.typingVisualizer)
-        val bars = listOf(
-            view.findViewById(R.id.bar1),
-            view.findViewById(R.id.bar2),
-            view.findViewById<View>(R.id.bar3)
-        )
-
-        // A) pulse animators
-        val barAnims = bars.mapIndexed { i, bar ->
-            ObjectAnimator.ofFloat(bar, "scaleY", 0.4f, 1f).apply {
-                duration    = 200L + i * 50
-                repeatMode  = ValueAnimator.REVERSE
-                repeatCount = ValueAnimator.INFINITE
-            }
-        }
-
-        // B) color‑mapping
-        val defaultColor = ContextCompat.getColor(requireContext(), R.color.bar_default)
-        val digitColor   = ContextCompat.getColor(requireContext(), R.color.input_digit_color)
-        val row1Color    = ContextCompat.getColor(requireContext(), R.color.input_row1_color)
-        val row2Color    = ContextCompat.getColor(requireContext(), R.color.input_row2_color)
-        val row3Color    = ContextCompat.getColor(requireContext(), R.color.input_row3_color)
-
-        // C) slide‑out + reset
-        val handler = Handler(Looper.getMainLooper())
-        val hideRunnable = Runnable {
-            animateVisualizerOut(visualizer, bars, barAnims) {
-                // nothing extra
-            }
-        }
-
-        // D) watcher
-        feedbackEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, st: Int, ct: Int, af: Int) {}
-            override fun afterTextChanged(s: Editable?) {}
-
-            override fun onTextChanged(s: CharSequence?, st: Int, bf: Int, ct: Int) {
-                if (s.isNullOrEmpty()) {
-                    handler.removeCallbacks(hideRunnable)
-                    animateVisualizerOut(visualizer, bars, barAnims)
-                    return
-                }
-                if (!prefs.getBoolean(SOUND_ENABLED_KEY, true)) return
-
-                // 1) slide‑in + pulse
-                if (visualizer.visibility != View.VISIBLE) {
-                    animateVisualizerIn(visualizer)
-                    barAnims.forEach { it.start() }
-                }
-
-                // 2) pick mapped color
-                val lastChar = s.lastOrNull() ?: return
-                val row1 = "qwertyuiop"
-                val row2 = "asdfghjkl"
-                val row3 = "zxcvbnm"
-                val targetColor = when {
-                    lastChar.isDigit()                            -> digitColor
-                    row1.contains(lastChar, ignoreCase = true)    -> row1Color
-                    row2.contains(lastChar, ignoreCase = true)    -> row2Color
-                    row3.contains(lastChar, ignoreCase = true)    -> row3Color
-                    else                                          -> defaultColor
-                }
-
-                // 3) flash bars grey→target→grey
-                bars.forEach { bar ->
-                    (bar.background as? GradientDrawable)?.let { dr ->
-                        val bg = (dr.mutate() as GradientDrawable)
-                        ValueAnimator.ofArgb(defaultColor, targetColor).apply {
-                            duration    = 250
-                            repeatMode  = ValueAnimator.REVERSE
-                            repeatCount = 1
-                            addUpdateListener { anim ->
-                                bg.setColor(anim.animatedValue as Int)
-                            }
-                        }.start()
-                    }
-                }
-
-                // 4) schedule slide‑out
-                handler.removeCallbacks(hideRunnable)
-                handler.postDelayed(hideRunnable, 500)
-            }
-        })
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────────
-// slide‑in from left + fade + zoom
-    private fun animateVisualizerIn(view: View) {
-        view.apply {
-            alpha = 0f
-            translationX = -width.toFloat()
-            scaleX = 0.8f
-            visibility = View.VISIBLE
-            animate()
-                .translationX(0f)
-                .alpha(1f)
-                .scaleX(1f)
-                .setDuration(200)
-                .setInterpolator(DecelerateInterpolator())
-                .start()
-        }
-    }
-
-    // slide‑out to right + fade + zoom
-    private fun animateVisualizerOut(
-        view: View,
-        bars: List<View>,
-        barAnims: List<ObjectAnimator>,
-        onEnd: () -> Unit = {},
-    ) {
-        view.animate()
-            .translationX(view.width.toFloat())
-            .alpha(0f)
-            .scaleX(0.8f)
-            .setDuration(200)
-            .setInterpolator(AccelerateInterpolator())
-            .withEndAction {
-                barAnims.forEach { it.cancel() }
-                bars.forEach { it.scaleY = 0.4f }
-                view.visibility = View.GONE
-                view.translationX = 0f
-                view.alpha = 1f
-                view.scaleX = 1f
-                onEnd()
-            }
-            .start()
-    }
-
-
-    private fun setupVibrationWatcher() {
-
-        feedbackEditText.addTextChangedListener(object : TextWatcher {
-            private var lastLen = 0
-            override fun beforeTextChanged(s: CharSequence?, st: Int, ct: Int, af: Int) {}
-            override fun afterTextChanged(s: Editable?) {}
-            override fun onTextChanged(s: CharSequence?, st: Int, bf: Int, ct: Int) {
-                val len = s?.length ?: 0
-                if (len > lastLen && prefs.getBoolean(SOUND_ENABLED_KEY, true)) {
-                    soundPool.play(clickSoundId, 1f, 1f, 0, 0, 1f)
-                    vibrateAndPlayClick(requireContext())
-                }
-                lastLen = len
-            }
-        })
-    }
-    private fun onFeedbackSentSuccess() {
-        // 1️⃣ clear input & show status
-        feedbackEditText.setText("")
-        statusText.apply {
-            text = getString(R.string.feedback_sent_success)
-            visibility = View.VISIBLE
-        }
-
-        // 2️⃣ re‑enable buttons
-        submitButton.apply {
-            isEnabled = true
-            text = getString(R.string.send_feedback)
-            setBackgroundResource(R.drawable.bg_feedback_button)
-        }
-
-        if (!prefs.getBoolean(SOUND_ENABLED_KEY, true)) return
-
-        // 3️⃣ play success sound
-        val vol = 0.3f
-        soundPool.play(successSoundId, vol, vol, 0, 0, 1f)
-
-        // 4️⃣ grab the card & rotate its border colour
-        view?.findViewById<MaterialCardView>(R.id.feedbackCard)?.let { card ->
-            // make the stroke visible
-            val strokePx = resources.getDimensionPixelSize(R.dimen.neon_stroke_width)
-            card.strokeWidth = strokePx
-
-            // your three‑stop palette
-            val cStart = ContextCompat.getColor(requireContext(), R.color.material_yellow)
-            val cMid   = ContextCompat.getColor(requireContext(), R.color.siri_glow_mid)
-            val cEnd   = ContextCompat.getColor(requireContext(), R.color.siri_glow_end)
-            val cFinal = "#CCC2DC".toColorInt()
-
-
-            // animate: start → mid → end → start
-            ValueAnimator.ofArgb(cStart, cMid, cEnd, cStart).apply {
-                duration = 1200L
-                addUpdateListener { anim ->
-                    card.strokeColor = anim.animatedValue as Int
-                }
-                addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        // hide the stroke when done
-                        card.strokeColor = cFinal
-                    }
-                })
-                start()
-            }
-        }
-    }
-
-    private fun adjustSubmitButtonTextColor() {
-        submitButton.let { button ->
-            val bg = button.background
-            if (bg is GradientDrawable) {
-                val colorInt = bg.color?.defaultColor ?: return
-                val brightness = calculateBrightness(colorInt)
-                val textColor = if (brightness < 128) {
-                    ContextCompat.getColor(requireContext(), android.R.color.white)
-                } else {
-                    ContextCompat.getColor(requireContext(), android.R.color.black)
-                }
-                button.setTextColor(textColor)
-            } else {
-                // fallback if not GradientDrawable
-                button.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-            }
-        }
-    }
-
-    private fun calculateBrightness(color: Int): Int {
-        val r = (color shr 16) and 0xFF
-        val g = (color shr 8) and 0xFF
-        val b = color and 0xFF
-        return (r * 299 + g * 587 + b * 114) / 1000
-    }
-
-    /** Called from initializeUI() */
-    private fun setupSoundCheck(check: MaterialCheckBox) {
-
-        // 1️⃣ restore last choice
-        val saved = prefs.getBoolean(SOUND_ENABLED_KEY, true)
-        check.isChecked = saved
-        refreshCheckUi(check, saved)
-
-        // 2️⃣ update UI + prefs whenever the user flips it
-        check.setOnCheckedChangeListener { _, isChecked ->
-            prefs.edit { putBoolean(SOUND_ENABLED_KEY, isChecked) }
-            refreshCheckUi(check, isChecked)
-        }
-    }
-
-    /** Small helper that applies icon + background for the two states */
-    private fun refreshCheckUi(box: MaterialCheckBox, checked: Boolean) {
-
-        /* ───────────────────────────────────── 1.  pick icon + background ─────────────────────────────────── */
-
-        val iconRes   = if (checked)
-            R.drawable.volume_up_16dp_ffffff_fill0_wght400_grad0_opsz20
-        else
-            R.drawable.volume_off_16dp_ffffff_fill0_wght400_grad0_opsz20
-
-        box.background = ContextCompat.getDrawable(
-            box.context,
-            if (checked) R.drawable.bg_holo_checked
-            else          R.drawable.checking_for_updates_backround
-        )
-
-        /* ───────────────────────────────────── 2.  decide colours ─────────────────────────────────────────── */
-
-        @ColorInt val darkText   = ContextCompat.getColor(box.context, android.R.color.black)
-        @ColorInt val normalText = MaterialColors.getColor(
-            box.context,
-            com.google.android.material.R.attr.colorOnSurface,
-            0
-        )
-
-        val textColour = if (checked) darkText else normalText   // ← current colour
-
-        /* ───────────────────────────────────── 3.  tint the icon to match ─────────────────────────────────── */
-
-        val rawIcon   = ContextCompat.getDrawable(box.context, iconRes)!!.mutate()
-        val wrapped   = DrawableCompat.wrap(rawIcon)
-        DrawableCompat.setTint(wrapped, textColour)
-
-        box.setCompoundDrawablesRelativeWithIntrinsicBounds(wrapped, null, null, null)
-
-        /* ───────────────────────────────────── 4.  apply text colour ─────────────────────────────────────── */
-
-        box.setTextColor(textColour)
-
-    }
-    private fun setupSubmitButton() {
-        submitButton.setOnClickListener {
-            ensureBluetoothPermissionAndThenRun {
-                actuallySendFeedback()
-            }
-        }
-    }
-
-
-
     @Suppress("DEPRECATION")
-    private fun vibrateAndPlayClick(context: Context) {
-        // 1. VIBRATION (always)
+    private fun playClickFeedback(context: Context) {
         val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2) {
-            val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
-            vm.defaultVibrator
+            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
+            manager.defaultVibrator
         } else {
             context.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
         }
@@ -653,25 +420,28 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
             )
         )
 
-        // 2. SOUND (only if enabled in prefs)
-        if (prefs.getBoolean(SOUND_ENABLED_KEY, true)) {
-            val audioMgr = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val maxVol = audioMgr.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat()
-            val curVol = audioMgr.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
-            val playVol = (curVol / maxVol) * 0.5f
-
-            soundPool.play(
-                soundId,
-                playVol,    // left volume
-                playVol,    // right volume
-                0,          // priority
-                0,          // loop
-                1f          // playback rate
-            )
-        }
+        val audioMgr = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val maxVol = audioMgr.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat().coerceAtLeast(1f)
+        val curVol = audioMgr.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+        val playVol = (curVol / maxVol) * 0.45f
+        soundPool.play(clickSoundId, playVol, playVol, 0, 0, 1f)
     }
 
+    private fun onFeedbackSentSuccess() {
+        feedbackText = ""
+        statusMessage = getString(R.string.feedback_sent_success)
+        isSending = false
+        inputEnabled = true
+        successEffectActive = true
+        viewLifecycleOwner.lifecycleScope.launch {
+            delay(1_150)
+            successEffectActive = false
+        }
 
+        if (!soundEnabled || !::soundPool.isInitialized) return
+        val vol = 0.3f
+        soundPool.play(successSoundId, vol, vol, 0, 0, 1f)
+    }
 
     private suspend fun deviceIsBanned(deviceId: String): Boolean = withContext(Dispatchers.IO) {
         if (banStatusChecked) return@withContext isBanned
@@ -683,79 +453,52 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun actuallySendFeedback() {
-        val feedbackText = feedbackEditText.text.toString().trim()
-        if (feedbackText.isEmpty()) {
+        val trimmedFeedback = feedbackText.trim()
+        if (trimmedFeedback.isEmpty()) {
             Toast.makeText(requireContext(), "Please enter feedback.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Kick off one coroutine on Main that will hop to IO as needed:
-        CoroutineScope(Dispatchers.Main).launch {
-            // 0️⃣ Ban check on IO
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
             val deviceId = getHardDeviceId()
             if (deviceIsBanned(deviceId)) {
                 showBanStatus()
                 return@launch
             }
 
-            // 1️⃣ Show progress UI
-            progressBar.apply {
-                isIndeterminate = false
-                progress = 0
-                visibility = View.VISIBLE
-            }
-            submitButton.apply {
-                isEnabled = false
-                text = getString(R.string.sending_feedback)
-            }
+            isSending = true
+            inputEnabled = false
+            statusMessage = getString(R.string.sending_feedback)
 
-            // 2️⃣ start a little progress animator on Main
             val progressJob = launch {
-                val startTime = System.currentTimeMillis()
-                val max = 4_000L
                 while (isActive) {
-                    val elapsed = System.currentTimeMillis() - startTime
-                    progressBar.progress = ((elapsed.coerceAtMost(max) * 100) / max).toInt()
-                    delay(30)
+                    delay(120)
                 }
             }
 
-            // 3️⃣ Build payload & actually send / queue on IO
             val result = withContext(Dispatchers.IO) {
-                val deviceInfo = getDeviceInfo(requireContext()).apply { put("fcmToken", fcmToken) }
+                val deviceInfo = getDeviceInfo(requireContext()).apply {
+                    put("fcmToken", fcmToken)
+                }
                 val json = JSONObject().apply {
-                    put("message", feedbackText)
+                    put("message", trimmedFeedback)
                     put("deviceInfo", deviceInfo)
                     put("fcmToken", fcmToken)
                 }
                 val body = json.toString().toRequestBody("application/json".toMediaType())
 
                 if (isServerOnline) {
-                    val req = Request.Builder()
-                    .url("https://ylgvdeiqaaikcohhpwfi.supabase.co/rest/v1/feedback")
-                    .addHeader(
-                        "apikey",
-                        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU"
-                    )
-                    .addHeader(
-                        "Authorization",
-                        "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU"
-                    )
-                    .addHeader("Content-Type", "application/json")
+                    val request = supabaseRequestBuilder(FEEDBACK_URL)
                         .post(body)
                         .build()
-                    if (sharedClient.newCall(req).execute().isSuccessful) "sent" else "error"
+                    if (sharedClient.newCall(request).execute().isSuccessful) "sent" else "error"
                 } else {
-                    queueFeedbackLocally(feedbackText)
-                    "queued"
+                    if (queueFeedbackLocally(trimmedFeedback)) "queued" else "queue_error"
                 }
             }
 
-            // 4️⃣ Tear down progress and update UI on Main
             progressJob.cancelAndJoin()
-            progressBar.progress = 100
-            delay(100)
-            progressBar.visibility = View.GONE
+            delay(120)
 
             when (result) {
                 "sent" -> {
@@ -764,27 +507,29 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
                     updateStatusUI(true)
                 }
                 "queued" -> {
-                    statusText.text = getString(R.string.feedback_queued_success)
-                    statusText.visibility = View.VISIBLE
-                    feedbackEditText.setText("")
+                    feedbackText = ""
+                    statusMessage = getString(R.string.feedback_queued_success)
+                    isSending = false
+                    inputEnabled = true
                 }
                 "error" -> {
-                    statusText.text = getString(R.string.feedback_send_error)
-                    statusText.visibility = View.VISIBLE
+                    statusMessage = getString(R.string.feedback_send_error)
+                    isSending = false
+                    inputEnabled = true
                 }
-            }
-
-            submitButton.apply {
-                isEnabled = true
-                text = getString(R.string.send_feedback)
-                setBackgroundResource(R.drawable.bg_feedback_button)
+                "queue_error" -> {
+                    statusMessage = getString(R.string.feedback_queue_error, "Local queue unavailable")
+                    isSending = false
+                    inputEnabled = true
+                }
             }
         }
     }
 
     private fun startPeriodicServerChecks() {
-        serverCheckJob = CoroutineScope(Dispatchers.IO).launch {
-            checkServerStatus() // 👈 run immediately
+        serverCheckJob?.cancel()
+        serverCheckJob = viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            checkServerStatus()
             while (isActive) {
                 delay(checkInterval)
                 checkServerStatus()
@@ -792,67 +537,49 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
         }
     }
 
-
     private fun stopPeriodicServerChecks() {
         serverCheckJob?.cancel()
+        serverCheckJob = null
     }
 
     private suspend fun checkServerStatus() {
         withContext(Dispatchers.IO) {
-
-            val client = OkHttpClient()
-            val request = Request.Builder()
-                .url("https://ylgvdeiqaaikcohhpwfi.supabase.co/rest/v1/feedback?select=id&limit=1")
-                .addHeader("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU")
-                .addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU")
+            val request = supabaseRequestBuilder("$FEEDBACK_URL?select=id&limit=1")
                 .get()
                 .build()
 
-
             try {
-                val response = client.newCall(request).execute()
-                val isOnline = response.isSuccessful
+                val response = sharedClient.newCall(request).execute()
+                val online = response.isSuccessful
 
                 withContext(Dispatchers.Main) {
-                    if (!isServerOnline && isOnline) {
+                    if (!isServerOnline && online) {
                         processQueuedFeedback()
                     }
-                    isServerOnline = isOnline
-
-                    // 🛑 Avoid showing "online" if banned
+                    isServerOnline = online
                     if (!isBanned) {
-                        updateStatusUI(isOnline)
+                        updateStatusUI(online)
                     }
                 }
 
-
-                // ✅ Refresh ban status (detect new bans OR unbans live)
                 val deviceId = getHardDeviceId()
                 val (currentlyBanned, banEnd) = checkBanStatus(deviceId)
 
                 withContext(Dispatchers.Main) {
                     if (currentlyBanned && !isBanned) {
-                        // ⛔ Newly banned while sheet is open
                         isBanned = true
                         banEndEpoch = banEnd
                         banStatusChecked = true
                         showBanStatus()
                     } else if (!currentlyBanned && isBanned) {
-                        // ✅ Unbanned while sheet is open
                         isBanned = false
                         banEndEpoch = null
                         banStatusChecked = false
-
-                        feedbackInputLayout.isEnabled = true
-                        feedbackInputLayout.hint      = getString(R.string.enter_your_feedback_here)
-
-
-                        submitButton.isEnabled = true
-
+                        inputEnabled = true
+                        soundControlsEnabled = true
                         updateStatusUI(true)
                     }
                 }
-
             } catch (e: Exception) {
                 Log.e("SupabaseStatus", "Error checking Supabase: ${e.message}")
                 withContext(Dispatchers.Main) {
@@ -862,149 +589,99 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
             }
         }
     }
-    private fun queueFeedbackLocally(feedbackText: String) {
+
+    private fun queueFeedbackLocally(feedbackText: String): Boolean {
         if (feedbackText.isBlank()) {
             Log.w("QueueFeedback", "Empty feedback not queued.")
-            return
+            return false
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val queueFile = File(requireContext().filesDir, "feedbackQueue.json")
-                val feedbackQueue = if (queueFile.exists()) {
-                    JSONObject(queueFile.readText()).getJSONArray("queue")
-                } else {
-                    JSONArray()
-                }
-
-                feedbackQueue.put(feedbackText)
-                queueFile.writeText(JSONObject().put("queue", feedbackQueue).toString())
-
-                withContext(Dispatchers.Main) {
-                    val statusTextView = view?.findViewById<TextView>(R.id.feedbackStatusText)
-                    statusTextView?.text = getString(R.string.feedback_queued_success)
-                    statusTextView?.visibility = View.VISIBLE
-                    progressBar.visibility = View.GONE
-                    view?.findViewById<EditText>(R.id.feedbackEditText)?.setText("") // ✅ CLEAR INPUT
-
-                }
-            } catch (e: Exception) {
-                Log.e("QueueFeedback", "Error queuing feedback: ${e.message}")
-                withContext(Dispatchers.Main) {
-                    val statusTextView = view?.findViewById<TextView>(R.id.feedbackStatusText)
-                    statusTextView?.text = getString(R.string.feedback_queue_error, e.message)
-                    statusTextView?.visibility = View.VISIBLE
-                    progressBar.visibility = View.GONE
-                }
+        return try {
+            val queueFile = File(requireContext().filesDir, "feedbackQueue.json")
+            val feedbackQueue = if (queueFile.exists()) {
+                JSONObject(queueFile.readText()).optJSONArray("queue") ?: JSONArray()
+            } else {
+                JSONArray()
             }
+
+            feedbackQueue.put(feedbackText)
+            queueFile.writeText(JSONObject().put("queue", feedbackQueue).toString())
+            true
+        } catch (e: Exception) {
+            Log.e("QueueFeedback", "Error queuing feedback: ${e.message}")
+            false
         }
     }
 
-
-
-
     private fun processQueuedFeedback() {
-        CoroutineScope(Dispatchers.IO).launch {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val queueFile = File(requireContext().filesDir, "feedbackQueue.json")
                 if (!queueFile.exists()) return@launch
 
-                // ───────────────────────────────────────────────────────────────
-                // 1️⃣  Load queue safely and bail if empty
-                // ───────────────────────────────────────────────────────────────
                 val feedbackQueue = JSONObject(queueFile.readText())
                     .optJSONArray("queue") ?: JSONArray()
 
                 if (feedbackQueue.length() == 0) {
-                    // Nothing to resend → delete stub so the banner won’t pop up again
                     queueFile.delete()
                     return@launch
                 }
 
-                // ───────────────────────────────────────────────────────────────
-                // 2️⃣  Attempt to resend items
-                // ───────────────────────────────────────────────────────────────
-                val client       = OkHttpClient()
-                val failedQueue  = JSONArray()
-                var processedCnt = 0
+                val failedQueue = JSONArray()
+                var processedCount = 0
 
                 for (i in 0 until feedbackQueue.length()) {
-                    processedCnt++                                    // track real attempts
-
-                    val feedbackText = feedbackQueue.getString(i).trim()
-                    if (feedbackText.isBlank()) {
-                        Log.w("ProcessQueue", "Skipping blank feedback.")
-                        continue
-                    }
+                    processedCount++
+                    val queuedFeedback = feedbackQueue.getString(i).trim()
+                    if (queuedFeedback.isBlank()) continue
 
                     val token = FirebaseMessaging.getInstance().token.await()
                     val deviceInfo = getDeviceInfo(requireContext()).apply {
                         put("fcmToken", token)
                     }
-
                     val json = JSONObject().apply {
-                        put("message",    feedbackText)
-                        put("deviceInfo",  deviceInfo)
-                        put("fcmToken",    token)
+                        put("message", queuedFeedback)
+                        put("deviceInfo", deviceInfo)
+                        put("fcmToken", token)
                     }
-
-                    val requestBody = json.toString()
+                    val body = json.toString()
                         .toRequestBody("application/json; charset=utf-8".toMediaType())
 
-                    val request = Request.Builder()
-                        .url("https://ylgvdeiqaaikcohhpwfi.supabase.co/rest/v1/feedback")
-                        .addHeader("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU")
-                        .addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU")
-                        .addHeader("Content-Type", "application/json")
-                        .post(requestBody)
+                    val request = supabaseRequestBuilder(FEEDBACK_URL)
+                        .post(body)
                         .build()
 
                     try {
-                        val response     = client.newCall(request).execute()
+                        val response = sharedClient.newCall(request).execute()
                         val responseBody = response.body.string()
-
                         if (!response.isSuccessful) {
-                            Log.e("ProcessQueue", "❌ Failed to send: $feedbackText\nCode: ${response.code}\nBody: $responseBody")
-                            failedQueue.put(feedbackText)
-                        } else {
-                            Log.d("ProcessQueue", "✅ Sent: $feedbackText")
+                            Log.e("ProcessQueue", "Failed to send queued feedback. Code: ${response.code}. Body: $responseBody")
+                            failedQueue.put(queuedFeedback)
                         }
                     } catch (e: Exception) {
-                        Log.e("ProcessQueue", "❌ Exception: ${e.message}")
-                        failedQueue.put(feedbackText)
+                        Log.e("ProcessQueue", "Exception: ${e.message}")
+                        failedQueue.put(queuedFeedback)
                     }
                 }
 
-                // ───────────────────────────────────────────────────────────────
-                // 3️⃣  Persist failures or clean up file
-                // ───────────────────────────────────────────────────────────────
                 if (failedQueue.length() == 0) {
-                    queueFile.delete()   // everything went through → remove file
+                    queueFile.delete()
                 } else {
                     queueFile.writeText(JSONObject().put("queue", failedQueue).toString())
                 }
 
-                // ───────────────────────────────────────────────────────────────
-                // 4️⃣  UI feedback – only if we processed at least one item
-                // ───────────────────────────────────────────────────────────────
                 withContext(Dispatchers.Main) {
-                    if (processedCnt == 0) return@withContext          // safety guard
-
-                    val statusTextView = view?.findViewById<TextView>(R.id.feedbackStatusText)
-                    if (failedQueue.length() == 0) {
-                        statusTextView?.text = getString(R.string.feedback_all_sent)
+                    if (processedCount == 0) return@withContext
+                    statusMessage = if (failedQueue.length() == 0) {
+                        getString(R.string.feedback_all_sent)
                     } else {
-                        statusTextView?.text = getString(R.string.feedback_retry_later)
+                        getString(R.string.feedback_retry_later)
                     }
-                    statusTextView?.visibility = View.VISIBLE
                 }
-
             } catch (e: Exception) {
-                Log.e("ProcessQueue", "❌ Final error: ${e.message}")
+                Log.e("ProcessQueue", "Final error: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    val statusTextView = view?.findViewById<TextView>(R.id.feedbackStatusText)
-                    statusTextView?.text = getString(R.string.feedback_send_exception_error, e.message)
-                    statusTextView?.visibility = View.VISIBLE
+                    statusMessage = getString(R.string.feedback_send_exception_error, e.message)
                 }
             }
         }
@@ -1012,15 +689,8 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
 
     private fun checkBanStatus(deviceId: String): Pair<Boolean, Long?> {
         val url = "https://ylgvdeiqaaikcohhpwfi.supabase.co/rest/v1/bans_table?device_id=eq.$deviceId&select=ban_end"
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU")
-            .addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZ3ZkZWlxYWFpa2NvaGhwd2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyNjQwMTEsImV4cCI6MjA1OTg0MDAxMX0.-JYW9jeUuFW8gBsmtv-OHKYbAVKsj0IAWU80zGWnwFU")
-            .get()
-            .build()
-
-        val client = OkHttpClient()
-        val response = client.newCall(request).execute()
+        val request = supabaseRequestBuilder(url).get().build()
+        val response = sharedClient.newCall(request).execute()
 
         if (response.isSuccessful) {
             val body = response.body.string()
@@ -1042,83 +712,38 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
             return
         }
 
-        stopAllStatusAnimations()
-
         when (isOnline) {
             null -> {
-                if (!isAdded) return
-
-                statusText.apply {
-                    text = getString(R.string.checking_status)
-                    visibility = View.VISIBLE
-                    setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_orange_light))
-                }
-
-                statusIndicator.apply {
-                    setBackgroundResource(R.drawable.checking_status)
-                    alpha = 1f
-                    scaleX = 1f
-                    scaleY = 1f
-                }
+                serverState = FeedbackServerState.Checking
+                statusMessage = getString(R.string.checking_status)
             }
-
             true -> {
-                if (!isAdded) return
-
-                statusText.apply {
-                    text = getString(R.string.server_online)
-                    visibility = View.VISIBLE
-                    setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_green_dark))
-                }
-
-                statusIndicator.apply {
-                    setBackgroundResource(R.drawable.online_indicator)
-                    alpha = 1f
-                    scaleX = 1f
-                    scaleY = 1f
-                }
-
-                feedbackInputLayout.hint = getString(R.string.enter_your_feedback_here)
-                feedbackEditText.hint = null
+                serverState = FeedbackServerState.Online
+                statusMessage = getString(R.string.server_online)
+                inputEnabled = !isSending
+                soundControlsEnabled = true
             }
-
             false -> {
-                if (!isAdded) return
-
-                statusText.apply {
-                    text = getString(R.string.server_offline)
-                    visibility = View.VISIBLE
-                    setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_blue_bright))
-                }
-
-                statusIndicator.apply {
-                    setBackgroundResource(R.drawable.offline_indicator)
-                    alpha = 1f
-                    scaleX = 1f
-                    scaleY = 1f
-                }
-
-                feedbackInputLayout.hint = ""
+                serverState = FeedbackServerState.Offline
+                statusMessage = getString(R.string.server_offline)
+                inputEnabled = !isSending
+                soundControlsEnabled = true
             }
         }
     }
-    private fun stopAllStatusAnimations() {
-        statusIndicator.clearAnimation()
-        statusIndicator.animate().cancel()
-        statusIndicator.alpha = 1f
-        statusIndicator.scaleX = 1f
-        statusIndicator.scaleY = 1f
-        statusIndicator.setTag(R.id.status_animator, null)
-        statusIndicator.setTag(R.id.status_blink_animator, null)
+
+    private fun supabaseRequestBuilder(url: String): Request.Builder {
+        return Request.Builder()
+            .url(url)
+            .addHeader("apikey", SUPABASE_KEY)
+            .addHeader("Authorization", "Bearer $SUPABASE_KEY")
+            .addHeader("Content-Type", "application/json")
     }
 
-
     private fun isDeviceRooted(): Boolean {
-        // 1) Check for “test-keys” in build tags
         Build.TAGS?.let {
             if (it.contains("test-keys")) return true
         }
-        // 2) Look for su binary in common locations
         arrayOf(
             "/system/bin/su", "/system/xbin/su", "/sbin/su",
             "/system/app/Superuser.apk", "/system/app/SuperSU.apk",
@@ -1131,47 +756,40 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
 
     private fun getDeviceInfo(context: Context): JSONObject {
         val deviceInfo = JSONObject()
-
-        // 1) Core fields — this must never be skipped!
-        val pm      = context.packageManager
+        val pm = context.packageManager
         val pkgInfo = pm.getPackageInfo(context.packageName, 0)
         val metrics = context.resources.displayMetrics
-        val wm      = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
-        val am      = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
+        val wm = (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
+        val am = (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
         val memInfo = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
 
-        deviceInfo.put("deviceModel",      Build.MODEL)
-        deviceInfo.put("osVersion",        Build.VERSION.RELEASE)
-        deviceInfo.put("appVersion",       pkgInfo.versionName)
-        deviceInfo.put("manufacturer",     Build.MANUFACTURER)
-        deviceInfo.put("deviceId",         getHardDeviceId())
+        deviceInfo.put("deviceModel", Build.MODEL)
+        deviceInfo.put("osVersion", Build.VERSION.RELEASE)
+        deviceInfo.put("appVersion", pkgInfo.versionName)
+        deviceInfo.put("manufacturer", Build.MANUFACTURER)
+        deviceInfo.put("deviceId", getHardDeviceId())
         deviceInfo.put("screenResolution", "${metrics.widthPixels} x ${metrics.heightPixels}")
-        deviceInfo.put("networkType",      getNetworkType(context))
-        deviceInfo.put("isRooted",         isDeviceRooted())
-        deviceInfo.put("hardware",         Build.HARDWARE)
-        deviceInfo.put("refreshRate",      wm.defaultDisplay.refreshRate.toDouble())
-        deviceInfo.put("timeZone",         TimeZone.getDefault().id)
-        deviceInfo.put("totalRam",         memInfo.totalMem)
-        deviceInfo.put("availRam",         memInfo.availMem)
+        deviceInfo.put("networkType", getNetworkType(context))
+        deviceInfo.put("isRooted", isDeviceRooted())
+        deviceInfo.put("hardware", Build.HARDWARE)
+        deviceInfo.put("refreshRate", wm.defaultDisplay.refreshRate.toDouble())
+        deviceInfo.put("timeZone", TimeZone.getDefault().id)
+        deviceInfo.put("totalRam", memInfo.totalMem)
+        deviceInfo.put("availRam", memInfo.availMem)
 
-        // ─── optionally add a user‑friendly “deviceName” ───
         try {
-            val btName     = BluetoothAdapter.getDefaultAdapter()?.name
+            val btName = BluetoothAdapter.getDefaultAdapter()?.name
             val globalName = Settings.Global.getString(
                 context.contentResolver,
                 Settings.Global.DEVICE_NAME
             )
-            val finalName = btName ?: globalName ?: Build.MODEL
-            deviceInfo.put("deviceName", finalName)
+            deviceInfo.put("deviceName", btName ?: globalName ?: Build.MODEL)
         } catch (_: SecurityException) {
-            // no BLUETOOTH_CONNECT → just skip deviceName
         } catch (_: Exception) {
-            // any weird failure → skip deviceName
         }
 
         return deviceInfo
     }
-
 
     private fun getNetworkType(context: Context): String {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -1187,11 +805,490 @@ class FeedbackBottomSheet : BottomSheetDialogFragment() {
                 capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ETHERNET"
                 else -> "UNKNOWN"
             }
+        }
+
+        return "UNKNOWN"
+    }
+
+    @Composable
+    private fun ModernFeedbackSheet(
+        text: String,
+        soundEnabled: Boolean,
+        soundControlsEnabled: Boolean,
+        serverState: FeedbackServerState,
+        statusMessage: String,
+        isSending: Boolean,
+        inputEnabled: Boolean,
+        isBanned: Boolean,
+        pulseActive: Boolean,
+        successActive: Boolean,
+        onTextChange: (String) -> Unit,
+        onSoundChange: (Boolean) -> Unit,
+        onDismiss: () -> Unit,
+        onSend: () -> Unit,
+        onRules: () -> Unit,
+    ) {
+        val dark = isSystemInDarkTheme()
+        var panelVisible by remember { mutableStateOf(false) }
+        val sheetShape = RoundedCornerShape(27.dp)
+        val accent = if (dark) ComposeColor(0xFF8FC7FF) else ComposeColor(0xFF096F70)
+        val sheetBg = if (dark) {
+            ComposeColor(0xFF202124).copy(alpha = 0.74f)
         } else {
-            // For Android versions below Q, NetworkInfo is deprecated and we do not handle it here.
-            // If needed, you could still fallback to older methods, but ideally, avoid this on SDK >= 30.
-            return "UNKNOWN"
+            ComposeColor(0xFFE6E2E7).copy(alpha = 0.70f)
+        }
+        val animatedSheetBg by animateColorAsState(
+            targetValue = if (successActive) {
+                if (dark) ComposeColor(0xFF123927).copy(alpha = 0.88f)
+                else ComposeColor(0xFFD8F6E5).copy(alpha = 0.88f)
+            } else {
+                sheetBg
+            },
+            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+            label = "feedbackSuccessTint"
+        )
+        val border = if (dark) ComposeColor.White.copy(alpha = 0.12f) else ComposeColor.Black.copy(alpha = 0.08f)
+
+        LaunchedEffect(Unit) {
+            panelVisible = true
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(ComposeColor.Black.copy(alpha = if (dark) 0.38f else 0.18f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(start = 18.dp, end = 18.dp, bottom = 18.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            AnimatedVisibility(
+                visible = panelVisible,
+                enter = slideInVertically(
+                    animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                    initialOffsetY = { it / 2 }
+                ) + fadeIn(animationSpec = tween(durationMillis = 120)) +
+                    scaleIn(
+                        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                        initialScale = 0.96f
+                    ),
+                exit = slideOutVertically(
+                    animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+                    targetOffsetY = { it / 3 }
+                ) + fadeOut(animationSpec = tween(durationMillis = 120)) +
+                    scaleOut(
+                        animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+                        targetScale = 0.98f
+                    )
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                        .clip(sheetShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                        .border(BorderStroke(1.dp, border), sheetShape),
+                    shape = sheetShape,
+                    color = animatedSheetBg,
+                    tonalElevation = 8.dp,
+                    shadowElevation = 18.dp
+                ) {
+                    Box(Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            ComposeColor.White.copy(alpha = if (dark) 0.07f else 0.30f),
+                                            ComposeColor.Transparent,
+                                            accent.copy(alpha = if (dark) 0.10f else 0.08f),
+                                        )
+                                    )
+                                )
+                                .padding(start = 20.dp, top = 14.dp, end = 20.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Feedback",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 24.sp,
+                                    letterSpacing = 0.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(38.dp),
+                                    shape = CircleShape,
+                                    color = accent.copy(alpha = if (dark) 0.22f else 0.14f)
+                                ) {
+                                    IconButton(onClick = onRules) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Info,
+                                            contentDescription = null,
+                                            tint = accent,
+                                            modifier = Modifier.size(19.dp)
+                                        )
+                                    }
+                                }
+                                Surface(
+                                    modifier = Modifier.size(38.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dark) 0.12f else 0.09f)
+                                ) {
+                                    IconButton(onClick = onDismiss) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = "Close",
+                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                                            modifier = Modifier.size(19.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Text(
+                            text = "Send a note with device info attached.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FeedbackStatusPill(
+                            serverState = serverState,
+                            isBanned = isBanned,
+                            modifier = Modifier.weight(0.95f)
+                        )
+                        InlineTypingPulse(
+                            accent = accent,
+                            active = pulseActive,
+                            modifier = Modifier.weight(0.65f)
+                        )
+                        SoundToggleCard(
+                            soundEnabled = soundEnabled,
+                            enabled = soundControlsEnabled,
+                            onSoundChange = onSoundChange
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = onTextChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(92.dp),
+                        enabled = inputEnabled && !isBanned,
+                        placeholder = {
+                            Text(
+                                text = if (isBanned) {
+                                    getString(R.string.ban_reason_hint)
+                                } else {
+                                    getString(R.string.enter_your_feedback_here)
+                                },
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                            )
+                        },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = if (dark) 0.55f else 0.62f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = if (dark) 0.38f else 0.56f),
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.36f),
+                            focusedBorderColor = accent.copy(alpha = 0.72f),
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+                            disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
+                        ),
+                        minLines = 2,
+                        maxLines = 3,
+                    )
+
+                    Button(
+                        onClick = onSend,
+                        enabled = !isSending && inputEnabled && !isBanned,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(horizontal = 18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = accent,
+                            contentColor = if (dark) ComposeColor(0xFF071016) else ComposeColor.White,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                        )
+                    ) {
+                        if (isSending) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(17.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(getString(R.string.sending_feedback), fontWeight = FontWeight.SemiBold)
+                        } else {
+                            Icon(Icons.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(getString(R.string.send_feedback), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    val secondaryStatus = statusMessage.takeUnless {
+                        it == getString(R.string.server_online) ||
+                            it == getString(R.string.server_offline) ||
+                            it == getString(R.string.checking_status)
+                    }.orEmpty()
+                    if (secondaryStatus.isNotBlank()) {
+                        Text(
+                            text = secondaryStatus,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when {
+                                isBanned -> MaterialTheme.colorScheme.error
+                                serverState == FeedbackServerState.Online -> ComposeColor(0xFF2EAD68)
+                                serverState == FeedbackServerState.Offline -> accent
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                        SuccessConfetti(
+                            active = successActive,
+                            modifier = Modifier.matchParentSize()
+                        )
+            }
+        }
+    }
         }
     }
 
+    @Composable
+    private fun SuccessConfetti(
+        active: Boolean,
+        modifier: Modifier = Modifier,
+    ) {
+        val progress by animateFloatAsState(
+            targetValue = if (active) 1f else 0f,
+            animationSpec = tween(durationMillis = 950, easing = FastOutSlowInEasing),
+            label = "feedbackConfetti"
+        )
+        if (progress <= 0.01f) return
+
+        val particles = remember {
+            listOf(
+                Triple(0.12f, 0.22f, ComposeColor(0xFF8FC7FF)),
+                Triple(0.24f, 0.10f, ComposeColor(0xFFFFD166)),
+                Triple(0.38f, 0.18f, ComposeColor(0xFF55DDA8)),
+                Triple(0.52f, 0.08f, ComposeColor(0xFFFF8FAB)),
+                Triple(0.68f, 0.19f, ComposeColor(0xFFB9A7FF)),
+                Triple(0.84f, 0.13f, ComposeColor(0xFFFFB86B)),
+                Triple(0.18f, 0.74f, ComposeColor(0xFF55DDA8)),
+                Triple(0.44f, 0.82f, ComposeColor(0xFFFFD166)),
+                Triple(0.72f, 0.70f, ComposeColor(0xFF8FC7FF)),
+                Triple(0.88f, 0.78f, ComposeColor(0xFFFF8FAB)),
+            )
+        }
+        Canvas(modifier) {
+            val alpha = if (progress < 0.75f) 1f else (1f - progress) / 0.25f
+            particles.forEachIndexed { index, particle ->
+                val drift = ((index % 3) - 1) * 18f * progress
+                val x = size.width * particle.first + drift
+                val y = size.height * particle.second + (30f * progress)
+                drawCircle(
+                    color = particle.third.copy(alpha = alpha.coerceIn(0f, 1f)),
+                    radius = (5f + (index % 3) * 2f) * (1f - progress * 0.15f),
+                    center = androidx.compose.ui.geometry.Offset(x, y)
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun FeedbackStatusPill(
+        serverState: FeedbackServerState,
+        isBanned: Boolean,
+        modifier: Modifier = Modifier,
+    ) {
+        val (label, icon, color) = when {
+            isBanned -> Triple("Banned", Icons.Filled.GppMaybe, MaterialTheme.colorScheme.error)
+            serverState == FeedbackServerState.Online -> Triple(getString(R.string.server_online), Icons.Filled.Wifi, ComposeColor(0xFF2EAD68))
+            serverState == FeedbackServerState.Offline -> Triple(getString(R.string.server_offline), Icons.Filled.CloudOff, MaterialTheme.colorScheme.primary)
+            else -> Triple(getString(R.string.checking_status), Icons.Filled.Wifi, MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        Surface(
+            modifier = modifier.height(40.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = color.copy(alpha = 0.12f),
+            border = BorderStroke(1.dp, color.copy(alpha = 0.22f))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(color)
+                )
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = color,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun SoundToggleCard(
+        soundEnabled: Boolean,
+        enabled: Boolean,
+        onSoundChange: (Boolean) -> Unit,
+    ) {
+        Surface(
+            modifier = Modifier
+                .height(40.dp)
+                .width(74.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(enabled = enabled) { onSoundChange(!soundEnabled) },
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.40f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Icon(
+                    imageVector = if (soundEnabled) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(17.dp)
+                )
+                MiniToggle(
+                    checked = soundEnabled,
+                    enabled = enabled,
+                    accent = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun MiniToggle(
+        checked: Boolean,
+        enabled: Boolean,
+        accent: ComposeColor,
+    ) {
+        val trackColor = when {
+            !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+            checked -> accent.copy(alpha = 0.34f)
+            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+        }
+        Box(
+            modifier = Modifier
+                .size(width = 34.dp, height = 20.dp)
+                .clip(CircleShape)
+                .background(trackColor)
+                .padding(2.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(16.dp)
+                    .align(if (checked) Alignment.CenterEnd else Alignment.CenterStart)
+                    .clip(CircleShape)
+                    .background(if (checked && enabled) accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.46f))
+            )
+        }
+    }
+
+    @Composable
+    private fun InlineTypingPulse(
+        accent: ComposeColor,
+        active: Boolean,
+        modifier: Modifier = Modifier,
+    ) {
+        Surface(
+            modifier = modifier.height(40.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+        ) {
+            TypingPulse(
+                accent = accent.copy(alpha = if (active) 1f else 0.28f),
+                active = active
+            )
+        }
+    }
+
+    @Composable
+    private fun TypingPulse(
+        accent: ComposeColor,
+        active: Boolean = true,
+    ) {
+        if (!active) {
+            Box(Modifier.fillMaxSize())
+            return
+        }
+        val transition = rememberInfiniteTransition(label = "feedbackTyping")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(3) { index ->
+                val height by transition.animateFloat(
+                    initialValue = if (active) 7f else 10f,
+                    targetValue = if (active) 23f else 10f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(430 + index * 80, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "feedbackBar$index"
+                )
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .size(width = 5.dp, height = height.dp)
+                        .clip(CircleShape)
+                        .background(accent.copy(alpha = 0.70f))
+                )
+            }
+        }
+    }
 }

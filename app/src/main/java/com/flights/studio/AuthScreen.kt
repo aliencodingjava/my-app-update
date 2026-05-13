@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -96,6 +97,8 @@ fun AuthScreen(
     modifier: Modifier = Modifier,
     startMode: AuthMode = AuthMode.Login,
     onLogin: suspend (email: String, password: String) -> Result<Unit>,
+    onVerifyMfa: suspend (code: String) -> Result<Unit> = { Result.success(Unit) },
+    onCancelMfa: suspend () -> Unit = {},
     onSignUp: suspend (
         fullName: String,
         phone: String,
@@ -143,6 +146,8 @@ fun AuthScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
+    var mfaCode by remember { mutableStateOf("") }
+    var isMfaStep by remember { mutableStateOf(false) }
 
     var showPass by remember { mutableStateOf(false) }
     var showConfirm by remember { mutableStateOf(false) }
@@ -158,7 +163,8 @@ fun AuthScreen(
 
     val canSubmit = when (mode) {
         AuthMode.Login ->
-            email.isNotBlank() && password.isNotBlank() && !isLoading
+            if (isMfaStep) mfaCode.length >= 6 && !isLoading
+            else email.isNotBlank() && password.isNotBlank() && !isLoading
 
         AuthMode.SignUp ->
             fullName.isNotBlank() && phone.isNotBlank() &&
@@ -169,6 +175,8 @@ fun AuthScreen(
         mode = next
         errorText = null
         confirm = ""
+        mfaCode = ""
+        isMfaStep = false
         showPass = false
         showConfirm = false
     }
@@ -314,6 +322,37 @@ fun AuthScreen(
             )
 
             AnimatedVisibility(
+                visible = mode == AuthMode.Login && isMfaStep,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Column {
+                    Spacer(Modifier.height(14.dp))
+                    RoundedField(
+                        value = mfaCode,
+                        onValueChange = { value ->
+                            mfaCode = value.filter(Char::isDigit).take(6)
+                            errorText = null
+                        },
+                        placeholder = "Authenticator code",
+                        leadingIcon = { Icon(Icons.Filled.Security, null) },
+                        fieldBg = fieldBg,
+                        keyboardType = KeyboardType.NumberPassword,
+                        textScale = textScale
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    val helper = MaterialTheme.typography.bodySmall
+                    Text(
+                        text = "Enter the 6-digit code from your authenticator app.",
+                        style = helper,
+                        color = subtleText,
+                        fontSize = helper.fontSize.us(textScale),
+                        lineHeight = if (helper.lineHeight.isSpecified) helper.lineHeight.us(textScale) else helper.lineHeight
+                    )
+                }
+            }
+
+            AnimatedVisibility(
                 visible = mode == AuthMode.SignUp,
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
@@ -359,7 +398,7 @@ fun AuthScreen(
                     val e = email.trim()
                     val p = password
 
-                    if (e.isBlank() || p.isBlank()) {
+                    if (!isMfaStep && (e.isBlank() || p.isBlank())) {
                         errorText = "Enter email and password"
                         return@Button
                     }
@@ -383,21 +422,50 @@ fun AuthScreen(
                             }
                         }
 
-                        val result = if (mode == AuthMode.Login) {
-                            onLogin(e, p)
-                        } else {
-                            onSignUp(
-                                fullName.trim(),
-                                phone.trim(),
-                                e,
-                                p,
-                                avatarUri
-                            )
+                        val result = when (mode) {
+                            AuthMode.Login if isMfaStep -> {
+                                val code = mfaCode.filter(Char::isDigit)
+                                if (code.length < 6) {
+                                    errorText = "Enter the 6-digit code"
+                                    isLoading = false
+                                    return@launch
+                                }
+                                onVerifyMfa(code)
+                            }
+                            AuthMode.Login -> {
+                                onLogin(e, p)
+                            }
+                            else -> {
+                                onSignUp(
+                                    fullName.trim(),
+                                    phone.trim(),
+                                    e,
+                                    p,
+                                    avatarUri
+                                )
+                            }
                         }
 
                         isLoading = false
                         result.exceptionOrNull()?.let { ex ->
                             when (ex.message) {
+                                "MFA_REQUIRED" -> {
+                                    isMfaStep = true
+                                    mfaCode = ""
+                                    errorText = null
+                                }
+
+                                "MFA_INVALID" -> {
+                                    isMfaStep = true
+                                    mfaCode = ""
+                                    errorText = "Invalid authenticator code"
+                                }
+
+                                "MFA_NO_FACTOR" -> {
+                                    isMfaStep = false
+                                    errorText = "No authenticator factor found"
+                                }
+
                                 "ACCOUNT_EXISTS" -> {
                                     mode = AuthMode.Login
                                     errorText = "Account already exists. Please log in."
@@ -486,7 +554,7 @@ fun AuthScreen(
                 }
                 AnimatedModeText(
                     mode = mode,
-                    loginText = "Login",
+                    loginText = if (isMfaStep) "Verify" else "Login",
                     signUpText = "Create account",
                     color = Color.White,
                     style = TextStyle(fontWeight = FontWeight.SemiBold),
@@ -497,49 +565,71 @@ fun AuthScreen(
 
             Spacer(Modifier.height(14.dp))
 
-            if (mode == AuthMode.Login) {
-                var showForgotDialog by remember { mutableStateOf(false) }
-
-                val s = MaterialTheme.typography.bodyMedium
-                Text(
-                    text = "Forget Password?",
-                    color = primaryBtn,
-                    style = s,
-                    fontSize = s.fontSize.us(textScale),
-                    lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(textScale) else s.lineHeight,
-                    modifier = Modifier.clickable {
-                        val e = email.trim()
-                        if (e.isBlank()) {
-                            errorText = "Enter your email first"
-                            return@clickable
+            when (mode) {
+                AuthMode.Login if isMfaStep -> {
+                    val s = MaterialTheme.typography.bodyMedium
+                    Text(
+                        text = "Use a different account",
+                        color = primaryBtn,
+                        style = s,
+                        fontSize = s.fontSize.us(textScale),
+                        lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(textScale) else s.lineHeight,
+                        modifier = Modifier.clickable {
+                            scope.launch {
+                                onCancelMfa()
+                                isMfaStep = false
+                                password = ""
+                                mfaCode = ""
+                                errorText = null
+                            }
                         }
-                        showForgotDialog = true
-                    }
-                )
-                val scales = rememberUiScales()
-                ForgotPasswordDialogModern(
-                    visible = showForgotDialog,
-                    email = email.trim(),
-                    dark = dark,
-                    primaryBtn = primaryBtn,
-                    fieldBg = fieldBg,
-                    scales = scales,
-                    onSendReset = { targetEmail ->
-                        onForgotPassword(targetEmail)
-                    },
-                    onDismissAndBackToLogin = {
-                        showForgotDialog = false
-                        mode = AuthMode.Login
-                        password = ""
-                        confirm = ""
-                        showPass = false
-                        showConfirm = false
-                    },
-                    onDismiss = { showForgotDialog = false }
-                )
-                Spacer(Modifier.height(28.dp))
-            } else {
-                Spacer(Modifier.height(18.dp))
+                    )
+                }
+                AuthMode.Login -> {
+                    var showForgotDialog by remember { mutableStateOf(false) }
+
+                    val s = MaterialTheme.typography.bodyMedium
+                    Text(
+                        text = "Forget Password?",
+                        color = primaryBtn,
+                        style = s,
+                        fontSize = s.fontSize.us(textScale),
+                        lineHeight = if (s.lineHeight.isSpecified) s.lineHeight.us(textScale) else s.lineHeight,
+                        modifier = Modifier.clickable {
+                            val e = email.trim()
+                            if (e.isBlank()) {
+                                errorText = "Enter your email first"
+                                return@clickable
+                            }
+                            showForgotDialog = true
+                        }
+                    )
+                    val scales = rememberUiScales()
+                    ForgotPasswordDialogModern(
+                        visible = showForgotDialog,
+                        email = email.trim(),
+                        dark = dark,
+                        primaryBtn = primaryBtn,
+                        fieldBg = fieldBg,
+                        scales = scales,
+                        onSendReset = { targetEmail ->
+                            onForgotPassword(targetEmail)
+                        },
+                        onDismissAndBackToLogin = {
+                            showForgotDialog = false
+                            mode = AuthMode.Login
+                            password = ""
+                            confirm = ""
+                            showPass = false
+                            showConfirm = false
+                        },
+                        onDismiss = { showForgotDialog = false }
+                    )
+                    Spacer(Modifier.height(28.dp))
+                }
+                else -> {
+                    Spacer(Modifier.height(18.dp))
+                }
             }
 
             AuthBottomSwitch(
@@ -1014,6 +1104,7 @@ private fun RoundedField(
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
             .heightIn(min = 54.dp)
     )
 }

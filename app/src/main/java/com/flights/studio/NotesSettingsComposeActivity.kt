@@ -19,6 +19,11 @@ class NotesSettingsComposeActivity : ComponentActivity() {
             Intent(context, NotesSettingsComposeActivity::class.java)
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        val tag = com.flights.studio.ui.AppLanguageManager.currentLanguageTag(newBase)
+        super.attachBaseContext(LocaleUtils.wrap(newBase, tag))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

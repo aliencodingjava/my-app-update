@@ -1,142 +1,86 @@
 package com.flights.studio
 
-import android.animation.ObjectAnimator
 import android.content.Intent
-import android.graphics.Rect
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.MenuItem
-import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
-import android.widget.ImageView
+import android.widget.FrameLayout
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
-import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.core.graphics.toColorInt
-import com.flights.studio.databinding.ActivityAllContactsBinding
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.navigationrail.NavigationRailView
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-class AllContactsActivity : AppCompatActivity() {
+class AllContactsActivity : LocaleActivity() {
 
-    private lateinit var binding: ActivityAllContactsBinding
-//    private var selectedContactPosition: Int = -1
-    private var allContactsFragment: AllContactsFragment? = null // Reference to the fragment
-    private var isSearchDialogVisible = false
-    private var currentSearchView: androidx.appcompat.widget.SearchView? = null
-    private var wasFilteringBeforeDismiss = false
-
-
+    private var allContactsFragment: AllContactsFragment? = null
+    private var containerView: FrameLayout? = null
+    private var fragmentInstalled = false
+    private val contactsChromeCount = mutableIntStateOf(0)
+    private val contactsSearchQuery = mutableStateOf("")
+    private val contactsFloatingSearchVisible = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_all_contacts)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+        )
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                when {
-                    // Case 1: Search dialog is open and query isn't empty → clear search
-                    isSearchDialogVisible && currentSearchView?.query?.isNotEmpty() == true -> {
-                        currentSearchView?.setQuery("", false)
-                        allContactsFragment?.filterContacts("") // Reset list
-                        wasFilteringBeforeDismiss = false
-                    }
-
-                    // Case 2: Search dialog was dismissed but results still filtered → show all
-                    !isSearchDialogVisible && wasFilteringBeforeDismiss -> {
-                        allContactsFragment?.filterContacts("") // Show all contacts
-                        wasFilteringBeforeDismiss = false
-                    }
-
-                    // ✅ Case 3: Nothing left → finish the activity and apply exit animation
-                    else -> {
-                        finish()
-                        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-
-                    }
+                if (contactsSearchQuery.value.isNotEmpty()) {
+                    updateContactsSearch("")
+                    updateContactsFloatingSearchVisible(false)
+                    hideKeyboard()
+                } else {
+                    finish()
+                    overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
                 }
             }
         })
 
-
         window.decorView.alpha = 1.0f
 
-        binding = ActivityAllContactsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        binding.navAddContact?.setOnClickListener {
-            allContactsFragment?.showAddContactBottomSheet()
-        }
-
-        // Load fragment correctly and store reference
-        if (savedInstanceState == null) {
-            allContactsFragment = AllContactsFragment()
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.container, allContactsFragment!!)
-                .commit()
-        } else {
-            allContactsFragment =
-                supportFragmentManager.findFragmentById(R.id.container) as? AllContactsFragment
-
-        }
-
-
-        val navRail = findViewById<NavigationRailView>(R.id.navigation_rail)
-        navRail.menu.findItem(R.id.nav_all_contacts).isChecked = true
-
-        navRail.setOnItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.nav_home -> {
-                    goToHomeScreen()
-                    true
-                }
-
-                R.id.nav_contacts -> {
-                    goToContactScreen()
-                    true
-                }
-
-                R.id.nav_all_contacts -> {
-                    // Stay in `AllContactsActivity`
-                    true
-                }
-
-                R.id.nav_settings -> {
-                    goToSettingsScreen()
-                    true
-                }
-
-                R.id.openAddNoteScreen -> {
-                    startActivity(Intent(this, AllNotesActivity::class.java))
-                    overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-
-                    finish()
-                    true
-                }
-
-
-                R.id.nav_import_contacts -> {
-                    allContactsFragment?.showImportConfirmationDialog() // ✅ Fix: Call "Import Contacts"
-                    true
-                }
-
-                R.id.action_search -> {
-                    openSearchView() // ✅ Open Full-Screen Search
-
-                    true
-                }
-
-                else -> false
+        setContent {
+            FlightsTheme(profileBackdropStyle = ProfileBackdropStyle.Auto) {
+                ContactsScreenHost(
+                    contactCount = contactsChromeCount.intValue,
+                    searchQuery = contactsSearchQuery.value,
+                    showFloatingSearch = contactsFloatingSearchVisible.value,
+                    onContainerReady = { container ->
+                        containerView = container
+                        installContactsFragment()
+                    }
+                )
             }
         }
     }
 
-    // NEW: MainActivity::class.java (Compose home / dashboard)
     private fun goToHomeScreen() {
         startActivity(Intent(this, MainActivity::class.java))
         overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
@@ -144,16 +88,60 @@ class AllContactsActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun goToContactScreen() {
-        startActivity(Intent(this, Contact::class.java))
-        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-
-    }
-
     private fun goToSettingsScreen() {
         startActivity(Intent(this, SettingsActivity::class.java))
         overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+    }
 
+    private fun goToNotesScreen() {
+        startActivity(Intent(this, AllNotesActivity::class.java))
+        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+
+        finish()
+    }
+
+    fun updateContactsChromeCount(visibleCount: Int) {
+        contactsChromeCount.intValue = visibleCount
+    }
+
+    fun updateContactsSearch(query: String) {
+        contactsSearchQuery.value = query
+        if (query.isBlank()) contactsFloatingSearchVisible.value = false
+        allContactsFragment?.filterContacts(query)
+    }
+
+    fun updateContactsFloatingSearch(query: String) {
+        contactsSearchQuery.value = query
+        allContactsFragment?.filterContacts(
+            query = query,
+            syncTopSearch = false,
+            keepFloatingSearchActive = true
+        )
+    }
+
+    fun updateContactsFloatingSearchVisible(visible: Boolean) {
+        contactsFloatingSearchVisible.value = visible
+    }
+
+    private fun installContactsFragment() {
+        if (fragmentInstalled) return
+        fragmentInstalled = true
+
+        allContactsFragment =
+            supportFragmentManager.findFragmentById(R.id.container) as? AllContactsFragment
+
+        if (allContactsFragment == null) {
+            allContactsFragment = AllContactsFragment()
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.container, allContactsFragment!!)
+                .commitNow()
+        }
+    }
+
+    private fun hideKeyboard() {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(containerView?.windowToken, 0)
+        containerView?.clearFocus()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -170,134 +158,89 @@ class AllContactsActivity : AppCompatActivity() {
         }
     }
 
+    @Composable
+    private fun ContactsScreenHost(
+        contactCount: Int,
+        searchQuery: String,
+        showFloatingSearch: Boolean,
+        onContainerReady: (FrameLayout) -> Unit
+    ) {
+        val backdrop = rememberLayerBackdrop()
 
-    private fun openSearchView() {
-        val parentView = findViewById<ViewGroup>(android.R.id.content)
+        Box(Modifier.fillMaxSize()) {
+            val isDark = isSystemInDarkTheme()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(backdrop)
+            ) {
+                ProfileBackdropImageLayer(
+                    modifier = Modifier.fillMaxSize(),
+                    lightRes = R.drawable.light_grid_pattern,
+                    darkRes = R.drawable.dark_grid_pattern,
+                    imageAlpha = if (isDark) 1f else 0.8f,
+                    scrimDark = 0f,
+                    scrimLight = 0f
+                )
+            }
 
-        // ✅ Inflate `dialog_search_view.xml` properly
-        val inflater = LayoutInflater.from(this)
-        val rootLayout = inflater.inflate(
-            R.layout.dialog_search_all_contacts,
-            parentView,
-            false
-        ) as CoordinatorLayout
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxSize(),
+                factory = { context ->
+                    FrameLayout(context).apply {
+                        id = R.id.container
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    }
+                },
+                update = { container ->
+                    if (containerView !== container) {
+                        onContainerReady(container)
+                    }
+                }
+            )
 
-        val searchView = rootLayout.findViewById<androidx.appcompat.widget.SearchView>(R.id.material_search_view)
-        currentSearchView = searchView
-        isSearchDialogVisible = true
+            val density = LocalDensity.current
+            val keyboardOpen = WindowInsets.ime.getBottom(density) > 0
+            val searchBottomPadding = if (keyboardOpen) 12.dp else 80.dp
+            var floatingSearchSawKeyboard by remember { mutableStateOf(false) }
 
-
-        // ✅ Ensure SearchView is ready
-        searchView.isIconified = false // ✅ Expand it immediately
-        searchView.requestFocus() // ✅ Show keyboard on open
-
-        // ✅ Modify SearchView Appearance
-        val searchPlate = searchView.findViewById<View>(androidx.appcompat.R.id.search_plate)
-        searchPlate.setBackgroundColor(android.graphics.Color.TRANSPARENT) // ✅ Remove underline
-
-        val searchText =
-            searchView.findViewById<android.widget.EditText>(androidx.appcompat.R.id.search_src_text)
-        searchText.setTextColor(android.graphics.Color.GRAY) // ✅ Adjust text color
-        searchText.setHintTextColor("#B3FFFFFF".toColorInt()) // ✅ Hint color
-
-        val searchDialog = BottomSheetDialog(this).apply {
-            setContentView(rootLayout)
-            window?.setBackgroundDrawableResource(android.R.color.transparent)
-            window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        }
-
-        val bottomSheet =
-            searchDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
-
-        bottomSheet?.let {
-            val behavior = BottomSheetBehavior.from(it)
-            behavior.isHideable = true  // Allow dismissing by swiping down
-            behavior.skipCollapsed = true  // Prevent it from jumping between states
-
-            // Dynamically adjust BottomSheet height based on keyboard position
-            rootLayout.viewTreeObserver.addOnGlobalLayoutListener {
-                val rect = Rect()
-                rootLayout.getWindowVisibleDisplayFrame(rect)
-                val screenHeight = rootLayout.rootView.height
-                val keyboardHeight = screenHeight - rect.bottom
-
-                if (keyboardHeight > 300) { // If keyboard is open
-                    val maxHeight =
-                        screenHeight - keyboardHeight - 10 // Limit height to stay above the keyboard
-                    behavior.peekHeight =
-                        maxHeight.coerceAtMost(screenHeight / 12) // Set height to max 1/3 of screen
-                } else {
-                    behavior.peekHeight = screenHeight / 4 // Default height when keyboard is closed
+            LaunchedEffect(showFloatingSearch, keyboardOpen) {
+                when {
+                    !showFloatingSearch -> floatingSearchSawKeyboard = false
+                    keyboardOpen -> floatingSearchSawKeyboard = true
+                    floatingSearchSawKeyboard -> {
+                        updateContactsSearch("")
+                        updateContactsFloatingSearchVisible(false)
+                    }
                 }
             }
+
+            ContactsFloatingSearchBar(
+                query = searchQuery,
+                onQueryChange = ::updateContactsFloatingSearch,
+                backdrop = backdrop,
+                visible = showFloatingSearch,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(start = 12.dp, end = 16.dp, bottom = searchBottomPadding)
+            )
+
+            ContactsBottomChrome(
+                contactCount = contactCount,
+                backdrop = backdrop,
+                onOpenHome = ::goToHomeScreen,
+                onOpenSettings = ::goToSettingsScreen,
+                onOpenNotes = ::goToNotesScreen,
+                onAddContact = { allContactsFragment?.showAddContactBottomSheet() },
+                onImportContacts = { allContactsFragment?.showImportConfirmationDialog() }
+            )
         }
-
-        searchDialog.show()
-
-        searchDialog.setOnDismissListener {
-            isSearchDialogVisible = false
-            currentSearchView = null
-        }
-
-        val animator = ObjectAnimator.ofFloat(searchView, "translationY", 0f, 30f).apply {
-            duration = 200
-            interpolator = DecelerateInterpolator()
-        }
-        animator.start()
-
-        searchView.setOnQueryTextListener(object :
-            androidx.appcompat.widget.SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
-                query?.let { performSearch(it) }
-                return true
-            }
-
-            override fun onQueryTextChange(newText: String?): Boolean {
-                newText?.let {
-                    wasFilteringBeforeDismiss = it.isNotEmpty() // 🔥 Track filter state
-                    allContactsFragment?.filterContacts(it)
-                }
-                return true
-            }
-        })
-
-
-        val closeButton =
-            searchView.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)
-
-        closeButton?.let {
-            it.setImageResource(R.drawable.baseline_close_24) // ✅ Custom icon
-            it.visibility = View.VISIBLE
-
-            val layoutParams = it.layoutParams
-            layoutParams.width = 90
-            layoutParams.height = 90
-            it.layoutParams = layoutParams
-            it.scaleType = ImageView.ScaleType.CENTER_INSIDE
-            it.setBackgroundResource(R.drawable.custom_clear_button)
-            it.setColorFilter(android.graphics.Color.BLACK, android.graphics.PorterDuff.Mode.SRC_IN)
-
-            // ✅ Fix: Ensure SearchView Stays Active & Keyboard Stays Open
-            it.setOnClickListener {
-                searchView.setQuery("", false) // ✅ Clears the text but keeps focus
-                searchView.requestFocus() // ✅ Keeps SearchView active
-
-                // ✅ Show keyboard immediately again
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showSoftInput(searchView, InputMethodManager.SHOW_IMPLICIT)
-            }
-        }
-
-
     }
-
-
-    private fun performSearch(query: String) {
-        val fragment =
-            supportFragmentManager.findFragmentById(R.id.container) as? AllContactsFragment
-        fragment?.filterContacts(query)
-    }
-
-
-
 }

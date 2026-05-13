@@ -47,7 +47,6 @@ import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
@@ -74,8 +73,8 @@ fun LiquidBottomTabs(
 
     val accentColor = if (isLightTheme) Color(0xFF0088FF) else Color(0xFF0091FF)
     val containerColor =
-        if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
-        else Color(0xFF121212).copy(0.0f)
+        if (isLightTheme) Color(0xFFEAF4FF).copy(0.52f)
+        else Color(0xFF123B6D).copy(0.42f)
 
     val tabsBackdrop = rememberLayerBackdrop()
 
@@ -192,21 +191,7 @@ fun LiquidBottomTabs(
                         }
                     },
                     effects = {
-
-                        // Blur 0 = fine, lens will still work
-                        blur(radius = 0f, edgeTreatment = TileMode.Clamp)
-
-                        val cornerRadiusPx = size.height / 2f
-                        val safeHeight = cornerRadiusPx * 0.55f
-
-                        lens(
-                            refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
-                            refractionAmount = (size.minDimension * 0.80f
-                                    )
-                                .coerceIn(0f, size.minDimension),
-                            depthEffect = true,
-                            chromaticAberration = false
-                        )
+                        blur(radius = 2.dp.us(ui).toPx(), edgeTreatment = TileMode.Mirror)
                     },
                     layerBlock = {
                         val progress = dampedDragAnimation.pressProgress
@@ -239,10 +224,8 @@ fun LiquidBottomTabs(
                         backdrop = backdrop,
                         shape = { ContinuousCapsule },
                         effects = {
-                            val progress = dampedDragAnimation.pressProgress
                             vibrancy()
-                            blur(2.dp.us(ui).toPx())
-                            lens(8.dp.us(ui).toPx() * progress, 48.dp.us(ui).toPx() * progress)
+                            blur(2.dp.us(ui).toPx(), edgeTreatment = TileMode.Mirror)
                         },
                         highlight = {
                             val progress = dampedDragAnimation.pressProgress
@@ -274,14 +257,7 @@ fun LiquidBottomTabs(
                     backdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop),
                     shape = { ContinuousCapsule },
                     effects = {
-                        blur(0f.dp.toPx()) // pill blur 0
-                        val progress = dampedDragAnimation.pressProgress
-                        lens(
-                            20.dp.us(ui).toPx() * progress,
-                            20.dp.us(ui).toPx() * progress,
-                            chromaticAberration = false,
-                            depthEffect = true
-                        )
+                        blur(2.dp.us(ui).toPx(), edgeTreatment = TileMode.Mirror)
                     },
                     highlight = {
                         val progress = dampedDragAnimation.pressProgress

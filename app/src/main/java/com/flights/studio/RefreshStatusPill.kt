@@ -24,8 +24,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +50,7 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousCapsule
+import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -73,6 +76,7 @@ fun RefreshStatusPill(
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
+    var showManualCountdown by remember { mutableStateOf(false) }
 
     val totalIntervalMs = 60_000L
     val warningWindowMs = 10_000L
@@ -97,11 +101,24 @@ fun RefreshStatusPill(
     val refreshMoment = safeCountdown == 0L || isRefreshing
 
     // ONLY this decides expanded vs collapsed layout
-    val showExpandedLayout = expand && !refreshMoment
+    val showExpandedLayout = (expand || showManualCountdown) && !refreshMoment
 
     val secondsLeft = (safeCountdown / 1000L).coerceIn(0L, 99L).toInt()
-    val secondsText = remember(secondsLeft) { String.format(Locale.US, "%02d", secondsLeft) }
-    val label = "Refresh in ${secondsText}s"
+    val minutesLeft = safeCountdown / 60_000L
+    val secondsPart = (safeCountdown % 60_000L) / 1000L
+    val label = if (showManualCountdown) {
+        String.format(Locale.US, "Refresh in %d:%02d", minutesLeft, secondsPart)
+    } else {
+        val secondsText = String.format(Locale.US, "%02d", secondsLeft)
+        "Refresh in ${secondsText}s"
+    }
+
+    LaunchedEffect(showManualCountdown) {
+        if (showManualCountdown && !refreshMoment) {
+            delay(3_000L)
+            showManualCountdown = false
+        }
+    }
 
     val expandImpulse = remember { Animatable(0f) }
     LaunchedEffect(showExpandedLayout) {
@@ -134,7 +151,7 @@ fun RefreshStatusPill(
     val density = LocalDensity.current
     val labelTargetWidthDp = remember(labelStyle, density) {
         val px = measurer.measure(
-            text = AnnotatedString("Refresh in 00s"),
+            text = AnnotatedString("Refresh in 0:00"),
             style = labelStyle
         ).size.width.toFloat()
         with(density) { px.toDp().value } + 12f
@@ -163,7 +180,7 @@ fun RefreshStatusPill(
                         refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
                         refractionAmount = (size.minDimension * 0.80f)
                         .coerceIn(0f, size.minDimension),
-                        depthEffect = true,
+                        depthEffect = false,
                         chromaticAberration = false
                     )
                 },
@@ -210,8 +227,11 @@ fun RefreshStatusPill(
                 interactionSource = null,
                 indication = if (isInteractive) null else LocalIndication.current,
                 role = Role.Button,
-                enabled = onClick != null
-            ) { onClick?.invoke() }
+                enabled = isInteractive
+            ) {
+                showManualCountdown = true
+                onClick?.invoke()
+            }
             .padding(horizontal = horizontalPaddingDp.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

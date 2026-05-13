@@ -160,7 +160,7 @@ fun LiquidGlassGalleryScreen(
             lens(
                 refractionHeight = 8.dp.toPx(),
                 refractionAmount = 24.dp.toPx(),
-                depthEffect = true,
+                depthEffect = false,
                 chromaticAberration = false
             )
         },
@@ -194,7 +194,7 @@ fun LiquidGlassGalleryScreen(
             lens(
                 refractionHeight =8.dp.toPx(),
                 refractionAmount = 24.dp.toPx(),
-                depthEffect = true,
+                depthEffect = false,
                 chromaticAberration = false
             )
         },
@@ -418,7 +418,7 @@ fun LiquidGlassGalleryScreen(
                             lens(
                                 refractionHeight = 14.dp.toPx(),
                                 refractionAmount = 60.dp.toPx(),
-                                depthEffect = true,
+                                depthEffect = false,
                                 chromaticAberration = true
                             )
                         },

@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
@@ -78,20 +79,24 @@ fun LiveCamerasPage(
     }
     var stack by remember { mutableStateOf(cards.take(3)) }
     val isDark = isSystemInDarkTheme()
+    val pageBg = MaterialTheme.colorScheme.background
 
-    val rootBackdrop = rememberLayerBackdrop()
+    val contentBackdrop = rememberLayerBackdrop {
+        drawRect(pageBg)
+        drawContent()
+    }
 
     Box(
         Modifier
             .fillMaxSize()
-            .layerBackdrop(rootBackdrop)
+            .background(pageBg)
     ) {
 
         // BACKGROUND
         ProfileBackdropImageLayer(
             modifier = Modifier.matchParentSize(),
-            lightRes = R.drawable.lightgridpattern,
-            darkRes = R.drawable.darkgridpattern,
+            lightRes = R.drawable.light_grid_pattern,
+            darkRes = R.drawable.dark_grid_pattern,
             imageAlpha = if (isDark) 1f else 0.8f,
             scrimDark = 0f,
             scrimLight = 0f
@@ -108,54 +113,61 @@ fun LiveCamerasPage(
             }
         }
 
-        LazyColumn(
-            state = lazyListState,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(
-                top = 120.dp,   // height of top bar area
-                start = 16.dp,
-                end = 16.dp,
-                bottom = 16.dp
-            ),
-            modifier = Modifier.fillMaxSize()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .layerBackdrop(contentBackdrop)
         ) {
-            items(stack, key = { it.url }) { item ->
+            LazyColumn(
+                state = lazyListState,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(
+                    top = 120.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                    bottom = 16.dp
+                ),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(stack, key = { it.url }) { item ->
 
-                ReorderableItem(reorderableState, key = item.url) { isDragging ->
+                    ReorderableItem(reorderableState, key = item.url) { isDragging ->
 
-                    val scale by animateFloatAsState(
-                        if (isDragging) 1.02f else 1f,
-                        label = ""
-                    )
+                        val scale by animateFloatAsState(
+                            if (isDragging) 1.02f else 1f,
+                            label = ""
+                        )
 
-                    GlassCameraCard(
-                        item = item,
-                        isDark = isDark,
-                        scale = scale,
-                        onClick = { fullscreenKey = item.url },
-                        handle = {
-                            Box(
-                                modifier = Modifier
-                                    .draggableHandle()
-                                    .align(Alignment.TopEnd)
-                                    .padding(12.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color.Black.copy(alpha = 0.7f))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.DragHandle,
-                                    contentDescription = "Reorder",
-                                    tint = Color.White
-                                )
+                        GlassCameraCard(
+                            item = item,
+                            isDark = isDark,
+                            scale = scale,
+                            onClick = { fullscreenKey = item.url },
+                            handle = {
+                                Box(
+                                    modifier = Modifier
+                                        .draggableHandle()
+                                        .align(Alignment.TopEnd)
+                                        .padding(12.dp)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(Color.Black.copy(alpha = 0.7f))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DragHandle,
+                                        contentDescription = "Reorder",
+                                        tint = Color.White
+                                    )
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
 
         GlassTopBar(
+            backdrop = contentBackdrop,
             onClose = {
                 if (fullscreenKey != null) fullscreenKey = null else onClose()
             }
@@ -283,19 +295,20 @@ private fun GlassCameraCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BoxScope.GlassTopBar(
+    backdrop: Backdrop,
     onClose: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val topBarBackdrop = rememberLayerBackdrop()
 
     val topBarShape = RoundedCornerShape(
         bottomStart = 24.dp,
         bottomEnd = 24.dp
     )
+
     val tint = if (isDark) {
-        Color(0xFF1A1A1A).copy(alpha = 0.92f)
+        Color(0xFF1A1A1A).copy(alpha = 0.78f)
     } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.80f)
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
     }
 
     Surface(
@@ -307,29 +320,30 @@ private fun BoxScope.GlassTopBar(
             .align(Alignment.TopCenter)
             .fillMaxWidth()
             .drawBackdrop(
-                backdrop = topBarBackdrop,
+                backdrop = backdrop,
                 shape = { topBarShape },
                 highlight = {
                     Highlight(
                         width = 0.50.dp,
                         blurRadius = 1.dp,
-                        alpha = 0.20f,
+                        alpha = 0.18f,
                         style = HighlightStyle.Ambient
                     )
                 },
                 effects = {
+                    vibrancy()
                     blur(
-                        radius = 1f.dp.toPx(),
+                        radius = 2.dp.toPx(),
                         edgeTreatment = androidx.compose.ui.graphics.TileMode.Mirror
                     )
                     lens(
-                        refractionHeight = 60f,
-                        refractionAmount = 80f,
-                        depthEffect = true,
-                        chromaticAberration = false
+                        refractionHeight = 16.dp.toPx(),
+                        refractionAmount = 32.dp.toPx()
                     )
                 },
-                onDrawSurface = { drawRect(tint) }
+                onDrawSurface = {
+                    drawRect(tint)
+                }
             )
     ) {
         CenterAlignedTopAppBar(
@@ -360,28 +374,62 @@ private fun FullscreenImageViewer(
     onClose: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val topBarBackdrop = rememberLayerBackdrop()
+    val imageBackdrop = rememberLayerBackdrop()
+
     val shape = RoundedCornerShape(
         bottomStart = 24.dp,
         bottomEnd = 24.dp
     )
 
     val tint = if (isDark) {
-        Color(0xFF1A1A1A).copy(alpha = 0.92f)
+        Color(0xFF1A1A1A).copy(alpha = 0.65f)
     } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.80f)
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.58f)
     }
 
     Box(Modifier.fillMaxSize()) {
 
-        // ✅ IMAGE — NO backdrop here
-        HomeGlassZoomImage(
-            model = url,
-            modifier = Modifier.fillMaxSize(),
-            cornerRadiusDp = 0.dp
+        // 🔹 PRODUCER — only image records backdrop
+        Box(
+            Modifier
+                .fillMaxSize()
+                .layerBackdrop(imageBackdrop)
+        ) {
+            HomeGlassZoomImage(
+                model = url,
+                modifier = Modifier.fillMaxSize(),
+                cornerRadiusDp = 0.dp
+            )
+        }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .drawBackdrop(
+                    backdrop = imageBackdrop,
+                    shape = { RoundedCornerShape(0.dp) },
+                    highlight = null,
+                    effects = {
+                        vibrancy()
+                        blur(0f.dp.toPx())   // strong to SEE it
+                        lens(8f.dp.toPx(), 8f.dp.toPx())
+                        colorControls(
+                            brightness = if (isDark) -0.02f else 0.01f,
+                            contrast = 1.3f,
+                            saturation = 1.7f
+                        )
+                    },
+                    onDrawSurface = {
+                        drawRect(
+                            if (isDark)
+                                Color.Unspecified.copy(alpha = 0.08f)
+                            else
+                                Color.Unspecified.copy(alpha = 0.25f)
+                        )
+                    }
+                )
         )
 
-        // ✅ GLASS TOP BAR ONLY samples backdrop
+        // 🔹 CONSUMER — top bar samples it
         Surface(
             shape = shape,
             color = Color.Transparent,
@@ -391,23 +439,24 @@ private fun FullscreenImageViewer(
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .drawBackdrop(
-                    backdrop = topBarBackdrop,
+                    backdrop = imageBackdrop,
                     shape = { shape },
                     highlight = {
                         Highlight(
                             width = 0.5.dp,
                             blurRadius = 1.dp,
-                            alpha = 0.20f,
+                            alpha = 0.18f,
                             style = HighlightStyle.Plain
                         )
                     },
                     effects = {
-                        blur(1f.dp.toPx())
-                        lens(
-                            refractionHeight = 60f,
-                            refractionAmount = 80f,
-                            depthEffect = true,
-                            chromaticAberration = false
+                        vibrancy()
+                        blur(0f.dp.toPx())   // strong to SEE it
+                        lens(18f.dp.toPx(), 18f.dp.toPx())
+                        colorControls(
+                            brightness = if (isDark) -0.02f else 0.01f,
+                            contrast = 1.3f,
+                            saturation = 2.7f
                         )
                     },
                     onDrawSurface = {

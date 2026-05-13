@@ -1,17 +1,31 @@
 package com.flights.studio
 
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.backdrops.LayerBackdrop
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReminderOptionsSheetModal(
     backdrop: Backdrop,
@@ -20,34 +34,64 @@ fun ReminderOptionsSheetModal(
     onTimer: () -> Unit,
     onCalendar: () -> Unit,
 ) {
-
     val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
 
-    // 🔊 Play sound when the sheet becomes visible
     LaunchedEffect(visible) {
         if (visible) {
             playSheetOpenSound(context, R.raw.confirm)
         }
     }
-    if (!visible) return
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        // transparent container so the LiquidGlass you draw is the real panel
-        containerColor = Color.Transparent,
-        dragHandle = null,
-        tonalElevation = 0.dp,
-        scrimColor = Color.Black.copy(alpha = 0.35f)
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 90)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 140))
     ) {
-        // your existing glass content, unchanged:
-        ReminderOptionsSheetContent(
-            backdrop = backdrop as LayerBackdrop,
-            onDismiss = onDismiss,
-            onTimer = onTimer,
-            onCalendar = onCalendar
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = if (isDark) 0.38f else 0.18f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
         )
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding(),
+        enter = slideInVertically(
+            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+            initialOffsetY = { it / 2 }
+        ) + fadeIn(animationSpec = tween(durationMillis = 120)) +
+            scaleIn(
+                animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                initialScale = 0.96f
+            ),
+        exit = slideOutVertically(
+            animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+            targetOffsetY = { it / 3 }
+        ) + fadeOut(animationSpec = tween(durationMillis = 120)) +
+            scaleOut(
+                animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+                targetScale = 0.98f
+            )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            ReminderOptionsSheetContent(
+                backdrop = backdrop,
+                onDismiss = onDismiss,
+                onTimer = onTimer,
+                onCalendar = onCalendar
+            )
+        }
     }
 }

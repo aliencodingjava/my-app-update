@@ -22,10 +22,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -36,11 +35,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,12 +45,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,7 +71,6 @@ import com.kyant.backdrop.highlight.HighlightStyle
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
-import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.tanh
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -85,7 +80,7 @@ class QRCodeComposeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.Transparent.toArgb()
         @Suppress("DEPRECATION")
 
@@ -118,6 +113,7 @@ private fun QRCodeScreen(onBack: () -> Unit) {
     BackHandler { onBack() }
 
     val isDark = isSystemInDarkTheme()
+    val isPreview = LocalInspectionMode.current
     val ui = rememberUiScale()
 
     // ✅ same as FancyPillToast: damp text scale a bit
@@ -135,18 +131,24 @@ private fun QRCodeScreen(onBack: () -> Unit) {
         if (isDark) MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.90f)
         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f)
 
-    val backdrop: Backdrop = rememberLayerBackdrop { drawContent() }
+    val backdrop: Backdrop = if (isPreview) {
+        rememberLayerBackdrop()
+    } else {
+        rememberLayerBackdrop { drawContent() }
+    }
 
     val isLandscape =
         LocalConfiguration.current.orientation ==
                 android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .layerBackdrop(backdrop as LayerBackdrop)
+                    .then(
+                        if (isPreview) Modifier
+                        else Modifier.layerBackdrop(backdrop as LayerBackdrop)
+                    )
             ) {
                 Image(
                     painter = painterResource(R.drawable.default_pattern),
@@ -161,6 +163,7 @@ private fun QRCodeScreen(onBack: () -> Unit) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .safeDrawingPadding()
                         .padding(horizontal = 22.dp.us(ui)),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -172,7 +175,6 @@ private fun QRCodeScreen(onBack: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 14.dp.us(ui))
-                            .statusBarsPadding()
                     )
 
                     Spacer(Modifier.weight(1f))
@@ -193,16 +195,13 @@ private fun QRCodeScreen(onBack: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 18.dp)
-                            .navigationBarsPadding()
                     )
                 }
             } else {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 22.dp.us(ui))
-                        .statusBarsPadding()
-                        .navigationBarsPadding(),
+                        .padding(horizontal = 22.dp.us(ui)),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -233,7 +232,6 @@ private fun QRCodeScreen(onBack: () -> Unit) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 18.dp)
-                                .navigationBarsPadding()
                         )
                     }
                 }
@@ -248,11 +246,9 @@ private fun QRCodeScreen(onBack: () -> Unit) {
                         .align(Alignment.TopEnd)
                         .fillMaxWidth(0.5f)
                         .padding(top = 14.dp)
-                        .statusBarsPadding()
                 )
             }
         }
-    }
 }
 
 @Composable
@@ -360,7 +356,7 @@ private fun HeroQrGlassOnly(
                     lens(
                         refractionHeight = 34f.dp.toPx(),
                         refractionAmount = 44f.dp.toPx(),
-                        depthEffect = true,
+                        depthEffect = false,
                         chromaticAberration = false
                     )
                 },
@@ -430,7 +426,7 @@ private fun HeroQrGlassOnly(
             shadowElevation = 0.dp
         ) {
             Image(
-                painter = painterResource(R.drawable.v227),
+                painter = painterResource(R.drawable.version249),
                 contentDescription = stringResource(R.string.qrcode),
                 modifier = Modifier
                     .padding(16.dp)
@@ -462,13 +458,10 @@ private fun BottomChips(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        val density = LocalDensity.current
-        var maxChipWidthPx by remember { mutableIntStateOf(0) }
-        val maxChipWidthDp = with(density) { maxChipWidthPx.toDp() }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             InfoChip(
                 title = "Tip",
@@ -476,9 +469,7 @@ private fun BottomChips(
                 surfaceColor = surfaceColor,
                 ui = ui,
                 textK = textK,
-                modifier = Modifier
-                    .onSizeChanged { maxChipWidthPx = max(maxChipWidthPx, it.width) }
-                    .then(if (maxChipWidthPx > 0) Modifier.width(maxChipWidthDp) else Modifier)
+                modifier = Modifier.weight(1f)
             )
 
             InfoChip(
@@ -487,12 +478,9 @@ private fun BottomChips(
                 surfaceColor = surfaceColor,
                 ui = ui,
                 textK = textK,
-                modifier = Modifier
-                    .onSizeChanged { maxChipWidthPx = max(maxChipWidthPx, it.width) }
-                    .then(if (maxChipWidthPx > 0) Modifier.width(maxChipWidthDp) else Modifier)
+                modifier = Modifier.weight(1f)
             )
         }
-
         val shape = RoundedCornerShape(18.dp)
         Box(
             modifier = Modifier
@@ -549,19 +537,26 @@ private fun InfoChip(
             .clip(shape)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             val baseTitle = MaterialTheme.typography.labelMedium
             Text(
                 text = title,
                 style = baseTitle.copy(fontSize = (baseTitle.fontSize.value * ui * textK).sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
             )
 
             val baseBody = MaterialTheme.typography.titleSmall
             Text(
                 text = body,
                 style = baseBody.copy(fontSize = (baseBody.fontSize.value * ui * textK).sp),
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
             )
         }
     }

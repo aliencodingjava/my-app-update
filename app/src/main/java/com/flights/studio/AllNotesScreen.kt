@@ -110,6 +110,7 @@ fun AllNotesScreen(
     onOpenSearch: (onDismiss: () -> Unit) -> Unit,
     onNavItemClick: (Int) -> Unit,
     onDeleteSelected: (Set<String>) -> Unit,
+    onOpenNote: ((NoteRow, Int) -> Unit)? = null,
     onBack: (() -> Unit)? = null
 ) {
     var searchActive by remember { mutableStateOf(false) }
@@ -219,7 +220,7 @@ fun AllNotesScreen(
             val scheme = MaterialTheme.colorScheme
             val isLightTheme = !isSystemInDarkTheme()
 
-            val containerColor = if (isLightTheme) Color(0xFFFAFAFA).copy(0.60f) else Color(0xFF1a1a1a).copy(0.80f)
+            val containerColor = if (isLightTheme) Color.White else Color(0xFF1a1a1a).copy(0.80f)
 
             // Glass fill for split buttons
             val glassFill = scheme.surfaceVariant.copy(alpha = if (isDark) 0.35f else 0.25f)
@@ -319,7 +320,7 @@ fun AllNotesScreen(
                         lens(
                             refractionHeight = 60f,
                             refractionAmount = 80f,
-                            depthEffect = true,
+                            depthEffect = false,
                             chromaticAberration = false
                         )
                     },
@@ -354,6 +355,7 @@ fun AllNotesScreen(
                             Text(
                                 text = titleText,
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = scheme.onSurface,
                                 maxLines = 1
                             )
                             Box(
@@ -575,7 +577,12 @@ fun AllNotesScreen(
                                 notesAdapter.fireClick(note)
                                 toggleSelected(rowKey)
                             } else {
-                                notesAdapter.fireClick(note)
+                                val rowPosition = notes.indexOfFirst { it.id == rowKey }
+                                if (onOpenNote != null && rowPosition >= 0) {
+                                    onOpenNote(row, rowPosition)
+                                } else {
+                                    notesAdapter.fireClick(note)
+                                }
                             }
                         },
                         onLongClick = {

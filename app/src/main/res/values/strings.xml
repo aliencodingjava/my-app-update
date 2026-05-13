@@ -16,6 +16,11 @@
     <string name="lost_and_found">lostandfound@jhairport.org</string>
     <string name="communications_customer_experience">commcustomer@jhairport.org</string>
 
+    <string name="search_notes">Search notes</string>
+    <string name="search_title_or_note">Search title or note</string>
+    <string name="live_cameras">Live Cameras</string>
+    <string name="profile">Profile</string>
+
 
     <string name="contact_info">Information</string>
     <string name="mainhome">Flights</string>
@@ -40,6 +45,7 @@
     <!-- Attachment Download Preferences -->
     <string name="attachment_title">Download incoming attachments</string>
     <string name="attachment_summary_on">Auto-downloads; Check required.</string>
+    <string name="check_for_updates_title">Check for Updates</string>
 
 
     <string name="feature_released">Feature released</string>
@@ -102,6 +108,7 @@
 
 
     <string name="download_complete_title">Download Complete</string>
+    <string name="settings_release_date_template">Release Date: %1$s</string>
     <string name="app_update_title">App Update</string>
     <string name="app_up_to_date_message">Your app is up to date!</string>
 
@@ -247,8 +254,8 @@ Your device is banned for submitting offensive or inappropriate feedback. Please
 </string>
     <string name="qrcode">download our app</string>
     <string name="why_download_app">
-Connect faster with our app.
-Scan QR codes, share moments, and enjoy a seamless experience.
+Get more from Flights Studio.
+Track flights, save notes, manage contacts, and watch aviation videos — all in one place.
 </string>
     <string name="fragment_settings">fragment_settings</string>
     <string name="download_complete">Download complete</string>
@@ -314,6 +321,7 @@ Scan QR codes, share moments, and enjoy a seamless experience.
     <string name="qr_code">Qr Code</string>
     <string name="All_contacts">All contacts</string>
     <string name="Import_contacts">import contacts</string>
+    <string name="contacts_bottom_notes">Notes</string>
     <string name="new_contacts_count">New contacts count</string>
     <string name="total_contacts">Contacts</string>
     <string name="make_a_call">Make a call</string>
@@ -434,7 +442,7 @@ Scan QR codes, share moments, and enjoy a seamless experience.
     <!-- strings.xml -->
     <string name="choose_reminder_type">Choose reminder</string>
     <string name="reminder_hint_short">Timer = today • Calendar = date/time</string>
-    <string name="timer_caption_short">Today</string>
+    <string name="timer_caption_short">Today / tomorrow</string>
     <string name="calendar_caption_short">Date/time</string>
     <!-- res/values/strings.xml -->
     <string name="a11y_tip_available">Tip available</string>
@@ -453,6 +461,54 @@ Scan QR codes, share moments, and enjoy a seamless experience.
     <string name="quick_actions" translatable="false">Quick actions</string>
     <string name="logo" translatable="false">logo</string>
     <string name="scan_qr_code" translatable="false">Scan QR Code</string>
+
+    <string name="settings_title_modern">Settings</string>
+    <string name="settings_subtitle_modern">Profile, updates, language, and app controls.</string>
+    <string name="settings_section_app">App</string>
+    <string name="settings_section_preferences">Preferences</string>
+    <string name="settings_section_airport_services">Airport Services</string>
+    <string name="settings_section_feedback">Feedback</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_menu_tab">Menu</string>
+    <string name="settings_changelog_tab">Changelog</string>
+    <string name="settings_software_update_title">Software Update</string>
+    <string name="settings_software_update_summary">Check the latest release and install it when available.</string>
+    <string name="settings_changelog_title">Changelog</string>
+    <string name="settings_app_icon_title">App Icon</string>
+    <string name="settings_app_icon_summary">Choose the icon shown on your device.</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_summary">Choose the language used by supported screens.</string>
+    <string name="settings_language_picker_title">Choose language</string>
+    <string name="settings_language_english">English</string>
+    <string name="settings_language_spanish">Spanish</string>
+    <string name="settings_camera_glow_title">Camera Glow</string>
+    <string name="settings_camera_glow_summary">Show the animated glow around the camera action.</string>
+    <string name="settings_airport_phone_title">Airport Phone</string>
+    <string name="settings_airport_operations_title">Airport Operations</string>
+    <string name="settings_airport_services_title">Airport Services</string>
+    <string name="settings_human_resources_title">Human Resources</string>
+    <string name="settings_lost_found_title">Lost and Found</string>
+    <string name="settings_communications_title">Communications</string>
+    <string name="settings_signup_title">Notifications</string>
+    <string name="settings_signup_summary">Sign up for airport and app update emails.</string>
+    <string name="settings_rate_title">Rate the App</string>
+    <string name="settings_rate_summary">Leave a rating or share a quick thought.</string>
+    <string name="settings_share_title">Share App</string>
+    <string name="settings_share_summary">Send the app link to someone.</string>
+    <string name="settings_feedback_title">Feedback</string>
+    <string name="settings_feedback_summary">Tell us what should be fixed or improved.</string>
+    <string name="settings_feedback_note_subtitle">Send a note with device info attached.</string>
+    <string name="settings_feedback_rules_message">No profanity, personal data, harassment, spam, or hate speech.</string>
+    <string name="settings_feedback_empty_message">Please enter feedback.</string>
+    <string name="settings_licenses_title">Licenses</string>
+    <string name="settings_licenses_summary">View open-source libraries and credits.</string>
+    <string name="settings_privacy_title">Privacy Policy</string>
+    <string name="settings_privacy_summary">Read how app data is handled.</string>
+    <string name="settings_device_title">Device Build</string>
+    <string name="settings_no_results_hint">Only matching settings are shown while searching.</string>
+    <string name="settings_searching_template">Searching: %1$s</string>
+    <string name="settings_changelog_offline_title">Offline</string>
+    <string name="settings_changelog_offline">Connect to the internet to load the latest changelog.</string>
 
 
 </resources>

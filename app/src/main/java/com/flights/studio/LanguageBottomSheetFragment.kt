@@ -44,19 +44,11 @@ class LanguageBottomSheetFragment : BottomSheetDialogFragment() {
                 dismiss(); return@setOnClickListener
             }
 
-            // LanguageBottomSheetFragment (unchanged)
             AppLanguageManager.persistLanguage(requireContext(), selected)
-
-            val fm = requireActivity().supportFragmentManager
-            fm.beginTransaction()
-                .replace(R.id.content_frame, SettingsFragment())
-                .commitNowAllowingStateLoss()
+            AppLanguageManager.markBlink()
 
             dismissAllowingStateLoss()
             requireActivity().recreate()
-
-
         }
-
     }
 }

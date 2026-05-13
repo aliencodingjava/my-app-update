@@ -34,7 +34,6 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -80,7 +79,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-class AllNotesActivity : AppCompatActivity() {
+class AllNotesActivity : LocaleActivity() {
 
     private lateinit var notesAdapter: NotesAdapter
     private val allNotes = mutableListOf<String>()
@@ -303,11 +302,12 @@ class AllNotesActivity : AppCompatActivity() {
                                 selectedKeys.addAll(selectedRowKeys.map { it.substringBefore('#') }) // ✅ uid only
                                 isMultiSelectMode = selectedKeys.isNotEmpty()
                                 deleteSelectedNotes()
-                            }
+                            },
+                            onOpenNote = { row, position -> onNoteClick(row.text, position) }
 
 
 
-                        ) { finish() }
+                        )
 
 
                     }
@@ -1510,7 +1510,7 @@ class AllNotesActivity : AppCompatActivity() {
         }
 
         // optional cute animation (animate the whole pill, not searchView)
-        ObjectAnimator.ofFloat(rootLayout.findViewById<View>(R.id.search_pill), "translationY", 0f, 30f).apply {
+        ObjectAnimator.ofFloat(rootLayout.findViewById(R.id.search_pill), "translationY", 0f, 30f).apply {
             duration = 200
             interpolator = DecelerateInterpolator()
             start()
@@ -1806,7 +1806,7 @@ class AllNotesActivity : AppCompatActivity() {
 
 
     private fun goToContactScreen() {
-        startActivity(Intent(this, Contact::class.java))
+        startActivity(Intent(this, SettingsActivity::class.java))
         overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         finish()
     }

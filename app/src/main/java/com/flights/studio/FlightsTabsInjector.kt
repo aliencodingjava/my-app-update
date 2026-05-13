@@ -4,2401 +4,2056 @@ import android.webkit.WebView
 
 object FlightsTabsInjector {
 
-    fun injectHideTriggers(
-        view: WebView?,
-        showFlightsTabs: Boolean,
-        isFlightsMain: Boolean
-    ) {
-        view?.evaluateJavascript(
-            $$"""
+    private fun loadCss(view: WebView?): String = try {
+        view?.context?.assets?.open("fs_flights_style.css")?.bufferedReader()?.use { it.readText() } ?: ""
+    } catch (_: Exception) { "" }
+
+    fun injectHideTriggers(view: WebView?, showFlightsTabs: Boolean, isFlightsMain: Boolean) {
+        val css = loadCss(view)
+            .replace("\\", "\\\\")
+            .replace("`", "\\`")
+            .replace("$", "\\$")
+
+        val js = $$"""
         (function() {
+        'use strict';
+
+        var SHOW_TABS    = $${if (showFlightsTabs) "true" else "false"};
+        var IS_MAIN      = $${if (isFlightsMain)  "true" else "false"};
+
+        // ─────────────────────────────────────────────────────────────
+        // CONSTANTS
+        // ─────────────────────────────────────────────────────────────
+        const JAC_LAT    = 43.6073;
+        const JAC_LON    = -110.7377;
+        const DOCK_PEEK  = 165;          // px visible when docked
+        const AC_TTL     = 12000;        // aircraft cache TTL ms
+        const WX_TTL     = 5000;         // weather cache TTL ms
+        const LIVE_INTERVAL = 15000;     // live arrivals refresh ms
+
+        const AIRPORT_CODES = {
+          "Salt Lake City":"SLC","Denver":"DEN","Newark":"EWR","Chicago":"ORD",
+          "Dallas/Fort Worth":"DFW","Los Angeles":"LAX","San Francisco":"SFO",
+          "Atlanta":"ATL","Seattle":"SEA","Phoenix":"PHX","Minneapolis":"MSP",
+          "Detroit":"DTW","Houston":"IAH","Boston":"BOS","Washington":"DCA",
+          "Charlotte":"CLT","Miami":"MIA","New York":"JFK","Las Vegas":"LAS","Portland":"PDX"
+        };
+
+        const BBOX = { lamin:30, lomin:-125, lamax:50, lomax:-88 };
+
+        // ─────────────────────────────────────────────────────────────
+        // STATE
+        // ─────────────────────────────────────────────────────────────
+        let wxCache = null,  wxAt  = 0;
+        let acCache = null,  acAt  = 0,  acIndex = {}, acFetching = false, acOk = false;
+        let scrapeCache = null, scrapeDirty = true;
+
+        // ─────────────────────────────────────────────────────────────
+        // SETTINGS HELPERS
+        // ─────────────────────────────────────────────────────────────
+        function getSettings() {
+          const defaults = {
+            liveArrivals: true,
+            weather: true,
+            inbound: true,
+            confidence: true,
+            colors: true,
+            distance: 80
+          };
+          try {
+            return Object.assign(defaults, JSON.parse(localStorage.getItem('fs-settings') || '{}'));
+          } catch {
+            return defaults;
+          }
+        }
+        function saveSettings(s) {
+          localStorage.setItem('fs-settings', JSON.stringify(s));
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // IDLE SCHEDULER (rIC with rAF fallback)
+        // ─────────────────────────────────────────────────────────────
+        const fsIdle = typeof requestIdleCallback === 'function'
+          ? (fn, ms) => requestIdleCallback(fn, { timeout: ms || 600 })
+          : (fn)     => setTimeout(fn, 0);
+
+        // ─────────────────────────────────────────────────────────────
+        // METRICS — sheet dimensions relative to tab bar
+        // ─────────────────────────────────────────────────────────────
+        function metrics() {
+          const tab  = document.getElementById('fs-bottom-tabs');
+          const docked = getSettings().dock === true;
+          const avail= docked ? window.innerHeight : (tab ? Math.max(260, tab.getBoundingClientRect().top) : window.innerHeight);
+          const h    = Math.round(avail * 0.91);
+          return { h, dock: Math.max(0, h - DOCK_PEEK), hide: h + 40 };
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // UTILITIES
+        // ─────────────────────────────────────────────────────────────
+        function haversine(la1, lo1, la2, lo2) {
+          const R = 3958.8, d2r = Math.PI / 180;
+          const dLa = (la2 - la1) * d2r, dLo = (lo2 - lo1) * d2r;
+          const a = Math.sin(dLa/2)**2 + Math.cos(la1*d2r)*Math.cos(la2*d2r)*Math.sin(dLo/2)**2;
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function clockToDate(str) {
+          if (!str) return null;
+          const s  = String(str).toLowerCase().trim();
+          const pm = s.includes('pm'), am = s.includes('am');
+          const [hh, mm] = s.replace('am','').replace('pm','').trim().split(':').map(Number);
+          if (isNaN(hh) || isNaN(mm)) return null;
+          let h = hh;
+          if (pm && h !== 12) h += 12;
+          if (am && h === 12) h  = 0;
+          const d = new Date(); d.setHours(h, mm, 0, 0); return d;
+        }
+        function clockToMins(str) { const d = clockToDate(str); return d ? d.getHours()*60+d.getMinutes() : null; }
+        function minsAgo(str) {
+          const m = clockToMins(str); if (m == null) return null;
+          const now = new Date().getHours()*60 + new Date().getMinutes();
+          let d = now - m;
+          if (d < -720) d += 1440; if (d > 720) d -= 1440;
+          return d;
+        }
+        function recentLanding(f) { const m = minsAgo(f.actual || f.sched || ''); return m != null && m >= 0 && m <= 90; }
+
+        function fmtMin(total) {
+          if (total == null) return '';
+          const m = Math.max(0, Math.round(total)), h = Math.floor(m/60), mn = m%60;
+          return h>0 && mn>0 ? `${h}h ${mn}m` : h>0 ? `${h}h` : `${mn}m`;
+        }
+        function fmtDelay(minutes) {
+          if (!minutes || minutes <= 0) return '';
+          const h = Math.floor(minutes/60), m = minutes%60;
+          return h>0 && m>0 ? `${h}h${m}min` : h>0 ? `${h}h` : `${m}min`;
+        }
+        function delayMins(sched, actual) {
+          const s = clockToMins(sched), a = clockToMins(actual);
+          if (s == null || a == null) return 0;
+          let d = a - s; if (d < 0) { if (d < -720) d += 1440; else return 0; } return d;
+        }
+        function etaMins(dist, speed) { return speed >= 60 ? Math.round((dist/speed)*60) : null; }
+        function airportCode(label) { return AIRPORT_CODES[label] || label || ''; }
+
+        function tempColor(f) {
+          const t  = parseFloat(f); if (isNaN(t)) return '';
+          const dk = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const sc = dk
+            ? [{t:10,c:'#3d8cff'},{t:25,c:'#2fb7ff'},{t:40,c:'#39d4ff'},{t:55,c:'#3ee0b3'},
+               {t:70,c:'#6df26d'},{t:80,c:'#ffe066'},{t:90,c:'#ff9f40'},{t:100,c:'#ff6b4a'},{t:999,c:'#ff3b3b'}]
+            : [{t:10,c:'#0d47a1'},{t:25,c:'#1976d2'},{t:40,c:'#0288d1'},{t:55,c:'#26a69a'},
+               {t:70,c:'#7cb342'},{t:80,c:'#fbc02d'},{t:90,c:'#f57c00'},{t:100,c:'#c62828'},{t:999,c:'#8b0000'}];
+          return (sc.find(s => t <= s.t) || sc[sc.length-1]).c;
+        }
+        function wxClass(wx) {
+          const t = parseInt(wx?.tempF); if (isNaN(t)) return '';
+          return t<=32?'wx-freezing':t<=45?'wx-cool':t<=70?'wx-mild':t<=90?'wx-warm':'wx-hot';
+        }
         
-        var SHOW_FLIGHT_TABS = $${if (showFlightsTabs) "true" else "false"};
-        var IS_FLIGHTS_MAIN = $${if (isFlightsMain) "true" else "false"};
-          
-          // ===============================
-          // AIRPORT IATA CODES
-          // ===============================
-          
-          var airportCodes = {
-            "Salt Lake City": "SLC",
-            "Denver": "DEN",
-            "Newark": "EWR",
-            "Chicago": "ORD",
-            "Dallas/Fort Worth": "DFW",
-            "Los Angeles": "LAX",
-            "San Francisco": "SFO",
-            "Atlanta": "ATL"
+         // ─────────────────────────────────────────────────────────────
+        // Formate Updated Label
+        // ─────────────────────────────────────────────────────────────
+        function formatUpdatedLabel(flashSeconds) {
+          const now = new Date();
+
+          const hours = now.toLocaleTimeString([], {
+            hour: '2-digit',
+            hour12: true
+          }).match(/^\d{1,2}/)?.[0] || '';
+
+          const mins = String(now.getMinutes()).padStart(2, '0');
+          const secs = String(now.getSeconds()).padStart(2, '0');
+          const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+
+          return `<span class="fs-live-updated-text">Updated ${hours}:${mins}</span><span class="fs-live-seconds${flashSeconds ? ' fs-live-seconds-flash' : ''}">:${secs}</span><span class="fs-live-updated-text"> ${ampm}</span>`;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // WEATHER SCRAPE
+        // ─────────────────────────────────────────────────────────────
+        function scrapeWeather() {
+          const qs = s => { try { return document.querySelector(s); } catch { return null; } };
+          const fF = qs('.cur-fahren,.fahrenheit,.temp-f');
+          const fC = qs('.cur-celcius,.celsius,.temp-c');
+          const iW = qs('.icon-wrap,.cur-icon,.weather-icon,.wx-icon');
+          const tempF = (fF?.textContent.trim() || '').replace('/','').trim();
+          const tempC = fC?.textContent.trim() || '';
+          let icon = '';
+          if (iW) { const svg = iW.querySelector('svg'); if (svg) icon = svg.outerHTML; }
+          let windSpeed=null, windDir='', windUnit=null, vis=null, cloud=null;
+          const det = document.querySelector('.cur-details');
+          if (det) {
+            const tx = det.innerText.replace(/\u00A0/g,' ').replace(/\s+/g,' ');
+            const vm = tx.match(/visibility[^0-9]*([\d.]+)/i);   if (vm) vis = parseFloat(vm[1]);
+            const wm = tx.match(/wind[^0-9]*([\d]+)\s*(mph|kt)?\s*([A-Z]+)?/i);
+            if (wm) { windSpeed=parseInt(wm[1],10); windUnit=wm[2]||'mph'; windDir=wm[3]||''; }
+            const cm = tx.match(/cloud[^0-9]*([\d]+)/i);         if (cm) cloud = parseInt(cm[1]);
+          }
+          return { tempF, tempC, temp: (tempF&&tempC)?`${tempF} / ${tempC}`:tempF||tempC, windSpeed, windDir, windUnit, vis, cloud, icon };
+        }
+        function getWx() {
+          if (!wxCache || Date.now()-wxAt > WX_TTL) { wxCache = scrapeWeather(); wxAt = Date.now(); }
+          return wxCache;
+        }
+
+        function wxWarnings(wx) {
+          const out = [];
+          if (wx.vis != null && wx.vis <= 3)
+            out.push(`<span class="fs-wx-warn vis-warning"><svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor"><path d="M792-56 624-222q-35 11-70.5 16.5T480-200q-151 0-269-83.5T40-500q21-53 53-98.5t73-81.5L56-792l56-56 736 736-56 56ZM480-320q11 0 20.5-1t20.5-4L305-541q-3 11-4 20.5t-1 20.5q0 75 52.5 127.5T480-320Zm292 18L645-428q7-17 11-34.5t4-37.5q0-75-52.5-127.5T480-680q-20 0-37.5 4T408-664L306-766q41-17 84-25.5t90-8.5q151 0 269 83.5T920-500q-23 59-60.5 109.5T772-302ZM587-486 467-606q28-5 51.5 4.5T559-574q17 18 24.5 41.5T587-486Z"/></svg>Low Vis</span>`);
+          if (wx.windSpeed >= 20)
+            out.push(`<span class="fs-wx-warn wind-warning"><svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor"><path d="M460-160q-50 0-85-35t-35-85h80q0 17 11.5 28.5T460-240q17 0 28.5-11.5T500-280q0-17-11.5-28.5T460-320H80v-80h380q50 0 85 35t35 85q0 50-35 85t-85 35ZM80-560v-80h540q26 0 43-17t17-43q0-26-17-43t-43-17q-26 0-43 17t-17 43h-80q0-59 40.5-99.5T620-840q59 0 99.5 40.5T760-700q0 59-40.5 99.5T620-560H80Zm660 320v-80q26 0 43-17t17-43q0-26-17-43t-43-17H80v-80h660q59 0 99.5 40.5T880-380q0 59-40.5 99.5T740-240Z"/></svg>Crosswind</span>`);
+          if (parseInt(wx.tempF) <= 36)
+            out.push(`<span class="fs-wx-warn ice-warning"><svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor"><path d="M800-560q-17 0-28.5-11.5T760-600q0-17 11.5-28.5T800-640q17 0 28.5 11.5T840-600q0 17-11.5 28.5T800-560ZM400-80v-144L296-120l-56-56 160-160v-64h-64L176-240l-56-56 104-104H80v-80h144L120-584l56-56 160 160h64v-64L240-704l56-56 104 104v-144h80v144l104-104 56 56-160 160v64h320v80H656l104 104-56 56-160-160h-64v64l160 160-56 56-104-104v144h-80Zm360-600v-200h80v200h-80Z"/></svg>Ice Risk</span>`);
+          return out.join(' • ');
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // AIRCRAFT SOURCES
+        // ─────────────────────────────────────────────────────────────
+        async function fetchAdsbLol() {
+          const r = await fetch(`https://api.adsb.lol/v2/lat/${JAC_LAT}/lon/${JAC_LON}/dist/500`);
+          if (!r?.ok) throw new Error('adsb.lol ' + r?.status);
+          const d = await r.json(); if (!d?.ac) throw new Error('adsb.lol no ac');
+          return d.ac.map(a => {
+            const alt = (typeof a.alt_baro==='number' ? a.alt_baro : (a.alt_geom ?? 0));
+            return [a.hex, (a.flight||a.r||'').trim(), null,null,null, a.lon??null, a.lat??null,
+                    alt*0.3048, null, (a.gs??0)/1.94384, a.track??null, (a.baro_rate??a.geom_rate??0)*0.00508, null, alt*0.3048];
+          });
+        }
+        async function fetchAdsbFi() {
+          const r = await fetch(`https://api.adsb.fi/v1/lat=${JAC_LAT}&lon=${JAC_LON}&radius=500`);
+          if (!r?.ok) throw new Error('adsb.fi ' + r?.status);
+          const d = await r.json(); if (!d?.aircraft) throw new Error('adsb.fi no aircraft');
+          return d.aircraft.map(a => {
+            const alt = a.altitude ?? 0;
+            return [a.icao, (a.callsign||a.registration||'').trim(), null,null,null,
+                    a.lon??null, a.lat??null, alt*0.3048, null, (a.speed??0)/1.94384,
+                    a.heading??null, (a.vert_rate??0)*0.00508, null, alt*0.3048];
+          });
+        }
+
+        async function refreshAcCache() {
+          if (acFetching || (acCache && Date.now()-acAt < AC_TTL)) return;
+          acFetching = true;
+          try {
+            let states = null;
+            try {
+              const r = await fetch(`https://opensky-network.org/api/states/all?lamin=${BBOX.lamin}&lomin=${BBOX.lomin}&lamax=${BBOX.lamax}&lomax=${BBOX.lomax}`);
+              if (r?.ok) { const d = await r.json(); if (d?.states?.length) states = d.states; }
+            } catch {}
+            if (!states) try { states = await fetchAdsbLol(); } catch {}
+            if (!states) try { states = await fetchAdsbFi(); } catch {}
+            if (!states?.length) {
+              acOk = false;
+              return;
+            }
+            acOk    = true;
+            acCache = states;
+            window._fsAcStates = states;
+            acAt    = Date.now();
+            acIndex = {};
+            for (const s of acCache) {
+              if (!s?.[1]) continue;
+              const k = s[1].trim().replace(/\s+/g,'').toUpperCase();
+              if (!k) continue;
+              acIndex[k] = s;
+              const d = k.replace(/[A-Z]/g,'');
+              if (d) acIndex[d] = s;
+            }
+            renderInbound(detectInbound(acCache));
+            } catch {
+              acOk = false;
+            } finally { acFetching = false; }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // AIRCRAFT LOOKUP  (O(1) index + fuzzy scored fallback)
+        // single canonical implementation used everywhere
+        // ─────────────────────────────────────────────────────────────
+        function lookupCallsign(callsign) {
+          if (!acCache || !callsign) return null;
+          const norm = callsign.trim().replace(/\s+/g,'').toUpperCase();
+          const dig  = norm.replace(/[A-Z]/g,'');
+          let s = acIndex[norm] || (dig ? acIndex[dig] : null);
+          if (!s) {
+            for (const x of acCache) {
+              if (!x?.[1]) continue;
+              const k = x[1].trim().replace(/\s+/g,'').toUpperCase();
+              if (k === norm || (dig && (k.endsWith(dig) || k.replace(/[A-Z]/g,'') === dig))) { s = x; break; }
+            }
+          }
+          return s ? acFromState(s) : null;
+        }
+
+        function acFromState(s) {
+          const lat = s[6], lon = s[5];
+          if (lat == null || lon == null) return null;
+          return {
+            callsign: (s[1]||'').trim(), rawCallsign: (s[1]||'').trim(),
+            altitude: Math.round((s[13]||s[7]||0)*3.28084),
+            speed:    Math.round((s[9]||0)*1.94384),
+            heading:  s[10] != null ? Math.round(s[10]) : null,
+            vRate:    s[11]||0, lat, lon
           };
-          
-          var airlineICAO = {
-            "United": "UAL",
-            "Delta": "DAL",
-            "American": "AAL",
-            "Southwest": "SWA",
-            "Alaska": "ASA",
-            "JetBlue": "JBU",
-            "Spirit": "NKS",
-            "Frontier": "FFT"
+        }
+
+        // Fuzzy search through full cache — shared by both live-arrivals build and updater
+        function fuzzyMatch(candidates) {
+          if (!acCache || !candidates?.length) return null;
+          const digits = [...new Set(
+            candidates.map(c => (c||'').toUpperCase().replace(/[A-Z\s]/g,'')).filter(Boolean)
+          )];
+          let best = null, bestScore = -Infinity;
+          for (const s of acCache) {
+            if (!s?.[1]) continue;
+            const k   = s[1].trim().replace(/\s+/g,'').toUpperCase(); if (!k) continue;
+            const lat = s[6], lon = s[5]; if (lat==null || lon==null) continue;
+            const alt = Math.round((s[13]||s[7]||0)*3.28084);
+            const spd = Math.round((s[9]||0)*1.94384);
+            const vr  = s[11]||0;
+            const dist= haversine(lat,lon,JAC_LAT,JAC_LON);
+            const dg  = k.replace(/[A-Z]/g,'');
+            if (!dg || dist > 1500 || (spd < 40 && alt < 500)) continue;
+            let score = 0;
+            for (const tgt of digits) {
+              if (!tgt) continue;
+              if (dg === tgt)           { score += 200; break; }
+              if (dg.endsWith(tgt))     { score += 150; break; }
+              if (dg.includes(tgt))     { score +=  80; break; }
+            }
+            if (score === 0) continue;
+            score += dist<=50?100 : dist<=150?70 : dist<=300?40 : dist<=500?15 : dist<=800?5 : 0;
+            score += alt<1000&&dist>20 ? -40 : alt>=1000&&alt<=10000 ? 30 : alt>10000&&alt<=45000 ? 20 : 0;
+            score += vr<-2&&dist<200   ?  25 : vr>5 ? -10 : 0;
+            score += spd>=120&&spd<=320?  15 : spd<60 ? -20 : 0;
+            if (score > bestScore) { bestScore = score; best = s; }
+          }
+          return bestScore >= 200 ? acFromState(best) : null;
+        }
+
+        async function matchCandidates(candidates) {
+          await refreshAcCache();
+          if (!acCache) return null;
+          for (const c of candidates) { const r = lookupCallsign(c); if (r) return r; }
+          return fuzzyMatch(candidates);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // CALLSIGN CANDIDATES  (airline name → ICAO prefix list)
+        // ─────────────────────────────────────────────────────────────
+        function candidates(airline, flight) {
+          const raw  = (flight||'').toUpperCase().trim().replace(/[^A-Z0-9]/g,'');
+          const digs = raw.replace(/^[A-Z]{2,3}/,'').replace(/[A-Z]/g,'');
+          const a    = (airline||'').toLowerCase();
+          const pfx  =
+            a.includes('united')      ? ['UAL','UA','SKW','GJS','UCA','RPA','ASH','TSS'] :
+            a.includes('delta')       ? ['DAL','DL','SKW','EDV','RPA'] :
+            a.includes('american')    ? ['AAL','AA','ENY','PDT','PSA','SKW','RPA'] :
+            a.includes('alaska')      ? ['ASA','AS','QXE','SKW','OEN'] :
+            a.includes('skywest')     ? ['SKW'] :
+            a.includes('southwest')   ? ['SWA','WN'] :
+            a.includes('jetblue')     ? ['JBU','B6'] :
+            a.includes('frontier')    ? ['FFT','F9'] :
+            a.includes('spirit')      ? ['NKS','NK'] :
+            a.includes('horizon')     ? ['QXE','AS'] :
+            a.includes('republic')    ? ['RPA'] :
+            a.includes('endeavor')    ? ['EDV'] :
+            a.includes('envoy')       ? ['ENY'] :
+            a.includes('piedmont')    ? ['PDT'] :
+            a.includes('mesa')        ? ['ASH'] :
+            a.includes('gojet')       ? ['GJS'] : [];
+          const out = [];
+          pfx.forEach(p => { if (digs) { out.push(p+digs); out.push(`${p} ${digs}`); } });
+          if (raw)  out.push(raw);
+          if (digs) out.push(digs);
+          return [...new Set(out)];
+        }
+
+        function operatorFromCallsign(cs) {
+          const c = (cs||'').trim().toUpperCase().replace(/\s+/g,'');
+          if (c.startsWith('SKW')) return 'SkyWest';
+          if (c.startsWith('RPA')) return 'Republic Airways';
+          if (c.startsWith('EDV')) return 'Endeavor Air';
+          if (c.startsWith('ENY')) return 'Envoy Air';
+          if (c.startsWith('PDT')) return 'Piedmont';
+          if (c.startsWith('QXE')) return 'Horizon Air';
+          if (c.startsWith('ASH')) return 'Mesa Airlines';
+          if (c.startsWith('GJS')) return 'GoJet Airlines';
+          if (c.startsWith('PSA')) return 'PSA Airlines';
+          return '';
+        }
+        function operatingCarrier(airline, flight) {
+          const a = (airline||'').toLowerCase(), f = (flight||'').toUpperCase().trim();
+          if (a.includes('delta')    && /^[4-9]\d{3}$/.test(f)) return 'SkyWest';
+          if (a.includes('united')   && /^[4-9]\d{3}$/.test(f)) return 'SkyWest';
+          if (a.includes('american') && /^[3-5]\d{3}$/.test(f)) return 'Envoy Air';
+          if (a.includes('alaska')   && /^3\d{3}$/.test(f))     return 'SkyWest';
+          return '';
+        }
+
+        function routeForCallsign(cs) {
+          if (!cs) return null;
+          const norm = cs.replace(/\s+/g,'').toUpperCase();
+          const digs = norm.replace(/[A-Z]/g,'');
+          for (const f of arrivalRows()) {
+            for (const c of candidates(f.airline, f.flight)) {
+              const cc = c.replace(/\s+/g,'').toUpperCase();
+              if (cc === norm || (digs && cc.replace(/[A-Z]/g,'') === digs))
+                return { from: airportCode(f.from)||f.from||'', confirmed: true };
+            }
+          }
+          return null;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // DETECT & RENDER INBOUND AIRCRAFT PANEL
+        // ─────────────────────────────────────────────────────────────
+        function detectInbound(states) {
+          const cfg  = getSettings();
+          const maxD = cfg.distance || 80;
+          const list = [];
+          for (const s of states) {
+            const lat=s[6], lon=s[5]; if (!lat||!lon) continue;
+            const alt = Math.round((s[13]||s[7]||0)*3.28084);
+            const spd = Math.round((s[9]||0)*1.94384);
+            const vr  = s[11]||0;
+            const dist= haversine(lat,lon,JAC_LAT,JAC_LON);
+            if (dist>maxD || vr>800 || (spd<30&&dist>2)) continue;
+            list.push({ callsign:(s[1]||'').trim(), alt, spd, dist:Math.round(dist), vr });
+          }
+          return list.sort((a,b) => a.dist - b.dist);
+        }
+        function confLevel(dist, alt, vr, speed) {
+          const eta = etaMins(dist, speed);
+
+          if (eta != null && eta <= 5) {
+            return { p: 97, l: 'High', c: 'high' };
+          }
+
+          if (dist <= 6 || (eta != null && eta <= 8 && alt <= 5000)) {
+            return { p: 92, l: 'High', c: 'high' };
+          }
+
+          if (dist <= 15 || (eta != null && eta <= 12 && alt <= 8000)) {
+            return { p: 82, l: 'High', c: 'high' };
+          }
+
+          if ((dist <= 25 && alt <= 10000 && vr < -64) || (eta != null && eta <= 18)) {
+            return { p: 68, l: 'Medium', c: 'mid' };
+          }
+
+          if (dist <= 45 || (eta != null && eta <= 30)) {
+            return { p: 50, l: 'Medium', c: 'mid' };
+          }
+
+          if (dist <= 80 && alt <= 22000) {
+            return { p: 34, l: 'Low', c: 'low' };
+          }
+
+          return { p: 20, l: 'Low', c: 'low' };
+        }
+
+        function altClass(alt)  { return alt<4000?'alt-low':alt<9000?'alt-mid':'alt-high'; }
+        function spdClass(spd)  { return spd<150?'spd-slow':spd<220?'spd-approach':'spd-fast'; }
+
+        function confHtml(p, l, c, wide) {
+          return `<span class="fs-conf-bar" style="${wide?'width:52px;height:5px;':''}">`
+               + `<span class="fs-conf-fill ${c}" style="width:${p}%;"></span></span>`;
+        }
+
+        function renderInbound(list) {
+          let el = document.getElementById('fs-inbound-aircraft');
+          const cfg = getSettings();
+          if (!list?.length || cfg.inbound === false) { if (el) el.innerHTML = ''; return; }
+          if (!el) {
+            el = document.createElement('div'); el.id = 'fs-inbound-aircraft';
+            const sc = document.getElementById('fs-alerts-content');
+            if (sc) {
+              const a = sc.querySelector('#fs-live-arrivals-panel') || sc.querySelector('.fs-weather-banner');
+              if (a) a.insertAdjacentElement('afterend', el);
+              else sc.querySelector('.fs-sheet-header-wrap')?.insertAdjacentElement('afterend', el) || sc.appendChild(el);
+            } else document.body.appendChild(el);
+          }
+          const showConf  = cfg.confidence !== false;
+          const showColor = cfg.colors !== false;
+          const maxD = cfg.distance || 80;
+          el.innerHTML = `<div class="fs-inbound-panel">
+            <div class="fs-inbound-header">
+              <span class="fs-inbound-title">Inbound traffic</span>
+              <span class="fs-inbound-subtitle">${list.length} aircraft within ${maxD} mi</span>
+            </div>
+            <div class="fs-inbound-list">
+              ${list.slice(0,6).map(ac => {
+                const eta  = etaMins(ac.dist, ac.spd);
+                const cf   = confLevel(ac.dist, ac.alt, ac.vr, ac.spd);
+                const route= routeForCallsign(ac.callsign);
+                const aC   = showColor ? altClass(ac.alt) : '';
+                const sC   = showColor ? spdClass(ac.spd) : '';
+                return `<div class="fs-inbound-card${ac.dist<10?' final':''}">
+                  <div class="fs-inbound-main">
+                    <div class="fs-inbound-line1">
+                      <span class="fs-inbound-icon">✈</span>
+                      <span class="fs-inbound-callsign">${ac.callsign||'Unknown'}</span>
+                      ${route?.confirmed?`<span class="fs-inbound-route">${route.from} → JAC</span>`:''}
+                      ${eta?`<span class="fs-inbound-eta">ETA ${eta} min</span>`:''}
+                    </div>
+                    <div class="fs-inbound-line2">
+                      <span class="fs-inbound-dist">${ac.dist} mi</span>
+                      <span class="fs-inbound-alt ${aC}">${ac.alt.toLocaleString()} ft</span>
+                      <span class="fs-inbound-spd ${sC}">${ac.spd} kt</span>
+                      ${showConf?`<span class="fs-inbound-conf">
+                        Approach: <span class="fs-conf-word ${cf.c}">${cf.l}</span>
+                        ${confHtml(cf.p,cf.l,cf.c,false)}
+                      </span>`:''}
+                    </div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // DOM SCRAPE — cached, invalidated by MutationObserver
+        // ─────────────────────────────────────────────────────────────
+        function arrivalRows() {
+          if (!scrapeDirty && scrapeCache) return scrapeCache;
+          const con = document.getElementById('flight-container'); if (!con) return [];
+          const rows = [];
+          const txt = (row, selector, index) => {
+            const el = row.querySelector(selector);
+            if (el) return el.innerText.trim();
+            const cells = row.querySelectorAll('td');
+            return cells[index]?.innerText.trim() || '';
           };
-          
-          //
-          // WEATHER CACHE
-          //
-          
-          var weatherContextCache = null;
-          var weatherLastFetch = 0;
-          
-          function getTempColor(tempF){
+          const tableType = table => {
+            const wrap = table.closest('.-arrival, .-departure, [class*="arrival"], [class*="departure"]');
+            const wrapClass = (wrap?.className || '').toString().toLowerCase();
+            if (wrapClass.includes('departure')) return 'departure';
+            if (wrapClass.includes('arrival')) return 'arrival';
+            const heads = [...table.querySelectorAll('th')].map(th => th.innerText.trim().toLowerCase());
+            if (heads.includes('from')) return 'arrival';
+            if (heads.includes('to')) return 'departure';
+            const prevText = (table.previousElementSibling?.innerText || table.parentElement?.previousElementSibling?.innerText || '').toLowerCase();
+            if (prevText.includes('departure')) return 'departure';
+            if (prevText.includes('arrival')) return 'arrival';
+            return '';
+          };
+          con.querySelectorAll('table.jha-flights').forEach(table => {
+            if (tableType(table) !== 'arrival') return;
+            let curDate = '', todayLabel = '';
+            table.querySelectorAll('tbody tr').forEach(row => {
+              const dc = row.querySelector('.day');
+              if (dc) { curDate = dc.textContent.trim(); if (!todayLabel) todayLabel = curDate; return; }
+              if (!todayLabel) todayLabel = curDate;
+              const an = row.querySelector('.airline'), fn = row.querySelector('.flight');
+              const cells = row.querySelectorAll('td');
+              const airline = an?.innerText.trim() || cells[0]?.innerText.trim() || '';
+              const flight = fn?.innerText.trim() || cells[1]?.innerText.trim() || '';
+              if (!airline || !flight) return;
+              const statusEl = row.querySelector('.status span') || row.querySelector('.status');
+              let icon = '';
+              const img = an?.querySelector('img'); if (img) icon = encodeURIComponent(img.outerHTML);
+              rows.push({
+                airline: airline, airlineIcon: icon,
+                flight:  flight,
+                sched:   txt(row, '.sched', 3),
+                actual:  txt(row, '.actual', 4),
+                from:    txt(row, '.from', 2),
+                status:  statusEl?.textContent.trim() || txt(row, '.status', 5) || 'Scheduled'
+              });
+            });
+          });
+          scrapeCache = rows; scrapeDirty = false; return rows;
+        }
 
-            const t = parseInt(tempF);
-            if (isNaN(t)) return "";
+        function scrapeAll() {
+          const con = document.getElementById('flight-container'); if (!con) return null;
+          const wx  = getWx();
+          const luEl= document.querySelector('.flight-table__time');
+          const lastUpdate = luEl ? luEl.textContent.trim() : '';
+          let arrAlerts=[], depAlerts=[];
+          let totArr=0,totDep=0,totArrTm=0,totDepTm=0;
+          let todayLbl='', tomorrowLbl='';
+          const tableType = table => {
+            const wrap = table.closest('.-arrival, .-departure, [class*="arrival"], [class*="departure"]');
+            const wrapClass = (wrap?.className || '').toString().toLowerCase();
+            if (wrapClass.includes('departure')) return 'departure';
+            if (wrapClass.includes('arrival')) return 'arrival';
+            const heads = [...table.querySelectorAll('th')].map(th => th.innerText.trim().toLowerCase());
+            if (heads.includes('from')) return 'arrival';
+            if (heads.includes('to')) return 'departure';
+            return '';
+          };
+          con.querySelectorAll('table.jha-flights').forEach(table => {
+            const type = tableType(table);
+            const isArr= type === 'arrival';
+            const isDep= type === 'departure';
+            let curDate = '';
+            table.querySelectorAll('tbody tr').forEach(row => {
+              const dc = row.querySelector('.day');
+              if (dc) {
+                curDate = dc.textContent.trim();
+                if (!todayLbl) todayLbl = curDate;
+                else if (!tomorrowLbl && curDate !== todayLbl) tomorrowLbl = curDate;
+                return;
+              }
+              const sp = row.querySelector('.status span') || row.querySelector('.status'); if (!sp) return;
+              const sl = sp.textContent.trim().toLowerCase();
+              const isDelay = sl.includes('delay'), isDiverted = sl.includes('divert'), isCancelled = sl.includes('cancel');
+              const an = row.querySelector('.airline'), fn = row.querySelector('.flight');
+              const airline = an?.innerText.trim()||'';
+              let icon = ''; const img = an?.querySelector('img'); if (img) icon = img.outerHTML;
+              const flight = fn?.innerText||'';
+              const sched  = row.querySelector('.sched')?.innerText||'';
+              const actual = row.querySelector('.actual')?.innerText||'';
+              const from   = row.querySelector('.from')?.innerText||'';
+              const code   = AIRPORT_CODES[from]||'';
+              if (curDate===todayLbl)    { if(isArr)totArr++;  if(isDep)totDep++;  }
+              if (curDate===tomorrowLbl) { if(isArr)totArrTm++; if(isDep)totDepTm++; }
+              if (!isDelay&&!isDiverted&&!isCancelled) return;
+              const dm = isCancelled ? 0 : delayMins(sched,actual);
+              const reason = isCancelled ? 'Flight cancelled by airline'
+                : isDiverted ? 'Flight diverted to alternate airport'
+                : smartReason(dm, airline, flight, wx);
+              let html = `<div class="fs-alert-date">${curDate}</div>
+                <div class="fs-flight-row">
+                  ${icon?`<span class="fs-airline-icon">${icon}</span>`:''}
+                  <span class="fs-flight-name">${airline} ${flight}</span>
+                  ${code?`<span class="fs-airport-code">${code}</span>`:''}`;
+              if (isCancelled) {
+                html += `<span class="status-word cancelled-word">CANCELLED</span></div>
+                  <div class="fs-alert-times"><span class="sched-time">Sched: ${sched}</span></div>`;
+              } else if (isDiverted) {
+                html += `<span class="status-word diverted-word">
+                  <svg xmlns="http://www.w3.org/2000/svg" height="14" viewBox="0 -960 960 960" width="14" fill="currentColor"><path d="M320-120q-66 0-113-47t-47-113q0-66 47-113t113-47h200q33 0 56.5-23.5T600-520q0-33-23.5-56.5T520-600H280v80L160-640l120-120v80h240q66 0 113 47t47 113q0 66-47 113t-113 47H320q-33 0-56.5 23.5T240-280q0 33 23.5 56.5T320-200h360v-80l120 120-120 120v-80H320Z"/></svg>
+                  DIVERTED</span></div>`;
+              } else {
+                html += `<span class="status-word delayed-word">DELAYED</span>
+                  <span class="fs-delay-time">${fmtDelay(dm)}</span>
+                  <span class="fs-plus-format">(+${dm} min)</span></div>
+                  <div class="fs-alert-times">
+                    <span class="sched-time">Sched: ${sched}</span>
+                    <span class="dot"> • </span>
+                    <span class="actual-time">Actual: ${actual}</span>
+                  </div>`;
+              }
+              html += `<div class="fs-delay-reason">${reason}</div>`;
+              const obj = { html, delay:dm, diverted:isDiverted, cancelled:isCancelled };
+              if (isArr) arrAlerts.push(obj);
+              if (isDep) depAlerts.push(obj);
+            });
+          });
+          const sort = list => list.sort((a,b) =>
+            a.cancelled!==b.cancelled ? (a.cancelled?-1:1) :
+            a.diverted!==b.diverted   ? (a.diverted?-1:1)  : b.delay-a.delay
+          );
+          return {
+            arrAlerts: sort(arrAlerts), depAlerts: sort(depAlerts),
+            totArr, totDep, totArrTm, totDepTm,
+            todayLbl, tomorrowLbl, lastUpdate, wx
+          };
+        }
 
-            if (t <= 10) return "#4aa3ff";     // arctic
-            if (t <= 25) return "#2bbcff";     // very cold
-            if (t <= 40) return "#38d4ff";     // freezing zone
-            if (t <= 55) return "#39e6b0";     // cool
-            if (t <= 70) return "#52e652";     // mild
-            if (t <= 80) return "#ffe066";     // warm
-            if (t <= 90) return "#ffb347";     // hot
-            if (t <= 100) return "#ff7a3c";    // very hot
-            return "#ff3d3d";                  // extreme heat
+        function smartReason(min, airline, flight, wx) {
+          if (min>=20 && wx?.windSpeed>=20) return 'Strong crosswinds affecting operations';
+          const seed = (airline+flight).length;
+          if (min>=180) return 'Operational aircraft rotation disruption';
+          if (min>=120) return ['Late inbound aircraft','Network traffic flow management','Aircraft repositioning delay'][seed%3];
+          if (min>=60)  return ['Air traffic congestion','Crew scheduling adjustment','Gate availability delay'][seed%3];
+          if (min>=30)  return 'Minor operational delay';
+          return 'Schedule adjustment';
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // BUILD ALERT CONTENT HTML (pure function, no DOM writes)
+        // ─────────────────────────────────────────────────────────────
+        function statusClass(a) {
+          if (a.diverted)   return 'status-diverted';
+          if (a.delay>=180) return 'status-major';
+          if (a.delay>=60)  return 'status-medium';
+          if (a.delay>0)    return 'status-minor';
+          return '';
+        }
+
+        function chipsHtml(alerts, isArr) {
+          const delayed    = alerts.filter(a => !a.cancelled&&!a.diverted&&a.delay>0).length;
+          const cancelled  = alerts.filter(a => a.cancelled).length;
+          const diverted   = alerts.filter(a => a.diverted).length;
+          if (!delayed && !cancelled && !diverted) return '';
+          const parts = [];
+          if (delayed)   parts.push(`<span class="fs-chip fs-chip-delay"><svg width="10" height="10" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320 113 113-57 57-96-96v-200h80v126Z"/></svg>${delayed} Delayed</span>`);
+          if (cancelled) parts.push(`<span class="fs-chip fs-chip-cancel"><svg width="10" height="10" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm-40-320v-240h80v240h-80Zm0 160v-80h80v80h-80Z"/></svg>${cancelled} Cancelled</span>`);
+          if (diverted)  parts.push(`<span class="fs-chip fs-chip-divert"><svg width="10" height="10" viewBox="0 -960 960 960" fill="currentColor"><path d="M320-120q-66 0-113-47t-47-113q0-66 47-113t113-47h200q33 0 56.5-23.5T600-520q0-33-23.5-56.5T520-600H280v80L160-640l120-120v80h240q66 0 113 47t47 113q0 66-47 113t-113 47H320q-33 0-56.5 23.5T240-280q0 33 23.5 56.5T320-200h360v-80l120 120-120 120v-80H320Z"/></svg>${diverted} Diverted</span>`);
+          return `<div class="fs-chips">${parts.join('')}</div>`;
+        }
+
+        function opsSummaryHtml(data) {
+          const arrDelayed = data.arrAlerts.filter(a => !a.cancelled && !a.diverted && a.delay > 0).length;
+          const depDelayed = data.depAlerts.filter(a => !a.cancelled && !a.diverted && a.delay > 0).length;
+          const cancelled = [...data.arrAlerts, ...data.depAlerts].filter(a => a.cancelled).length;
+          const diverted = [...data.arrAlerts, ...data.depAlerts].filter(a => a.diverted).length;
+          const parts = [
+            `<span class="fs-ops-pill fs-ops-arr"><b>${arrDelayed}</b> arrival delay${arrDelayed===1?'':'s'}</span>`,
+            `<span class="fs-ops-pill fs-ops-dep"><b>${depDelayed}</b> departure delay${depDelayed===1?'':'s'}</span>`
+          ];
+          if (cancelled) parts.push(`<span class="fs-ops-pill fs-ops-critical"><b>${cancelled}</b> cancelled</span>`);
+          if (diverted) parts.push(`<span class="fs-ops-pill fs-ops-critical"><b>${diverted}</b> diverted</span>`);
+          if (!arrDelayed && !depDelayed && !cancelled && !diverted) {
+            parts.push(`<span class="fs-ops-pill fs-ops-clear">On time</span>`);
+          }
+          if (data.lastUpdate) parts.push(`<span class="fs-ops-pill fs-ops-time">${data.lastUpdate}</span>`);
+          return `<div class="fs-ops-summary">${parts.join('')}</div>`;
+        }
+
+        function dockIconSvg() {
+          const docked = getSettings().dock === true;
+          return docked
+            ? `<svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-280h560v-360H200v360Z"/></svg>`
+            : `<svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M256-215 215-256l224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg>`;
+        }
+
+        function buildContentHtml(data, liveHtml) {
+          const cfg = getSettings();
+          const { arrAlerts, depAlerts, totArr, totDep, totArrTm, totDepTm, todayLbl, tomorrowLbl, lastUpdate, wx } = data;
+          const tC   = tempColor(wx.tempF);
+          const warn = cfg.weather!==false ? wxWarnings(wx) : '';
+          const out  = [];
+          // ── header bar
+          out.push(`<div class="fs-sheet-header-wrap">
+            <div class="fs-sheet-header">
+              <div class="fs-sheet-title-block">
+                <span class="fs-sheet-title">Flight Intelligence</span>
+                <span class="fs-built-by">◉ NeuroAI</span>
+              </div>
+              <div class="fs-sheet-divider"></div>
+              <div class="fs-sheet-actions">
+                <button id="fs-close-btn" class="fs-sheet-action" aria-label="Close">
+                  ${dockIconSvg()}
+                </button>
+                <button id="fs-settings-btn" class="fs-sheet-action" aria-label="Settings">
+                  <svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm112-260q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>`);
+          out.push(`<div class="fs-sheet-preview-tools">
+            <div class="fs-sheet-drag-handle" aria-hidden="true"></div>
+            <button id="fs-sheet-menu-btn" class="fs-sheet-menu-btn" aria-label="Menu">
+              <svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/></svg>
+            </button>
+          </div>`);
+          out.push(opsSummaryHtml(data));
+          // ── weather
+          if (wx.temp) out.push(`<div class="fs-weather-banner ${wxClass(wx)}" style="--tempColor:${tC}">
+            <span class="fs-weather-icon">${wx.icon}</span>
+            <span class="fs-weather-text">
+              <span class="wx-temp">${wx.temp}</span>
+              ${wx.windSpeed?`<span class="wx-wind"> • Wind ${wx.windSpeed} ${wx.windUnit||'mph'} ${wx.windDir||''}</span>`:''}
+              ${wx.vis!=null?`<span class="wx-vis"> • Vis ${wx.vis} mi</span>`:''}
+              ${wx.cloud?`<span class="wx-cloud"> • CC ${wx.cloud}%</span>`:''}
+              ${warn?`<span class="wx-warning">${warn}</span>`:''}
+            </span>
+          </div>`);
+          // ── live arrivals slot
+          if (liveHtml) out.push(liveHtml);
+          // ── arrivals alerts
+          if (arrAlerts.length) out.push(`<div class="fs-alert-section arrival-alert">
+            ${lastUpdate?`<div class="fs-last-update-corner">${lastUpdate}</div>`:''}
+            <div class="fs-section-title">🔴 Arrivals</div>
+            ${chipsHtml(arrAlerts,true)}
+            ${arrAlerts.map(a=>`<div class="fs-alert-item ${statusClass(a)}">${a.html}</div>`).join('')}
+          </div>`);
+          // ── departures alerts
+          if (depAlerts.length) out.push(`<div class="fs-alert-section departure-alert">
+            ${lastUpdate?`<div class="fs-last-update-corner">${lastUpdate}</div>`:''}
+            <div class="fs-section-title">🔵 Departures</div>
+            ${chipsHtml(depAlerts,false)}
+            ${depAlerts.map(a=>`<div class="fs-alert-item ${statusClass(a)}">${a.html}</div>`).join('')}
+          </div>`);
+          // ── all-clear
+          if (!arrAlerts.length && !depAlerts.length) {
+            const countRow = (icon, n, label) => n ? `<span class="fs-count-icon">
+              ${icon}<span>${n} ${label}</span>
+            </span>` : '';
+            const arrSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="M120-120v-80h720v80H120Zm622-202L120-499v-291l96 27 48 139 138 39-35-343 115 34 128 369 172 49q25 8 41.5 29t16.5 48q0 35-28.5 61.5T742-322Z"/></svg>`;
+            const depSvg = `<svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="M120-120v-80h720v80H120Zm70-200L40-570l96-26 112 94 140-37-207-276 116-31 299 251 170-46q32-9 60.5 7.5T864-585q9 32-7.5 60.5T808-487L190-320Z"/></svg>`;
+            out.push(`<div class="fs-alert success">
+              <div class="fs-success-main">✓ All flights on time</div>
+              ${todayLbl?`<div class="fs-success-date">${todayLbl}</div>
+                <div class="fs-success-counts">
+                  ${countRow(arrSvg,totArr,'arrivals')}
+                  ${totArr&&totDep?'<span>•</span>':''}
+                  ${countRow(depSvg,totDep,'departures')}
+                </div>`:''}
+              ${tomorrowLbl?`<div class="fs-success-date">${tomorrowLbl}</div>
+                <div class="fs-success-counts">
+                  ${countRow(arrSvg,totArrTm,'arrivals')}
+                  ${totArrTm&&totDepTm?'<span>•</span>':''}
+                  ${countRow(depSvg,totDepTm,'departures')}
+                </div>`:''}
+              ${lastUpdate?`<div class="fs-last-update">${lastUpdate}</div>`:''}
+            </div>`);
+          }
+          return out.join('');
+        }
+        
+        // ─────────────────────────────────────────────────────────────
+        // Source badge
+        // ─────────────────────────────────────────────────────────────
+        function primaryBadge(state, hasLive, dist, alt, vr, speed) {
+          if (state === 'landed') return { text: 'ARRIVED', cls: 'arrived' };
+          if (!hasLive) return { text: 'SCHEDULE', cls: 'schedule' };
+
+          const eta = etaMins(dist, speed);
+
+          if (eta != null && eta <= 5) return { text: 'FINAL', cls: 'final' };
+          if (dist <= 8 && alt <= 4000) return { text: 'FINAL', cls: 'final' };
+
+          if ((dist <= 20 && alt <= 8000 && vr < -64) || (eta != null && eta <= 12)) {
+            return { text: 'APPROACH', cls: 'approach' };
           }
 
-          function getWeatherContextCached() {
+          if (vr < -64) return { text: 'DESCENDING', cls: 'descending' };
 
-            var now = Date.now();
+          return { text: 'EN ROUTE', cls: 'enroute' };
+        }
 
-            // refresh every 5 seconds
-            if (!weatherContextCache || (now - weatherLastFetch) > 5000) {
+        function phaseBadge(dist, alt, vr, speed, state) {
+          if (state === 'landed') return { text: 'LANDED', cls: 'landed' };
+          const eta = etaMins(dist, speed);
 
-              weatherContextCache = getWeatherContext();
-              weatherLastFetch = now;
-
-            }
-
-            return weatherContextCache;
+          if (eta != null && eta <= 5) return { text: 'FINAL', cls: 'final' };
+          if (dist <= 8 && alt <= 4000) return { text: 'FINAL', cls: 'final' };
+          if ((dist <= 20 && alt <= 8000 && vr < -64) || (eta != null && eta <= 12)) {
+            return { text: 'APPROACH', cls: 'approach' };
           }
-          
-          function generateSmartReason(delayMinutes, airline, flight, weather) {
-     
-          // 🌬 Strong winds
-          if (delayMinutes >= 20 && weather && weather.windSpeed !== null && weather.windSpeed >= 20) {
-            return "Strong crosswinds affecting operations";
+          if (vr < -64) return { text: 'DESCENDING', cls: 'descending' };
+          return { text: 'EN ROUTE', cls: 'enroute' };
+        }
+
+        function verticalArrow(vr) {
+          if (vr < -64) return '↘';
+          if (vr > 64) return '↗';
+          return '→';
+        }
+
+        function delaySeverity(delayMin) {
+          if (!delayMin || delayMin <= 0) return null;
+          if (delayMin >= 120) return { text: 'SEVERE DELAY', cls: 'severe' };
+          if (delayMin >= 45) return { text: 'MAJOR DELAY', cls: 'major' };
+          return { text: 'MINOR DELAY', cls: 'minor' };
+        }
+
+        function confidenceReason(dist, alt, vr, speed, hasLive) {
+          if (!hasLive) return 'Schedule-based only';
+          const eta = etaMins(dist, speed);
+          if (eta != null && eta <= 5) return 'ETA under 5 min';
+          if (dist <= 10 && alt <= 5000 && vr < -64) return 'Close + descending';
+          if (dist <= 20 && vr < -64) return 'Inbound descent detected';
+          return 'Live track matched';
+        }
+        
+        
+
+        // ─────────────────────────────────────────────────────────────
+        // LIVE ARRIVALS CARDS
+        // ─────────────────────────────────────────────────────────────
+        function liveIconHtml(encoded) { return encoded ? decodeURIComponent(encoded) : ''; }
+
+        function titleRow(iconHtml, airline, flight) {
+          return `<span class="fs-live-flight-row">
+            ${iconHtml?`<span class="fs-live-icon">${iconHtml}</span>`:''}
+            <span class="fs-live-name">${airline} ${flight}</span>
+          </span>`;
+        }
+        function trackedCardInner(ac, airlineIcon, airline, flight, from, depGate, arrGate, operator, initDist) {
+          const dist = haversine(ac.lat, ac.lon, JAC_LAT, JAC_LON);
+          const cfg  = getSettings();
+          const eta  = etaMins(dist, ac.speed);
+          const pct  = Math.max(0, Math.min(100, ((Math.max(dist, initDist || 0, 50) - dist) / Math.max(dist, initDist || 0, 50)) * 100));
+          const cf   = confLevel(dist, ac.altitude, ac.vRate, ac.speed);
+          const aC   = cfg.colors !== false ? altClass(ac.altitude) : '';
+          const sC   = cfg.colors !== false ? spdClass(ac.speed) : '';
+          const from2= airportCode(from) || from || '';
+          const via  = [from2, depGate ? `Gate ${depGate}` : ''].filter(Boolean).join(' ');
+          const route= `${via} → JAC${arrGate ? ` Gate ${arrGate}` : ''}${operator ? ` · ${operator}` : ''}`;
+          const badge = primaryBadge('inbound', true, dist, ac.altitude, ac.vRate, ac.speed);
+          const trend = verticalArrow(ac.vRate);
+
+          const icon = liveIconHtml(airlineIcon);
+          return `<div class="fs-live-line1">
+    ${titleRow(icon, airline, flight)}
+    <span class="fs-live-badges">
+      <span class="fs-badge fs-badge-${badge.cls}">${badge.text}</span>
+    </span>
+  </div>
+  <div class="fs-live-line2 strong"><span>En route • ${route}</span></div>
+
+  <div class="fs-live-line2">
+    <span class="fs-live-dist">${Math.round(dist)} mi</span>
+    <span>•</span>
+    <span class="fs-live-alt ${aC}" data-alt="${ac.altitude}">${trend} ${ac.altitude.toLocaleString()} ft</span>
+    <span>•</span>
+    <span class="fs-live-spd ${sC}" data-spd="${ac.speed}">${ac.speed} kt</span>
+    ${eta ? `<span class="fs-live-eta">• ETA ${eta} min</span>` : ''}
+  </div>
+  ${cfg.confidence !== false ? `<div class="fs-conf-row">
+    <span class="fs-conf-label">Approach: <span class="fs-conf-word ${cf.c}">${cf.l}</span></span>
+    ${confHtml(cf.p, cf.l, cf.c, true)}
+  </div>
+  <div class="fs-live-line3">${confidenceReason(dist, ac.altitude, ac.vRate, ac.speed, true)}</div>` : ''}
+  <div class="fs-prog mt"><div class="fs-prog-bar" style="width:${pct}%;"></div></div>`;
+        }
+        
+        function fallbackCardInner(airlineIcon, airline, flight, from, sched, actual, depGate, arrGate, operator) {
+          const now  = new Date();
+          const sDt  = clockToDate(sched), aDt = clockToDate(actual);
+          const best = aDt || sDt;
+          let eta = null;
+
+          if (best) {
+            eta = Math.round((best.getTime() - now.getTime()) / 60000);
+            if (eta < -720) eta += 1440;
           }
-          
-    
 
-              var seed = (airline + flight).length;
+          const dm   = delayMins(sched, actual);
+          let status = 'Searching live track…', state = 'waiting';
 
-              if (delayMinutes >= 180) {
-                  return "Operational aircraft rotation disruption";
-              }
-
-              if (delayMinutes >= 120) {
-                  var reasons = [
-                      "Late inbound aircraft",
-                      "Network traffic flow management",
-                      "Aircraft repositioning delay"
-                  ];
-                  return reasons[seed % reasons.length];
-              }
-
-              if (delayMinutes >= 60) {
-                  var reasons = [
-                      "Air traffic congestion",
-                      "Crew scheduling adjustment",
-                      "Gate availability delay"
-                  ];
-                  return reasons[seed % reasons.length];
-              }
-
-              if (delayMinutes >= 30) {
-                  return "Minor operational delay";
-              }
-
-              return "Schedule adjustment";
+          if (eta != null && eta > 2) {
+            status = 'En route';
+          } else if (eta != null && eta >= -15) {
+            status = 'Arriving now';
+            state = 'inbound';
+          } else {
+            status = acOk ? 'Searching live track…' : 'Live data loading…';
+            state = 'waiting';
           }
-          
-          function calculateDelayMinutes(sched, actual) {
 
-            function parseTime(str) {
-                if (!str) return 0;
+          const from2 = airportCode(from) || from || '';
+          const route = [from2, depGate ? `Gate ${depGate}` : ''].filter(Boolean).join(' ')
+            + ' → JAC'
+            + (arrGate ? ` Gate ${arrGate}` : '');
 
-                var time = str.toLowerCase().trim();
-                var isPM = time.includes("pm");
+          const icon = liveIconHtml(airlineIcon);
+          const pct  = eta != null && eta > 0 ? Math.max(3, Math.min(95, ((120 - eta) / 120) * 100)) : 0;
+          const cfg  = getSettings();
+          const badge = primaryBadge(state, false, 999, 99999, 0, 0);
 
-                time = time.replace("am","").replace("pm","").trim();
+          const sev = delaySeverity(dm);
 
-                var parts = time.split(":");
-                var hours = parseInt(parts[0]);
-                var minutes = parseInt(parts[1]);
-
-                if (isPM && hours !== 12) hours += 12;
-                if (!isPM && hours === 12) hours = 0;
-
-                return hours * 60 + minutes;
-            }
-
-            var schedMin = parseTime(sched);
-            var actualMin = parseTime(actual);
-
-            var diff = actualMin - schedMin;
-
-            if (diff < 0) diff += 24 * 60; // handle midnight edge case
-
-            return diff;
+          let cf;
+          if (eta != null && eta <= 5) {
+            cf = { p: 85, l: 'High', c: 'high' };
+          } else if (eta != null && eta <= 15) {
+            cf = { p: 65, l: 'Medium', c: 'mid' };
+          } else {
+            cf = { p: 30, l: 'Low', c: 'low' };
           }
-          
-          function formatDelay(minutes) {
 
-              if (!minutes || minutes <= 0) return "";
-
-              var hours = Math.floor(minutes / 60);
-              var mins = minutes % 60;
-
-              if (hours > 0 && mins > 0) {
-                  return hours + "h" + mins + "min";
-              }
-
-              if (hours > 0) {
-                  return hours + "h";
-              }
-
-              return mins + "min";
-          }
-          
-          function getWeatherWarnings(weather) {
-
-            var warnings = [];
-
-            // 👁 Low visibility
-            if (weather.visibility !== null) {
-                 var vis = weather.visibility;
-
-                 if (!isNaN(vis) && vis <= 3) {
-                warnings.push(`
-                  <span class="fs-weather-warning vis-warning">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor">
-                      <path d="M792-56 624-222q-35 11-70.5 16.5T480-200q-151 0-269-83.5T40-500q21-53 53-98.5t73-81.5L56-792l56-56 736 736-56 56ZM480-320q11 0 20.5-1t20.5-4L305-541q-3 11-4 20.5t-1 20.5q0 75 52.5 127.5T480-320Zm292 18L645-428q7-17 11-34.5t4-37.5q0-75-52.5-127.5T480-680q-20 0-37.5 4T408-664L306-766q41-17 84-25.5t90-8.5q151 0 269 83.5T920-500q-23 59-60.5 109.5T772-302ZM587-486 467-606q28-5 51.5 4.5T559-574q17 18 24.5 41.5T587-486Z"/>
-                      </svg>
-                    Low Visibility
-                  </span>
-                `);
-              }
-            }
-            
-            // 🌬 Crosswind risk
-            if (weather.windSpeed && weather.windSpeed >= 20) {
-              warnings.push(`
-                <span class="fs-weather-warning wind-warning">
-                  <svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor">
-                    <path d="M460-160q-50 0-85-35t-35-85h80q0 17 11.5 28.5T460-240q17 0 28.5-11.5T500-280q0-17-11.5-28.5T460-320H80v-80h380q50 0 85 35t35 85q0 50-35 85t-85 35ZM80-560v-80h540q26 0 43-17t17-43q0-26-17-43t-43-17q-26 0-43 17t-17 43h-80q0-59 40.5-99.5T620-840q59 0 99.5 40.5T760-700q0 59-40.5 99.5T620-560H80Zm660 320v-80q26 0 43-17t17-43q0-26-17-43t-43-17H80v-80h660q59 0 99.5 40.5T880-380q0 59-40.5 99.5T740-240Z"/>
-                  </svg>
-                  Crosswind
+          return {
+            state,
+            html: `
+              <div class="fs-live-line1">
+                ${titleRow(icon, airline, flight)}
+                <span class="fs-live-badges">
+                  <span class="fs-badge fs-badge-${badge.cls}">${badge.text}</span>
+                  ${sev ? `<span class="fs-badge fs-badge-${sev.cls}">${sev.text}</span>` : ''}
                 </span>
-              `);
-            }
+                ${eta != null && eta > 0 && state !== 'landed' ? `<span class="fs-live-eta">${fmtMin(eta)} remaining</span>` : ''}
+              </div>
+              <div class="fs-live-line2 strong"><span>${status} • ${route}</span></div>
+              ${operator ? `<div class="fs-live-line3">Operated by ${operator}</div>` : ''}
+              <div class="fs-live-line2">
+                ${sched ? `<span>Sched ${sched}</span>` : ''}
+                ${actual ? `<span>• Est ${actual}</span>` : ''}
+                ${dm > 0 ? `<span>• +${fmtDelay(dm)}</span>` : ''}
+              </div>
+              ${cfg.confidence !== false ? `<div class="fs-conf-row">
+                <span class="fs-conf-label">Approach: <span class="fs-conf-word ${cf.c}">${cf.l}</span></span>
+                ${confHtml(cf.p, cf.l, cf.c, true)}
+              </div>
+              <div class="fs-live-line3">Schedule-based only</div>` : ''}
+              <div class="fs-prog mt"><div class="fs-prog-bar${eta != null && eta > 0 ? '' : ' loading'}" style="width:${pct}%;"></div></div>`
+          };
+        }
 
-            // ❄ Icing risk
-            if (weather.tempF) {
-              var tempValue = parseInt(weather.tempF);
-
-              if (!isNaN(tempValue) && tempValue <= 36) {
-                warnings.push(`
-                  <span class="fs-weather-warning ice-warning">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor">
-                      <path d="M800-560q-17 0-28.5-11.5T760-600q0-17 11.5-28.5T800-640q17 0 28.5 11.5T840-600q0 17-11.5 28.5T800-560ZM400-80v-144L296-120l-56-56 160-160v-64h-64L176-240l-56-56 104-104H80v-80h144L120-584l56-56 160 160h64v-64L240-704l56-56 104 104v-144h80v144l104-104 56 56-160 160v64h320v80H656l104 104-56 56-160-160h-64v64l160 160-56 56-104-104v144h-80Zm360-600v-200h80v200h-80Z"/>
-                       </svg>
-                    Icing Risk
-                  </span>
-                `);
-              }
-            }
-
-            return warnings.join(" • ");
+        async function buildLivePanelHtml() {
+          const cfg = getSettings();
+          if (cfg.liveArrivals === false) return '';
+          const rows = arrivalRows();
+          const now  = new Date();
+          const nowMins = now.getHours()*60+now.getMinutes();
+          const inAir=[], landed=[];
+          rows.forEach(f => {
+            const sl = (f.status||'').toLowerCase();
+            if (sl.includes('cancel')||sl.includes('divert')) return;
+            if (sl.includes('arrived')) { if (recentLanding(f)) landed.push(f); return; }
+            const sm = clockToMins(f.actual || f.sched); let mu = sm!=null?sm-nowMins:null;
+            if (mu!=null&&mu<-30) mu+=1440;
+            if (sm==null||(mu!=null&&mu<=180)) inAir.push(f);
+          });
+          if (!inAir.length && rows.length) {
+            rows
+              .filter(f => !/(cancel|divert|arrived)/i.test(f.status || ''))
+              .map(f => {
+                const tm = clockToMins(f.actual || f.sched);
+                let mins = tm == null ? 9999 : tm - nowMins;
+                if (mins < -30) mins += 1440;
+                return { f, mins };
+              })
+              .filter(x => x.mins >= -30 && x.mins <= 720)
+              .sort((a, b) => a.mins - b.mins)
+              .slice(0, 4)
+              .forEach(x => inAir.push(x.f));
           }
-          
-          function getWeatherContext() {
-
-            var tempF = document.querySelector(".cur-fahren");
-            var tempC = document.querySelector(".cur-celcius");
-            var iconWrap = document.querySelector(".icon-wrap, .cur-icon, .weather-icon");
-
-            var fahrenheit = tempF ? tempF.textContent.trim() : "";
-            var celsius = tempC ? tempC.textContent.trim() : "";
-
-            // remove trailing slash if present
-            fahrenheit = fahrenheit.replace("/", "").trim();
-
-            var icon = "";
-            if (iconWrap) {
-              var svg = iconWrap.querySelector("svg");
-              if (svg) icon = svg.outerHTML;
+          refreshAcCache();
+          const cards = await Promise.all(inAir.slice(0,6).map(async f => {
+            const cands = candidates(f.airline,f.flight);
+            let ac = null;
+            if (acCache) {
+              for (const c of cands) { ac = lookupCallsign(c); if (ac) break; }
+              if (!ac) ac = fuzzyMatch(cands);
             }
+            const op    = operatorFromCallsign(ac?.rawCallsign||'')||operatingCarrier(f.airline,f.flight);
+            const dist  = ac ? haversine(ac.lat,ac.lon,JAC_LAT,JAC_LON) : 0;
+            const dStr  = ac ? String(Math.round(dist)) : '';
+            const fallback = ac ? null : fallbackCardInner(f.airlineIcon, f.airline, f.flight, f.from, f.sched, f.actual, '', '', op);
+            const inner = ac
+              ? trackedCardInner(ac,f.airlineIcon,f.airline,f.flight,f.from,'','',op,dist)
+              : fallback.html;
+            const state = ac ? 'inbound' : fallback.state;
+            return `<div class="fs-live-card" data-state="${state}"
+              data-flight="${f.flight}" data-airline="${f.airline}" data-icon="${f.airlineIcon||''}"
+              data-from="${f.from}" data-sched="${f.sched}" data-actual="${f.actual}"
+              data-dg="" data-ag="" data-op="${op}" data-init="${dStr}"
+              ${ac?`data-cs="${ac.rawCallsign}"`:''}>${inner}</div>`;
+          }));
+          const landedCards = landed
+            .sort((a,b)=>(minsAgo(a.actual||a.sched||'')||9999)-(minsAgo(b.actual||b.sched||'')||9999))
+            .slice(0,3).map(f => {
+              const ma = minsAgo(f.actual||f.sched||'');
+              const icon= liveIconHtml(f.airlineIcon);
+              const oc  = airportCode(f.from)||f.from||'';
+              const lbl = ma!=null&&ma<1?'Just landed':`Landed ${ma} min ago`;
+              return `<div class="fs-live-card fs-landed-card" data-state="landed" data-flight="${f.flight}">
+                <div class="fs-landed-top">
+                  <span class="fs-landed-flight">${titleRow(icon,f.airline,f.flight)}</span>
+                  <span class="fs-landed-route">${oc?oc+' → JAC':'→ JAC'}</span>
+                </div>
+                <div class="fs-landed-bottom">
+                <span class="fs-live-status">✓ Arrived</span>
+                <span class="fs-badge fs-badge-arrived">ARRIVED</span>
+                  <span>${lbl}</span>
+                  ${f.actual?`<span>• ${f.actual}</span>`:''}
+                </div>
+              </div>`;
+            });
+          const all = [...cards, ...landedCards].filter(Boolean);
+          const titleHtml = `<div class="fs-live-panel-title">Live arrival status
+           <span style="display:flex;align-items:center;gap:6px;">
+             <span class="fs-live-updated">${formatUpdatedLabel(false)}</span>
+              <button class="fs-refresh-btn" id="fs-live-refresh" aria-label="Refresh">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q69 0 132 28.5T720-690v-110h80v280H520v-80h168q-32-56-87.5-88T480-720q-100 0-170 70t-70 170q0 100 70 170t170 70q77 0 139-44t87-116h84q-28 106-114 173t-196 67Z"/></svg>
+              </button>
+            </span>
+          </div>`;
+          if (!all.length) return `<div class="fs-live-arrivals-panel" id="fs-live-panel">${titleHtml}<div class="fs-live-empty">No arrival rows found yet</div></div>`;
+          return `<div class="fs-live-arrivals-panel" id="fs-live-panel">${titleHtml}<div class="fs-live-list">${all.join('')}</div></div>`;
+        }
 
-            var windSpeed = null;
-            var windDir = null;
-            var visibilityValue = null;
-            var cloudCoverage = null;
+        // ─────────────────────────────────────────────────────────────
+        // LIVE ARRIVALS — bind refresh button
+        // ─────────────────────────────────────────────────────────────
+        function bindRefresh(panel) {
+          if (!panel || panel.dataset.refreshBound) return;
+          panel.dataset.refreshBound = '1';
 
-            var details = document.querySelector(".cur-details");
+          panel.addEventListener('click', async (e) => {
+            const btn = e.target.closest('#fs-live-refresh');
+            if (!btn || btn.dataset.spinning === '1') return;
 
-            if (details) {
+            e.preventDefault();
+            e.stopPropagation();
 
-              var text = details.innerText
-                .replace(/\u00A0/g," ")
-                .replace(/\s+/g," ")
-                .trim();
+            btn.dataset.spinning = '1';
+            window._fsRefreshing = true;
 
-              // VISIBILITY
-              var vis = text.match(/Visibility:\s*([\d.]+)/i);
-              if (vis) visibilityValue = parseFloat(vis[1]);
-
-              // WIND
-              var wind = text.match(/Wind:\s*(\d+)\s*mph\s*([A-Z]+)/i);
-              if (wind) {
-                windSpeed = parseInt(wind[1]);
-                windDir = wind[2];
-              }
-
-              // CLOUD COVERAGE
-              var cloud = text.match(/Cloud Coverage:\s*(\d+)/i);
-              if (cloud) cloudCoverage = parseInt(cloud[1]);
-
-            }
-
-            return {
-              tempF: fahrenheit,
-              tempC: celsius,
-
-              temp: (fahrenheit && celsius)
-                ? fahrenheit + " / " + celsius
-                : fahrenheit || celsius,
-
-              windSpeed: windSpeed,
-              windDir: windDir,
-
-              visibility: visibilityValue,
-              cloud: cloudCoverage,
-
-              icon: icon
-            };
-          }
-          
-          function getWeatherClass(weather) {
-
-            if (!weather || !weather.tempF) return "";
-
-            var tempValue = parseInt(weather.tempF);
-            if (isNaN(tempValue)) return "";
-
-            if (tempValue <= 32) return "weather-freezing";
-            if (tempValue <= 45) return "weather-cool";
-            if (tempValue <= 70) return "weather-mild";
-            if (tempValue <= 90) return "weather-warm";
-            return "weather-hot";
-          }
-
-
-          /* ========================================
-             AIRCRAFT TRACKING
-          ======================================== */
-          var aircraftCache = null;
-          var aircraftLastFetch = 0;
-          async function getAircraftInfo(callsign){
+            btn.style.animation = 'none';
+            btn.style.transform = 'rotate(0deg)';
+            setTimeout(() => {
+              btn.style.animation = 'fsRefreshSpin 0.8s linear infinite';
+            }, 20);
 
             try {
+              scrapeDirty = true;
+              scrapeCache = null;
 
-              const now = Date.now();
+              acAt = 0;
+              acCache = null;
+              acIndex = {};
+              acOk = false;
 
-              // cache radar snapshot for 10 seconds
-              if(!aircraftCache || (now - aircraftLastFetch) > 10000){
+              await refreshAcCache();
 
-                const res = await fetch(
-                  "https://opensky-network.org/api/states/all?lamin=40&lomin=-115&lamax=47&lomax=-104"
-                );
+              const html = await buildLivePanelHtml();
+              if (!html) return;
 
-                const data = await res.json();
+              const tmp = document.createElement('div');
+              tmp.innerHTML = html.trim();
+              const rebuilt = tmp.firstElementChild;
+              if (!rebuilt) return;
 
-                if(!data || !data.states) return null;
+              const currentPanel = document.getElementById('fs-live-panel');
+              if (!currentPanel) return;
 
-                aircraftCache = data.states;
-                aircraftLastFetch = now;
+              // update timestamp/header content
+              const newUpdated = rebuilt.querySelector('.fs-live-updated');
+              const curUpdated = currentPanel.querySelector('.fs-live-updated');
+              if (newUpdated && curUpdated) {
+                curUpdated.innerHTML = newUpdated.innerHTML;
               }
 
-              for(let s of aircraftCache){
-
-                if(!s[1]) continue;
-
-                let cs = s[1].trim();
-
-                let cleanCS = cs.replace(/\s+/g,"");
-                let cleanCall = callsign.replace(/\s+/g,"");
-
-                if(!cleanCS.includes(cleanCall)) continue;
-
-                var lat = s[6];
-                var lon = s[5];
-
-                if(!lat || !lon) continue;
-
-                var altitudeMeters = s[13] || s[7] || 0;
-                var speedMS = s[9] || 0;
-
-                var altitude = Math.round(altitudeMeters * 3.28084);
-                var speed = Math.round(speedMS * 1.94384);
-
-                return {
-                  altitude: altitude,
-                  speed: speed,
-                  lat: lat,
-                  lon: lon
-                };
-
+              // replace list only, keep same root panel alive
+              const newList = rebuilt.querySelector('.fs-live-list, .fs-live-empty');
+              const curList = currentPanel.querySelector('.fs-live-list, .fs-live-empty');
+              if (newList && curList) {
+                curList.replaceWith(newList);
+              } else if (newList && !curList) {
+                currentPanel.appendChild(newList);
               }
 
-            } catch(e){
-              console.log("Aircraft API error", e);
-            }
+              if (window._fsAcStates?.length) {
+                renderInbound(detectInbound(window._fsAcStates));
+              }
+            } catch (err) {
+              console.log('fs-live-refresh error', err);
+            } finally {
+              window._fsRefreshing = false;
 
-            return null;
-          }
-
-
-          function distanceMiles(lat1, lon1, lat2, lon2){
-
-            var R = 3958.8;
-
-            var dLat = (lat2-lat1) * Math.PI/180;
-            var dLon = (lon2-lon1) * Math.PI/180;
-
-            var a =
-              Math.sin(dLat/2)*Math.sin(dLat/2) +
-              Math.cos(lat1*Math.PI/180) *
-              Math.cos(lat2*Math.PI/180) *
-              Math.sin(dLon/2)*Math.sin(dLon/2);
-
-            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-            return R * c;
-          }
-          
-          function trackAircraftForAlerts(){
-
-            if(!document.getElementById("fs-alerts-overlay")) return;
-
-            var reasons = document.querySelectorAll(".fs-delay-reason");
-
-            reasons.forEach(function(el){
-
-              if(el.querySelector(".fs-aircraft-info")) return;
-
-              var airline = el.dataset.airline;
-              var flight = el.dataset.flight;
-
-              if(!airline || !flight) return;
-
-              var code = "";
-
-              Object.keys(airlineICAO).forEach(function(key){
-                if(airline.toLowerCase().indexOf(key.toLowerCase()) !== -1){
-                  code = airlineICAO[key];
+              setTimeout(() => {
+                const live = document.getElementById('fs-live-panel');
+                const stillBtn = live ? live.querySelector('#fs-live-refresh') : null;
+                if (stillBtn) {
+                  stillBtn.style.animation = 'none';
+                  stillBtn.dataset.spinning = '';
                 }
-              });
-
-              var cleanFlight = flight.replace(/\s+/g,"");
-              var callsign = (code + cleanFlight).toUpperCase();
-
-              if(!callsign) return;
-
-              getAircraftInfo(callsign).then(function(ac){
-
-                if(!ac) return;
-
-                var dist = distanceMiles(
-                  ac.lat,
-                  ac.lon,
-                  43.6073,
-                  -110.7377
-                );
-
-                if(dist > 800) return;
-                var maxDistance = 500;
-
-                var progress = Math.max(0, Math.min(1, (maxDistance - dist) / maxDistance));
-                var percent = Math.round(progress * 100);
-
-                var aircraftInfo = `
-                  <div class="fs-aircraft-info">
-                    ✈ ${callsign}
-                    • ${ac.altitude} ft
-                    • ${ac.speed} kt
-                    • ${Math.round(dist)} mi away
-                  </div>
-
-                  <div class="fs-flight-progress">
-                    <div class="fs-flight-progress-bar" style="width:${percent}%"></div>
-                  </div>
-                `;
-
-                el.insertAdjacentHTML("beforeend", aircraftInfo);
-
-              }).catch(function(e){
-                console.log("Aircraft lookup failed", e);
-              });
-
-            });
-
-          }
-
-          
-          function renderAlerts() {
-
-            var container = document.getElementById("flight-container");
-            if (!container) return;
-            var weather = getWeatherContextCached();
-
-            var tables = container.querySelectorAll("table.jha-flights");
-            var lastUpdateEl = document.querySelector(".flight-table__time");
-            var lastUpdate = lastUpdateEl ? lastUpdateEl.textContent.trim() : "";
-            
-            var arrivalsAlerts = [];
-            var departuresAlerts = [];
-
-            var totalDelayed = 0;
-            var totalDiverted = 0;
-            var totalCancelled = 0;
-            var totalArrivalsToday = 0;
-            var totalDeparturesToday = 0;
-
-            // Unused
-            var totalArrivalsTomorrow = 0;
-            var totalDeparturesTomorrow = 0;
-            var todayLabel = "";
-            var tomorrowLabel = "";
-            
-            tables.forEach(function(table) {
-            
-            var wrapper = table.parentElement.parentElement;
-
-            var isArrival = wrapper.classList.contains("-arrival");
-            var isDeparture = wrapper.classList.contains("-departure");
-
-            var rows = table.querySelectorAll("tbody tr");
-            var currentDate = "";
-            
-            rows.forEach(function(row) {
-
-              // 🗓 Date row
-              var dayCell = row.querySelector(".day");
-
-              if (dayCell) {
-                currentDate = dayCell.textContent.trim();
-                return;
-              }
-
-              // cache frequently used cells (important for performance)
-              var statusSpan = row.querySelector(".status span");
-              if (!statusSpan) return;
-
-              var airlineCell = row.querySelector(".airline");
-              var flightCell = row.querySelector(".flight");
-              var schedCell = row.querySelector(".sched");
-              var actualCell = row.querySelector(".actual");
-              var fromCell = row.querySelector(".from");
-
-              var statusLower = statusSpan.textContent.trim().toLowerCase();
-
-              // Airline
-              var airline = airlineCell ? airlineCell.innerText.trim() : "";
-
-              var airlineIcon = "";
-              if (airlineCell) {
-                var img = airlineCell.querySelector("img");
-                if (img) airlineIcon = img.outerHTML;
-              }
-
-              // Flight info (cached cells)
-              var flight = flightCell ? flightCell.innerText : "";
-              var sched = schedCell ? schedCell.innerText : "";
-              var actual = actualCell ? actualCell.innerText : "";
-              var from = fromCell ? fromCell.innerText : "";
-
-              var airportCode = airportCodes[from] || "";
-
-              // Status detection
-              var isDelay = statusLower.includes("delay");
-              var isDiverted = statusLower.includes("divert");
-              var isCancelled = statusLower.includes("cancel");
-
-              if (!isDelay && !isDiverted && !isCancelled) return;
-
-              // Counters
-              if (isCancelled) {
-                totalCancelled++;
-              }
-              else if (isDiverted) {
-                totalDiverted++;
-              }
-              else if (isDelay) {
-                totalDelayed++;
-              }
-
-              if (isArrival) totalArrivalsToday++;
-              if (isDeparture) totalDeparturesToday++;
-
-              // Delay calculation
-              var delayMinutes = isCancelled ? 0 : calculateDelayMinutes(sched, actual);
-
-              // Reason
-              
-              var reason = isCancelled
-                ? "Flight cancelled by airline"
-                : isDiverted
-                  ? "Flight diverted to alternate airport"
-                  : generateSmartReason(delayMinutes, airline, flight, weather);
-
-
-              var dateLabel = currentDate;
-
-              var message = "<div class='fs-alert-date'>" + dateLabel + "</div>";
-
-              message += `
-                <div class="fs-flight-row">
-                  ${airlineIcon ? "<span class='fs-airline-icon'>" + airlineIcon + "</span>" : ""}
-                  <span class="fs-flight-name">${airline} ${flight}</span>
-                  ${airportCode ? "<span class='fs-airport-code'>" + airportCode + "</span>" : ""}
-              `;
-
-              // CANCELLED
-              if (isCancelled) {
-
-                message += `
-                  <span class='status-word cancelled-word'>CANCELLED</span>
-                </div>
-
-                <div class="fs-alert-times">
-                  <span class="sched-time">Sched: ${sched}</span>
-                </div>
-                `;
-
-              }
-
-              // DIVERTED
-              else if (isDiverted) {
-
-                message += `
-                  <span class='status-word diverted-word'>
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                         height="14"
-                         viewBox="0 -960 960 960"
-                         width="14"
-                         fill="currentColor">
-                      <path d="M320-120q-66 0-113-47t-47-113q0-66 47-113t113-47h200q33 0 56.5-23.5T600-520q0-33-23.5-56.5T520-600H280v80L160-640l120-120v80h240q66 0 113 47t47 113q0 66-47 113t-113 47H320q-33 0-56.5 23.5T240-280q0 33 23.5 56.5T320-200h360v-80l120 120-120 120v-80H320Z"/>
-                    </svg>
-                    DIVERTED
-                  </span>
-                </div>
-                `;
-
-              }
-
-              // DELAYED
-              else if (delayMinutes > 0) {
-
-                var plusFormat = "+" + delayMinutes + " min";
-
-                message += `
-                  <span class='status-word delayed-word'>DELAYED</span>
-                  <span class='fs-delay-time'>${formatDelay(delayMinutes)}</span>
-                  <span class='fs-plus-format'>(${plusFormat})</span>
-                </div>
-
-                <div class="fs-alert-times">
-                  <span class="sched-time">Sched: ${sched}</span>
-                  <span class="dot"> • </span>
-                  <span class="actual-time">Actual: ${actual}</span>
-                </div>
-                `;
-
-              }
-
-              message += "<div class='fs-delay-reason' data-airline='" + airline + "' data-flight='" + flight + "'>" + reason + "</div>";
-
-              if (isArrival) {
-                arrivalsAlerts.push({
-                  html: message,
-                  delay: delayMinutes,
-                  diverted: isDiverted,
-                  cancelled: isCancelled
-                });
-              }
-
-              if (isDeparture) {
-                departuresAlerts.push({
-                  html: message,
-                  delay: delayMinutes,
-                  diverted: isDiverted,
-                  cancelled: isCancelled
-                });
-              }
-
-            });
-
-            });
-            
-            // Sorting
-            
-            arrivalsAlerts.sort(function(a, b) {
-
-              if (a.cancelled && !b.cancelled) return -1;
-              if (!a.cancelled && b.cancelled) return 1;
-
-              if (a.diverted && !b.diverted) return -1;
-              if (!a.diverted && b.diverted) return 1;
-
-              return b.delay - a.delay;
-
-            });
-            
-            departuresAlerts.sort(function(a, b) {
-
-              if (a.cancelled && !b.cancelled) return -1;
-              if (!a.cancelled && b.cancelled) return 1;
-
-              if (a.diverted && !b.diverted) return -1;
-              if (!a.diverted && b.diverted) return 1;
-
-              return b.delay - a.delay;
-
-            });
-            
-            showAlertsUI(
-              arrivalsAlerts,
-              departuresAlerts,
-              totalDelayed,
-              totalDiverted,
-              totalCancelled,
-              totalArrivalsToday,
-              totalDeparturesToday,
-              totalArrivalsTomorrow,
-              totalDeparturesTomorrow,
-              todayLabel,
-              tomorrowLabel,
-              lastUpdate,
-              weather
-            );
-          }
-          
-          
-          
-          
-          function cleanTop() {
-
-              var header = document.querySelector('header.site-header.header-mobile');
-              if (header) header.remove();
-
-              var nav = document.querySelector('.jac-navbar');
-              if (nav) nav.remove();
-
-              var hero = document.querySelector('section.page-hero.-noimage');
-              if (hero) hero.remove();
-
-              var triggers = document.querySelectorAll('.fixed-triggers');
-              triggers.forEach(function(el) { el.remove(); });
-
-              document.body.style.marginTop = "100px";
-              document.body.style.paddingTop = "0px";
-
-              var tab = document.getElementById("fs-bottom-tabs");
-
-              if (SHOW_FLIGHT_TABS && tab) {
-                  var height = tab.offsetHeight;
-                  document.body.style.paddingBottom =
-                      "calc(" + (height + 24) + "px + env(safe-area-inset-bottom, 0px))";
-              } else {
-                  document.body.style.paddingBottom = "0px";
-              }
-          }
-          
-          function showAlertsUI(
-            arrivalsAlerts,
-            departuresAlerts,
-            totalDelayed,
-            totalDiverted,
-            totalCancelled,
-            totalArrivalsToday,
-            totalDeparturesToday,
-            totalArrivalsTomorrow,
-            totalDeparturesTomorrow,
-            todayLabel,
-            tomorrowLabel,
-            lastUpdate,
-            weather
-          ){
-
-            // 🌦 WEATHER REACTIVE STYLING
-
-            var isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-            // =========================
-            // OVERLAY (transparent click layer)
-            // =========================
-            var overlay = document.createElement("div");
-            overlay.id = "fs-alerts-overlay";
-
-            overlay.style.position = "fixed";
-            overlay.style.left = "0";
-            overlay.style.top = "0";
-            overlay.style.width = "100%";
-            overlay.style.height = "100%";
-            overlay.style.background = "transparent";
-            overlay.style.zIndex = "2147483646";
-            overlay.style.display = "block";
-
-            // =========================
-            // SHEET (only glass surface)
-            // =========================
-            var sheet = document.createElement("div");
-            sheet.id = "fs-alerts-sheet";
-
-            sheet.style.position = "absolute";
-            sheet.style.left = "50%";
-            sheet.style.bottom = "0";
-            sheet.style.transform = "translate3d(-50%, 100%, 0)";
-
-            sheet.style.width = "100%";
-            sheet.style.maxWidth = "920px";
-
-            // =========================
-            // DYNAMIC HEIGHT BASED ON TABS
-            // =========================
-            var tabBar = document.getElementById("fs-bottom-tabs");
-            var bottomOffset = 0;
-
-            if (tabBar) {
-              var rect = tabBar.getBoundingClientRect();
-              bottomOffset = window.innerHeight - rect.top;
+              }, 800);
             }
-
-            var availableHeight = window.innerHeight - bottomOffset;
-            sheet.style.height = (availableHeight * 0.8) + "px";
-
-            // Glass material
-            if (isDark) {
-              sheet.style.background =
-                "linear-gradient(135deg, rgba(12,18,30,0.90), rgba(6,10,18,0.88))";
-            } else {
-              sheet.style.background =
-                "linear-gradient(135deg, rgba(255,255,255,0.65), rgba(240,245,255,0.45))";
-            }
-
-            sheet.style.backdropFilter = "blur(4px) saturate(140%)";
-            sheet.style.webkitBackdropFilter = "blur(4px) saturate(140%)";
-            sheet.style.boxShadow ="inset 0 10px 20px rgba(0,0,0,0.18)";
-
-            sheet.style.borderTopLeftRadius = "24px";
-            sheet.style.borderTopRightRadius = "24px";
-
-            sheet.style.boxSizing = "border-box";
-            sheet.style.padding = "12px";
-
-            sheet.style.overflow = "visible";
-            sheet.style.transition = "transform 0.36s cubic-bezier(.22,1,.36,1)";
-            sheet.style.willChange = "transform";
-            sheet.style.contain = "layout paint style";
-            sheet.style.transformStyle = "preserve-3d";
-            sheet.style.backfaceVisibility = "hidden";
-
-            // =========================
-            // INNER SCROLL CONTAINER
-            // =========================
-            var content = document.createElement("div");
-            content.id = "fs-alerts-content";
-
-            content.style.height = "100%";
-            content.style.overflowY = "auto";
-            content.style.webkitOverflowScrolling = "touch";
-            content.style.boxSizing = "border-box";
-
-            content.style.paddingBottom =
-              "calc(24px + env(safe-area-inset-bottom, 0px) + 80px)";
-
-            // =========================
-            // Build content HTML
-            // =========================
-
-            var htmlParts = [];
-
-            if (totalDelayed > 0 || totalDiverted > 0 || totalCancelled > 0) {
-
-              htmlParts.push(`
-                <div class="fs-summary">
-
-                  <span class="fs-summary-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                         height="16"
-                         viewBox="0 -960 960 960"
-                         width="16"
-                         fill="currentColor">
-                      <path d="M505.5-298.29q10.5-10.29 10.5-25.5t-10.29-25.71q-10.29-10.5-25.5-10.5t-25.71 10.29q-10.5 10.29-10.5 25.5t10.29 25.71q10.29 10.5 25.5 10.5t25.71-10.29ZM444-432h72v-240h-72v240ZM216-144q-29.7 0-50.85-21.15Q144-186.3 144-216v-528q0-29.7 21.15-50.85Q186.3-816 216-816h171q8-31 33.5-51.5T480-888q34 0 59.5 20.5T573-816h171q29.7 0 50.85 21.15Q816-773.7 816-744v528q0 29.7-21.15 50.85Q773.7-144 744-144H216Zm281-631q7-7 7-17t-7-17q-7-7-17-7t-17 7q-7 7-7 17t7 17q7 7 17 7t17-7Z"/>
-                    </svg>
-                  </span>
-
-                  ${totalDelayed > 0 ? `${totalDelayed} Delayed` : ""}
-
-                  ${totalCancelled > 0 ? `
-                    ${(totalDelayed > 0) ? " • " : ""}
-                    <span class="summary-cancelled">
-                      ${totalCancelled} Cancelled
-                    </span>
-                  ` : ""}
-
-                  ${totalDiverted > 0 ? `
-                    ${(totalDelayed > 0 || totalCancelled > 0) ? " • " : ""}
-                    <span class="diverted-word">
-                      <svg xmlns="http://www.w3.org/2000/svg"
-                           height="14"
-                           viewBox="0 -960 960 960"
-                           width="14"
-                           fill="currentColor">
-                        <path d="M320-120q-66 0-113-47t-47-113q0-66 47-113t113-47h200q33 0 56.5-23.5T600-520q0-33-23.5-56.5T520-600H280v80L160-640l120-120v80h240q66 0 113 47t47 113q0 66-47 113t-113 47H320q-33 0-56.5 23.5T240-280q0 33 23.5 56.5T320-200h360v-80l120 120-120 120v-80H320Z"/>
-                      </svg>
-                      ${totalDiverted} Diverted
-                    </span>
-                  ` : ""}
-
-                </div>
-              `);
-            }
-
-            var icon = weather.icon;
-            var weatherClass = getWeatherClass(weather);
-            var warnings = getWeatherWarnings(weather);
-            var tempColor = getTempColor(weather.tempF);
-
-            if (weather.temp) {
-            htmlParts.push(`
-              <div class="fs-weather-banner ${weatherClass}" style="--tempColor:${tempColor}">
-                <span class="fs-weather-icon">${icon}</span>
-                <span class="fs-weather-text">
-                  ${weather.temp}
-                  ${weather.windSpeed ? " • " + weather.windSpeed + " mph " + weather.windDir : ""}
-                  ${weather.visibility !== null ? " • Vis " + weather.visibility + " mi" : ""}
-                  ${weather.cloud ? " • CC " + weather.cloud + "%" : ""}
-                  ${warnings ? " " + warnings : ""}
-                </span>
-              </div>
-            `);
-            }
-
-            if (arrivalsAlerts.length > 0) {
-
-              htmlParts.push(`
-                <div class="fs-alert-section arrival-alert">
-                ${lastUpdate ? `<div class="fs-last-update-corner">${lastUpdate}</div>` : ""}
-                <div class="fs-alert-section-title">🔴 ARRIVALS</div>
-              `);
-
-              arrivalsAlerts.forEach(function(a){
-
-                var statusClass = "";
-
-                if (a.diverted) statusClass = "status-diverted";
-                else if (a.delay >= 180) statusClass = "status-major";
-                else if (a.delay >= 60) statusClass = "status-medium";
-                else if (a.delay > 0) statusClass = "status-minor";
-
-                htmlParts.push(`<div class="fs-alert-item ${statusClass}">${a.html}</div>`);
-
-              });
-
-              htmlParts.push(`</div>`);
-            }
-
-            if (departuresAlerts.length > 0) {
-
-              htmlParts.push(`
-                <div class="fs-alert-section departure-alert">
-                ${lastUpdate ? `<div class="fs-last-update-corner">${lastUpdate}</div>` : ""}
-                <div class="fs-alert-section-title">🔵 DEPARTURES</div>
-              `);
-
-              departuresAlerts.forEach(function(a){
-
-                var statusClass = "";
-
-                if (a.diverted) statusClass = "status-diverted";
-                else if (a.delay >= 180) statusClass = "status-major";
-                else if (a.delay >= 60) statusClass = "status-medium";
-                else if (a.delay > 0) statusClass = "status-minor";
-
-                htmlParts.push(`<div class="fs-alert-item ${statusClass}">${a.html}</div>`);
-
-              });
-
-              htmlParts.push(`</div>`);
-            }
-
-            if (arrivalsAlerts.length === 0 && departuresAlerts.length === 0) {
-
-              htmlParts.push(`
-                <div class="fs-alert success">
-                  <div class="fs-success-main">All flights on time</div>
-                  <div class="fs-success-date">${todayLabel}</div>
-                  <div class="fs-success-date">${tomorrowLabel}</div>
-                  ${lastUpdate ? `<div class="fs-last-update">${lastUpdate}</div>` : ""}
-                </div>
-              `);
-
-            }
-
-            var html = htmlParts.join("");
-
-            var existingOverlay = document.getElementById("fs-alerts-overlay");
-
-            if (existingOverlay) {
-
-              var existingContent = existingOverlay.querySelector("#fs-alerts-content");
-
-              if (existingContent) {
-
-                existingContent.classList.add("fs-alerts-refresh");
-
-                var scrollTop = existingContent.scrollTop;
-
-                existingContent.innerHTML = html;
-
-                existingContent.scrollTop = scrollTop;
-
-                requestAnimationFrame(function(){
-                  existingContent.classList.remove("fs-alerts-refresh");
-                });
-
-                return;
-              }
-            }
-
-            content.innerHTML = html;
-            
-            setTimeout(trackAircraftForAlerts, 1200);
-            sheet.appendChild(content);
-            overlay.appendChild(sheet);
-            document.body.appendChild(overlay);
-
-            // =========================
-            // Animate sheet up
-            // =========================
-
-            requestAnimationFrame(function () {
-
-              sheet.style.transform = "translate3d(-50%, 0, 0)";
-
-
-            });
-
-            // =========================
-            // Close on outside tap
-            // =========================
-
-            overlay.addEventListener("click", function(e) {
-
-              if (e.target === overlay) {
-
-                sheet.style.transform = "translate3d(-50%, 100%, 0)";
-
-                setTimeout(function(){
-                  overlay.remove();
-                }, 450);
-
-              }
-
-            });
-
-          }
-
-          cleanTop();
-          
-          // ===============================
-          // Observe DOM changes (SPA-safe)
-          // ===============================
-
-          var observer = new MutationObserver(function(mutations) {
-
-              var tabs = document.getElementById("fs-bottom-tabs");
-              if (!tabs && SHOW_FLIGHT_TABS && !window.fsReloading) {
-                  window.fsReloading = true;
-                  location.reload();
-              }
           });
-          
-          observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true
+        }
+        // ─────────────────────────────────────────────────────────────
+        // LIVE ARRIVALS — periodic in-place updater
+        // ─────────────────────────────────────────────────────────────
+        async function updateLive() {
+          const panel = document.getElementById('fs-live-panel'); if (!panel) return;
+          bindRefresh(panel);
+          const cards = panel.querySelectorAll('.fs-live-card'); if (!cards.length) return;
+          await refreshAcCache();
+          const cfg = getSettings();
+          for (const card of cards) {
+            if (card.dataset.state === 'landed') continue;
+            const cs  = card.dataset.cs||'';
+            const airline = card.dataset.airline, flight = card.dataset.flight;
+            const icon = card.dataset.icon, from = card.dataset.from;
+            const sched= card.dataset.sched, actual = card.dataset.actual;
+            const dg   = card.dataset.dg, ag = card.dataset.ag;
+            const op   = card.dataset.op || operatorFromCallsign(cs) || operatingCarrier(airline,flight);
+            let initD  = parseFloat(card.dataset.init)||0;
+
+            function applyTracked(ac) {
+              if (!ac) return false;
+              const dist = haversine(ac.lat,ac.lon,JAC_LAT,JAC_LON);
+              if (!initD || initD < dist) { initD = Math.round(dist); card.dataset.init = initD; }
+              card.dataset.cs    = ac.rawCallsign;
+              card.dataset.state = 'inbound';
+              card.innerHTML = trackedCardInner(ac,icon,airline,flight,from,dg,ag,op,initD);
+              return true;
+            }
+
+            // 1. Try direct callsign lookup (O(1))
+            if (cs && applyTracked(lookupCallsign(cs))) continue;
+            // 2. Try candidate list O(1) lookups
+            const cands = candidates(airline,flight);
+            let ac = null;
+            for (const c of cands) { ac = lookupCallsign(c); if (ac) break; }
+            // 3. Fuzzy fallback (scores through full cache)
+            if (!ac) ac = fuzzyMatch(cands);
+            if (ac) { applyTracked(ac); continue; }
+            // 4. Fallback card
+            const fb = fallbackCardInner(
+              icon,
+              airline,
+              flight,
+              from,
+              sched,
+              actual,
+              dg,
+              ag,
+              op
+            );
+            card.dataset.state = fb.state; card.dataset.cs = ''; card.innerHTML = fb.html;
+          }
+          // Update timestamp
+          const updEl = panel.querySelector('.fs-live-updated');
+          if (updEl) {
+            updEl.innerHTML = formatUpdatedLabel(true);
+            clearTimeout(window._fsUpdatedFlashTimer);
+            window._fsUpdatedFlashTimer = setTimeout(() => {
+              const liveUpd = document.querySelector('.fs-live-updated');
+              if (liveUpd) liveUpd.innerHTML = formatUpdatedLabel(false);
+            }, 1000);
+          }
+          // Append newly landed
+          const knownFlights = new Set([...cards].map(c => c.dataset.flight));
+          let list = panel.querySelector('.fs-live-list');
+          arrivalRows().forEach(f => {
+            if (!(f.status||'').toLowerCase().includes('arrived') || !recentLanding(f)) return;
+            if (knownFlights.has(f.flight)) return;
+            const ma = minsAgo(f.actual||f.sched||'');
+            const oc = airportCode(f.from)||f.from||'';
+            const lbl= ma!=null&&ma<1?'Just landed':`Landed ${ma} min ago`;
+            const nc = document.createElement('div');
+            nc.className='fs-live-card fs-landed-card'; nc.dataset.state='landed'; nc.dataset.flight=f.flight;
+            nc.innerHTML=`<div class="fs-landed-top">
+              <span class="fs-landed-flight">${titleRow(liveIconHtml(f.airlineIcon),f.airline,f.flight)}</span>
+              <span class="fs-landed-route">${oc?oc+' → JAC':'→ JAC'}</span>
+            </div>
+            <div class="fs-landed-bottom">
+              <span class="fs-live-status">✓ Arrived</span>
+              <span>${lbl}</span>
+              ${f.actual?`<span>• ${f.actual}</span>`:''}
+            </div>`;
+            if (!list) { panel.querySelector('.fs-live-empty')?.remove(); list=document.createElement('div'); list.className='fs-live-list'; panel.appendChild(list); }
+            list.appendChild(nc);
           });
-          
-          var alertsUpdateTimer = null;
+        }
+        if (window._fsLiveTimer) clearInterval(window._fsLiveTimer);
+        window._fsLiveTimer = setInterval(() => {
+          if (!window._fsRefreshing) updateLive();
+        }, LIVE_INTERVAL);
 
-          var flightsObserver = new MutationObserver(function() {
+        // ─────────────────────────────────────────────────────────────
+        // SHEET MOUNT — creates overlay + sheet DOM, sets up drag
+        // ─────────────────────────────────────────────────────────────
+        function mountSheet(startDocked) {
+          if (document.getElementById('fs-alerts-overlay')) return document.getElementById('fs-alerts-overlay');
+          const cfg = getSettings();
+          const m   = metrics();
+          const startY = startDocked ? m.dock : m.hide;
+          const dockEnabled = cfg.dock === true;
 
-            if (!document.getElementById("fs-alerts-overlay")) return;
+          const overlay = document.createElement('div');
+          overlay.id = 'fs-alerts-overlay';
+          overlay.style.cssText = 'position:fixed;inset:0;background:transparent;z-index:2147483646;pointer-events:none;';
 
-            if (alertsUpdateTimer) {
-                clearTimeout(alertsUpdateTimer);
-            }
+          const sheet = document.createElement('div');
+          sheet.id = 'fs-alerts-sheet';
+          sheet.style.cssText = `
+            position:absolute;left:50%;bottom:0;
+            width:100%;max-width:920px;height:${m.h}px;
+            transform:translate3d(-50%,${startY}px,0);
+            background:var(--fs-panel-bg);
+            border:1px solid var(--fs-panel-border);
+            backdrop-filter:blur(14px) saturate(180%);
+            -webkit-backdrop-filter:blur(14px) saturate(180%);
+            box-shadow:var(--fs-shadow);
+            border-radius:24px 24px 0 0;
+            box-sizing:border-box;padding:0 8px;
+            overflow:visible;will-change:transform;
+            contain:layout paint style;
+            backface-visibility:hidden;pointer-events:auto;`;
 
-            alertsUpdateTimer = setTimeout(function(){
-                renderAlerts();
-            }, 450);
+          const content = document.createElement('div');
+          content.id = 'fs-alerts-content';
+          content.style.cssText = 'height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px) + 80px);';
 
+          sheet.appendChild(content);
+          overlay.appendChild(sheet);
+          document.body.appendChild(overlay);
+
+          // ── drag state
+          let curY = startY, dragging = false, dragStartY = 0, dragStartOff = 0, listenersAttached = false;
+
+          function setY(y) {
+            curY = Math.max(0, Math.min(dockEnabled ? m.dock : m.h + 40, y));
+            sheet.style.transform = `translate3d(-50%,${curY}px,0)`;
+            const docked = dockEnabled && Math.abs(curY - m.dock) < 4;
+            overlay.style.pointerEvents = docked ? 'none' : 'auto';
+            sheetActionsVisibility(curY, m.dock, dockEnabled);
+          }
+          window.fsSetY      = setY;
+          window.fsGetY      = () => curY;
+          window.fsDockY     = () => m.dock;
+
+          function onDragStart(y) {
+            if (!dockEnabled) return;
+            dragging=true; dragStartY=y; dragStartOff=curY;
+            sheet.style.transition='none'; overlay.style.pointerEvents='auto';
+          }
+          function onDragMove(y) { if (!dockEnabled||!dragging) return; setY(dragStartOff+(y-dragStartY)); }
+          function onDragEnd()   {
+            if (!dockEnabled||!dragging) return;
+            dragging=false;
+            sheet.style.transition='transform .36s cubic-bezier(.22,1,.36,1)';
+            setY(curY < m.dock*.5 ? 0 : m.dock);
+            overlay.style.pointerEvents='auto';
+          }
+          function attachDrag() {
+            if (listenersAttached) return; listenersAttached = true;
+            window.addEventListener('mousemove', e => onDragMove(e.clientY));
+            window.addEventListener('mouseup',   () => onDragEnd());
+          }
+          window.fsRefreshDock = enabled => {
+            const h = sheet.querySelector('.fs-sheet-header');
+            if (h) h.classList.toggle('fs-draggable', enabled);
+            if (enabled) attachDrag();
+          };
+
+          // touch drag on header
+          sheet.addEventListener('touchstart', e => {
+            if (!e.target.closest('.fs-sheet-header,.fs-ops-summary,.fs-weather-banner,.fs-sheet-preview-tools')) return;
+            onDragStart(e.touches[0].clientY);
+          }, { passive:true });
+          sheet.addEventListener('touchmove', e => {
+            if (!dragging) return; e.preventDefault(); onDragMove(e.touches[0].clientY);
+          }, { passive:false });
+          sheet.addEventListener('touchend', () => onDragEnd());
+
+          // backdrop tap → dismiss or dock
+          overlay.addEventListener('click', e => {
+            const sp = document.getElementById('fs-settings-panel');
+            const sb = document.getElementById('fs-settings-btn');
+            const sm = document.getElementById('fs-sheet-menu');
+            if (sheet.contains(e.target)||(sb&&sb.contains(e.target))||(sp&&sp.contains(e.target))||(sm&&sm.contains(e.target))) return;
+            dismissSettings();
+            dismissSheetMenu();
+            if (dockEnabled) { sheet.style.transition='transform .36s cubic-bezier(.22,1,.36,1)'; setY(m.dock); }
+            else slideOut();
           });
-
-          var flightsContainer = document.getElementById("flight-container");
-
-          if (flightsContainer) {
-            flightsObserver.observe(flightsContainer, {
-              childList: true,
-              subtree: true,
-            });
-          }
-
-          // ===============================
-          // Inject CSS
-          // ===============================
-
-          var styleId = "fs_custom_style";
-          var style = document.getElementById(styleId);
-          if (!style) {
-              style = document.createElement("style");
-              style.id = styleId;
-              document.head.appendChild(style);
-          }
-          
-          style.innerHTML = `
-
-          /* =========================================================
-             SECTION 1 — HIDE ORIGINAL WEBSITE ELEMENTS
-             ========================================================= */
-
-          header.site-header.header-mobile,
-          .jac-navbar,
-          .fixed-triggers,
-          section.page-hero.-noimage {
-            display: none !important;
-          }
-          
-          /* =========================================================
-             CARD OUTER SPACING (allows glow to render)
-             ========================================================= */
-             
-             .fs-alert,
-             .fs-alert-section,
-             .fs-weather-banner {
-               margin: 16px auto 24px auto;
-               width: calc(100% - 32px);
-             }
-          .fs-alert-section + .fs-alert-section {
-            margin-top: 6px;
-          }
-          /* disable alert animations during refresh */
-          .fs-alerts-refresh .fs-alert-section {
-            animation: none !important;
-          }
-          
-          /* =========================================================
-             SUCCESS ALERT TEXT — AUTO THEME
-             ========================================================= */
-             
-
-          /* 🌙 DARK MODE */
-          @media (prefers-color-scheme: dark) {
-
-            .fs-alert.success,
-            .fs-success-main,
-            .fs-success-sub {
-              color: #ffffff;
-            }
-
-          }
-          @media (prefers-color-scheme: light) {
-
-            .fs-weather-banner.weather-freezing::after {
-
-              background: linear-gradient(
-                120deg,
-                transparent 38%,
-                rgba(255,255,255,0.55) 50%,
-                transparent 62%
-              );
-
-            }
-
-          }
-          
-          
-          /* =========================================================
-             SECTION 2 — SUCCESS ALERT (ALL FLIGHTS ON TIME)
-             ========================================================= */
-             /* ✨ SUCCESS GLOW ANIMATIONS */
-             
-             @keyframes successGlowPulse {
-               0%,100% {
-                 box-shadow:
-                   0 0 6px rgba(0,220,140,0.35),
-                   0 0 16px rgba(0,200,120,0.22),
-                   inset 0 0 8px rgba(0,230,140,0.08);
-               }
-
-               50% {
-                 box-shadow:
-                   0 0 10px rgba(0,255,160,0.55),
-                   0 0 24px rgba(0,220,140,0.30),
-                   inset 0 0 12px rgba(0,240,160,0.12);
-               }
-             }
-
-             @keyframes successBorderPulse {
-               0%,100% { border-color: rgba(0,220,140,0.45); }
-               50%     { border-color: rgba(0,255,160,0.85); }
-             }
-
-             @keyframes breatheScale {
-               0%,100% { transform: scale(1); }
-               50%     { transform: scale(1.005); }
-             }
-             
-             .fs-alert.success {
-
-               display: flex;
-               flex-direction: column;
-               align-items: flex-start;
-               gap: 6px;
-
-               padding: 14px 16px;
-               border-radius: 16px;
-
-               position: relative;
-               overflow: visible;
-
-               background: linear-gradient(
-                 135deg,
-                 rgba(0,200,120,0.28),
-                 rgba(0,160,90,0.22)
-               );
-
-               border: 1px solid rgba(0,220,140,0.45);
-
-               backdrop-filter: blur(4px) saturate(160%);
-               -webkit-backdrop-filter: blur(4px) saturate(160%);
-
-               font-weight: 800;
-
-               transform: translateZ(0);
-               
-               /* gentle green breathing aura */
-                /* ✨ SUCCESS GLOW ANIMATIONS */
-
-               animation:
-                 successGlowPulse 3.2s ease-in-out infinite,
-                 successBorderPulse 3.2s ease-in-out infinite,
-                 breatheScale 3.2s ease-in-out infinite;
-             }
-             .fs-alert.success::after {
-
-               content: "";
-               position: absolute;
-               inset: 0;
-
-               border-radius: 16px;
-
-               background: linear-gradient(
-                 105deg,
-                 transparent 30%,
-                 rgba(0,255,150,0.10) 50%,
-                 transparent 70%
-               );
-
-               background-size: 200% auto;
-
-               animation: shimmerSweep 4s linear infinite;
-
-               pointer-events: none;
-             }
-
-             @keyframes shimmerSweep {
-               0%   { background-position: -200% center; }
-               100% { background-position: 200% center; }
-             }
-             
-             .fs-success-icon {
-               display: inline-flex;
-               align-items: center;
-             }
-             
-           .fs-success-main {
-             font-size: 16px;
-             font-weight: 900;
-             letter-spacing: 0.4px;
-
-             display: flex;
-             align-items: center;
-             gap: 6px;
-           }
-
-          .fs-success-sub {
-            font-size: 13px;
-            font-weight: 700;
-            opacity: 0.85;
-          }
-          
-          .fs-success-date {
-            font-size: 13px;
-            font-weight: 900;
-            margin-top: 8px;
-            letter-spacing: 0.5px;
-            color: #111;
-            text-shadow: 0 1px 1px rgba(0,0,0,0.15);
-          }
-
-          .fs-last-update {
-            margin-top: 8px;
-            font-size: 11px;
-            opacity: 0.6;
-          }
-          .fs-count-row {
-            font-size: 13px;
-            font-weight: 700;
-            display: flex;
-            gap: 6px;
-            align-items: center;
-          }
-          /* 🌙 DARK MODE — arrivals green */
-          @media (prefers-color-scheme: dark) {
-
-            .fs-arrivals {
-              color: #39ffb6;
-              font-weight: 900;
-              text-shadow: 0 0 8px rgba(0,255,160,0.55);
-            }
-
-            .fs-label-arrivals {
-              color: #39ffb6;
-              opacity: 0.9;
-              font-weight: 700;
-            }
-
-          }
-
-          /* ☀️ LIGHT MODE — arrivals red */
-          @media (prefers-color-scheme: light) {
-
-            .fs-arrivals {
-              color: #ff4d4d;
-              font-weight: 900;
-              text-shadow: none;
-            }
-
-            .fs-label-arrivals {
-              color: #ff4d4d;
-              opacity: 0.9;
-              font-weight: 700;
-            }
-
-          }
-          /* 🌙 DARK MODE — departures */
-          @media (prefers-color-scheme: dark) {
-
-            .fs-departures {
-              color: #7ecbff;
-              font-weight: 900;
-              text-shadow: 0 0 8px rgba(120,200,255,0.6);
-            }
-
-            .fs-label-departures {
-              color: #7ecbff;
-              opacity: 0.9;
-              font-weight: 700;
-            }
-
-          }
-
-          /* ☀️ LIGHT MODE — stronger blue */
-          @media (prefers-color-scheme: light) {
-
-            .fs-departures {
-              color: #0066ff;   /* deeper aviation blue */
-              font-weight: 900;
-              text-shadow: none;
-            }
-
-            .fs-label-departures {
-              color: #0066ff;
-              opacity: 0.9;
-              font-weight: 700;
-            }
-
-          }
-          /* =========================================================
-             ALERT CARD — LAST UPDATE CORNER
-             ========================================================= */
-             .fs-last-update-corner{
-               position:absolute;
-               top:8px;
-               right:10px;
-
-               font-size:10px;
-               font-weight:700;
-               letter-spacing:0.3px;
-               color:rgba(255,255,255,0.9);
-               text-shadow:0 1px 2px rgba(0,0,0,0.45);
-             }
-          
-          /* =========================================================
-             LIGHT MODE — EMERALD SUCCESS GLOW
-             ========================================================= */
-
-          @media (prefers-color-scheme: light) {
-
-            /* Darker card so glow is visible */
-            .fs-alert.success {
-
-              background: linear-gradient(
-                135deg,
-                rgba(0,130,85,0.40),
-                rgba(0,100,65,0.34)
-              );
-
-              border: 1px solid rgba(0,140,90,0.65);
-
-            }
-
-            @keyframes successGlowPulse {
-
-              0%,100% {
-                box-shadow:
-                  0 0 12px rgba(0,150,100,0.65),
-                  0 0 28px rgba(0,150,100,0.40),
-                  inset 0 0 10px rgba(0,190,130,0.30);
-              }
-
-              50% {
-                box-shadow:
-                  0 0 22px rgba(0,200,140,0.95),
-                  0 0 48px rgba(0,200,140,0.65),
-                  inset 0 0 16px rgba(0,220,160,0.45);
-              }
-
-            }
-
-            @keyframes successBorderPulse {
-              0%,100% { border-color: #009966; }
-              50%     { border-color: #00cc88; }
-            }
-
-          }
-
-
-          /* =========================================================
-             SECTION 3 — FLIGHT ROW LAYOUT
-             ========================================================= */
-
-          .fs-flight-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;   /* allows wrapping only if screen too small */
-          }
-
-          .fs-airline-icon img {
-            width: 16px;
-            height: 16px;
-            object-fit: contain;
-          }
-          @media (prefers-color-scheme: dark) {
-
-            .fs-airline-icon img {
-              filter: invert(1) hue-rotate(180deg) !important;
-            }
-
-          }
-
-          .fs-flight-name {
-            font-weight: 900;
-          }
-
-          .fs-airport-code {
-            font-size: 11px;
-            font-weight: 900;
-            opacity: 0.75;
-          }
-
-          .fs-delay-time {
-            font-weight: 900;
-          }
-
-          .fs-plus-format {
-            font-size: 11px;
-            opacity: 0.75;
-          }
-          
-           /* =========================================================
-             SECTION Cancelled
-             ========================================================= */
-             .cancelled-word {
-              
-               font-weight: 900;
-               letter-spacing: 0.3px;
-               color: #ffd35c;
-               text-shadow: 0 0 8px rgba(255,210,80,0.6);
-             }
-
-          /* =========================================================
-             SECTION 4 — SUMMARY / DATE / TIMES
-             ========================================================= */
-
-          .fs-summary {
-          gap: 6px;
-          display: flex;
-            align-items: center;
-            font-size: 13px;
-            font-weight: 900;
-            margin-bottom: 5px;
-            padding-left: 16px;
-            vertical-align: middle;
-          }
-          /* DARK MODE */
-          @media (prefers-color-scheme: dark) {
-            .fs-summary {
-              color: #ffffff;
-            }
-          }
-
-          /* LIGHT MODE */
-          @media (prefers-color-scheme: light) {
-            .fs-summary {
-              color: #111111;
-            }
-          }
-          
-          .fs-summary-icon svg {
-            width: 16px;
-            height: 16px;
-          }
-
-          /* 🌙 Dark mode — bright amber */
-          @media (prefers-color-scheme: dark) {
-            .fs-summary-icon svg {
-              color: #ffb300;
-            }
-          }
-
-          /* ☀️ Light mode — softer amber */
-          @media (prefers-color-scheme: light) {
-            .fs-summary-icon svg {
-              color: #cc8800;
-            }
-          }
-
-          .fs-alert-date {
-            font-size: 11px;
-            font-weight: 700;
-            opacity: 0.75;
-            margin-bottom: 4px;
-            letter-spacing: 0.5px;
-          }
-
-          .fs-alert-times {
-            margin-top: 6px;
-            font-size: 11px;
-            font-weight: 700;
-
-            display: flex;
-            justify-content: flex-start;
-            gap: 10px;
-
-            opacity: 0.85;
-          }
-
-          .sched-time {
-            color: rgba(255,255,255,0.65);
-          }
-
-          .actual-time {
-            color: #ffffff;
-            font-weight: 800;
-          }
-
-          .dot {
-            opacity: 0.5;
-          }
-
-
-          /* =========================================================
-             SECTION 5 — WEATHER ICONS
-             ========================================================= */
-
-          .fs-weather-icon {
-            display: flex;
-            align-items: center;
-            opacity: 0.9;
-          }
-
-          .fs-weather-icon svg {
-            width: 18px;
-            height: 18px;
-            fill: currentColor;
-          }
-
-
-          /* =========================================================
-             SECTION 6 — STATUS WORD COLORS
-             ========================================================= */
-             
-             .status-word {
-               font-weight: 900;
-             }
-
-             .diverted-word {
-               color: #e879ff;
-               text-shadow: 0 0 10px rgba(200,0,255,0.9);
-             }
-
-             /* icon alignment for diverted */
-             .diverted-word svg {
-               width: 14px;
-               height: 14px;
-               margin-right: 4px;
-               vertical-align: -2px;
-             }
-
-             .delayed-word {
-               color: #ffd35c;
-             }
-             
-             // Delayed arrival
-             .fs-aircraft-info{
-
-               margin-top:6px;
-               font-size:12px;
-               font-weight:800;
-
-               color:#7ecbff;
-
-               display:flex;
-               gap:6px;
-               flex-wrap:wrap;
-
-             }
-
-             /* Aircraft arrival progress */
-
-             .fs-flight-progress{
-
-               margin-top:6px;
-               width:100%;
-               height:6px;
-
-               background:rgba(255,255,255,0.15);
-               border-radius:6px;
-
-               overflow:hidden;
-
-             }
-
-             .fs-flight-progress-bar{
-
-               height:100%;
-               width:0%;
-
-               background:linear-gradient(
-                 90deg,
-                 #4aa3ff,
-                 #7ecbff
-               );
-
-               border-radius:6px;
-
-               transition:width 0.8s ease;
-
-             }
-             
-             
-
-
-          /* =========================================================
-             SECTION 7 — WEATHER WARNING ICONS
-             ========================================================= */
-
-          .fs-weather-warning {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            margin-left: 6px;
-            vertical-align: middle;
-          }
-
-          .fs-weather-warning svg {
-            width: 14px;
-            height: 14px;
-            flex-shrink: 0;
-          }
-
-          /* icon colors */
-
-          .ice-warning svg { color: #7dd3ff; }
-          .wind-warning svg { color: #a5f3fc; }
-          .vis-warning svg { color: #ffd35c; }
-
-
-          /* =========================================================
-             SECTION 8 — ALERT ITEM BASE
-             ========================================================= */
-
-          .fs-alert-item {
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-            font-weight: 800;
-            font-size: 14px;
-            color: rgba(255,255,255,0.92);
-            text-shadow: 0 1px 3px rgba(0,0,0,0.45);
-          }
-          @media (prefers-color-scheme: dark) {
-
-            .fs-alert-item {
-              border-bottom: 1px solid rgba(255,255,255,0.45);
-              box-shadow: 0 1px 0 rgba(255,255,255,0.08);
-            }
-
-          }
-
-          .fs-alert-item:last-child {
-            border-bottom: none;
-          }
-          
-          /* =========================================================
-             SECTION 9 — WEATHER BANNER (PRO VERSION)
-             ========================================================= */
-
-          .fs-weather-banner {
-
-            position: relative;
-            overflow: hidden;
-
-            display: flex;
-            align-items: center;
-            gap: 8px;
-
-            padding: 8px 12px;
-            margin-bottom: 12px;
-
-            border-radius: 14px;
-
-            font-weight: 800;
-            font-size: 14px;
-
-            transform: translateZ(0);
-
-            backdrop-filter: blur(6px) saturate(140%);
-            -webkit-backdrop-filter: blur(6px) saturate(140%);
-
-            border: 1px solid color-mix(in srgb, var(--tempColor) 45%, transparent);
-
-            background:
-              linear-gradient(
-                135deg,
-                color-mix(in srgb, var(--tempColor) 30%, transparent),
-                color-mix(in srgb, var(--tempColor) 12%, transparent)
-              );
-
-            box-shadow:
-              0 0 10px color-mix(in srgb, var(--tempColor) 35%, transparent),
-              inset 0 0 6px rgba(255,255,255,0.05);
-
-            transition:
-              background .4s ease,
-              box-shadow .4s ease;
-
-            animation: fsWeatherPulse 10s ease-in-out infinite;
-          }
-
-
-          /* =========================================================
-             TEXT SCROLL
-             ========================================================= */
-             .fs-weather-text {
-
-               flex: 1;
-
-               display: block;
-
-               white-space: nowrap;
-
-               overflow-x: auto;
-               overflow-y: hidden;
-
-               /* larger touch area */
-               padding: 8px 6px;
-
-               /* smoother mobile scrolling */
-               -webkit-overflow-scrolling: touch;
-
-               /* prioritize horizontal gestures */
-               touch-action: pan-x;
-
-               /* make grabbing easier */
-               cursor: grab;
-
-               scrollbar-width: none;
-             }
-
-             .fs-weather-text:active {
-               cursor: grabbing;
-             }
-
-             .fs-weather-text::-webkit-scrollbar {
-               display: none;
-             }
-             .fs-weather-banner {
-               touch-action: pan-x;
-             }
-             
-
-
-          /* =========================================================
-             TEMPERATURE GLOW ANIMATION
-             ========================================================= */
-             @keyframes fsWeatherPulse {
-
-               0%,100% {
-
-                 box-shadow:
-                   0 0 8px color-mix(in srgb, var(--tempColor) 28%, transparent),
-                   inset 0 0 6px rgba(255,255,255,0.05);
-
-               }
-
-               50% {
-
-                 box-shadow:
-                   0 0 14px color-mix(in srgb, var(--tempColor) 40%, transparent),
-                   inset 0 0 8px rgba(255,255,255,0.06);
-
-               }
-
-             }
-
-
-          /* =========================================================
-             THEME COLORS
-             ========================================================= */
-
-          @media (prefers-color-scheme: dark) {
-
-            .fs-weather-banner {
-              color: #ffffff;
-            }
-
-          }
-
-          @media (prefers-color-scheme: light) {
-
-            .fs-weather-banner {
-              color: #1a1a1a;
-            }
-
-          }
-      
-          /* =========================================================
-             SECTION 11 — DELAY LEVEL COLORS
-             ========================================================= */
-
-          /* Major Delay */
-          .fs-alert-item.status-major {
-            color: #ffdddd;
-            text-shadow: 0 0 6px rgba(255,0,0,0.6);
-          }
-
-          /* Medium Delay */
-          .fs-alert-item.status-medium {
-            color: #ffe4b3;
-          }
-
-          /* Minor Delay */
-          .fs-alert-item.status-minor {
-            color: #fff5cc;
-            opacity: 0.95;
-          }
-
-          /* Diverted */
-          .fs-alert-item.status-diverted {
-            color: #f2d6ff;
-            font-weight: 900;
-            letter-spacing: 0.3px;
-            text-shadow: 0 0 10px rgba(180,0,255,0.8);
-          }
-
-
-          /* =========================================================
-             SECTION 12 — ALERT SECTIONS (ARRIVALS / DEPARTURES)
-             ========================================================= */
-
-          .fs-alert-section-title {
-            font-size: 13px;
-            font-weight: 900;
-            letter-spacing: 1.2px;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            color: #ffffff;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.4);
-          }
-
-          /* 🔴 ARRIVAL */
-          .fs-alert-section.arrival-alert {
-            border-radius: 16px;
-
-            background:
-              linear-gradient(
-                135deg,
-                rgba(255, 0, 0, 0.42),
-                rgba(160, 0, 0, 0.34)
-              );
-
-            border: 1px solid rgba(255, 80, 80, 0.55);
-
-            box-shadow:
-              inset 0 0 8px 6px rgba(180, 0, 0, 0.22);
-          }
-
-          /* 🔵 DEPARTURE */
-          .fs-alert-section.departure-alert {
-            border-radius: 16px;
-
-            background:
-              linear-gradient(
-                145deg,
-                rgba(0,120,255,0.40),
-                rgba(0,70,200,0.32)
-              );
-
-            border: 1px solid rgba(120,180,255,0.35);
-
-            box-shadow:
-              inset 0 0 8px 6px rgba(0,80,200,0.22);
-          }
-
-
-          /* =========================================================
-             SECTION 13 — ALERT ANIMATIONS
-             ========================================================= */
-             
-             @keyframes alertFloat {
-               0% {
-                 transform: scale(1.015);
-               }
-
-               100% {
-                 transform: scale(1);
-               }
-             }
-             
-             .fs-alert-section {
-               padding: 10px 12px;
-               border-radius: 14px;
-               margin-bottom: 8px;
-               position: relative;
-               overflow: visible;
-               border: 1px solid rgba(255,255,255,0.25);
-
-               transform: translateZ(0);
-             }
-             .fs-alert-section {
-               transform: translateZ(0) scale(1);
-             }
-
-             .flight-toggle {
-               display: none !important;
-             }
-     
-
-          /* =========================================================
-             SECTION 14 — WAVE ENTRY ANIMATION
-             ========================================================= */
-
-          @keyframes waveWobbleEntry {
-
-            0% {
-              transform: translateX(-50%) translateY(70px) scale(0.96);
-              opacity: 0;
-            }
-
-            100% {
-              transform: translateX(-50%) translateY(0) scale(1);
-              opacity: 1;
-            }
-
-          }
-
-
-          /* =========================================================
-             SECTION 15 — BOTTOM TABS CONTAINER
-             ========================================================= */
-
-          #fs-bottom-tabs {
-
-            will-change: transform;
-            isolation: isolate;
-
-            position: fixed;
-            overflow: hidden;
-
-            bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
-            left: 50%;
-            transform: translateX(-50%);
-
-            width: 260px;
-            height: 64px;
-
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-
-            padding: 2px 2px;
-            border-radius: 999px;
-
-            background: linear-gradient(
-              135deg,
-              rgba(255,255,255,0.18),
-              rgba(255,255,255,0.06)
-            );
-
-            backdrop-filter: blur(3px) saturate(160%);
-            -webkit-backdrop-filter: blur(3px) saturate(160%);
-
-            border: 1px solid rgba(255,255,255,0.25);
-
-            box-shadow:
-              0 6px 18px rgba(0,0,0,0.18),
-              inset 0 1px 1px rgba(255,255,255,0.3);
-
-            z-index: 2147483647;
-
-            transition: background 0.35s ease, transform 0.25s ease;
-
-            animation: waveWobbleEntry 0.9s cubic-bezier(.33,1,.68,1) forwards;
-          }
-          
-          
-
-
-          /* =========================================================
-             SECTION 16 — BOTTOM TAB PILL INDICATOR
-             ========================================================= */
-
-          #fs-bottom-tabs::before {
-
-            content: "";
-            position: absolute;
-
-            top: 3px;
-            left: 3px;
-
-            width: calc(33.333% - 2px);
-            height: 58px;
-
-            background: rgba(255,255,255,0.18);
-
-            border-radius: 999px;
-
-            transition: transform 0.45s cubic-bezier(.22,1,.36,1);
-
-            pointer-events: none;
-          }
-
-          #fs-bottom-tabs.subpage::before {
-            width: calc(50% - 4px);
-          }
-
-          #fs-bottom-tabs.arrivals::before { transform: translateX(0%); }
-          #fs-bottom-tabs.departures::before { transform: translateX(100%); }
-          #fs-bottom-tabs.alerts::before { transform: translateX(200%); }
-
-
-          /* =========================================================
-             SECTION 17 — TAB BUTTONS
-             ========================================================= */
-
-          .fs-tab {
-
-            flex: 1;
-            height: 58px;
-
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-
-            font-size: 12px;
-            font-weight: 600;
-
-            color: #888;
-
-            cursor: pointer;
-            border-radius: 999px;
-
-            transition: all 0.25s cubic-bezier(.4,0,.2,1);
-          }
-
-          .fs-tab span {
-            display: block;
-            font-size: 18px;
-            margin-bottom: 2px;
-          }
-
-          .fs-tab:active {
-            transform: scale(0.94);
-          }
-          
-
-          .fs-tab.active:not(:active) {
-            color: #fff;
-            transform: scale(1.00);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
-          }
-          .arrow {
-            transition: transform 0.25s ease;
-          }
-
-          .arrow.rotate {
-            transform: rotate(180deg);
-          }
-
-
-          /* =========================================================
-             SECTION 18 — TAB COLOR STATES
-             ========================================================= */
-
-          /* ARRIVALS */
-
-          #fs-bottom-tabs.arrivals {
-            background: linear-gradient(
-              135deg,
-              rgba(255,0,0,0.38),
-              rgba(200,0,0,0.28)
-            );
-          }
-
-          .fs-tab.arrivals.active {
-            background: linear-gradient(
-              135deg,
-              rgba(255,0,0,0.90),
-              rgba(180,0,0,0.80)
-            );
-            color: #ffffff;
-          }
-
-
-          /* DEPARTURES */
-
-          #fs-bottom-tabs.departures {
-            background: linear-gradient(
-              135deg,
-              rgba(0,120,255,0.38),
-              rgba(0,80,200,0.28)
-            );
-          }
-
-          .fs-tab.departures.active {
-            background: linear-gradient(
-              135deg,
-              rgba(0,120,255,0.90),
-              rgba(0,70,200,0.80)
-            );
-            color: #ffffff;
-          }
-
-
-          /* ALERTS */
-
-          #fs-bottom-tabs.alerts {
-            background: linear-gradient(
-              135deg,
-              rgba(255,200,0,0.35),
-              rgba(255,170,0,0.25)
-            );
-            backdrop-filter: blur(3px) saturate(180%);
-            -webkit-backdrop-filter: blur(3px) saturate(180%);
-          }
-
-          .fs-tab.alerts.active {
-            background: linear-gradient(
-              135deg,
-              rgba(255,200,0,0.95),
-              rgba(255,150,0,0.85)
-            );
-            color: #ffffff;
-          }
-
-
-          /* =========================================================
-             SECTION 19 — SUBPAGE BACK PILL
-             ========================================================= */
-
-          .fs-tab.subpage-pill[data-type="sub-back"] {
-
-            background: linear-gradient(
-              135deg,
-              rgba(150,90,255,0.45),
-              rgba(100,60,220,0.35)
-            );
-
-            color: #fff;
-          }
-
-          .fs-tab.subpage-pill[data-type="sub-back"].active {
-
-            background: linear-gradient(
-              135deg,
-              rgba(150,90,255,0.75),
-              rgba(100,60,220,0.65)
-            );
-          }
-          
-          
-
+          return overlay;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // SHEET VISIBILITY (dock fade/blur header when partially visible)
+        // ─────────────────────────────────────────────────────────────
+        function sheetActionsVisibility(curY, dockY, dockEnabled) {
+          const sheet = document.getElementById('fs-alerts-sheet');
+          const hdr = document.querySelector('.fs-sheet-header');
+          const act = document.querySelector('.fs-sheet-actions');
+          if (!hdr) return;
+          if (!dockEnabled) {
+            sheet?.classList.remove('fs-sheet-collapsed','fs-sheet-peeking');
+            sheet?.classList.add('fs-sheet-expanded');
+            document.documentElement.classList.remove('fs-alerts-collapsed');
+            hdr.style.opacity='1'; hdr.style.transform='scale(1) translateY(0px)'; hdr.style.filter='blur(0)'; hdr.style.pointerEvents='auto';
+            if (act) { act.style.opacity='1'; act.style.transform='translateY(0) scale(1)'; act.style.filter='blur(0)'; act.style.pointerEvents='auto'; }
+            return;
+          }
+          const prog  = Math.max(0,Math.min(1,curY/Math.max(dockY,1)));
+          sheet?.classList.toggle('fs-sheet-expanded', prog < 0.18);
+          sheet?.classList.toggle('fs-sheet-peeking', prog >= 0.18 && prog < 0.72);
+          sheet?.classList.toggle('fs-sheet-collapsed', prog >= 0.72);
+          document.documentElement.classList.toggle('fs-alerts-collapsed', prog >= 0.72);
+          const vis   = Math.pow(1-prog, 1.65);
+          const visAct= Math.pow(1-prog, 1.9);
+          hdr.style.opacity       = vis;
+          hdr.style.transform     = `scale(${0.92+0.08*vis}) translateY(${(1-vis)*10}px)`;
+          hdr.style.filter        = `blur(${(1-vis)*8}px)`;
+          hdr.style.pointerEvents = vis<0.08?'none':'auto';
+          if (act) {
+            act.style.opacity       = visAct;
+            act.style.transform     = `translateY(${(1-visAct)*12}px) scale(${0.88+0.12*visAct})`;
+            act.style.filter        = `blur(${(1-visAct)*10}px)`;
+            act.style.pointerEvents = visAct<0.08?'none':'auto';
+          }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // SLIDE OUT HELPER
+        // ─────────────────────────────────────────────────────────────
+        function slideOut() {
+          const overlay = document.getElementById('fs-alerts-overlay');
+          const sheet   = document.getElementById('fs-alerts-sheet');
+          if (!overlay||!sheet) return;
+          const m = metrics();
+          if (getSettings().dock === true) {
+            sheet.style.transition='transform .34s cubic-bezier(.22,1,.36,1),opacity .18s ease';
+            sheet.style.opacity='1';
+            window.fsSetY?.(m.dock);
+            return;
+          }
+          sheet.style.transition='transform .34s cubic-bezier(.22,1,.36,1),opacity .22s ease';
+          sheet.style.opacity='0'; sheet.style.transform=`translate3d(-50%,${m.hide}px,0)`;
+          setTimeout(() => overlay.parentNode?.removeChild(overlay), 340);
+        }
+
+        function dismissSheetMenu() {
+          const p = document.getElementById('fs-sheet-menu');
+          if (!p) return;
+          p.style.transition='opacity .18s ease,transform .20s ease';
+          p.style.opacity='0';
+          p.style.transform='translateY(6px) scale(0.98)';
+          setTimeout(() => p.parentNode?.removeChild(p), 185);
+          document.removeEventListener('click', closeSheetMenuOutside);
+        }
+
+        function closeSheetMenuOutside(e) {
+          const p = document.getElementById('fs-sheet-menu');
+          const sheetBtn = document.getElementById('fs-sheet-menu-btn');
+          const tabBtn = document.querySelector('.fs-tab[data-type="menu"]');
+          if (!p) return;
+          if (!p.contains(e.target) && (!sheetBtn||!sheetBtn.contains(e.target)) && (!tabBtn||!tabBtn.contains(e.target))) dismissSheetMenu();
+        }
+
+        function sheetPanelStyle(width, height, pad) {
+          const sheet = document.getElementById('fs-alerts-sheet');
+          const sr = sheet?.getBoundingClientRect?.();
+          width = width || 268;
+          height = height || 220;
+          pad = pad || 14;
+          if (!sr) {
+            return `position:fixed;top:${pad}px;right:${pad}px;z-index:2147483647;`;
+          }
+          const right = Math.max(10, window.innerWidth - sr.right + pad);
+          const top = Math.max(10, Math.min(window.innerHeight - height - 10, sr.top + pad));
+          return `position:fixed;top:${top}px;right:${right}px;z-index:2147483647;`;
+        }
+
+        function toggleSheetMenu(anchor) {
+          if (document.getElementById('fs-sheet-menu')) { dismissSheetMenu(); return; }
+          const sheet = document.getElementById('fs-alerts-sheet');
+          const p = document.createElement('div');
+          p.id = 'fs-sheet-menu';
+          if (sheet) {
+            p.style.cssText = sheetPanelStyle(210, 210, 14);
+          } else {
+            const rect = anchor?.getBoundingClientRect?.() || { right: window.innerWidth - 18, top: window.innerHeight - 90 };
+            const right = Math.max(10, window.innerWidth - rect.right);
+            const bottom = Math.max(10, window.innerHeight - rect.top + 8);
+            p.style.cssText = `position:fixed;bottom:${bottom}px;right:${right}px;z-index:2147483647;`;
+          }
+          const docked = getSettings().dock === true;
+          const hasSheet = !!sheet;
+          const expanded = hasSheet && (window.fsGetY?.() || 0) < 12;
+          const primaryLabel = docked
+            ? (expanded ? 'Dock sheet' : 'Open sheet')
+            : (expanded ? 'Close sheet' : 'Open sheet');
+          p.innerHTML = `
+            <button class="fs-menu-item" data-action="settings">
+              <span>Settings</span>
+              <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Z"/></svg>
+            </button>
+            <button class="fs-menu-item" data-action="collapse">
+              <span>${primaryLabel}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm80-160h400v-80H280v80Zm0-160h400v-80H280v80Z"/></svg>
+            </button>
+            ${docked ? `<button class="fs-menu-item" data-action="undock"><span>Show bottom tabs</span><svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="M240-120v-80h480v80H240Zm-80-160v-560h640v560H160Zm80-80h480v-400H240v400Z"/></svg></button>` : ''}
           `;
-
-         
-          // ===============================
-          // Bottom Tabs Logic (STABLE)
-          // ===============================
-
-          var existing = document.getElementById("fs-bottom-tabs");
-
-          if (!SHOW_FLIGHT_TABS) {
-              if (existing) existing.remove();
-              return;
-          }
-
-          if (!existing) {
-
-              var tabBar = document.createElement("div");
-              tabBar.id = "fs-bottom-tabs";
-
-              if (IS_FLIGHTS_MAIN) {
-
-                  tabBar.classList.add("arrivals");
-                  
-                  tabBar.innerHTML = `
-                    <div class="fs-tab arrivals active" data-type="arrivals">
-                      <span class="icon">
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                             height="22"
-                             viewBox="0 -960 960 960"
-                             width="22"
-                             fill="currentColor">
-                          <path d="M120-120v-80h720v80H120Zm622-202L120-499v-291l96 27 48 139 138 39-35-343 115 34 128 369 172 49q25 8 41.5 29t16.5 48q0 35-28.5 61.5T742-322Z"/>
-                        </svg>
-                      </span>
-                      Arrivals
-                    </div>
-
-                    <div class="fs-tab departures" data-type="departures">
-                      <span class="icon">
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                             height="22"
-                             viewBox="0 -960 960 960"
-                             width="22"
-                             fill="currentColor">
-                          <path d="M120-120v-80h720v80H120Zm70-200L40-570l96-26 112 94 140-37-207-276 116-31 299 251 170-46q32-9 60.5 7.5T864-585q9 32-7.5 60.5T808-487L190-320Z"/>
-                        </svg>
-                      </span>
-                      Departures
-                    </div>
-                    
-                   <div class="fs-tab alerts" data-type="alerts">
-                     <span class="icon">
-                       <svg xmlns="http://www.w3.org/2000/svg"
-                             height="22"
-                             viewBox="0 -960 960 960"
-                             width="22"
-                             fill="currentColor">
-                       <path d="M508.5-291.5Q520-303 520-320t-11.5-28.5Q497-360 480-360t-28.5 11.5Q440-337 440-320t11.5 28.5Q463-280 480-280t28.5-11.5ZM440-440h80v-240h-80v240Zm40 360q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/>                       </svg>
-                      </span>
-                      Alerts
-                    </div>
-                  `;
-
+          p.addEventListener('click', e => {
+            const item = e.target.closest('.fs-menu-item'); if (!item) return;
+            const action = item.dataset.action;
+            if (action === 'settings') {
+              dismissSheetMenu();
+              openSheetThenSettings();
+            } else if (action === 'collapse') {
+              dismissSheetMenu();
+              if (docked) {
+                if (!document.getElementById('fs-alerts-overlay')) openAlertsSheet();
+                setTimeout(() => {
+                  const m = metrics();
+                  window.fsRefreshDock?.(true);
+                  window.fsSetY?.(expanded ? m.dock : 0);
+                }, 90);
               } else {
-              
-              tabBar.classList.add("subpage");
-              tabBar.innerHTML = `
-              
-              <div class="fs-tab subpage-pill active" data-type="sub-back">
-                <span class="icon">
-                  <svg xmlns="http://www.w3.org/2000/svg"
-                       height="22"
-                       viewBox="0 -960 960 960"
-                       width="22"
-                       fill="currentColor">
-                    <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z"/>
-                  </svg>
-                </span>
-                Back
-              </div>
-              
-              <div class="fs-tab subpage-pill" data-type="sub-toggle">
-                <span class="icon">
-                  <svg class="arrow"
-                       xmlns="http://www.w3.org/2000/svg"
-                       height="22"
-                       viewBox="0 -960 960 960"
-                       width="22"
-                       fill="currentColor">
-                    <path d="M480-528 296-344l-56-56 240-240 240 240-56 56-184-184Z"/>
-                  </svg>
-                </span>
-                <span class="toggle-text">Top</span>
-              </div>
-              `;
+                if (expanded) slideOut();
+                else openAlertsSheet();
               }
+            } else if (action === 'undock') {
+              dismissSheetMenu();
+              saveSettings({ ...getSettings(), dock: false });
+              updateDockTabBar();
+              document.documentElement.classList.remove('fs-alerts-collapsed');
+              slideOut();
+            }
+          });
+          document.body.appendChild(p);
+          setTimeout(() => document.addEventListener('click', closeSheetMenuOutside), 10);
+        }
 
-              document.documentElement.appendChild(tabBar);
-              
-              window.addEventListener("scroll", function() {
-
-                var max = document.body.scrollHeight - window.innerHeight;
-                if (max <= 0) return;
-
-                var ratio = window.scrollY / max;
-
-                var blur = 3 + (ratio * 2);
-                 tabBar.style.backdropFilter =
-                "blur(" + blur + "px) saturate(160%)";
-              });
-              
-              var toggleBtn = tabBar.querySelector('[data-type="sub-toggle"]');
-              if (toggleBtn) {
-
-                var arrow = toggleBtn.querySelector('.arrow');
-                var toggleText = toggleBtn.querySelector('.toggle-text');
-
-                function updateToggleState() {
-
-                    var current = window.scrollY;
-                    var maxScroll = document.body.scrollHeight - window.innerHeight;
-
-                    if (current > maxScroll / 2) {
-
-                        // Arrow UP (go to top)
-                        arrow.classList.remove("rotate");
-                        toggleText.textContent = "Top";
-
-                    } else {
-
-                        // Arrow DOWN (go to bottom)
-                        arrow.classList.add("rotate");
-                        toggleText.textContent = "Bottom";
-                    }
-                }
-
-                updateToggleState();
-                window.addEventListener("scroll", updateToggleState);
-              }
-
-              tabBar.addEventListener("click", function(e) {
-
-                  var tab = e.target.closest(".fs-tab");
-                  if (!tab) return;
-
-                  if (tab.dataset.type === "sub-back") {
-                      window.location.href = "https://www.jacksonholeairport.com/flights/";
-                      return;
-                  }
-                  
-                  
-                  if (tab.dataset.type === "sub-toggle") {
-
-                      var current = window.scrollY;
-                      var maxScroll = document.body.scrollHeight - window.innerHeight;
-
-                      if (current > maxScroll / 2) {
-
-                          window.scrollTo({
-                              top: 0,
-                              behavior: "smooth"
-                          });
-
-                      } else {
-
-                          window.scrollTo({
-                              top: document.body.scrollHeight,
-                              behavior: "smooth"
-                          });
-                      }
-
-                      return;
-                  }
-
-                  document.querySelectorAll(".fs-tab").forEach(function(t){
-                      t.classList.remove("active");
-                  });
-
-                  tab.classList.add("active");
-                  
-                  if (tab.dataset.type === "alerts") {
-
-                    tabBar.classList.remove("arrivals","departures");
-                    tabBar.classList.add("alerts");
-
-                    document.querySelectorAll(".flight-table-wrap").forEach(function(el){
-                        el.style.display = "";
-                    });
-
-                    renderAlerts(); // this only triggers sheet opening now
-
-                    return;
-                  }
-                  
-                  if (tab.dataset.type === "arrivals") {
-
-                      tabBar.classList.remove("departures","alerts");
-                      tabBar.classList.add("arrivals");
-
-                      document.querySelectorAll(".flight-table-wrap").forEach(function(el){
-                          el.style.display = "";
-                      });
-
-                      var alertWrapper = document.getElementById("fs-alerts-overlay");
-                      if (alertWrapper) alertWrapper.remove();
-
-                      var btn = document.querySelector('li[data-target="hide-departures"]');
-                      if (btn) btn.click();
-
-                  }
-                  else if (tab.dataset.type === "departures") {
-
-                      tabBar.classList.remove("arrivals","alerts");
-                      tabBar.classList.add("departures");
-
-                      document.querySelectorAll(".flight-table-wrap").forEach(function(el){
-                          el.style.display = "";
-                      });
-
-                      var alertWrapper = document.getElementById("fs-alerts-overlay");
-                      if (alertWrapper) alertWrapper.remove();
-
-                      var btn = document.querySelector('li[data-target="hide-arrivals"]');
-                      if (btn) btn.click();
-                  }
-
-                  cleanTop();
-              });
+        function openSheetThenSettings() {
+          const sheet = document.getElementById('fs-alerts-sheet');
+          const hasOverlay = !!document.getElementById('fs-alerts-overlay');
+          const cur = window.fsGetY?.() ?? 0;
+          if (!hasOverlay || !sheet) {
+            openAlertsSheet();
+            setTimeout(() => toggleSettings(), 430);
+            return;
           }
+          if (getSettings().dock === true && cur > 12) {
+            sheet.style.transition='transform .34s cubic-bezier(.22,1,.36,1)';
+            window.fsSetY?.(0);
+            setTimeout(() => toggleSettings(), 360);
+            return;
+          }
+          toggleSettings();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // BIND CONTENT BUTTONS (called after every innerHTML write)
+        // ─────────────────────────────────────────────────────────────
+        function bindContentButtons() {
+          document.getElementById('fs-close-btn')?.addEventListener('click', e => { e.stopPropagation(); handleAlertsAction(); });
+          document.getElementById('fs-settings-btn')?.addEventListener('click', e => { e.stopPropagation(); toggleSettings(); });
+          document.getElementById('fs-sheet-menu-btn')?.addEventListener('click', e => { e.stopPropagation(); toggleSheetMenu(e.currentTarget); });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // HYDRATE CONTENT — scrape + HTML build + DOM patch
+        // Does NOT touch the sheet position, so animation is never blocked
+        // ─────────────────────────────────────────────────────────────
+        function hydrateContent(opts) {
+          opts = opts||{};
+          const cfg = getSettings();
+          const dockEnabled = cfg.dock === true;
+          const content = document.getElementById('fs-alerts-content'); if (!content) return;
+          const data = scrapeAll(); if (!data) return;
+          const existingPanel = !opts.refreshLive ? content.querySelector('#fs-live-panel') : null;
+
+          const livePlaceholder = opts.refreshLive && cfg.liveArrivals !== false
+            ? `<div class="fs-live-arrivals-panel" id="fs-live-panel">
+                <div class="fs-live-panel-title">Live arrival status</div>
+                <div class="fs-live-empty">Loading…</div>
+               </div>`
+            : '';
+          const scrollTop = content.scrollTop;
+          content.innerHTML = buildContentHtml(data, livePlaceholder);
+          if (existingPanel) {
+            existingPanel.dataset.refreshBound = '';  // clear bound flag
+            const anchor = content.querySelector('.fs-weather-banner') || content.querySelector('.fs-sheet-header-wrap');
+            anchor?.insertAdjacentElement('afterend', existingPanel) || content.prepend(existingPanel);
+            bindRefresh(existingPanel);
+          }
+          content.scrollTop = scrollTop;
+          bindContentButtons();
+          updateDockIcon();
+          window.fsRefreshDock?.(dockEnabled);
+          // Re-inject inbound panel from cached states (wiped by innerHTML above)
+          if (window._fsAcStates?.length) {
+            renderInbound(detectInbound(window._fsAcStates));
+          } else {
+            refreshAcCache();
+          }
+          // Load live arrivals in background
+          if (opts.refreshLive && cfg.liveArrivals !== false) {
+            buildLivePanelHtml().then(html => {
+              const old = document.getElementById('fs-live-panel'); if (!old) return;
+              if (html) {
+              const tmp = document.createElement('div');
+              tmp.innerHTML = html;
+              const newPanel = tmp.firstElementChild;
+              delete newPanel.dataset.refreshBound;
+              old.replaceWith(newPanel);
+              bindRefresh(newPanel);
+              }
+              else old.remove();
+            }).catch(() => {});
+          }
+          // Re-apply current sheet offset
+          if (typeof window.fsSetY === 'function') requestAnimationFrame(() => window.fsSetY(window.fsGetY?.()));
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // OPEN ALERTS SHEET — skeleton first, animation clean, hydrate idle
+        // ─────────────────────────────────────────────────────────────
+        function openAlertsSheet() {
+          const cfg = getSettings();
+          // 1. Mount DOM (no content, instant)
+          mountSheet(false);
+          const sheet   = document.getElementById('fs-alerts-sheet');
+          const overlay = document.getElementById('fs-alerts-overlay');
+          const content = document.getElementById('fs-alerts-content');
+          if (!sheet||!content) return;
+          // 2. Show skeleton immediately
+          content.innerHTML = `<div style="padding:24px 16px">
+            <div class="fs-skeleton-line wide"></div>
+            <div class="fs-skeleton-line med"></div>
+            <div class="fs-skeleton-line short"></div>
+            <div class="fs-skeleton-line wide" style="margin-top:20px"></div>
+            <div class="fs-skeleton-line med"></div>
+          </div>`;
+          // 3. Start slide animation in next rAF — thread is free
+          requestAnimationFrame(() => {
+            sheet.style.transition = 'transform .36s cubic-bezier(.22,1,.36,1),opacity .18s ease';
+            sheet.style.opacity = '1';
+            overlay.style.pointerEvents = 'auto';
+            window.fsSetY?.(0) || (sheet.style.transform = 'translate3d(-50%,0px,0)');
+            // 4. Hydrate real content during idle time AFTER animation starts
+            fsIdle(() => hydrateContent({ refreshLive: true }), 400);
+          });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // RE-RENDER (sheet already mounted, triggered by MutationObserver)
+        // ─────────────────────────────────────────────────────────────
+        function renderAlerts(opts) {
+          const overlay = document.getElementById('fs-alerts-overlay');
+          if (!overlay) return;
+          fsIdle(() => hydrateContent(opts||{ refreshLive: false }), 300);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // HANDLE ALERTS ACTION (close button / dock toggle)
+        // ─────────────────────────────────────────────────────────────
+        function handleAlertsAction() {
+          const overlay = document.getElementById('fs-alerts-overlay');
+          const sheet   = document.getElementById('fs-alerts-sheet');
+          const cfg     = getSettings();
+          const tabBar  = document.getElementById('fs-bottom-tabs');
+          // Reset tab bar to alerts state
+          if (tabBar) {
+            tabBar.className = tabBar.className.replace(/\barrivals\b|\bdepartures\b/g,'').trim() + ' alerts';
+            tabBar.querySelectorAll('.fs-tab').forEach(t => t.classList.remove('active'));
+            tabBar.querySelector('.fs-tab[data-type="alerts"]')?.classList.add('active');
+          }
+          dismissSettings();
+          if (!overlay||!sheet) { openAlertsSheet(); return; }
+          const m   = metrics();
+          const cur = window.fsGetY?.() ?? 0;
+          sheet.style.transition = 'transform .36s cubic-bezier(.22,1,.36,1),opacity .22s ease';
+          if (cfg.dock === true) {
+            sheet.style.opacity='1';
+            window.fsSetY?.(cur<=2 ? window.fsDockY?.() ?? m.dock : 0);
+          } else {
+            if (cur <= 2) slideOut();
+            else openAlertsSheet();
+          }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // DOCK / ICON HELPERS
+        // ─────────────────────────────────────────────────────────────
+        function updateDockIcon() {
+          const btn = document.getElementById('fs-close-btn'); if (btn) btn.innerHTML = dockIconSvg();
+        }
+        function updateDockTabBar() {
+          const tabBar = document.getElementById('fs-bottom-tabs'); if (!tabBar) return;
+          const docked = getSettings().dock === true;
+          tabBar.classList.toggle('fs-docked', docked);
+          document.documentElement.classList.toggle('fs-tabs-docked', docked);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // SETTINGS PANEL
+        // ─────────────────────────────────────────────────────────────
+        function dismissSettings() {
+        document.getElementById('fs-radar-submenu')?.remove();
+          const p = document.getElementById('fs-settings-panel'); if (!p) return;
+          p.style.transition='opacity .22s ease,transform .22s ease';
+          p.style.opacity='0'; p.style.transform='translateY(4px) scale(0.98)';
+          setTimeout(() => p.parentNode?.removeChild(p), 215);
+          document.removeEventListener('click', closeSettingsOutside);
+        }
+
+        function toggleSettings() {
+          if (document.getElementById('fs-settings-panel')) { dismissSettings(); return; }
+          const sheet = document.getElementById('fs-alerts-sheet'); if (!sheet) return;
+          const docked = getSettings().dock === true;
+          const curY = window.fsGetY?.() || 0;
+          if (docked && curY > 12 && typeof window.fsSetY === 'function') {
+            sheet.style.transition='transform .34s cubic-bezier(.22,1,.36,1)';
+            window.fsSetY(0);
+            setTimeout(() => toggleSettings(), 360);
+            return;
+          }
+          const p = document.createElement('div');
+          p.id = 'fs-settings-panel';
+          const panelW = 268;
+          const panelH = 390;
+          p.style.cssText = sheetPanelStyle(panelW, panelH, 14);
+          document.body.appendChild(p);
+          p.addEventListener('click', e => e.stopPropagation());
+          renderSettingsPage('main');
+          setTimeout(() => document.addEventListener('click', closeSettingsOutside), 10);
+        }
+
+        function settingsTitle(title, back) {
+          return `<div class="fs-settings-heading ${back ? 'has-back' : ''}">
+            ${back ? `<button class="fs-settings-back" data-page="${back}" aria-label="Back">
+              <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 -960 960 960" width="18" fill="currentColor"><path d="M560-240 320-480l240-240 56 56-184 184 184 184-56 56Z"/></svg>
+            </button>` : ''}
+            <span>${title}</span>
+          </div>`;
+        }
+
+        function navRow(id, label, page) {
+          return `<div class="fs-setting fs-setting-nav" id="${id}" data-page="${page}" style="cursor:pointer;">
+            <span>${label}</span>
+            <svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 -960 960 960" width="16" fill="currentColor" style="opacity:.5;flex-shrink:0;margin-left:auto;">
+              <path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/>
+            </svg>
+          </div>`;
+        }
+
+        function renderSettingsPage(page) {
+          const p = document.getElementById('fs-settings-panel'); if (!p) return;
+          const s = getSettings();
+          p.dataset.page = page;
+          if (page === 'radar') {
+            p.innerHTML = `
+              ${settingsTitle('Radar live traffic', 'main')}
+              <label class="fs-setting"><span>Inbound aircraft panel</span><input type="checkbox" id="s-inbound"></label>
+              <label class="fs-setting"><span>Approach confidence</span><input type="checkbox" id="s-conf"></label>
+              <label class="fs-setting"><span>Color-coded alt/speed</span><input type="checkbox" id="s-colors"></label>
+              ${navRow('s-range-nav', `Radar range <em>${parseInt(s.distance)||80} mi</em>`, 'range')}`;
+          } else if (page === 'range') {
+            p.innerHTML = `
+              ${settingsTitle('Radar range', 'radar')}
+              <div class="fs-setting-distance">
+                <div class="fs-dist-presets">
+                  ${[20,40,60,80,120,500,1500].map(d=>`<span data-d="${d}">${d}</span>`).join('')}
+                </div>
+                <div class="fs-dist-modes"><span>APP</span><span>TWR</span><span>TRM</span><span>REG</span><span>MAX</span><span>EXT</span><span>ULT</span></div>
+                <input type="range" id="s-range" min="20" max="1500" step="1">
+                <div class="fs-dist-value" id="s-dist-val"></div>
+              </div>`;
+          } else {
+            p.innerHTML = `
+              ${settingsTitle('Settings', '')}
+              <label class="fs-setting"><span>Live status <em>Beta</em></span><input type="checkbox" id="s-live"></label>
+              <label class="fs-setting"><span>Weather warnings</span><input type="checkbox" id="s-wx"></label>
+              <label class="fs-setting"><span>Keep alerts docked</span><input type="checkbox" id="s-dock"></label>
+              ${navRow('s-radar-nav', 'Radar & live traffic', 'radar')}`;
+          }
+          p.querySelectorAll('[data-page]').forEach(el => {
+            el.addEventListener('click', e => {
+              e.stopPropagation();
+              renderSettingsPage(el.dataset.page || 'main');
+            });
+          });
+          loadSettingsUI();
+          attachSettingsHandlers();
+        }
+
+        function closeSettingsOutside(e) {
+          const p = document.getElementById('fs-settings-panel');
+          const b = document.getElementById('fs-settings-btn');
+          const mb = document.getElementById('fs-sheet-menu-btn');
+          const tb = document.querySelector('.fs-tab[data-type="menu"]');
+          if (!p) return;
+          if (!p.contains(e.target) && (!b||!b.contains(e.target)) && (!mb||!mb.contains(e.target)) && (!tb||!tb.contains(e.target))) dismissSettings();
+        }
+
+        function getDistMode(d) {
+          d = parseInt(d)||80;
+          return d<=20?'Approach':d<=40?'Tower':d<=60?'Terminal':d<=80?'Regional':d<=120?'Max':d<=500?'Extended':'Ultra';
+        }
+
+        function loadSettingsUI() {
+          const s = getSettings();
+          const dk = s.dock===true;
+          const get = id => document.getElementById(id);
+          const set = (id, v) => { const el=get(id); if(el) el.checked=v; };
+          set('s-live',    s.liveArrivals!==false);
+          set('s-dock',    dk);
+          set('s-inbound', s.inbound!==false);
+          set('s-conf',    s.confidence!==false);
+          set('s-colors',  s.colors!==false);
+          set('s-wx',      s.weather!==false);
+          const wxEl = get('s-wx'); if (wxEl) { wxEl.disabled=false; wxEl.style.opacity='1'; }
+          const d = parseInt(s.distance)||80;
+          const range = get('s-range'); if (range) range.value = d;
+          const val   = get('s-dist-val'); if (val) val.textContent = `${d} mi • ${getDistMode(d)}`;
+          document.querySelectorAll('.fs-dist-presets span').forEach(sp => sp.classList.toggle('active', parseInt(sp.dataset.d)===d));
+        }
+
+        function attachSettingsHandlers() {
+          const get = id => document.getElementById(id);
+          const dockTgl = get('s-dock'), liveTgl = get('s-live'), wxTgl = get('s-wx');
+          const inbTgl  = get('s-inbound'), confTgl = get('s-conf'), colorTgl = get('s-colors');
+          const range   = get('s-range'), valEl = get('s-dist-val');
+
+          function save() {
+            const cur = getSettings();
+            const dk = dockTgl ? dockTgl.checked : cur.dock===true;
+            saveSettings({
+              liveArrivals: liveTgl ? liveTgl.checked : cur.liveArrivals!==false,
+              dock:         dk,
+              weather:      wxTgl ? wxTgl.checked : cur.weather!==false,
+              inbound:      inbTgl ? inbTgl.checked : cur.inbound!==false,
+              confidence:   confTgl ? confTgl.checked : cur.confidence!==false,
+              colors:       colorTgl ? colorTgl.checked : cur.colors!==false,
+              distance:     range ? (parseInt(range.value)||80) : (parseInt(cur.distance)||80)
+            });
+          }
+
+          function updateDist(d) {
+            d=parseInt(d)||80;
+            if(range) range.value=d;
+            if(valEl) valEl.textContent=`${d} mi • ${getDistMode(d)}`;
+            document.querySelectorAll('.fs-dist-presets span').forEach(sp => sp.classList.toggle('active', parseInt(sp.dataset.d)===d));
+          }
+
+          function applyLive(opts) {
+            save();
+            const s = getSettings();
+            // Apply inbound panel visibility
+            if (window._fsAcStates?.length) renderInbound(detectInbound(window._fsAcStates));
+            else { const el=document.getElementById('fs-inbound-aircraft'); if(el) el.style.display=s.inbound===false?'none':''; }
+            // Apply color/conf patches without full re-render
+            document.querySelectorAll('.fs-live-card[data-state="inbound"]').forEach(card => {
+              ['fs-live-alt','fs-live-spd'].forEach(cls => {
+                const el = card.querySelector('.'+cls); if (!el) return;
+                const isAlt = cls==='fs-live-alt';
+                el.classList.remove('alt-low','alt-mid','alt-high','spd-slow','spd-approach','spd-fast');
+                if (s.colors!==false) {
+                  const v = parseInt(isAlt?el.dataset.alt:el.dataset.spd)||0;
+                  el.classList.add(isAlt?altClass(v):spdClass(v));
+                }
+              });
+              card.querySelectorAll('.fs-conf-row').forEach(r => r.style.display=s.confidence!==false?'':'none');
+            });
+            // Weather banner
+            const wb = document.querySelector('.fs-weather-banner');
+            if (wb) wb.style.display=s.weather!==false?'':'none';
+            if (!opts?.skipLive) updateLive();
+          }
+
+          if (dockTgl) {
+            dockTgl.addEventListener('change', () => {
+              if (wxTgl) { wxTgl.disabled=false; wxTgl.style.opacity='1'; }
+              save(); updateDockIcon(); updateDockTabBar();
+              window.fsRefreshDock?.(dockTgl.checked);
+              dismissSettings();
+              const overlay=document.getElementById('fs-alerts-overlay'), sheet=document.getElementById('fs-alerts-sheet');
+              if (!overlay||!sheet) return;
+              const m = metrics(); sheet.style.height = m.h+'px';
+              sheet.style.transition='transform .36s cubic-bezier(.22,1,.36,1),opacity .18s ease';
+              if (dockTgl.checked) { sheet.style.opacity='1'; window.fsSetY?.(m.dock); }
+              else slideOut();
+            });
+          }
+          if (liveTgl) liveTgl.addEventListener('change', () => { save(); openAlertsSheet(); });
+          [inbTgl,confTgl,colorTgl,wxTgl].forEach(el => el?.addEventListener('change', () => applyLive()));
+          if (range) {
+            range.addEventListener('input',  () => updateDist(range.value));
+            range.addEventListener('change', () => {
+              updateDist(range.value); save();
+              acAt=0; refreshAcCache().then(() => {
+                if (window._fsAcStates?.length) renderInbound(detectInbound(window._fsAcStates));
+              });
+            });
+          }
+          document.querySelectorAll('.fs-dist-presets span').forEach(sp => {
+            sp.addEventListener('click', () => {
+              updateDist(sp.dataset.d); save();
+              acAt=0; refreshAcCache().then(() => {
+                if (window._fsAcStates?.length) renderInbound(detectInbound(window._fsAcStates));
+              });
+            });
+          });
+          updateDist(parseInt(range?.value)||80);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // DOCK RESTORE ON PAGE LOAD
+        // ─────────────────────────────────────────────────────────────
+        function queueDockRestore(n) {
+          n=n||0;
+          if (!SHOW_TABS||!IS_MAIN) return;
+          if (getSettings().dock!==true) return;
+          const con=document.getElementById('flight-container');
+          if (con?.querySelector('table.jha-flights')) { restoreDockedAlerts(); return; }
+          if (n<60) requestAnimationFrame(()=>queueDockRestore(n+1));
+        }
+        function restoreDockedAlerts() {
+          if (!SHOW_TABS||!IS_MAIN||document.getElementById('fs-alerts-overlay')) return;
+          if (getSettings().dock!==true) return;
+          const con=document.getElementById('flight-container');
+          if (!con?.querySelector('table.jha-flights')) return;
+          const m = metrics();
+          mountSheet(true);
+          const sheet   = document.getElementById('fs-alerts-sheet');
+          const content = document.getElementById('fs-alerts-content');
+          if (!sheet||!content) return;
+          sheet.style.transition='none'; sheet.style.opacity='1';
+          window.fsSetY?.(m.dock);
+          requestAnimationFrame(() => {
+            sheet.style.transition='transform .36s cubic-bezier(.22,1,.36,1)';
+            fsIdle(() => hydrateContent({ refreshLive:true }), 600);
+          });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // CLEAN PAGE CHROME
+        // ─────────────────────────────────────────────────────────────
+        function cleanTop() {
+          ['header.site-header.header-mobile','.jac-navbar','section.page-hero.-noimage','.fixed-triggers']
+            .forEach(s => document.querySelector(s)?.remove());
+          document.body.style.marginTop='100px';
+          const tab=document.getElementById('fs-bottom-tabs');
+          document.body.style.paddingBottom = (SHOW_TABS&&tab)
+            ? `calc(${tab.offsetHeight+24}px + env(safe-area-inset-bottom,0px))` : '0px';
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // BOOT
+        // ─────────────────────────────────────────────────────────────
+        cleanTop();
+
+        // Inject CSS
+        let styleEl = document.getElementById('fs_custom_style');
+        if (!styleEl) { styleEl=document.createElement('style'); styleEl.id='fs_custom_style'; document.head.appendChild(styleEl); }
+        styleEl.innerHTML = `__FS_CSS__`;
+
+        // Main observer (tab bar guard)
+        window.fsMainObserver?.disconnect();
+        window.fsMainObserver = new MutationObserver(() => {
+          if (!document.getElementById('fs-bottom-tabs')&&SHOW_TABS&&!window.fsReloading) window.fsReloading=true;
+        });
+        window.fsMainObserver.observe(document.documentElement,{childList:true,subtree:true});
+
+        // Flight data observer → invalidate scrape cache, debounce re-render
+        let _alertTimer = null;
+        window.fsFlightsObserver?.disconnect();
+        window.fsFlightsObserver = new MutationObserver(() => {
+          scrapeDirty = true;
+          if (!document.getElementById('fs-alerts-overlay')) return;
+          clearTimeout(_alertTimer);
+          const isDocked = typeof window.fsGetY==='function' && typeof window.fsDockY==='function'
+            && Math.abs(window.fsGetY()-window.fsDockY()) < 6;
+          _alertTimer = setTimeout(() => renderAlerts({ refreshLive:false }), isDocked?700:450);
+        });
+        const flightsCon = document.getElementById('flight-container');
+        if (flightsCon) window.fsFlightsObserver.observe(flightsCon,{childList:true,subtree:true});
+
+        // ─────────────────────────────────────────────────────────────
+        // TAB BAR
+        // ─────────────────────────────────────────────────────────────
+        if (!SHOW_TABS) { document.getElementById('fs-bottom-tabs')?.remove(); return; }
+        if (document.getElementById('fs-bottom-tabs')) return;
+
+        const tabBar = document.createElement('div');
+        tabBar.id = 'fs-bottom-tabs';
+
+        if (IS_MAIN) {
+          tabBar.className = 'arrivals';
+          tabBar.innerHTML = `
+            <div class="fs-tab arrivals active" data-type="arrivals">
+              <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M120-120v-80h720v80H120Zm622-202L120-499v-291l96 27 48 139 138 39-35-343 115 34 128 369 172 49q25 8 41.5 29t16.5 48q0 35-28.5 61.5T742-322Z"/></svg></span>
+              Arrivals
+            </div>
+            <div class="fs-tab departures" data-type="departures">
+              <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M120-120v-80h720v80H120Zm70-200L40-570l96-26 112 94 140-37-207-276 116-31 299 251 170-46q32-9 60.5 7.5T864-585q9 32-7.5 60.5T808-487L190-320Z"/></svg></span>
+              Departures
+            </div>
+            <div class="fs-tab alerts" data-type="alerts">
+              <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M40-120l440-760 440 760H40Zm138-80h604L480-720 178-200Zm302-40q17 0 28.5-11.5T520-280q0-17-11.5-28.5T480-320q-17 0-28.5 11.5T440-280q0 17 11.5 28.5T480-240Zm-40-120h80v-200h-80v200Zm40-100Z"/></svg></span>
+              Alerts
+            </div>
+            <div class="fs-tab menu" data-type="menu">
+              <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/></svg></span>
+              Menu
+            </div>`;
+        } else {
+          tabBar.className = 'subpage';
+          tabBar.innerHTML = `
+            <div class="fs-tab sub-back active" data-type="sub-back">
+              <span class="icon"><svg xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M640-80 215-480l400-400 71 71-329 329 329 329-71 71Z"/></svg></span>
+              Back
+            </div>
+            <div class="fs-tab sub-toggle" data-type="sub-toggle">
+              <span class="icon"><svg class="arrow" xmlns="http://www.w3.org/2000/svg" height="22" viewBox="0 -960 960 960" width="22" fill="currentColor"><path d="M480-528 296-344l-56-56 215-215 215 215-56 56-184-184Z"/></svg></span>
+              <span class="toggle-label">Top</span>
+            </div>`;
+        }
+
+        document.documentElement.appendChild(tabBar);
+        updateDockTabBar();
+        queueDockRestore();
+
+        // Blur tabBar on scroll
+        window.addEventListener('scroll', () => {
+          const max = document.body.scrollHeight - window.innerHeight; if (max<=0) return;
+          tabBar.style.backdropFilter = `blur(${3+(window.scrollY/max)*2}px) saturate(160%)`;
+        });
+
+        // Sub-page toggle state
+        const toggleBtn = tabBar.querySelector('[data-type="sub-toggle"]');
+        if (toggleBtn) {
+          const arrow = toggleBtn.querySelector('.arrow'), lbl = toggleBtn.querySelector('.toggle-label');
+          const updateToggle = () => {
+            const atBottom = window.scrollY > (document.body.scrollHeight-window.innerHeight)/2;
+            arrow?.classList.toggle('rotate',!atBottom);
+            if (lbl) lbl.textContent = atBottom?'Top':'Bottom';
+          };
+          updateToggle();
+          window.addEventListener('scroll', updateToggle);
+        }
+
+        // Tab click handler
+        tabBar.addEventListener('click', e => {
+          const tab = e.target.closest('.fs-tab'); if (!tab) return;
+          const type = tab.dataset.type;
+
+          if (type==='sub-back')   { window.location.href='https://www.jacksonholeairport.com/flights/'; return; }
+          if (type==='sub-toggle') {
+            const cur=window.scrollY, max=document.body.scrollHeight-window.innerHeight;
+            window.scrollTo({ top:cur>max/2?0:document.body.scrollHeight, behavior:'smooth' }); return;
+          }
+          if (type==='menu') {
+            tabBar.querySelectorAll('.fs-tab').forEach(t=>t.classList.remove('active'));
+            tab.classList.add('active');
+            toggleSheetMenu(tab);
+            return;
+          }
+
+          tabBar.querySelectorAll('.fs-tab').forEach(t=>t.classList.remove('active'));
+          tab.classList.add('active');
+          const cfg = getSettings();
+          const overlay = document.getElementById('fs-alerts-overlay');
+          const sheet   = document.getElementById('fs-alerts-sheet');
+
+          if (type==='alerts') {
+            tabBar.className = tabBar.className.replace(/\barrivals\b|\bdepartures\b/g,'').trim()+' alerts';
+            dismissSettings();
+            if (!overlay||!sheet) {
+              // ── FAST PATH — no sheet exists yet
+              openAlertsSheet();
+              return;
+            }
+            // ── Sheet already mounted — just move it (no work needed)
+            const m   = metrics();
+            const cur = window.fsGetY?.() ?? 0;
+            sheet.style.transition='transform .36s cubic-bezier(.22,1,.36,1),opacity .22s ease';
+            if (cfg.dock===true) {
+              sheet.style.opacity='1';
+              window.fsSetY?.(cur<=2 ? (window.fsDockY?.()??m.dock) : 0);
+            } else {
+              if (cur<=2) slideOut();
+              else        openAlertsSheet();
+            }
+            return;
+          }
+
+          if (type==='arrivals') {
+            tabBar.className=tabBar.className.replace(/\bdepartures\b|\balerts\b/g,'').trim()+' arrivals';
+            if (cfg.dock!==true) overlay?.remove();
+            document.querySelector('li[data-target="hide-departures"]')?.click();
+          } else if (type==='departures') {
+            tabBar.className=tabBar.className.replace(/\barrivals\b|\balerts\b/g,'').trim()+' departures';
+            if (cfg.dock!==true) overlay?.remove();
+            document.querySelector('li[data-target="hide-arrivals"]')?.click();
+          }
+          cleanTop();
+        });
 
         })();
-        """.trimIndent(),
-            null
-        )
+        """.trimIndent()
+            .replace("__FS_CSS__", css)
+
+        view?.evaluateJavascript(js, null)
     }
 }

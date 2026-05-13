@@ -3,48 +3,6 @@
 
     <androidx.preference.PreferenceCategory
         app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
-        app:title="@string/new_features">
-
-        <androidx.preference.Preference
-            android:layout="@layout/custom_preference_item"
-            android:selectable="false" />
-
-        <CheckBoxPreference
-            android:defaultValue="false"
-            app:allowDividerBelow="true"
-            app:buttonTint="?android:attr/colorEdgeEffect"
-            app:buttonCompat="@style/Widget.Material3.CompoundButton.RadioButton"
-            app:icon="@drawable/baseline_cloud_sync_24"
-            app:key="sync"
-            app:title="@string/sync_title" />
-
-        <androidx.preference.Preference
-            android:layout="@layout/custom_preference_item"
-            android:selectable="false" />
-
-        <androidx.preference.Preference
-            app:icon="@drawable/system_update_24dp_ffffff_fill1_wght400_grad0_opsz24"
-            app:key="check_for_updates"
-            app:title="Check for Updates" />
-
-        <androidx.preference.Preference
-            android:layout="@layout/custom_preference_item"
-            android:selectable="false" />
-
-        <CheckBoxPreference
-            android:defaultValue="false"
-            app:dependency="sync"
-            app:icon="@drawable/baseline_downloading_24"
-            app:key="attachment"
-            app:summaryOn="@string/attachment_summary_on"
-            app:title="@string/attachment_title" />
-
-    </androidx.preference.PreferenceCategory>
-
-
-
-    <androidx.preference.PreferenceCategory
-        app:icon="@drawable/code_fill1_wght400_grad0_opsz24"
         app:title="@string/feature_released">
         <androidx.preference.Preference
             android:layout="@layout/custom_preference_item"
@@ -57,6 +15,16 @@
             app:selectable="false"
             app:summary=""
             app:title="JacFlights Device architecture" />
+
+        <androidx.preference.Preference
+            android:layout="@layout/custom_preference_item"
+            android:selectable="false" />
+
+        <androidx.preference.Preference
+            app:allowDividerBelow="true"
+            app:icon="@drawable/system_update_24dp_ffffff_fill1_wght400_grad0_opsz24"
+            app:key="check_for_updates"
+            app:title="@string/check_for_updates_title" />
 
         <androidx.preference.Preference
             android:layout="@layout/custom_preference_item"
@@ -126,7 +94,12 @@
             app:summary="Select your preferred language"
             app:title="Language" />
 
-        <!-- 🔵 Toggle for Siri-like camera glow -->
+        <Preference
+            app:icon="@drawable/palette_24dp_ffffff_fill0_wght400_grad0_opsz24"
+            app:key="app_icon"
+            app:summary="Choose your app icon"
+            app:title="App Icon" />
+
         <CheckBoxPreference
             android:defaultValue="true"
             app:icon="@drawable/memory_24dp_ffffff_fill1_wght400_grad0_opsz24"

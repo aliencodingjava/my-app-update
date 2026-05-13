@@ -14,6 +14,7 @@
     <item name="nav_logout" type="id" />
     <item name="action_delete" type="id"/>
     <item name="tag_avatar_key" type="id" />
+    <item name="main_contacts_container" type="id" />
 
 
 

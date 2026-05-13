@@ -26,6 +26,7 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.edit
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.flights.studio.databinding.ActivityCreateProfileBinding
@@ -41,7 +42,6 @@ import io.github.jan.supabase.auth.providers.builtin.OTP
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
-import androidx.core.net.toUri
 
 
 class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
@@ -422,8 +422,10 @@ class CreateProfileBottomSheetFragment : BottomSheetDialogFragment() {
                     // focus + keyboard
                     codeEditText.requestFocus()
                     codeEditText.post {
-                        val imm = requireContext().getSystemService(android.view.inputmethod.InputMethodManager::class.java)
-                        imm?.showSoftInput(codeEditText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                        val imm = requireContext()
+                            .getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+
+                        imm?.showSoftInput(codeEditText, 0)
                     }
 
                     // ✅ Auto-verify when 6 digits typed/pasted (but guarded)

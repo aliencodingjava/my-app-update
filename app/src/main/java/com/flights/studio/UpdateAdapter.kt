@@ -25,11 +25,26 @@ class UpdateAdapter(
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val title = view.findViewById<TextView>(R.id.updateTitle)
-        private val body  = view.findViewById<TextView>(R.id.updateBody)
+        private val body = view.findViewById<TextView>(R.id.updateBody)
 
         fun bind(item: UpdateBlock) {
             title.text = HtmlCompat.fromHtml(item.title, HtmlCompat.FROM_HTML_MODE_LEGACY)
-            body.text  = HtmlCompat.fromHtml(item.body, HtmlCompat.FROM_HTML_MODE_LEGACY)
+
+            val combinedText = buildString {
+                if (item.summary.isNotBlank()) {
+                    append(item.summary.trim())
+                }
+                if (item.bullets.isNotEmpty()) {
+                    if (isNotEmpty()) append("\n\n")
+                    item.bullets.forEach { bullet ->
+                        append("• ")
+                        append(bullet)
+                        append('\n')
+                    }
+                }
+            }.trim()
+
+            body.text = HtmlCompat.fromHtml(combinedText, HtmlCompat.FROM_HTML_MODE_LEGACY)
         }
     }
 }

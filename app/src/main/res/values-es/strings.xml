@@ -24,13 +24,19 @@
         <string name="appbar_scrolling_view_behavior">com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior</string>
         <string name="PO_Box_n159Jackson_WY_n83001">PO Box 159Jackson WY 83001</string>
 
-        <string name="title_activity_settings">ActividadConfiguración</string>
+        <string name="title_activity_settings">Ajustes</string>
+
+    <string name="search_notes">Buscar notas</string>
+    <string name="search_title_or_note">Buscar título o nota</string>
+    <string name="live_cameras">Cámaras en vivo</string>
+    <string name="profile">Perfil</string>
 
     <string name="new_features">Nueva función - Sincronización para actualización automática</string>
 
         <string name="sync_title">Habilitar Sincronización</string>
         <string name="attachment_title">Descargar adjuntos entrantes</string>
         <string name="attachment_summary_on">Descargas automáticas; Requiere verificación.</string>
+        <string name="check_for_updates_title">Buscar actualizaciones</string>
 
     <string name="feature_released">Función lanzada</string>
 
@@ -169,7 +175,7 @@ Conéctate más rápido con nuestra aplicación.
 Escanea códigos QR, comparte momentos y vive una experiencia fluida.
 </string>
 
-    <string name="fragment_settings">configuración_fragmento</string>
+    <string name="fragment_settings">Ajustes</string>
     <string name="download_complete">Descarga completa</string>
     <string name="image_view_item_transform_content_description">Representa una vista de imagen en el
     elemento
@@ -185,7 +191,7 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="cardlung9">Tarjeta 9</string>
     <string name="nav_header_desc">Encabezado de navegación</string>
 
-    <string name="menu_settings">Configuraciones</string>
+    <string name="menu_settings">Ajustes</string>
 
     <string name="server_online">en línea</string>
     <string name="server_offline">fuera de línea</string>
@@ -205,9 +211,10 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="fab_content_desc_camera">FAB cámara</string>
     <string name="fab_content_desc_insert_photo">FAB foto</string>
     <string name="fab_content_desc_contact">FAB contacto</string>
-    <string name="fab_content_desc_settings">FAB configuraciones</string>
+    <string name="fab_content_desc_settings">Botón de ajustes</string>
     <string name="changelog_title">Registro de cambios para %s</string>
     <string name="download_complete_title">Descarga completada</string>
+    <string name="settings_release_date_template">Fecha de lanzamiento: %1$s</string>
     <string name="app_update_title">Actualización de la app</string>
     <string name="app_up_to_date_message">¡Tu app está actualizada!</string>
 
@@ -273,6 +280,7 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="qr_code">Código QR</string>
     <string name="All_contacts">todos los contactos</string>
     <string name="Import_contacts">importar contactos</string>
+    <string name="contacts_bottom_notes">Notas</string>
     <string name="new_contacts_count">Conteo de nuevos contactos</string>
     <string name="total_contacts">Contactos</string>
     <string name="make_a_call">Hacer una llamada</string>
@@ -363,7 +371,7 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
 
     <string name="choose_reminder_type">Elige un recordatorio</string>
     <string name="reminder_hint_short">Temporizador = hoy • Calendario = fecha/hora</string>
-    <string name="timer_caption_short">Hoy</string>
+    <string name="timer_caption_short">Hoy / mañana</string>
     <string name="calendar_caption_short">Fecha/hora</string>
 
     <string name="a11y_tip_available">Consejo disponible</string>
@@ -383,11 +391,59 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="help_auto_title">Autocompletar título desde la nota</string>
     <string name="title_set">Título establecido</string>
     <string name="type_note_first">Escribe primero tu nota</string>
-    <string name="nav_settings">Configuración</string>
+    <string name="nav_settings">Ajustes</string>
     <string name="nav_notes">Notas</string>
     <string name="nav_search">Buscar</string>
     <string name="nav_delete">Eliminar</string>
     <string name="Enter_here">Pulsa para entrar</string>
+
+    <string name="settings_title_modern">Configuración</string>
+    <string name="settings_subtitle_modern">Perfil, actualizaciones, idioma y controles de la app.</string>
+    <string name="settings_section_app">App</string>
+    <string name="settings_section_preferences">Preferencias</string>
+    <string name="settings_section_airport_services">Servicios del aeropuerto</string>
+    <string name="settings_section_feedback">Comentarios</string>
+    <string name="settings_section_about">Acerca de</string>
+    <string name="settings_menu_tab">Menú</string>
+    <string name="settings_changelog_tab">Cambios</string>
+    <string name="settings_software_update_title">Actualización de software</string>
+    <string name="settings_software_update_summary">Busca la última versión e instálala cuando esté disponible.</string>
+    <string name="settings_changelog_title">Registro de cambios</string>
+    <string name="settings_app_icon_title">Icono de la app</string>
+    <string name="settings_app_icon_summary">Elige el icono que aparece en tu dispositivo.</string>
+    <string name="settings_language_title">Idioma</string>
+    <string name="settings_language_summary">Elige el idioma usado por las pantallas compatibles.</string>
+    <string name="settings_language_picker_title">Elegir idioma</string>
+    <string name="settings_language_english">Inglés</string>
+    <string name="settings_language_spanish">Español</string>
+    <string name="settings_camera_glow_title">Brillo de cámara</string>
+    <string name="settings_camera_glow_summary">Muestra el brillo animado alrededor de la acción de cámara.</string>
+    <string name="settings_airport_phone_title">Teléfono del aeropuerto</string>
+    <string name="settings_airport_operations_title">Operaciones del aeropuerto</string>
+    <string name="settings_airport_services_title">Servicios del aeropuerto</string>
+    <string name="settings_human_resources_title">Recursos humanos</string>
+    <string name="settings_lost_found_title">Objetos perdidos</string>
+    <string name="settings_communications_title">Comunicaciones</string>
+    <string name="settings_signup_title">Notificaciones</string>
+    <string name="settings_signup_summary">Regístrate para recibir correos del aeropuerto y de la app.</string>
+    <string name="settings_rate_title">Calificar la app</string>
+    <string name="settings_rate_summary">Deja una calificación o comparte una idea rápida.</string>
+    <string name="settings_share_title">Compartir app</string>
+    <string name="settings_share_summary">Envía el enlace de la app a alguien.</string>
+    <string name="settings_feedback_title">Comentarios</string>
+    <string name="settings_feedback_summary">Cuéntanos qué se debe corregir o mejorar.</string>
+    <string name="settings_feedback_note_subtitle">Envíanos una nota con la información del dispositivo adjunta.</string>
+    <string name="settings_feedback_rules_message">Evita groserías, datos personales, acoso, spam o mensajes de odio.</string>
+    <string name="settings_feedback_empty_message">Escribe tu comentario antes de enviarlo.</string>
+    <string name="settings_licenses_title">Licencias</string>
+    <string name="settings_licenses_summary">Ver bibliotecas de código abierto y créditos.</string>
+    <string name="settings_privacy_title">Política de privacidad</string>
+    <string name="settings_privacy_summary">Lee como se manejan los datos de la app.</string>
+    <string name="settings_device_title">Compilación del dispositivo</string>
+    <string name="settings_no_results_hint">Solo se muestran las opciones que coinciden con la búsqueda.</string>
+    <string name="settings_searching_template">Buscando: %1$s</string>
+    <string name="settings_changelog_offline_title">Sin conexión</string>
+    <string name="settings_changelog_offline">Conéctate a internet para cargar el registro de cambios más reciente.</string>
 
 
 </resources>

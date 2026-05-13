@@ -64,7 +64,7 @@ class CustomBottomSheetFooter : BottomSheetDialogFragment() {
             }
 
             fab2.setOnClickListener { expandBottomSheetAndLoadCarousel() }
-            fab3.setOnClickListener { navigateToActivity(Contact::class.java) }
+            fab3.setOnClickListener { navigateToActivity(SettingsActivity::class.java) }
             fab4.setOnClickListener { navigateToActivity(SettingsActivity::class.java) }
         }
     }

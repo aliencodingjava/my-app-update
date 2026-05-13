@@ -1,6 +1,5 @@
 package com.flights.studio
 
-import android.content.res.Configuration
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,15 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
@@ -309,7 +303,7 @@ private data class Septuple<A, B, C, D, E, F, G>(
 fun Modifier.profileGlassBackdrop(
     backdrop: LayerBackdrop,
     shape: RoundedCornerShape,
-    enabled: Boolean = true
+    enabled: Boolean = true,
 ): Modifier {
     if (!enabled) return this
 
@@ -412,86 +406,6 @@ fun FlightsTheme(
 }
 
 
-/**
- * Theme-backed background that gives Glass/Blur something to refract/blur.
- * - Solid style => flat base
- * - Glass/Blur/Auto => base + blobs
- */
-@Composable
-fun Modifier.profileBackdropBackground(shape: RoundedCornerShape): Modifier {
-    val spec = LocalProfileBackdropSpec.current
-    val cfg = LocalConfiguration.current
-    val isLandscape = cfg.orientation == Configuration.ORIENTATION_LANDSCAPE
-
-    val appBg = LocalAppPageBg.current
-    val m = this.clip(shape)
-
-    val style = LocalProfileBackdropStyle.current
-    val isDark = isSystemInDarkTheme()
-
-    // AMOLED page stays true black
-    if (style == ProfileBackdropStyle.Amoled && isDark) {
-        return m.background(Color.Black)
-    }
-
-    // Flat mode: use theme page bg only
-    if (!spec.enabledFancyBackground) {
-        return m.background(appBg)
-    }
-
-    return m.drawBehind {
-        // ✅ base everywhere
-        drawRect(appBg)
-
-        val w = size.width
-        val h = size.height
-        fun p(n: Offset) = Offset(n.x * w, n.y * h)
-
-        // TOP BLOBS
-        val blobCutoff = h * (if (isLandscape) 0.62f else 0.52f)
-
-        clipRect(0f, 0f, w, blobCutoff) {
-            drawCircle(spec.blob1, spec.r1 * 0.25f, p(spec.c1))
-            drawCircle(spec.blob2, spec.r2 * 0.10f, p(spec.c2))
-            drawCircle(spec.blob3, spec.r3 * 2.25f, p(spec.c3))
-            drawCircle(spec.blob4, spec.r4 * 0.30f, p(spec.c4))
-            drawCircle(spec.blob5, spec.r5 * 0.35f, p(spec.c5))
-            drawCircle(spec.blob6, spec.r6 * 0.20f, p(spec.c6))
-            drawCircle(spec.blob7, spec.r7 * 0.20f, p(spec.c7))
-        }
-
-        val bridgeH = if (isLandscape) 90f else 90f   // MUST be taller to be visible
-
-        val tint = appBg   // ✅ your color, nothing else
-
-        val aTop    = if (isDark) 0.18f else 0.06f
-        val aMid    = if (isDark) 0.38f else 0.14f
-        val aLow    = if (isDark) 0.62f else 0.26f
-        val aBottom = if (isDark) 0.90f else 0.42f
-
-
-        val bridgeBrush = Brush.verticalGradient(
-            colorStops = arrayOf(
-                0.00f to tint.copy(alpha = 0f),
-                0.35f to tint.copy(alpha = aTop),
-                0.65f to tint.copy(alpha = aMid),
-                0.85f to tint.copy(alpha = aLow),
-                1.00f to tint.copy(alpha = aBottom)  // strongest right at blobCutoff
-            ),
-            startY = blobCutoff - bridgeH,
-            endY = blobCutoff
-        )
-
-        drawRect(
-            brush = bridgeBrush,
-            topLeft = Offset(0f, blobCutoff - bridgeH),
-            size = Size(w, bridgeH),
-            blendMode = androidx.compose.ui.graphics.BlendMode.SrcOver
-        )
-
-
-    }
-}
 
 
 

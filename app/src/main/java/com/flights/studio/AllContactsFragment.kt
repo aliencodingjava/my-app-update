@@ -1,6 +1,7 @@
 package com.flights.studio
 
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Canvas
@@ -10,40 +11,43 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.ContextThemeWrapper
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
 import androidx.appcompat.widget.SearchView
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.app.ActivityCompat
 import androidx.core.content.edit
 import androidx.core.graphics.toColorInt
 import androidx.core.view.MenuHost
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.flights.studio.CountryUtils.getCountryCodeAndFlag
 import com.flights.studio.databinding.FragmentAllContactsBinding
-import com.google.android.material.badge.BadgeDrawable
-import com.google.android.material.badge.BadgeUtils
-import com.google.android.material.badge.ExperimentalBadgeUtils
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.navigationrail.NavigationRailView
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
 import java.io.File
@@ -56,11 +60,11 @@ class AllContactsFragment : Fragment() {
     private var isFirstImport = true
     private var hasVibratedOverThreshold = false
     private var wasEmptyTextShown = false
-    private var fabBadgeDrawable: BadgeDrawable? = null
 
 
     companion object {
         private const val REQUEST_CONTACTS_PERMISSION = 1001
+        private const val CONTACT_SWIPE_ARM_DELAY_MS = 600L
     }
 
     // Define light colors for contacts
@@ -80,6 +84,10 @@ class AllContactsFragment : Fragment() {
     private val binding get() = _binding ?: throw IllegalStateException("Binding should not be null after onCreateView")
     // Master list of contacts
     private val contacts = mutableListOf<AllContact>()
+    private val visibleContacts = mutableStateListOf<AllContact>()
+    private val contactPalettes = mutableStateMapOf<String, ContactsAdapter.ColorPalette>()
+    private var topSearchQuery by mutableStateOf("")
+    private var currentFilterQuery = ""
     private lateinit var contactsAdapter: ContactsAdapter
     private lateinit var sharedPreferences: SharedPreferences
     private var snackbar: Snackbar? = null
@@ -89,6 +97,12 @@ class AllContactsFragment : Fragment() {
     private var deletedPositions = mutableListOf<Int>()
     private var snackbarHandler = Handler(Looper.getMainLooper())
     private var deletionFinalized = false
+    private var floatingSearchVisible = false
+    private var contactSwipeStartedOnCard = false
+    private var contactSwipeArmed = false
+    private var contactSwipeDownX = 0f
+    private var contactSwipeDownY = 0f
+    private var contactSwipeArmRunnable: Runnable? = null
 
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -112,7 +126,7 @@ class AllContactsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.recyclerView.itemAnimator = DefaultItemAnimator()
+        binding.recyclerView.visibility = View.GONE
 
         // Set up menu (with search, add, and import options)
         val menuHost: MenuHost = requireActivity()
@@ -129,17 +143,7 @@ class AllContactsFragment : Fragment() {
                     }
 
                     override fun onQueryTextChange(newText: String?): Boolean {
-                        if (newText.isNullOrEmpty()) {
-                            contactsAdapter.resetData()
-                            updateContactCount()
-                        } else {
-                            val filteredList = contacts.filter {
-                                it.name.lowercase(Locale.getDefault())
-                                    .contains(newText.lowercase(Locale.getDefault()))
-                            }
-                            contactsAdapter.updateData(filteredList)
-                            updateContactCount(filteredList.size, isFiltering = true)
-                        }
+                        filterContacts(newText.orEmpty())
                         return true
                     }
                 })
@@ -147,7 +151,7 @@ class AllContactsFragment : Fragment() {
                 searchView?.setOnCloseListener {
                     searchView.setQuery("", false) // Clear the text
                     searchView.clearFocus()        // Remove keyboard focus
-                    contactsAdapter.resetData()    // Reuse your smart reset method
+                    filterContacts("")
                     false
                 }
 
@@ -171,16 +175,15 @@ class AllContactsFragment : Fragment() {
         }, viewLifecycleOwner)
 
         sharedPreferences = requireContext().getSharedPreferences("contacts_data", Context.MODE_PRIVATE)
+        contacts.clear()
+        contacts.addAll(readContactsFromSharedPreferences())
 
-        setupItemTouchHelper()
+        setupContactsCompose()
         updateContactCount()
-        setupRecyclerView()
-        loadContactsFromSharedPreferences()
 
 
     }
-    @OptIn(ExperimentalBadgeUtils::class)
-    private fun updateContactCount(countOverride: Int? = null, isFiltering: Boolean = false) {
+    private fun updateContactCount(countOverride: Int? = null) {
         val totalCount = contacts.size
         val visibleCount = countOverride ?: totalCount
 
@@ -221,66 +224,164 @@ class AllContactsFragment : Fragment() {
             }
         }
 
-        // --- FAB badge like in NotesActivity ---
-        val fab = requireActivity().findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.nav_add_contact)
-        fab.post {
-            if (totalCount > 0) {
-                val themedContext = ContextThemeWrapper(requireContext(), R.style.SmallFabBadge)
-                val badge = fabBadgeDrawable ?: BadgeDrawable.create(themedContext).also {
-                    fabBadgeDrawable = it
-                }
-
-                badge.isVisible = true
-                badge.number = totalCount
-                badge.badgeGravity = BadgeDrawable.TOP_END
-                badge.backgroundColor = Color.RED
-                badge.badgeTextColor = Color.WHITE
-                badge.maxCharacterCount = 4   // 99+
-
-
-                // use 15dp offsets for consistent location across densities
-                val d = resources.displayMetrics.density
-                badge.horizontalOffset = (12 * d).toInt()
-                badge.verticalOffset = (12 * d).toInt()
-
-                BadgeUtils.attachBadgeDrawable(badge, fab)
-            } else {
-                fabBadgeDrawable?.let {
-                    BadgeUtils.detachBadgeDrawable(it, fab)
-                    fabBadgeDrawable = null
-                }
-            }
-        }
-
-        // --- Navigation rail count text ---
-        val navContactCount: TextView = requireActivity().findViewById(R.id.nav_contact_count)
-        navContactCount.text = String.format(Locale.getDefault(), "%d", visibleCount)
-
-        // --- Optional: badge inside NavigationRail menu ---
-        val navigationRailView: NavigationRailView = requireActivity().findViewById(R.id.navigation_rail)
-        val railBadge = navigationRailView.getOrCreateBadge(R.id.nav_add_contact)
-        railBadge.number = visibleCount
-        railBadge.isVisible = visibleCount > 0 && isFiltering
+        (activity as? AllContactsActivity)?.updateContactsChromeCount(visibleCount)
+            ?: (activity as? MainActivity)?.updateContactsChromeCount(visibleCount)
     }
 
-    fun filterContacts(query: String?) {
+    fun filterContacts(
+        query: String?,
+        syncTopSearch: Boolean = true,
+        keepFloatingSearchActive: Boolean = false
+    ) {
         val searchQuery = query?.trim()?.lowercase(Locale.getDefault()).orEmpty()
+        currentFilterQuery = query.orEmpty()
         val filteredList = if (searchQuery.isNotEmpty()) {
             contacts.filter { it.name.lowercase(Locale.getDefault()).contains(searchQuery) }
         } else {
             contacts.toList()
         }
 
-        contactsAdapter.updateData(filteredList)
-        updateContactCount(filteredList.size, isFiltering = searchQuery.isNotEmpty())
+        if (syncTopSearch) {
+            topSearchQuery = query.orEmpty()
+        }
+        updateVisibleContacts(filteredList)
+        updateContactCount(filteredList.size)
+        if (keepFloatingSearchActive && searchQuery.isNotEmpty()) {
+            floatingSearchVisible = true
+            (activity as? AllContactsActivity)?.updateContactsFloatingSearchVisible(true)
+                ?: (activity as? MainActivity)?.updateContactsFloatingSearchVisible(true)
+        }
+    }
+
+    private fun setupContactsCompose() {
+        updateVisibleContacts(contacts)
+        binding.contactsComposeView.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+        )
+        binding.contactsComposeView.setContent {
+            FlightsModernTheme {
+                ContactsComposeList(
+                    contacts = visibleContacts,
+                    totalContactsCount = contacts.size,
+                    topSearchQuery = topSearchQuery,
+                    palettes = contactPalettes,
+                    onFloatingSearchVisibleChange = ::setContactsFloatingSearchVisible,
+                    onEditContact = ::showUpdateContactBottomSheet,
+                    onDeleteContact = { confirmDeleteContact(it) },
+                    onSwipeDeleteContact = ::swipeDeleteContact,
+                    onPaletteClick = ::showPalettePicker,
+                    onCallContact = ::callContact,
+                    onAddContact = ::showAddContactBottomSheet,
+                    onImportContacts = ::showImportConfirmationDialog
+                )
+            }
+        }
+    }
+
+    private fun updateVisibleContacts(newContacts: List<AllContact>) {
+        visibleContacts.clear()
+        visibleContacts.addAll(newContacts)
+        refreshPaletteState(newContacts)
+    }
+
+    private fun refreshVisibleContacts() {
+        filterContacts(
+            query = currentFilterQuery,
+            syncTopSearch = false,
+            keepFloatingSearchActive = currentFilterQuery.isNotBlank()
+        )
+    }
+
+    private fun setContactsFloatingSearchVisible(visible: Boolean) {
+        if (!visible && currentFilterQuery.isNotBlank()) return
+        if (visible == floatingSearchVisible) return
+        floatingSearchVisible = visible
+        (activity as? AllContactsActivity)?.updateContactsFloatingSearchVisible(visible)
+            ?: (activity as? MainActivity)?.updateContactsFloatingSearchVisible(visible)
+    }
+
+    private fun refreshPaletteState(scope: List<AllContact> = contacts) {
+        scope.forEach { contact ->
+            contactPalettes[contact.id] = getPaletteForContact(contact.id)
+        }
+    }
+
+    private fun getPaletteForContact(contactId: String): ContactsAdapter.ColorPalette {
+        val prefs = requireContext().getSharedPreferences("contact_palettes", Context.MODE_PRIVATE)
+        val isDark = (resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val fallbackButton = if (isDark) Color.BLACK else Color.WHITE
+        return ContactsAdapter.ColorPalette(
+            mainColor = prefs.getInt("${contactId}_main", Color.TRANSPARENT),
+            overlayColor = prefs.getInt("${contactId}_overlay", Color.TRANSPARENT),
+            buttonColor = prefs.getInt("${contactId}_button", fallbackButton)
+        )
+    }
+
+    private fun showPalettePicker(contact: AllContact) {
+        PalettePickerBottomSheet { palette ->
+            updateContactPalette(contact, palette)
+        }.show(parentFragmentManager, "PalettePicker")
+    }
+
+    private fun updateContactPalette(contact: AllContact, palette: ContactsAdapter.ColorPalette) {
+        val prefs = requireContext().getSharedPreferences("contact_palettes", Context.MODE_PRIVATE)
+        prefs.edit {
+            if (palette.mainColor == Color.TRANSPARENT &&
+                palette.overlayColor == Color.TRANSPARENT &&
+                palette.buttonColor == Color.TRANSPARENT
+            ) {
+                remove("${contact.id}_main")
+                remove("${contact.id}_overlay")
+                remove("${contact.id}_button")
+            } else {
+                putInt("${contact.id}_main", palette.mainColor)
+                putInt("${contact.id}_overlay", palette.overlayColor)
+                putInt("${contact.id}_button", palette.buttonColor)
+            }
+        }
+        contactPalettes[contact.id] = getPaletteForContact(contact.id)
+    }
+
+    private fun callContact(contact: AllContact) {
+        if (contact.phone.isNotBlank()) {
+            startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${contact.phone}")))
+        } else {
+            Toast.makeText(requireContext(), "Invalid phone number", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun swipeDeleteContact(contact: AllContact) {
+        val masterIndex = contacts.indexOfFirst { it.id == contact.id }
+        if (masterIndex == -1) return
+        deletedContacts.add(contact)
+        deletedPositions.add(masterIndex)
+        contacts.removeAt(masterIndex)
+        saveContactsToSharedPreferences()
+        refreshVisibleContacts()
+        updateContactCount()
+        snackbarHandler.removeCallbacksAndMessages(null)
+        showUndoSnackbar()
     }
 
 
 
 
     private fun setupRecyclerView() {
-        binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        val navContactCount: TextView = requireActivity().findViewById(R.id.nav_contact_count)
+        val layoutManager = LinearLayoutManager(requireContext())
+        binding.recyclerView.layoutManager = layoutManager
+        binding.recyclerView.setHasFixedSize(true)
+        binding.recyclerView.setItemViewCacheSize(12)
+        binding.recyclerView.overScrollMode = View.OVER_SCROLL_NEVER
+        val pageSwipeGutter = (28 * resources.displayMetrics.density).toInt()
+        binding.recyclerView.setPadding(
+            pageSwipeGutter,
+            binding.recyclerView.paddingTop,
+            pageSwipeGutter,
+            binding.recyclerView.paddingBottom
+        )
+        setupContactSwipeGestureGate()
 
         contactsAdapter = ContactsAdapter(
             contacts.toMutableList(),
@@ -289,10 +390,100 @@ class AllContactsFragment : Fragment() {
                 confirmDeleteContact(contact, position)
             },
             onItemClicked = { showUpdateContactBottomSheet(it) },
-            navContactCount = navContactCount
+            onSearchQueryChanged = { query ->
+                (activity as? AllContactsActivity)?.updateContactsSearch(query)
+                    ?: (activity as? MainActivity)?.updateContactsSearch(query)
+                    ?: filterContacts(query)
+            }
         )
 
         binding.recyclerView.adapter = contactsAdapter
+        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                if (!isAdded) return
+                val glide = Glide.with(this@AllContactsFragment)
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    glide.resumeRequests()
+                } else {
+                    glide.pauseRequests()
+                }
+            }
+
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                updateFloatingSearchVisibility(layoutManager)
+            }
+        })
+        binding.recyclerView.post {
+            updateFloatingSearchVisibility(layoutManager)
+        }
+    }
+
+    private fun updateFloatingSearchVisibility(layoutManager: LinearLayoutManager) {
+        val firstVisible = layoutManager.findFirstVisibleItemPosition()
+        val headerView = binding.recyclerView.findViewHolderForAdapterPosition(0)?.itemView
+        val threshold = (24 * resources.displayMetrics.density).toInt()
+        val showFloatingSearch = firstVisible > 0 ||
+            (firstVisible == 0 && headerView != null && headerView.bottom <= threshold)
+
+        if (showFloatingSearch == floatingSearchVisible) return
+        floatingSearchVisible = showFloatingSearch
+
+        (activity as? AllContactsActivity)?.updateContactsFloatingSearchVisible(showFloatingSearch)
+            ?: (activity as? MainActivity)?.updateContactsFloatingSearchVisible(showFloatingSearch)
+    }
+
+    private fun setupContactSwipeGestureGate() {
+        val touchSlop = ViewConfiguration.get(requireContext()).scaledTouchSlop
+        binding.recyclerView.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                if (e.actionMasked == MotionEvent.ACTION_DOWN) {
+                    contactSwipeStartedOnCard = touchStartedOnContactCard(rv, e.x, e.y)
+                    contactSwipeArmed = false
+                    contactSwipeDownX = e.x
+                    contactSwipeDownY = e.y
+                    contactSwipeArmRunnable?.let { rv.removeCallbacks(it) }
+                    if (contactSwipeStartedOnCard) {
+                        contactSwipeArmRunnable = Runnable {
+                            contactSwipeArmed = true
+                            rv.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                        }.also { rv.postDelayed(it, CONTACT_SWIPE_ARM_DELAY_MS) }
+                    }
+                } else if (e.actionMasked == MotionEvent.ACTION_MOVE && !contactSwipeArmed) {
+                    val movedEnough = abs(e.x - contactSwipeDownX) > touchSlop ||
+                        abs(e.y - contactSwipeDownY) > touchSlop
+                    if (movedEnough) {
+                        cancelContactSwipeArm(rv)
+                    }
+                } else if (
+                    e.actionMasked == MotionEvent.ACTION_UP ||
+                    e.actionMasked == MotionEvent.ACTION_CANCEL
+                ) {
+                    cancelContactSwipeArm(rv)
+                }
+                return false
+            }
+        })
+    }
+
+    private fun cancelContactSwipeArm(recyclerView: RecyclerView = binding.recyclerView) {
+        contactSwipeArmRunnable?.let { recyclerView.removeCallbacks(it) }
+        contactSwipeArmRunnable = null
+        contactSwipeStartedOnCard = false
+        contactSwipeArmed = false
+    }
+
+    private fun touchStartedOnContactCard(recyclerView: RecyclerView, x: Float, y: Float): Boolean {
+        val child = recyclerView.findChildViewUnder(x, y) ?: return false
+        val holder = recyclerView.getChildViewHolder(child)
+        if (holder.bindingAdapterPosition <= 0) return false
+
+        val card = child.findViewById<View>(R.id.combined_card) ?: return false
+        val cardLeft = child.left + card.left
+        val cardRight = child.left + card.right
+        val cardTop = child.top + card.top
+        val cardBottom = child.top + card.bottom
+
+        return x >= cardLeft && x <= cardRight && y >= cardTop && y <= cardBottom
     }
 
 
@@ -309,7 +500,9 @@ class AllContactsFragment : Fragment() {
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val adapterPosition = viewHolder.bindingAdapterPosition
                 if (adapterPosition != RecyclerView.NO_POSITION) {
-                    val filteredContact = contactsAdapter.getFilteredContacts()[adapterPosition]
+                    val contactPosition = contactsAdapter.contactIndexForAdapterPosition(adapterPosition)
+                    if (contactPosition !in contactsAdapter.getFilteredContacts().indices) return
+                    val filteredContact = contactsAdapter.getFilteredContacts()[contactPosition]
                     val masterIndex = contacts.indexOfFirst { it.id == filteredContact.id }
                     if (masterIndex != -1) {
                         deletedContacts.add(filteredContact)
@@ -396,11 +589,19 @@ class AllContactsFragment : Fragment() {
                 val foregroundView = viewHolder.itemView.findViewById<View>(R.id.combined_card)
                 foregroundView.alpha = 1f
                 getDefaultUIUtil().clearView(foregroundView)
+                cancelContactSwipeArm(recyclerView)
             }
 
             override fun getSwipeDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
                 val position = viewHolder.bindingAdapterPosition
-                return if (position != RecyclerView.NO_POSITION && contactsAdapter.isExpanded(position))
+                val contactPosition = contactsAdapter.contactIndexForAdapterPosition(position)
+                return if (
+                    !contactSwipeStartedOnCard ||
+                    !contactSwipeArmed ||
+                    position == RecyclerView.NO_POSITION ||
+                    contactPosition !in contactsAdapter.getFilteredContacts().indices ||
+                    contactsAdapter.isExpanded(contactPosition)
+                )
                     0  // Disable swipe when item is expanded
                 else
                     super.getSwipeDirs(recyclerView, viewHolder)
@@ -422,7 +623,7 @@ class AllContactsFragment : Fragment() {
         if (snackbar == null) {
 
             // Create a Snackbar with an empty message and indefinite duration.
-            val snackbarInstance = Snackbar.make(binding.recyclerView, "", Snackbar.LENGTH_INDEFINITE)
+            val snackbarInstance = Snackbar.make(binding.contactsComposeView, "", Snackbar.LENGTH_INDEFINITE)
                 .setAction(getString(R.string.undo)) {
                     // In case the built-in action is used.
                     restoreDeletedContacts()
@@ -455,6 +656,7 @@ class AllContactsFragment : Fragment() {
             // Remove all default views from the Snackbar's layout and add your custom view.
             parent?.removeAllViews()
             parent?.addView(customView)
+            positionUndoSnackbarAboveContactsTabs(snackbarInstance)
 
 
 
@@ -485,6 +687,18 @@ class AllContactsFragment : Fragment() {
         }
     }
 
+    private fun positionUndoSnackbarAboveContactsTabs(snackbar: Snackbar) {
+        val extraBottom = (92 * resources.displayMetrics.density).toInt()
+        val snackbarView = snackbar.view
+        val params = snackbarView.layoutParams
+        if (params is ViewGroup.MarginLayoutParams && params.bottomMargin < extraBottom) {
+            params.bottomMargin = extraBottom
+            snackbarView.layoutParams = params
+        } else {
+            snackbarView.translationY = -extraBottom.toFloat()
+        }
+    }
+
 
     private fun restoreDeletedContacts() {
         if (deletedContacts.isNotEmpty() && deletedPositions.isNotEmpty()) {
@@ -500,9 +714,8 @@ class AllContactsFragment : Fragment() {
                     contacts.add(contact)
                 }
             }
-            // Update the adapter with the restored master list
-            contactsAdapter.updateData(contacts)
             saveContactsToSharedPreferences()
+            refreshVisibleContacts()
             updateContactCount()
             deletedContacts.clear()
             deletedPositions.clear()
@@ -515,7 +728,7 @@ class AllContactsFragment : Fragment() {
 
 
     // --- Confirm deletion via dialog (if user selects Delete manually) ---
-    private fun confirmDeleteContact(contact: AllContact, position: Int) {
+    private fun confirmDeleteContact(contact: AllContact, position: Int = -1) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Delete Contact")
             .setMessage("Are you sure you want to delete ${contact.name}?")
@@ -524,8 +737,10 @@ class AllContactsFragment : Fragment() {
                 deleteContact(contact)
             }
             .setNegativeButton("Cancel") { _, _ ->
-                // If cancelled, refresh the item so it reappears
-                contactsAdapter.notifyItemChanged(position)
+                // If canceled, refresh the item so it reappears
+                if (::contactsAdapter.isInitialized && position != -1) {
+                    contactsAdapter.notifyItemChanged(position)
+                }
             }
             .show()
     }
@@ -536,30 +751,19 @@ class AllContactsFragment : Fragment() {
         if (index != -1) {
             contacts.removeAt(index)
         }
-        contactsAdapter.setFilteredContacts(contacts)
-        contactsAdapter.notifyItemRemoved(index)
         saveContactsToSharedPreferences()
+        refreshVisibleContacts()
         updateContactCount()
     }
 
-    private fun loadContactsFromSharedPreferences() {
+    private fun readContactsFromSharedPreferences(): List<AllContact> {
         val allContactsJson = sharedPreferences.getString("contacts", null)
-        if (!allContactsJson.isNullOrEmpty()) {
-            val contactsList = Gson().fromJson(allContactsJson, Array<AllContact>::class.java).toMutableList()
-            val oldSize = contacts.size
-            contacts.clear()
-            contacts.addAll(contactsList.sortedBy { it.name.lowercase(Locale.getDefault()) })
-            contactsAdapter.setFilteredContacts(contacts)
+        if (allContactsJson.isNullOrEmpty()) return emptyList()
 
-            if (oldSize == 0) {
-                contactsAdapter.notifyItemRangeInserted(0, contacts.size)
-            } else {
-                contactsAdapter.notifyItemRangeRemoved(0, oldSize)
-                contactsAdapter.notifyItemRangeInserted(0, contacts.size)
-            }
-
-            updateContactCount()
-        }
+        return Gson()
+            .fromJson(allContactsJson, Array<AllContact>::class.java)
+            .toList()
+            .sortedBy { it.name.lowercase(Locale.getDefault()) }
     }
 
 
@@ -594,8 +798,7 @@ class AllContactsFragment : Fragment() {
 
             val updatedIndex = contacts.indexOfFirst { it.id == updatedContact.id }
             if (updatedIndex != -1) {
-                contactsAdapter.setFilteredContacts(contacts)
-                contactsAdapter.notifyItemChanged(updatedIndex)
+                refreshVisibleContacts()
             }
         }
 
@@ -614,10 +817,8 @@ class AllContactsFragment : Fragment() {
             val position = if (insertIndex < 0) -insertIndex - 1 else insertIndex
             contacts.add(position, contact)
             saveContactsToSharedPreferences()
-            contactsAdapter.setFilteredContacts(contacts)
-            contactsAdapter.notifyItemInserted(position)
+            refreshVisibleContacts()
             updateContactCount()
-            contactsAdapter.updateContactCount()
 
             val message = if (countryRegion != null && countryFlag != null)
                 "Contact added: ${contact.name}, Country: $countryRegion $countryFlag"
@@ -633,18 +834,9 @@ class AllContactsFragment : Fragment() {
         if (index != -1) {
             contacts[index] = updatedContact
         }
-        val filteredIndex = contactsAdapter.getFilteredContacts().indexOfFirst { it.id == oldContact.id }
-        if (filteredIndex != -1) {
-            contactsAdapter.updateContact(filteredIndex, updatedContact)
-        } else {
-            contactsAdapter.setFilteredContacts(contacts)
-        }
         saveContactsToSharedPreferences()
-        binding.recyclerView.post {
-            contactsAdapter.notifyItemChanged(filteredIndex)
-        }
+        refreshVisibleContacts()
         updateContactCount() // Call here after updating the contact
-        contactsAdapter.updateContactCount()
 
 
     }
@@ -658,6 +850,11 @@ class AllContactsFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        contactSwipeArmRunnable?.let { binding.recyclerView.removeCallbacks(it) }
+        contactSwipeArmRunnable = null
+        floatingSearchVisible = false
+        (activity as? AllContactsActivity)?.updateContactsFloatingSearchVisible(false)
+            ?: (activity as? MainActivity)?.updateContactsFloatingSearchVisible(false)
         super.onDestroyView()
         _binding = null
     }
@@ -678,6 +875,7 @@ class AllContactsFragment : Fragment() {
 
     private fun importContactsFromPhone() {
         val contactList = mutableListOf<AllContact>()
+        var updatedExistingPhotos = false
         try {
             requireContext().contentResolver.query(
                 android.provider.ContactsContract.Contacts.CONTENT_URI,
@@ -759,33 +957,38 @@ class AllContactsFragment : Fragment() {
                             contactPhotoUri,
                             true
                         )
-                        if (photoInputStream != null) {
-                            val file = File(requireContext().filesDir, "imported_photo_${System.currentTimeMillis()}.jpg")
+                        photoInputStream?.use { input ->
+                            val file = File(requireContext().filesDir, "imported_photo_${contactId}_${UUID.randomUUID()}.jpg")
                             FileOutputStream(file).use { output ->
-                                photoInputStream.copyTo(output)
+                                input.copyTo(output)
                             }
                             photoUri = file.absolutePath
                         }
 
-                        if (!phoneNumber.isNullOrEmpty()
-                            && !contacts.any { it.phone.trim() == phoneNumber.trim() }
-                        )
-                        {
-                            val (regionCode, flag) = getCountryCodeAndFlag(phoneNumber)
+                        if (!phoneNumber.isNullOrEmpty()) {
+                            val existingContact = contacts.firstOrNull { it.phone.trim() == phoneNumber.trim() }
+                            if (existingContact != null) {
+                                if (existingContact.photoUri.isNullOrBlank() && !photoUri.isNullOrBlank()) {
+                                    existingContact.photoUri = photoUri
+                                    updatedExistingPhotos = true
+                                }
+                            } else {
+                                val (regionCode, flag) = getCountryCodeAndFlag(phoneNumber)
 
-                            val newContact = AllContact(
-                                id = UUID.randomUUID().toString(),
-                                name = contactName ?: "Unknown",
-                                phone = phoneNumber,
-                                email = email ?: "",
-                                address = address ?: "",
-                                color = lightColors.randomOrNull() ?: Color.LTGRAY,
-                                photoUri = photoUri,
-                                birthday = birthday ?: "",
-                                flag = flag,
-                                regionCode = regionCode
-                            )
-                            contactList.add(newContact)
+                                val newContact = AllContact(
+                                    id = UUID.randomUUID().toString(),
+                                    name = contactName ?: "Unknown",
+                                    phone = phoneNumber,
+                                    email = email ?: "",
+                                    address = address ?: "",
+                                    color = lightColors.randomOrNull() ?: Color.LTGRAY,
+                                    photoUri = photoUri,
+                                    birthday = birthday ?: "",
+                                    flag = flag,
+                                    regionCode = regionCode
+                                )
+                                contactList.add(newContact)
+                            }
                         }
 
                     } while (cursor.moveToNext())
@@ -800,27 +1003,19 @@ class AllContactsFragment : Fragment() {
             val startIndex = contacts.size
             contacts.addAll(contactList.sortedBy { it.name.lowercase(Locale.getDefault()) })
             saveContactsToSharedPreferences()
-            contactsAdapter.setFilteredContacts(contacts)
-            contactsAdapter.notifyItemRangeInserted(startIndex, contactList.size)
-            contactsAdapter.updateContactCount()
+            refreshVisibleContacts()
             updateContactCount()
             isFirstImport = false
             triggerImportAnimation(startIndex, contactList.size)
+        } else if (updatedExistingPhotos) {
+            saveContactsToSharedPreferences()
+            refreshVisibleContacts()
         }
     }
 
     // Method to animate newly imported contacts
     private fun triggerImportAnimation(startIndex: Int, count: Int) {
-        for (i in startIndex until startIndex + count) {
-            binding.recyclerView.post {
-                val viewHolder = binding.recyclerView.findViewHolderForAdapterPosition(i) as? ContactsAdapter.ContactViewHolder
-                viewHolder?.itemView?.startAnimation(
-                    AnimationUtils.loadAnimation(requireContext(), R.anim.item_slide_up).apply {
-                        duration = 700  // Set your desired duration
-                    }
-                )
-            }
-        }
+        // Compose list rows animate their own placement; no XML holder animation is needed.
     }
 
     override fun onPause() {
@@ -839,7 +1034,7 @@ class AllContactsFragment : Fragment() {
             .setTitle("Import Contacts")
 
             .setMessage("Do you want to import contacts from your phone?")
-            .setPositiveButton("Import") { dialog, which ->
+            .setPositiveButton("Import") { _, _ ->
                 // User clicked "Import" button, proceed with checking permissions
                 checkPermissions()
             }

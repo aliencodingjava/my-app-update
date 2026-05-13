@@ -1,160 +1,121 @@
-<table align="center" width="100%">
-<tr>
+# JH AirTracker
 
-<td width="25%" valign="top">
+JH AirTracker brings Jackson Hole airport tools, live flight information, notes, contacts, profile tools, QR, and travel shortcuts into one polished Android app.
 
-### 🎨 Glass System
-- Refined glassmorphism blur  
-- Enhanced chromatic refraction  
-- Lens depth improvements  
-- Adaptive luminance highlights  
-- Warmer Light mode blending  
-
-</td>
-
-<td width="25%" valign="top">
-
-### 🧠 AI & Smart
-- Gemini title suggestions  
-- Shimmer preview text  
-- Tap-to-accept / override  
-- Dynamic icon styling  
-- Network-aware handling  
-
-</td>
-
-<td width="25%" valign="top">
-
-### 🚀 Motion & Physics
-- InteractiveHighlight migration  
-- Faster press scaling  
-- 3D lens deformation  
-- Magnetic drag offsets  
-- Tanh rubber-band overscroll  
-- Elastic bounce refinement  
-
-</td>
-
-<td width="25%" valign="top">
-
-### 📱 Features & Polish
-- Notes onboarding overlay  
-- Liquid gallery improvements  
-- Optimized image loading  
-- Reduced recompositions  
-- Haptic refinement  
-- Dependency updates  
-
-</td>
-
-</tr>
-</table>
+The V248 release focuses on a smoother everyday experience: cleaner navigation, stronger account security, better notes and contacts onboarding, and a much richer flight screen with modern tables, live arrival status, weather, and inbound aircraft insight.
 
 ---
-## 📸 Preview
+
+## Status
+
+| Area | Status |
+| --- | --- |
+| App version | V248FLIGHTS |
+| Build | 0.2.244 / versionCode 248 |
+| Release date | May 12, 2026 |
+| Android | Android 8.0+ |
+| Main experience | Home, Contacts, Notes, Settings, Flights |
+
+---
+
+## What's New in V248
+
+| Feature | What it means for users |
+| --- | --- |
+| Two-factor security | Add extra account protection with authenticator-app verification. |
+| Modern flight tables | Flights are easier to scan with compact rows, clear date sections, and status pills like Arrived, Early, and On Time. |
+| Flight intelligence | See live arrival cards, inbound aircraft status, weather, delay summaries, and approach confidence. |
+| New bottom navigation | Move between Home, Contacts, Notes, Settings, and Menu with a cleaner Liquid Glass navigation bar. |
+| Notes welcome flow | New users get a friendly notes intro with photos, reminders, search, sorting, grid view, sync, and settings highlights. |
+| Contacts welcome flow | Contacts now introduces import, add, search, call, edit, color, and delete actions clearly. |
+| Home dashboard | Airport tools, live cameras, flight tracking, travel links, QR, contacts, notes, settings, and profile are easier to discover. |
+| Profile quick actions | Login, theme, 2FA, and privacy are grouped in a simple profile panel. |
+| App icon choices | Choose from branded JH icon styles including seasonal and exclusive looks. |
+| Feedback experience | Feedback now feels more interactive, with clearer sending status and a more modern presentation. |
+
+---
+
+## Flight Experience
+
+The flight screen was rebuilt to feel more like a real airport companion:
+
+| Flight feature | Included |
+| --- | --- |
+| Arrivals and departures | Yes |
+| Modern compact table | Yes |
+| Light and dark themes | Yes |
+| Status pills | Arrived, Early, On Time, delays, cancellations |
+| Live arrival status | Yes |
+| Weather strip | Temperature, wind, visibility, warnings |
+| Delay summary | Arrival delays, departure delays, on-time state |
+| Inbound traffic | Aircraft cards with route, ETA, schedule state |
+| Approach confidence | Low, medium, high approach signal where available |
+
+---
+
+## Preview
 
 <table align="center" cellspacing="6" cellpadding="0">
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/a210e782-1011-471a-b828-f1516eed4939" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/cf8ac6bd-9c19-4437-b75a-ac5ef36ea4d8" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/cd7f5624-0b57-49ad-ab71-da1ba0794b6a" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/3fcaae20-848d-4f8c-98e0-14db771155d0" width="200"/></td>
+    <td><img src="assets/screenshots/v248-profile.png" width="200" alt="Profile screen"/></td>
+    <td><img src="assets/screenshots/v248-profile-quick-actions.png" width="200" alt="Profile quick actions"/></td>
+    <td><img src="assets/screenshots/v248-notes-welcome.png" width="200" alt="Notes welcome screen"/></td>
+    <td><img src="assets/screenshots/v248-contacts-welcome.png" width="200" alt="Contacts welcome screen"/></td>
   </tr>
-
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/4ca04e57-b8f4-46dd-819a-c507ef191c31" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/ee5b4f8c-b4fc-47dd-a7e2-c6af9087b4ae" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/ccd14678-1270-4a26-9bc8-c5ec4329b82a" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/85f01932-bdce-4069-9636-b2f1294ded68" width="200"/></td>
+    <td><img src="assets/screenshots/v248-home-welcome.png" width="200" alt="Home welcome screen"/></td>
+    <td><img src="assets/screenshots/v248-flights-table-light.png" width="200" alt="Flights table light mode"/></td>
+    <td><img src="assets/screenshots/v248-flight-status-light.png" width="200" alt="Flight status light mode"/></td>
+    <td><img src="assets/screenshots/v248-flights-table-dark.png" width="200" alt="Flights table dark mode"/></td>
   </tr>
-
   <tr>
-    <td><img src="https://github.com/user-attachments/assets/5ba7da30-c838-4f80-a14a-81548684a7b9" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/134b1219-51fe-42f5-ba97-11666e26e69f" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/bb712e7b-c25a-41a0-91bb-cf31513a16d2" width="200"/></td>
-    <td><img src="https://github.com/user-attachments/assets/53fecc52-410d-44e2-a2f7-ff703a090c50" width="200"/></td>
+    <td><img src="assets/screenshots/v248-flight-status-dark.png" width="200" alt="Flight status dark mode"/></td>
   </tr>
 </table>
 
+---
+
+## Everyday Tools
+
+| Section | Highlights |
+| --- | --- |
+| Home | Live cameras, airport news, flights, travel tools, driver links, QR, profile |
+| Contacts | Import people, add contacts, search fast, call, edit, color, delete |
+| Notes | Add notes fast, attach photos, set reminders, search, sort, sync |
+| Settings | Searchable settings, app icon picker, update checks, language and privacy tools |
+| Profile | Guest mode, login, theme, 2FA, privacy, account details |
 
 ---
 
-<div align="center">
-  <h1>✈️ Jack Flight Studio</h1>
-  <p>
-    <a href="#status"><img alt="Status" src="https://img.shields.io/badge/status-stable-brightgreen"></a>
-    <a href="#tech-stack"><img alt="Android" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white"></a>
-    <a href="#tech-stack"><img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-%E2%9C%93-7F52FF?logo=kotlin&logoColor=white"></a>
-    <a href="#tech-stack"><img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack%20Compose-%E2%9C%93-4285F4?logo=jetpackcompose&logoColor=white"></a>
-    <a href="#tech-stack"><img alt="Supabase" src="https://img.shields.io/badge/Supabase-%E2%9C%93-3FCF8E?logo=supabase&logoColor=white"></a>
-  </p>
-  <p><strong>Jack Flight Studio</strong> is an Android app for tracking flights in real time and managing travel notes.<br>
-  Built with Jetpack Compose and a custom <strong>LiquidGlass</strong> design for a smooth, modern experience.</p>
-</div>
+## Update Notes
 
-<hr>
+V248 continues the move to a cleaner pager-style app experience and adds stronger security with 2FA support. The flights screen is now much easier to read, with a modern table, status pills, live arrival cards, weather context, and inbound traffic details.
 
-<h2 id="status">🚥 Status</h2>
-<p><strong>Stable:</strong> ready for everyday use. Ongoing updates focus on performance, UX polish, and new features without breaking core workflows.</p>
+Notes and contacts now feel more welcoming for first-time users, while the home screen brings airport tools and travel shortcuts closer to the first tap.
 
-<hr>
+---
 
-<h2>✨ Features</h2>
-<ul>
-  <li>Live flight tracking with dynamic map and search</li>
-  <li>Personal notes and reminders synced with Supabase</li>
-  <li>Beautiful glass-blur UI powered by AndroidLiquidGlass</li>
-  <li>Dark &amp; light themes with adaptive colors</li>
-</ul>
+## Credits & Thanks
 
-<hr>
+Glass effects are powered by [AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) by [@Kyant0](https://github.com/Kyant0).
 
-<h2 id="tech-stack">🧩 Tech Stack</h2>
-<ul>
-  <li><strong>Kotlin</strong>, <strong>Jetpack Compose</strong></li>
-  <li><strong>Supabase</strong> (Auth, PostgREST, Realtime)</li>
-  <li><strong>AndroidLiquidGlass</strong> for glass-blur &amp; adaptive text color</li>
-  <li><strong>MotionLayout</strong> animations</li>
-  <li><strong>Glide</strong> image caching</li>
-</ul>
+<p>
+  <a href="https://github.com/Kyant0/AndroidLiquidGlass" title="Star AndroidLiquidGlass">
+    <img alt="Star AndroidLiquidGlass" src="https://img.shields.io/github/stars/Kyant0/AndroidLiquidGlass?style=social">
+  </a>
+  <a href="https://github.com/Kyant0" title="Follow @Kyant0 on GitHub">
+    <img alt="Follow @Kyant0" src="https://img.shields.io/badge/Follow-@Kyant0-181717?logo=github&logoColor=white">
+  </a>
+  <a href="https://github.com/Kyant0/AndroidLiquidGlass/subscription" title="Watch for updates">
+    <img alt="Watch updates" src="https://img.shields.io/badge/Watch-updates-1f6feb?logo=github&logoColor=white">
+  </a>
+  <a href="https://github.com/Kyant0/AndroidLiquidGlass/issues/new?title=Thanks%20for%20AndroidLiquidGlass&body=Thanks%20for%20AndroidLiquidGlass!">
+    <img alt="Say thanks" src="https://img.shields.io/badge/Say%20thanks-blueviolet">
+  </a>
+</p>
 
-<hr>
-
-<hr>
-
-<div align="center">
-  <h3>🙏 Credits &amp; Thanks</h3>
-  <p>
-    Glass effects are powered by
-    <a href="https://github.com/Kyant0/AndroidLiquidGlass"><strong>AndroidLiquidGlass</strong></a>
-    by <a href="https://github.com/Kyant0"><strong>@Kyant0</strong></a>.
-  </p>
-
-  <!-- "Love" actions -->
-  <p>
-    <!-- Star the repo -->
-    <a href="https://github.com/Kyant0/AndroidLiquidGlass" title="Star AndroidLiquidGlass">
-      <img alt="Star" src="https://img.shields.io/github/stars/Kyant0/AndroidLiquidGlass?style=social">
-    </a>
-    <!-- Follow the author -->
-    <a href="https://github.com/Kyant0" title="Follow @Kyant0 on GitHub">
-      <img alt="Follow @Kyant0" src="https://img.shields.io/badge/Follow-@Kyant0-181717?logo=github&logoColor=white">
-    </a>
-    <!-- Watch updates -->
-<a href="https://github.com/Kyant0/AndroidLiquidGlass/subscription" title="Watch for updates">
-  <img alt="Watch updates" src="https://img.shields.io/badge/Watch-updates-1f6feb?logo=github&logoColor=white">
-</a>
-    <!-- Say thanks (opens a prefilled issue) -->
-    <a href="https://github.com/Kyant0/AndroidLiquidGlass/issues/new?title=Thanks%20for%20AndroidLiquidGlass&body=%F0%9F%92%99%20Thanks%20for%20AndroidLiquidGlass!%20It%20helped%20me%20with%20...">
-      <img alt="Say thanks" src="https://img.shields.io/badge/Say%20thanks-%F0%9F%92%9A-blueviolet">
-    </a>
-  </p>
-
-  <p>
-    <a href="https://github.com/Kyant0">
-      <img src="https://github.com/Kyant0.png?size=96" width="72" height="72" alt="@Kyant0 avatar">
-    </a>
-  </p>
-</div>
-
-
+<p>
+  <a href="https://github.com/Kyant0">
+    <img src="https://github.com/Kyant0.png?size=96" width="72" height="72" alt="@Kyant0 avatar">
+  </a>
+</p>

@@ -3,6 +3,7 @@ package com.flights.studio
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -25,13 +26,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastCoerceAtMost
+import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -39,7 +45,11 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
-
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tanh
 
 @Composable
 fun TopRightPillActions(
@@ -47,16 +57,32 @@ fun TopRightPillActions(
     backdrop: Backdrop,
     onHome: () -> Unit,
     onSettings: () -> Unit,
+    isInteractive: Boolean = true,
 ) {
     val isDark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(999.dp)
 
-    val (tint, contrast) = glassTint(isDark)
+    val tint = if (isDark) {
+        Color.White.copy(alpha = 0.10f)
+    } else {
+        Color.White.copy(alpha = 0.34f)
+    }
+
+    val contrast = if (isDark) {
+        Color.White.copy(alpha = 0.03f)
+    } else {
+        Color.White.copy(alpha = 0.50f)
+    }
+
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(
+            animationScope = animationScope
+        )
+    }
 
     Surface(
         modifier = modifier
-            .height(50.dp)
-            .width(100.dp)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { shape },
@@ -70,33 +96,74 @@ fun TopRightPillActions(
                         )
                     } else {
                         Highlight(
-                            width = 0.30.dp,
-                            blurRadius = 1.0.dp,
-                            alpha = 0.95f,
-                            style = HighlightStyle.Plain // very subtle
+                            width = 0.40.dp,
+                            blurRadius = 1.2.dp,
+                            alpha = 1.0f,
+                            style = HighlightStyle.Plain
                         )
                     }
                 },
                 shadow = null,
                 effects = {
-//                    colorControls(
-//                        brightness = if (isDark) -0.03f else 0.02f,
-//                        contrast = if (isDark) 1.10f else 1.05f,
-//                        saturation = if (isDark) 1.10f else 1.05f
-//                    )
                     vibrancy()
-                    blur(0f.dp.toPx())
+                    blur(1.5.dp.toPx(), edgeTreatment = TileMode.Clamp)
                     lens(
-                        refractionHeight = 10f.dp.toPx(),
-                        refractionAmount = 22f.dp.toPx(),
-                        depthEffect = true
+                        refractionHeight = 20.dp.toPx(),
+                        refractionAmount = 30.dp.toPx(),
+                        depthEffect = false,
+                        chromaticAberration = false
                     )
+                },
+                layerBlock = if (isInteractive) {
+                    {
+                        val width = size.width
+                        val height = size.height
+
+                        val progress = interactiveHighlight.pressProgress
+                        val scale = lerp(1f, 1f + 4f.dp.toPx() / size.height, progress)
+
+                        val maxOffset = size.minDimension
+                        val initialDerivative = 0.05f
+                        val offset = interactiveHighlight.offset
+                        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+                        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+
+                        val maxDragScale = 4f.dp.toPx() / size.height
+                        val offsetAngle = atan2(offset.y, offset.x)
+                        scaleX =
+                            scale +
+                                    maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                                    (width / height).fastCoerceAtMost(1f)
+                        scaleY =
+                            scale +
+                                    maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                                    (height / width).fastCoerceAtMost(1f)
+                    }
+                } else {
+                    null
                 },
                 onDrawSurface = {
                     drawRect(tint)
-                    contrast?.let { drawRect(it) }
+                    drawRect(contrast)
                 }
-            ),
+            )
+            .clickable(
+                interactionSource = null,
+                indication = if (isInteractive) null else LocalIndication.current,
+                role = Role.Button,
+                onClick = { }
+            )
+            .then(
+                if (isInteractive) {
+                    Modifier
+                        .then(interactiveHighlight.modifier)
+                        .then(interactiveHighlight.gestureModifier)
+                } else {
+                    Modifier
+                }
+            )
+            .height(45.dp)
+            .width(95.dp),
         color = Color.Transparent,
         shape = shape,
         tonalElevation = 0.dp,
@@ -105,7 +172,7 @@ fun TopRightPillActions(
         Row(
             Modifier
                 .fillMaxSize()
-                .padding(horizontal = 0.dp) // ✅ small space left/right
+                .padding(horizontal = 0.dp)
         ) {
             PillIconButton(
                 iconRes = R.drawable.ic_oui_home,
@@ -128,9 +195,9 @@ private fun RowScope.PillIconButton(
     val interaction = remember { MutableInteractionSource() }
 
     val pressed by interaction.collectIsPressedAsState()
-    val hovered by interaction.collectIsHoveredAsState() // ✅ pen/mouse hover
+    val hovered by interaction.collectIsHoveredAsState()
 
-    val active = pressed || hovered // ✅ hover OR press
+    val active = pressed || hovered
 
     val pressAlpha by animateFloatAsState(
         targetValue = if (active) 1f else 0f,
@@ -139,19 +206,28 @@ private fun RowScope.PillIconButton(
     )
 
     val pressScale by animateFloatAsState(
-        targetValue = if (pressed) 1.06f else if (hovered) 1.03f else 1.0f, // ✅ subtle hover, stronger press
+        targetValue = if (pressed) 1.06f else if (hovered) 1.03f else 1.0f,
         animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
         label = "pressScale"
     )
 
-    val bubbleColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.10f)
-    val iconTint = if (isDark) Color.White.copy(alpha = 0.95f) else Color.Black.copy(alpha = 0.85f)
+    val bubbleColor = if (isDark) {
+        Color.White.copy(alpha = 0.10f)
+    } else {
+        Color.White.copy(alpha = 0.28f)
+    }
+
+    val iconTint = if (isDark) {
+        Color.White.copy(alpha = 0.95f)
+    } else {
+        Color.Black.copy(alpha = 0.78f)
+    }
 
     Box(
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
-            .hoverable(interactionSource = interaction) // ✅ THIS enables hover highlight
+            .hoverable(interactionSource = interaction)
             .clickable(
                 interactionSource = interaction,
                 indication = null
@@ -160,7 +236,7 @@ private fun RowScope.PillIconButton(
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(40.dp)
                 .graphicsLayer {
                     alpha = pressAlpha
                     scaleX = pressScale
@@ -174,7 +250,7 @@ private fun RowScope.PillIconButton(
             painter = painterResource(iconRes),
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(22.dp)
         )
     }
 }

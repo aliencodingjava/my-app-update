@@ -115,7 +115,7 @@ class ViewNoteComposeActivity : ComponentActivity() {
         val uid: String? = intent.getStringExtra(EXTRA_UID)
             ?: intent.getStringExtra("NOTE_UID")
 
-        if (note.isEmpty() || position == -1) {
+        if (note.isEmpty()) {
             Toast.makeText(this, getString(R.string.error_loading_note), Toast.LENGTH_SHORT).show()
             finish()
             applyTransition()

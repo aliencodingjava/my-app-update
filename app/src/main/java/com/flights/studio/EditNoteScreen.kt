@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Info
@@ -76,6 +77,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -687,6 +689,10 @@ fun EditNoteScreen(
                                         onValueChange = { title = it },
                                         modifier = Modifier.fillMaxWidth(),
                                         singleLine = true,
+                                        keyboardOptions = KeyboardOptions(
+                                            capitalization = KeyboardCapitalization.Sentences,
+                                            autoCorrectEnabled = false
+                                        ),
                                         shape = RoundedCornerShape(14.dp)
                                     )
                                 }
@@ -728,6 +734,10 @@ fun EditNoteScreen(
                                         onValueChange = { note = it },
                                         modifier = Modifier.fillMaxWidth(),
                                         minLines = 6,
+                                        keyboardOptions = KeyboardOptions(
+                                            capitalization = KeyboardCapitalization.Sentences,
+                                            autoCorrectEnabled = false
+                                        ),
                                         shape = RoundedCornerShape(14.dp)
                                     )
                                 }

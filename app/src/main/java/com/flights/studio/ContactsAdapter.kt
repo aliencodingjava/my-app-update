@@ -2,6 +2,8 @@ package com.flights.studio
 
 import android.content.Context
 import android.content.Intent
+import android.content.ContextWrapper
+import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Canvas
@@ -15,7 +17,6 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.animation.doOnEnd
 import androidx.core.content.edit
 import androidx.core.graphics.ColorUtils
@@ -24,7 +25,15 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListUpdateCallback
 import androidx.recyclerview.widget.RecyclerView
+import androidx.fragment.app.FragmentActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.DownsampleStrategy
 import com.bumptech.glide.request.RequestOptions
@@ -32,9 +41,10 @@ import com.flights.studio.databinding.ItemContactBinding
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Locale
 
 
 @Suppress("DEPRECATION")
@@ -44,10 +54,10 @@ class ContactsAdapter(
     private val context: Context,
     private val onDeleteConfirmed: (AllContact, Int) -> Unit,
     private val onItemClicked: (AllContact) -> Unit,
-    private val navContactCount: TextView,
+    private val onSearchQueryChanged: (String) -> Unit,
 
 
-) : RecyclerView.Adapter<ContactsAdapter.ContactViewHolder>() {
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     data class ColorPalette(
         val mainColor: Int,       // for combined_card
@@ -60,10 +70,37 @@ class ContactsAdapter(
 
     private var expandedPosition = -1
     private var filteredContacts: MutableList<AllContact> = contacts.toMutableList()
+    private var searchQuery: String = ""
+    private val birthdayPrefs: SharedPreferences =
+        context.getSharedPreferences("birthday_reminders", Context.MODE_PRIVATE)
+    private val palettePrefs: SharedPreferences =
+        context.getSharedPreferences("contact_palettes", Context.MODE_PRIVATE)
+    private val paletteCache = mutableMapOf<String, ColorPalette>()
+    private val flagDrawableCache = mutableMapOf<String, Drawable>()
+    private val flagSizePx = (context.resources.displayMetrics.density * 24).toInt().coerceAtLeast(1)
+    private val avatarLoadSizePx = (context.resources.displayMetrics.density * 72).toInt().coerceAtLeast(96)
+    private val loadContactPhotosInList = false
+    private val diffScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var updateJob: Job? = null
+    private var updateGeneration = 0
 
 
+    override fun getItemViewType(position: Int): Int =
+        if (position == 0) VIEW_TYPE_SEARCH else VIEW_TYPE_CONTACT
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ContactViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        if (viewType == VIEW_TYPE_SEARCH) {
+            return SearchHeaderViewHolder(
+                ComposeView(parent.context).apply {
+                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                    layoutParams = RecyclerView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                }
+            )
+        }
+
         val binding = ItemContactBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return ContactViewHolder(binding).apply {
             // lock radius here so every holder is consistent
@@ -85,67 +122,98 @@ class ContactsAdapter(
     }
 
     override fun onBindViewHolder(
-        holder: ContactViewHolder,
+        holder: RecyclerView.ViewHolder,
         position: Int,
         payloads: MutableList<Any>
     ) {
+        if (holder is SearchHeaderViewHolder) {
+            holder.bind()
+            return
+        }
+
         if (payloads.isNotEmpty() && payloads.any { it == "toggle_expand" }) {
-            holder.setExpandableState(position, animate = true) // only animate here
+            (holder as ContactViewHolder).setExpandableState(position - 1, animate = true)
         } else {
             super.onBindViewHolder(holder, position, payloads)
         }
     }
-    override fun onBindViewHolder(holder: ContactViewHolder, position: Int) {
-        val contact = filteredContacts[position]
-        holder.bind(contact)
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        if (holder is SearchHeaderViewHolder) {
+            holder.bind()
+            return
+        }
+        val contactPosition = position - 1
+        val contact = filteredContacts[contactPosition]
+        (holder as ContactViewHolder).bind(contact, contactPosition)
     }
 
 
     init { setHasStableIds(true) }
 
     override fun getItemId(position: Int): Long =
-        filteredContacts[position].id.hashCode().toLong()
+        if (position == 0) Long.MIN_VALUE else filteredContacts[position - 1].id.hashCode().toLong()
 
 
 
     fun getFilteredContacts(): List<AllContact> = filteredContacts
 
-    override fun getItemCount() = filteredContacts.size
+    override fun getItemCount() = filteredContacts.size + 1
+
+    fun contactIndexForAdapterPosition(adapterPosition: Int): Int = adapterPosition - 1
+
+    fun adapterPositionForContactIndex(contactIndex: Int): Int = contactIndex + 1
+
+    fun setSearchQuery(query: String) {
+        if (searchQuery == query) return
+        searchQuery = query
+        notifyItemChanged(0)
+    }
 
     fun updateContact(position: Int, updatedContact: AllContact) {
         val originalIndex = contacts.indexOfFirst { it.id == filteredContacts[position].id }
         if (originalIndex != -1) {
             contacts[originalIndex] = updatedContact
             filteredContacts[position] = updatedContact
-            notifyItemChanged(position)
+            notifyItemChanged(adapterPositionForContactIndex(position))
         }
     }
-
-
-    fun updateContactCount() {
-        // Use filteredContacts.size so it reflects the currently displayed items
-        navContactCount.text = String.format(Locale.getDefault(), "%,d", filteredContacts.size)
-
-    }
-
 
 
     fun updateData(newList: List<AllContact>) {
         // Check if data has changed to avoid unnecessary UI updates
         if (filteredContacts != newList) {
-            CoroutineScope(Dispatchers.IO).launch {
+            val generation = ++updateGeneration
+            val oldList = filteredContacts.toList()
+            val targetList = newList.toList()
+            updateJob?.cancel()
+            updateJob = diffScope.launch {
                 // Perform DiffUtil calculations on background thread to not block UI
-                val diffCallback = ContactDiffCallback(filteredContacts, newList)
+                val diffCallback = ContactDiffCallback(oldList, targetList)
                 val diffResult = DiffUtil.calculateDiff(diffCallback, false)
 
                 // Apply updates on the main thread after DiffUtil calculation
                 withContext(Dispatchers.Main) {
+                    if (generation != updateGeneration) return@withContext
                     // Update the filteredContacts list and apply diff to the RecyclerView adapter
                     filteredContacts.clear()
-                    filteredContacts.addAll(newList)
-                    diffResult.dispatchUpdatesTo(this@ContactsAdapter)
-                    // Update the count after the data is updated
-                    updateContactCount()
+                    filteredContacts.addAll(targetList)
+                    diffResult.dispatchUpdatesTo(object : ListUpdateCallback {
+                        override fun onInserted(position: Int, count: Int) {
+                            notifyItemRangeInserted(position + 1, count)
+                        }
+
+                        override fun onRemoved(position: Int, count: Int) {
+                            notifyItemRangeRemoved(position + 1, count)
+                        }
+
+                        override fun onMoved(fromPosition: Int, toPosition: Int) {
+                            notifyItemMoved(fromPosition + 1, toPosition + 1)
+                        }
+
+                        override fun onChanged(position: Int, count: Int, payload: Any?) {
+                            notifyItemRangeChanged(position + 1, count, payload)
+                        }
+                    })
                 }
             }
         }
@@ -158,7 +226,25 @@ class ContactsAdapter(
     fun setFilteredContacts(newList: List<AllContact>) {
         filteredContacts.clear()
         filteredContacts.addAll(newList)
-        updateData(newList)
+    }
+
+    inner class SearchHeaderViewHolder(private val composeView: ComposeView) :
+        RecyclerView.ViewHolder(composeView) {
+        fun bind() {
+            composeView.setContent {
+                FlightsTheme(profileBackdropStyle = ProfileBackdropStyle.Auto) {
+                    var localQuery by remember(searchQuery) { mutableStateOf(searchQuery) }
+                    ContactsTopSearchBar(
+                        query = localQuery,
+                        onQueryChange = { query ->
+                            localQuery = query
+                            searchQuery = query
+                            onSearchQueryChanged(query)
+                        }
+                    )
+                }
+            }
+        }
     }
 
     class ContactDiffCallback(
@@ -194,7 +280,6 @@ class ContactsAdapter(
         val luminance = ColorUtils.calculateLuminance(backgroundColor)
         val color = if (luminance < 0.5) Color.WHITE else Color.BLACK
 
-        android.util.Log.d("TextColorDebug", "bg=${String.format("#%06X", 0xFFFFFF and backgroundColor)}, lum=$luminance, color=${if (color == Color.WHITE) "WHITE" else "BLACK"}")
         return color
     }
 
@@ -208,50 +293,18 @@ class ContactsAdapter(
     inner class ContactViewHolder(private val binding: ItemContactBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
+        private var currentContact: AllContact? = null
 
-        fun bind(contact: AllContact) {
+        fun bind(contact: AllContact, contactPosition: Int) {
+            currentContact = contact
             with(binding) {
-                // --- Phone text + flag on the RIGHT (ImageView: flagEnd) ---
-                val phoneText = contact.phone.ifEmpty { "No Phone Available" }
-                textPhone.textDirection = View.TEXT_DIRECTION_LTR
-                textPhone.text = phoneText
                 textName.text = contact.name.ifBlank { "(No name)" }
-
-                textPhone.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null)
-                textPhone.compoundDrawablePadding = 0
-
-// reset
-                flagEnd.visibility = View.GONE
-                flagEnd.setImageDrawable(null)
-
-                if (!contact.flag.isNullOrEmpty()) {
-                    flagEnd.visibility = View.VISIBLE
-                    // render the emoji exactly at the ImageView's size (respect XML)
-                    flagEnd.post {
-                        val target = (minOf(flagEnd.width, flagEnd.height)
-                            .takeIf { it > 0 } ?: textPhone.lineHeight).coerceAtLeast(1)
-
-                        getEmojiDrawable(context, contact.flag, target)?.let { flagEnd.setImageDrawable(it) }
-                    }
-                }
-
-                textEmail.text = contact.email ?: "No Email Available"
-                textAddress.text = contact.address ?: "No Address Available"
-                textBirthday.text = contact.birthday ?: "No Birthday Available"
-                if (!contact.birthday.isNullOrBlank()) {
-                    val prefs = context.getSharedPreferences("birthday_reminders", Context.MODE_PRIVATE)
-                    val isReminderSet = prefs.getBoolean("${contact.id}_birthday_set", false)
-                    birthdayIcon.visibility = if (isReminderSet) View.VISIBLE else View.GONE
-                } else {
-                    birthdayIcon.visibility = View.GONE
-                }
-
 
                 // Hide delete background by default
                 deleteBackground.visibility = View.GONE
                 deleteBackground.alpha = 0f
 
-                if (!contact.photoUri.isNullOrBlank()) {
+                if (loadContactPhotosInList && !contact.photoUri.isNullOrBlank()) {
                     iconImage.visibility = View.VISIBLE
                     iconInitials.visibility = View.GONE
 
@@ -271,13 +324,15 @@ class ContactsAdapter(
                         .error(R.drawable.avatar_11)
                         .apply(
                             RequestOptions()
-                                .override(600, 600)
+                                .override(avatarLoadSizePx, avatarLoadSizePx)
                                 .downsample(DownsampleStrategy.CENTER_INSIDE)
                                 .circleCrop()
+                                .dontAnimate()
                         )
                         .into(iconImage)
 
                 } else {
+                    Glide.with(context).clear(iconImage)
                     iconImage.visibility = View.GONE
                     iconInitials.visibility = View.VISIBLE
                     iconInitials.text = getInitials(contact.name).uppercase()
@@ -298,54 +353,69 @@ class ContactsAdapter(
 
                 collapsingTextContainer.setBackgroundColor(palette.mainColor)
 
-                expandableContent.setBackgroundColor(
-                    if (isExpanded(absoluteAdapterPosition)) getSofterColor(palette.overlayColor)
+                val topTextColor = getTextcolorForBackground(context, palette.mainColor)
+                textName.setTextColor(topTextColor)
 
-                    else palette.overlayColor
-                )
+                if (isExpanded(contactPosition)) {
+                    bindExpandableContent(contact, palette)
+                }
+                setExpandableState(contactPosition, animate = false) // snap to state in bind; no animation
+                collapsingTextContainer.setOnClickListener {
+                    handleExpandCollapseClick(bindingAdapterPosition - 1)
+                }
+                expandCollapseIcon.setOnClickListener {
+                    handleExpandCollapseClick(bindingAdapterPosition - 1)
+                }
+            }
+        }
+
+        private fun bindExpandableContent(contact: AllContact, palette: ColorPalette) {
+            with(binding) {
+                val phoneText = contact.phone.ifEmpty { "No Phone Available" }
+                textPhone.textDirection = View.TEXT_DIRECTION_LTR
+                textPhone.text = phoneText
+                textPhone.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null)
+                textPhone.compoundDrawablePadding = 0
+
+                flagEnd.visibility = View.GONE
+                flagEnd.setImageDrawable(null)
+                if (!contact.flag.isNullOrEmpty()) {
+                    flagEnd.visibility = View.VISIBLE
+                    getCachedEmojiDrawable(contact.flag, flagSizePx)?.let { flagEnd.setImageDrawable(it) }
+                }
+
+                textEmail.text = contact.email ?: "No Email Available"
+                textAddress.text = contact.address ?: "No Address Available"
+                textBirthday.text = contact.birthday ?: "No Birthday Available"
+                birthdayIcon.visibility = if (
+                    !contact.birthday.isNullOrBlank() &&
+                    birthdayPrefs.getBoolean("${contact.id}_birthday_set", false)
+                ) {
+                    View.VISIBLE
+                } else {
+                    View.GONE
+                }
+
+                expandableContent.setBackgroundColor(getSofterColor(palette.overlayColor))
 
                 updateButtonColors(fabDelete, palette.buttonColor)
                 updateButtonColors(fabUpdate, palette.buttonColor)
                 updateButtonColors(fabCall, palette.buttonColor)
 
-                val topTextColor = getTextcolorForBackground(context, palette.mainColor)
                 val middleTextColor = getTextcolorForBackground(context, palette.overlayColor)
-
-                textName.setTextColor(topTextColor)
                 textPhone.setTextColor(middleTextColor)
-
                 textEmail.setTextColor(middleTextColor)
                 textAddress.setTextColor(middleTextColor)
                 textBirthday.setTextColor(middleTextColor)
 
-
-
-                // Setup the holoColors picker
-                holoColorSelector.setOnClickListener {
-                    showHoloColorPicker { selectedPalette -> updateContactPalette(contact, selectedPalette) }
-
-                }
-
-
                 setupColorPickerListeners(contact)
-
-
-
-
                 fabUpdate.setOnClickListener { onItemClicked(contact) }
                 fabCall.setOnClickListener { handleCallClick(contact) }
                 fabDelete.setOnClickListener {
-                    val pos = absoluteAdapterPosition
+                    val pos = bindingAdapterPosition
                     if (pos != RecyclerView.NO_POSITION) {
                         onDeleteConfirmed(contact, pos)
                     }
-                }
-                setExpandableState(absoluteAdapterPosition, animate = false) // snap to state in bind; no animation
-                collapsingTextContainer.setOnClickListener {
-                    handleExpandCollapseClick(absoluteAdapterPosition)
-                }
-                expandCollapseIcon.setOnClickListener {
-                    handleExpandCollapseClick(absoluteAdapterPosition)
                 }
             }
         }
@@ -446,6 +516,7 @@ class ContactsAdapter(
                     remove("${contact.id}_overlay")
                     remove("${contact.id}_button")
                 }
+                paletteCache.remove(contact.id)
 
                 val isDark = isDarkTheme(context)
                 val fallbackBackground = if (isDark) Color.BLACK else Color.WHITE
@@ -499,6 +570,9 @@ class ContactsAdapter(
             with(binding) {
                 val shouldExpand = expandedPosition == position
                 val isVisible = expandableContent.isVisible
+                if (shouldExpand) {
+                    currentContact?.let { bindExpandableContent(it, getPaletteForContact(it.id)) }
+                }
 
                 // cancel running
                 expandableContent.animate().cancel()
@@ -605,10 +679,10 @@ class ContactsAdapter(
             expandedPosition = if (expandedPosition == position) -1 else position
 
             if (previous != RecyclerView.NO_POSITION && previous in 0 until itemCount) {
-                notifyItemChanged(previous, "toggle_expand")
+                notifyItemChanged(previous + 1, "toggle_expand")
             }
-            if (position in 0 until itemCount) {
-                notifyItemChanged(position, "toggle_expand")
+            if (position in 0 until filteredContacts.size) {
+                notifyItemChanged(position + 1, "toggle_expand")
             }
         }
 
@@ -623,25 +697,25 @@ class ContactsAdapter(
         }
 
         private fun savePaletteForContact(contactId: String, palette: ColorPalette) {
-            val prefs = context.getSharedPreferences("contact_palettes", Context.MODE_PRIVATE)
-            prefs.edit {
+            palettePrefs.edit {
                 putInt("${contactId}_main", palette.mainColor)
                     .putInt("${contactId}_overlay", palette.overlayColor)
                     .putInt("${contactId}_button", palette.buttonColor)
             }
+            paletteCache[contactId] = palette
         }
 
         private fun getPaletteForContact(contactId: String): ColorPalette {
-            val prefs = context.getSharedPreferences("contact_palettes", Context.MODE_PRIVATE)
+            paletteCache[contactId]?.let { return it }
 
             val isDark = isDarkTheme(context)
             val fallbackButton = if (isDark) Color.BLACK else Color.WHITE
 
-            val main = prefs.getInt("${contactId}_main", Color.TRANSPARENT)
-            val overlay = prefs.getInt("${contactId}_overlay", Color.TRANSPARENT)
-            val button = prefs.getInt("${contactId}_button", fallbackButton)
+            val main = palettePrefs.getInt("${contactId}_main", Color.TRANSPARENT)
+            val overlay = palettePrefs.getInt("${contactId}_overlay", Color.TRANSPARENT)
+            val button = palettePrefs.getInt("${contactId}_button", fallbackButton)
 
-            return ColorPalette(main, overlay, button)
+            return ColorPalette(main, overlay, button).also { paletteCache[contactId] = it }
         }
 
 
@@ -649,7 +723,7 @@ class ContactsAdapter(
 
 
         private fun showHoloColorPicker(onPaletteSelected: (ColorPalette) -> Unit) {
-            val activity = context as? AppCompatActivity
+            val activity = context.findFragmentActivity()
             activity?.supportFragmentManager?.let { fm ->
                 val palettePicker = PalettePickerBottomSheet(onPaletteSelected)
                 palettePicker.show(fm, "PalettePicker")
@@ -679,5 +753,23 @@ class ContactsAdapter(
         bmp.toDrawable(context.resources)
     } catch (_: Exception) { null }
 
+    private fun getCachedEmojiDrawable(emoji: String, sizePx: Int): Drawable? {
+        val cacheKey = "$emoji:$sizePx"
+        flagDrawableCache[cacheKey]?.let { return it }
+        val drawable = getEmojiDrawable(context, emoji, sizePx) ?: return null
+        flagDrawableCache[cacheKey] = drawable
+        return drawable
+    }
 
+    private companion object {
+        const val VIEW_TYPE_SEARCH = 0
+        const val VIEW_TYPE_CONTACT = 1
+    }
+
+}
+
+private tailrec fun Context.findFragmentActivity(): FragmentActivity? = when (this) {
+    is FragmentActivity -> this
+    is ContextWrapper -> baseContext.findFragmentActivity()
+    else -> null
 }

@@ -6,11 +6,13 @@ import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
+import androidx.core.os.LocaleListCompat
 import androidx.preference.PreferenceManager
 import com.flights.studio.R
 
-class AppLanguageManager : Application() {
+open class AppLanguageManager : Application() {
 
     companion object {
         const val PREF_KEY_LANGUAGE = "selected_language"
@@ -26,6 +28,9 @@ class AppLanguageManager : Application() {
         fun persistLanguage(context: Context, languageTag: String) {
             PreferenceManager.getDefaultSharedPreferences(context)
                 .edit(commit = true) { putString(PREF_KEY_LANGUAGE, languageTag) }
+            AppCompatDelegate.setApplicationLocales(
+                LocaleListCompat.forLanguageTags(languageTag)
+            )
         }
 
         /** Call this right before you recreate() to get a fast fade “blink”. */
@@ -39,6 +44,9 @@ class AppLanguageManager : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppCompatDelegate.setApplicationLocales(
+            LocaleListCompat.forLanguageTags(currentLanguageTag(this))
+        )
 
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityCreated(a: Activity, s: Bundle?) {

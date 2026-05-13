@@ -9,6 +9,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -120,6 +122,13 @@ fun NoteItem(
         Color(0xFF1a1a1a).copy(alpha = 0.01f)
     }
 
+    val noteAccentSurfaceColor = if (isLightTheme) {
+        Color.White
+    } else {
+        Color(0xFF1D1726).copy(alpha = 0.88f)
+    }
+    val settingsBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.34f else 0.22f)
+
 
 
 // Selected overlay should be weaker in light (or it turns “blue paint”)
@@ -147,6 +156,10 @@ fun NoteItem(
         modifier = Modifier
             .fillMaxWidth()
             .height(h)
+            .border(
+                BorderStroke(1.dp, settingsBorderColor),
+                RoundedCornerShape(18.dp)
+            )
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(18f.dp) },
@@ -177,7 +190,7 @@ fun NoteItem(
                         refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
                         refractionAmount = (size.minDimension * 0.65f)
                             .coerceIn(0f, size.minDimension),
-                        depthEffect = true,
+                        depthEffect = false,
                         chromaticAberration = false
                     )
                 },
@@ -235,7 +248,7 @@ fun NoteItem(
                         .width(railW)
                         .fillMaxHeight(),
                     shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp),
-                    color = MaterialTheme.colorScheme.background.copy(alpha = if (isDark) 0.80f else 0.70f),
+                    color = noteAccentSurfaceColor,
                 ) {
                     Column(
                         modifier = Modifier
@@ -485,7 +498,7 @@ fun NoteItem(
                     if (!title.isNullOrBlank()) {
                         Surface(
                             shape = titleShape,
-                            color = MaterialTheme.colorScheme.background.copy(alpha = if (isDark) 0.80f else 0.70f),
+                            color = noteAccentSurfaceColor,
 
                             modifier = Modifier.fillMaxWidth(),
                         ) {

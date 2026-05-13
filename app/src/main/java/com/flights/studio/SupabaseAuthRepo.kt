@@ -2,9 +2,18 @@ package com.flights.studio
 
 import android.util.Log
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.mfa.AuthenticatorAssuranceLevel
+import io.github.jan.supabase.auth.mfa.FactorType
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
+
+data class MfaEnrollmentInfo(
+    val factorId: String,
+    val qrCodeSvg: String,
+    val secret: String,
+    val uri: String
+)
 
 object SupabaseAuthRepo {
 
@@ -17,6 +26,70 @@ object SupabaseAuthRepo {
 
             Log.d("AUTH", "SignIn session = ${SupabaseManager.client.auth.currentSessionOrNull()}")
         }
+
+    fun needsMfaChallenge(): Boolean {
+        return runCatching {
+            val level = SupabaseManager.client.auth.mfa.getAuthenticatorAssuranceLevel()
+            level.current == AuthenticatorAssuranceLevel.AAL1 &&
+                    level.next == AuthenticatorAssuranceLevel.AAL2
+        }.getOrDefault(false)
+    }
+
+    suspend fun verifyMfaCode(code: String): Result<Unit> = runCatching {
+        val factor = SupabaseManager.client.auth.mfa.retrieveFactorsForCurrentUser()
+            .firstOrNull { it.factorType == "totp" && it.isVerified }
+            ?: throw IllegalStateException("MFA_NO_FACTOR")
+
+        SupabaseManager.client.auth.mfa.createChallengeAndVerify(
+            factorId = factor.id,
+            code = code.filter(Char::isDigit)
+        )
+    }
+
+    suspend fun beginTotpEnrollment(): Result<MfaEnrollmentInfo> {
+        return try {
+            SupabaseManager.client.auth.mfa.retrieveFactorsForCurrentUser()
+                .filter { it.factorType == "totp" && !it.isVerified }
+                .forEach { factor ->
+                    runCatching { SupabaseManager.client.auth.mfa.unenroll(factor.id) }
+                }
+
+            val factor = SupabaseManager.client.auth.mfa.enroll(FactorType.TOTP) {
+                issuer = "JH Airport"
+            }
+            Result.success(
+                MfaEnrollmentInfo(
+                    factorId = factor.id,
+                    qrCodeSvg = factor.data.qrCode,
+                    secret = factor.data.secret,
+                    uri = factor.data.uri
+                )
+            )
+        } catch (e: Exception) {
+            Log.e("AUTH_MFA_ENROLL", "Could not begin TOTP enrollment", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun verifyTotpEnrollment(factorId: String, code: String): Result<Unit> = runCatching {
+        SupabaseManager.client.auth.mfa.createChallengeAndVerify(
+            factorId = factorId,
+            code = code.filter(Char::isDigit)
+        )
+    }
+
+    suspend fun hasVerifiedTotpFactor(): Boolean {
+        return runCatching {
+            SupabaseManager.client.auth.mfa.retrieveFactorsForCurrentUser()
+                .any { it.factorType == "totp" && it.isVerified }
+        }.getOrDefault(false)
+    }
+
+    suspend fun signOutLocal() {
+        runCatching {
+            SupabaseManager.client.auth.signOut()
+        }
+    }
 
     /**
      * ✅ Use this in your signup screen

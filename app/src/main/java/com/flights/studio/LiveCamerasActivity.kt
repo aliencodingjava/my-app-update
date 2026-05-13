@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.os.bundleOf
 import androidx.core.view.WindowCompat
 
+@Suppress("DEPRECATION")
 class LiveCamerasActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -24,7 +25,7 @@ class LiveCamerasActivity : ComponentActivity() {
                 intent.getParcelableArrayListExtra(EXTRA_CARDS, CameraCard::class.java) ?: emptyList()
             } else {
                 @Suppress("DEPRECATION")
-                intent.getParcelableArrayListExtra<CameraCard>(EXTRA_CARDS) ?: emptyList()
+                intent.getParcelableArrayListExtra(EXTRA_CARDS) ?: emptyList()
             }
 
         setContent {

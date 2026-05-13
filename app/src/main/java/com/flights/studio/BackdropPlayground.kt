@@ -12,6 +12,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -52,6 +53,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,11 +63,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
@@ -78,6 +79,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
@@ -87,9 +89,7 @@ import androidx.core.view.WindowCompat
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.delay
@@ -98,6 +98,7 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.math.tanh
 import kotlin.random.Random
 
@@ -191,7 +192,7 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
 
     val buttonDiameter = 64.dp
     val bottomMargin = 24.dp
-    val dropDurationMs = 750
+    val dropDurationMs = 560
 
     val centerScreenY = screenHeight / 2
     val finalButtonCenterY = screenHeight - bottomMargin - (buttonDiameter / 2)
@@ -199,7 +200,10 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
 
     val buttonOffsetY by animateDpAsState(
         targetValue = if (dropToBottom) targetOffsetY else 0.dp,
-        animationSpec = tween(durationMillis = dropDurationMs, easing = FastOutSlowInEasing),
+        animationSpec = tween(
+            durationMillis = dropDurationMs,
+            easing = CubicBezierEasing(0.16f, 1.00f, 0.30f, 1.00f)
+        ),
         label = "button_drop_offset"
     )
 
@@ -217,21 +221,35 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
 
     val breatheFactor by animateFloatAsState(
         targetValue = if (isReady) 1f else 0f,
-        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
         label = "breathe_factor"
     )
 
-    val buttonScale = 1f + (rawBreatheScale - 1f) * breatheFactor
+    val arriveScale by animateFloatAsState(
+        targetValue = when (splashState) {
+            SplashState.Hidden -> 0.96f
+            SplashState.Initial -> 1f
+            SplashState.Dropping -> 1.035f
+            SplashState.Ready -> 1f
+        },
+        animationSpec = tween(
+            durationMillis = 360,
+            easing = CubicBezierEasing(0.18f, 0.92f, 0.20f, 1.00f)
+        ),
+        label = "button_arrive_scale"
+    )
+
+    val buttonScale = arriveScale * (1f + (rawBreatheScale - 1f) * breatheFactor)
 
     LaunchedEffect(Unit) {
         splashState = SplashState.Hidden
         delay(80L)
 
         splashState = SplashState.Initial
-        delay(1600L)
+        delay(1050L)
 
         splashState = SplashState.Dropping
-        delay(dropDurationMs.toLong() + 100L)
+        delay(dropDurationMs.toLong() + 70L)
 
         splashState = SplashState.Ready
     }
@@ -250,7 +268,15 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
                 visible = isReady,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomMargin + buttonDiameter + 12.dp)
+                    .padding(bottom = bottomMargin + buttonDiameter + 14.dp),
+                enter = fadeIn(tween(180)) + slideInVertically(
+                    animationSpec = tween(260, easing = FastOutSlowInEasing),
+                    initialOffsetY = { it / 3 }
+                ) + scaleIn(
+                    initialScale = 0.98f,
+                    animationSpec = tween(260, easing = FastOutSlowInEasing)
+                ),
+                exit = fadeOut(tween(120))
             ) {
                 GreetingBlock(uiTight = uiTight)
             }
@@ -258,7 +284,9 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
             LiquidGlassRoundIconButton(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .offset(y = buttonOffsetY)
+                    .offset {
+                        IntOffset(0, buttonOffsetY.roundToPx())
+                    }
                     .padding(horizontal = 20.dp)
                     .fillMaxWidth()
                     .scale(buttonScale),
@@ -378,6 +406,21 @@ private fun LiquidGlassRoundIconButton(
     }
     val labelColor = if (isDark) Color.White else Color(0xFF111111)
     val iconFilter = remember(labelColor) { ColorFilter.tint(labelColor) }
+    val enterSurfaceColor = if (isDark) {
+        Color(0xFF123B6D).copy(alpha = 0.36f)
+    } else {
+        Color(0xFFEAF4FF).copy(alpha = 0.72f)
+    }
+    val enterSheenColor = if (isDark) {
+        Color.White.copy(alpha = 0.05f)
+    } else {
+        Color.White.copy(alpha = 0.34f)
+    }
+    val edgeTintColor = if (isDark) {
+        Color.White.copy(alpha = 0.05f)
+    } else {
+        Color(0xFF59BFF4).copy(alpha = 0.16f)
+    }
 
 
     Box(
@@ -398,21 +441,22 @@ private fun LiquidGlassRoundIconButton(
                         )
                     } else {
                         Highlight(
-                            width = 0.30.dp,
-                            blurRadius = 1.0.dp,
-                            alpha = 0.35f,
-                            style = HighlightStyle.Plain // very subtle
+                            width = 0.65.dp,
+                            blurRadius = 1.4.dp,
+                            alpha = 0.95f,
+                            style = HighlightStyle.Plain
                         )
                     }
                 },
                 effects = {
-                    vibrancy()
-                    blur(2f.dp.toPx())
-                    lens(24f.dp.toPx(), 24f.dp.toPx())
-                    colorControls(
-                        brightness = 0.0f,
-                        contrast = 1.0f,
-                        saturation = 1.9f
+                    blur(
+                        radius = if (isDark) 1.dp.toPx() else 5.dp.toPx(),
+                        edgeTreatment = TileMode.Mirror
+                    )
+                    lens(
+                        12.dp.toPx(),
+                        if (isDark) 60.dp.toPx() else 74.dp.toPx(),
+                        depthEffect = false
                     )
                 },
                 layerBlock = if (isInteractive) {
@@ -451,10 +495,9 @@ private fun LiquidGlassRoundIconButton(
                     if (surfaceColor.isSpecified) {
                         drawRect(surfaceColor)
                     } else {
-                        drawRect(
-                            if (isDark) Color.White.copy(alpha = 0.10f)
-                            else Color.White.copy(alpha = 0.28f)
-                        )
+                        drawRect(enterSurfaceColor)
+                        drawRect(enterSheenColor)
+                        drawRect(edgeTintColor)
                     }
                 },
                 onDrawBackdrop = { drawBackdrop -> drawBackdrop() }
@@ -489,8 +532,11 @@ private fun LiquidGlassRoundIconButton(
         AnimatedVisibility(
             visible = splashState == SplashState.Ready,
             enter = fadeIn(tween(durationMillis = 400)) + scaleIn(
-                initialScale = 0.96f,
-                animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                initialScale = 0.90f,
+                animationSpec = tween(
+                    durationMillis = 260,
+                    easing = CubicBezierEasing(0.18f, 0.92f, 0.20f, 1.00f)
+                )
             ),
             exit = fadeOut(tween(durationMillis = 180))
         ) {
@@ -526,98 +572,134 @@ private fun ScreenLabel(@StringRes textRes: Int, uiTight: Float) {
 
 //3 bands
 
+
+
 fun Modifier.movingTripleBandPacket(
-    enabled: Boolean,                 // TUNE here!!!
-    durationMillis: Int = 2200,      // speed
-    packetWidthFrac: Float = 0.30f, // wide
-    gapFrac: Float = 0.00f,        // gap
-    disabledAlpha: Float = 0.08f, // sides alpha
-    activeAlpha: Float = 0.12f,  // center alpha
+    durationMillis: Int = 2200,
+    packetWidthFrac: Float = 0.30f,
+    gapFrac: Float = 0.00f,
+    disabledAlpha: Float = 0.34f,
+    activeAlpha: Float = 0.52f,
+    darkDisabledColor: Color = Color(0xFFB8C1CC),
+    lightDisabledColor: Color = Color(0xFF7C8A99),
+    darkActiveColor: Color = Color(0xFFE6ECF5),
+    lightActiveColor: Color = Color(0xFF4F5D6B),
+    compositingOffscreen: Boolean = false,
+    runCount: Int = 1
 ): Modifier = composed {
 
-    if (!enabled) return@composed this
+    // Early return: if not enabled, don't attach any drawing/animation work
+
+    // --- Input safety / clamps
+    val packetWidthSafe = packetWidthFrac.coerceIn(0.05f, 1f)
+    val gapSafe = gapFrac.coerceIn(0f, 0.5f)
+    val durationSafe = durationMillis.coerceAtLeast(100)
+    val disabledAlphaSafe = disabledAlpha.coerceIn(0f, 1f)
+    val activeAlphaSafe = activeAlpha.coerceIn(0f, 1f)
 
     val isDark = isSystemInDarkTheme()
 
-    val anim = remember { androidx.compose.animation.core.Animatable(0f) }
+    // Animatable stored in remember so it survives recomposition
+    val anim = remember { Animatable(0f) }
 
+    // Keep latest runCount if caller changes it while coroutine is running
+    val runCountState = rememberUpdatedState(runCount.coerceAtLeast(1))
+
+    // Scope the animation to the enabled flag so it starts/stops when enabled toggles.
     LaunchedEffect(Unit) {
-
-        // 🌊 First pass — calm glide
-        anim.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = durationMillis + 300,
-                easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
-            )
-        )
-
-        delay(700) // tighter pause feels more premium
-
         anim.snapTo(0f)
 
-        // ⚡ Second pass — confident sweep
-        anim.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = durationMillis - 250,
-                easing = CubicBezierEasing(0.4f, 0.0f, 0.2f, 1f)
+        repeat(runCountState.value) {
+            anim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = durationSafe + 300,
+                    easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
+                )
             )
-        )
 
-        // 🧊 Soft settle (micro ease-out)
-        anim.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = 250,
-                easing = LinearEasing
+            delay(700)
+
+            anim.snapTo(0f)
+
+            anim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = (durationSafe - 250).coerceAtLeast(100),
+                    easing = CubicBezierEasing(0.4f, 0.0f, 0.2f, 1f)
+                )
             )
-        )
+
+            anim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 250,
+                    easing = LinearEasing
+                )
+            )
+
+            if (it != runCountState.value - 1) delay(120)
+        }
     }
 
     val t = anim.value
 
-    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawWithCache {
+    // Choose compositing strategy based on flag; Offscreen can be expensive.
+    val compositingModifier = if (compositingOffscreen) {
+        graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+    } else {
+        graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Auto }
+    }
 
-            val w = size.width
-            val h = size.height
-            val packetW = w * packetWidthFrac
-            val bandW = packetW / 3f
-            val gap = packetW * gapFrac
+    compositingModifier.drawWithCache {
+        val w = size.width
+        val h = size.height
 
-            val x = -packetW + (w + packetW) * t
+        // packet and band geometry
+        val packetW = w * packetWidthSafe
+        val bandW = packetW / 3f
+        val gap = packetW * gapSafe
 
-            val disabled = if (isDark)
-                Color(0xFFB8C1CC).copy(alpha = disabledAlpha)
-            else
-                Color(0xFF7C8A99).copy(alpha = disabledAlpha * 2.4f)
+        // extra distance so bands fully exit/enter
+        val exitExtra = bandW * 2f
+        val x = -packetW - exitExtra + (w + packetW + exitExtra * 2f) * t
 
-            val active = if (isDark)
-                Color(0xFFE6ECF5).copy(alpha = activeAlpha)
-            else
-                Color(0xFF4F5D6B).copy(alpha = activeAlpha * 2.0f)
+        // color selection with theme-aware defaults
+        val disabledColor = if (isDark)
+            darkDisabledColor.copy(alpha = disabledAlphaSafe)
+        else
+            lightDisabledColor.copy(alpha = (disabledAlphaSafe * 2.4f).coerceAtMost(1f))
 
-            onDrawWithContent {
-                drawContent()
-                clipRect {
-                    withTransform({
-                        rotate(22f, pivot = Offset(w / 2f, h / 2f))
-                    }) {
-                        val diagonal = kotlin.math.sqrt(w * w + h * h)
-                        val top = -diagonal
-                        val tall = diagonal * 2f
+        val activeColor = if (isDark)
+            darkActiveColor.copy(alpha = activeAlphaSafe)
+        else
+            lightActiveColor.copy(alpha = (activeAlphaSafe * 2.0f).coerceAtMost(1f))
 
-                        var cx = x
-                        drawRect(disabled, Offset(cx, top), Size(bandW, tall), blendMode = BlendMode.Overlay)
-                        cx += bandW + gap
-                        drawRect(active, Offset(cx, top), Size(bandW, tall), blendMode = BlendMode.Overlay)
-                        cx += bandW + gap
-                        drawRect(disabled, Offset(cx, top), Size(bandW, tall), blendMode = BlendMode.Overlay)
-                    }
+        onDrawWithContent {
+            drawContent()
+
+            clipRect {
+                withTransform({
+                    // rotate around center to create diagonal sweep
+                    rotate(22f, pivot = Offset(w / 2f, h / 2f))
+                }) {
+                    val diagonal = sqrt(w * w + h * h)
+                    val top = -diagonal
+                    val tall = diagonal * 2f
+
+                    var cx = x
+                    // left disabled band
+                    drawRect(disabledColor, topLeft = Offset(cx, top), size = androidx.compose.ui.geometry.Size(bandW, tall), blendMode = BlendMode.Overlay)
+                    cx += bandW + gap
+                    // center active band
+                    drawRect(activeColor, topLeft = Offset(cx, top), size = androidx.compose.ui.geometry.Size(bandW, tall), blendMode = BlendMode.Overlay)
+                    cx += bandW + gap
+                    // right disabled band
+                    drawRect(disabledColor, topLeft = Offset(cx, top), size = androidx.compose.ui.geometry.Size(bandW, tall), blendMode = BlendMode.Overlay)
                 }
             }
         }
+    }
 }
 
 
@@ -654,7 +736,9 @@ private fun SplashHeroBar(
     val heroShape = RoundedCornerShape(28.dp)
     Box(
         modifier = modifier
-            .offset(y = lift)
+            .offset {
+                IntOffset(0, lift.roundToPx())
+            }
             .fillMaxWidth()
             .alpha(alpha)
             .height(130.dp)
@@ -680,23 +764,18 @@ private fun SplashHeroBar(
                     }
                 },
                 effects = {
-                    vibrancy()
-                    blur(if (isDark) 6.dp.toPx() else 3.dp.toPx())
-                    lens(12.dp.toPx(), 60.dp.toPx(), depthEffect = true)
+                    blur(if (isDark) 1.dp.toPx() else 2.dp.toPx())
+                    lens(12.dp.toPx(), 60.dp.toPx(), depthEffect = false)
                 },
                 onDrawSurface = {
                     drawRect(
-                        if (isDark)
-                            Color.White.copy(alpha = 0.08f)
-                        else
-                            Color.White.copy(alpha = 0.22f)
+                        if (isDark) Color.White.copy(alpha = 0.05f)
+                        else Color.White.copy(alpha = 0.28f)
                     )
                 }
             )
             .clip(heroShape)
-            .movingTripleBandPacket(
-                enabled = true,
-            )
+            .movingTripleBandPacket()
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center
     ) {

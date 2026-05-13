@@ -26,11 +26,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,20 +53,16 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PrivacyTip
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.DismissibleNavigationDrawer
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -89,15 +82,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastCoerceAtMost
-import androidx.compose.ui.util.lerp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.text.HtmlCompat
@@ -107,19 +96,9 @@ import com.flights.studio.FlightsTabsInjector.injectHideTriggers
 import com.flights.studio.SettingsStore.prefs
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
 import kotlin.math.abs
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.tanh
 
 @Composable
 private fun SystemBarsSync() {
@@ -140,10 +119,7 @@ fun WebviewFlights(
     onExitToHome: () -> Unit,
     onExitNormal: () -> Unit,
     onOpenWelcome: () -> Unit,
-    modifier: Modifier = Modifier,
     backdrop: LayerBackdrop,
-    onClick: () -> Unit,
-    isInteractive: Boolean = true,
     ) {
     SystemBarsSync()
     val scope = rememberCoroutineScope()
@@ -153,13 +129,8 @@ fun WebviewFlights(
         screenVisible = true
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val animationScope = rememberCoroutineScope()
     var cardId by rememberSaveable { mutableStateOf(startCardId) }
-    val interactiveHighlight = remember(animationScope) {
-        InteractiveHighlight(
-            animationScope = animationScope
-        )
-    }
+
 
     LaunchedEffect(cardId) {
         if (cardId == "card1") onOpenWelcome()
@@ -401,153 +372,57 @@ fun WebviewFlights(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(90.dp)
+                    .height(100.dp)
                     .background(gradient)
                     .align(Alignment.TopCenter)
-
             ) {
-                val isDark = isSystemInDarkTheme()
-                val shape = RoundedCornerShape(999.dp)
-
-                val (tint, contrast) = glassTint(isDark)
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = screenTitle,
-                            color = topBarFg
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = {
-                                scope.launch {
-                                    drawerState.open()
-                                }
-                            }
-                        ) {
-                            Icon(Icons.Default.Menu, null, tint = topBarFg)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 40.dp, start = 10.dp, end = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TopGlassChip(
+                        backdrop = backdrop,
+                        onClick = {
+                            scope.launch { drawerState.open() }
+                        },
+                        content = {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Open navigation drawer",
+                                tint = topBarFg,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
-                    },
-
-                    actions = {
-
-                        Row(
-                            modifier
-                                .height(45.dp)
-                                .width(98.dp)
-                                .padding(end = 7.dp)
-                                .drawBackdrop(
-                                    backdrop = backdrop,
-                                    shape = { shape },
-                                    highlight = {
-                                        if (isDark) {
-                                            Highlight(
-                                                width = 0.45.dp,
-                                                blurRadius = 1.6.dp,
-                                                alpha = 0.50f,
-                                                style = HighlightStyle.Plain
-                                            )
-                                        } else {
-                                            Highlight(
-                                                width = 0.30.dp,
-                                                blurRadius = 1.0.dp,
-                                                alpha = 0.95f,
-                                                style = HighlightStyle.Plain // very subtle
-                                            )
-                                        }
-                                    },
-                                    shadow = null,
-                                    effects = {
-                                        vibrancy()
-                                        blur(radius = 1f, edgeTreatment = TileMode.Clamp)
-                                        val cornerRadiusPx = size.height / 2f
-                                        val safeHeight = cornerRadiusPx * 0.55f
-                                        lens(
-                                            refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
-                                            refractionAmount = (size.minDimension * 0.80f
-                                                    )
-                                                .coerceIn(0f, size.minDimension),
-                                            depthEffect = true,
-                                            chromaticAberration = false
-                                        )
-                                    },
-                                    layerBlock = if (isInteractive) {
-                                        {
-                                            val width = size.width
-                                            val height = size.height
-
-                                            val progress = interactiveHighlight.pressProgress
-                                            val scale = lerp(1f, 1f + 4f.dp.toPx() / size.height, progress)
-
-                                            val maxOffset = size.minDimension
-                                            val initialDerivative = 0.05f
-                                            val offset = interactiveHighlight.offset
-                                            translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
-                                            translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
-
-                                            val maxDragScale = 1f.dp.toPx() / size.height
-                                            val offsetAngle = atan2(offset.y, offset.x)
-                                            scaleX =
-                                                scale +
-                                                        maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
-                                                        (width / height).fastCoerceAtMost(1f)
-                                            scaleY =
-                                                scale +
-                                                        maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
-                                                        (height / width).fastCoerceAtMost(1f)
-                                        }
-                                    } else {
-                                        null
-                                    },
-                                    onDrawSurface = {
-                                        drawRect(tint)
-                                        contrast?.let { drawRect(it) }
-                                    }
-                                )
-                                .clickable(
-                                    interactionSource = null,
-                                    indication = if (isInteractive) null else LocalIndication.current,
-                                    role = Role.Button,
-                                    onClick = onClick
-                                )
-                                .then(
-                                    if (isInteractive) {
-                                        Modifier
-                                            .then(interactiveHighlight.modifier)
-                                            .then(interactiveHighlight.gestureModifier)
-                                    } else {
-                                        Modifier
-                                    }
-                                ),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-
-
-                                IconButton(
-                                    onClick = {
-                                        if (returnHome) onExitToHome()
-                                        else onExitNormal()
-                                    },
-                                    modifier = Modifier.size(40.dp)
-                                ) {
-                                    Icon(Icons.Default.Home, null, tint = topBarFg)
-                                }
-
-                                IconButton(
-                                    onClick = { setCard("settings") },
-                                    modifier = Modifier.size(40.dp)
-                                ) {
-                                    Icon(Icons.Default.Settings, null, tint = topBarFg)
-                                }
-                        }
-                    },
-
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent
                     )
-                )
+
+                    Spacer(Modifier.width(10.dp))
+
+                    TopGlassChip(
+                        backdrop = backdrop,
+                        content = {
+                            Text(
+                                text = screenTitle,
+                                color = topBarFg,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    )
+
+                    Spacer(Modifier.weight(1f))
+
+                    TopRightPillActions(
+                        backdrop = backdrop,
+                        onHome = {
+                            if (returnHome) onExitToHome()
+                            else onExitNormal()
+                        },
+                        onSettings = {
+                            setCard("settings")
+                        }
+                    )
+                }
             }
         }
     }
@@ -599,7 +474,7 @@ fun LegalHtmlScreen(
 
                     movementMethod = LinkMovementMethod.getInstance()
 
-                    setPadding(40, 290, 40, 120)
+                    setPadding(40, 430, 40, 120)
                 }
 
                 scrollView.addView(textView)
@@ -648,7 +523,7 @@ private fun WebCardContent(
     val context = LocalContext.current
 
     val isDark = isSystemInDarkTheme()
-    val baseWebColor = if (isDark) Color(0xFF2B2924) else Color(0xFFF5F3EF)
+    val baseWebColor = if (isDark) Color(0xFF2B2924) else Color(0xFFF4F1E9)
     val url = remember(cardId) { urlForCard(cardId) }
 
     var progress by remember(url) { mutableIntStateOf(0) }

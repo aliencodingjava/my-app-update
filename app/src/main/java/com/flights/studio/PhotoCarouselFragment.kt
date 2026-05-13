@@ -113,17 +113,18 @@ class PhotoCarouselFragment : Fragment() {
                 }
 
                 override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                    if (response.isSuccessful) {
-                        val file = File(context.filesDir, fileName)
-                        val inputStream = response.body?.byteStream()
+                    response.use {
+                        if (it.isSuccessful) {
+                            val file = File(context.filesDir, fileName)
 
-                        inputStream?.use { input ->
-                            file.outputStream().use { output ->
-                                input.copyTo(output)
+                            it.body.byteStream().use { input ->
+                                file.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
                             }
                         }
+                        checkComplete()
                     }
-                    checkComplete()
                 }
 
                 private fun checkComplete() {

@@ -1,5 +1,7 @@
 package com.flights.studio
 
+import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.RenderEffect
@@ -18,11 +20,13 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,8 +36,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -55,12 +62,20 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
+import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
 import androidx.preference.PreferenceManager
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -83,6 +98,12 @@ import kotlin.math.sin
 import kotlin.math.tanh
 
 const val TAG = "HomeScreenRoute"
+private data class ExternalAppPrompt(
+    val appName: String,
+    val packageName: String,
+    val webUrl: String
+)
+
 private fun camBaseUrl(tab: FlightsTab): String = when (tab) {
     FlightsTab.Curb  -> "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg"
     FlightsTab.North -> "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg"
@@ -95,16 +116,17 @@ private fun camBaseUrl(tab: FlightsTab): String = when (tab) {
 @Composable
 fun HomeScreenRouteContent(
     backdrop: LayerBackdrop,
-    openMenuSheet: () -> Unit,
     triggerRefreshNow: (String?) -> Unit,
     isInteractive: Boolean = true,
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
     exitApp: () -> Unit,
-    closeMenuSheet: () -> Unit,     // ✅ NEW
-    menuExpanded: Boolean,          // ✅ NEW
-    notesCount: Int,                // ✅ NEW
-    contactsCount: Int,             // ✅ NEW
+
+
+    openContactsPage: (() -> Unit)? = null,
+    openNotesPage: (() -> Unit)? = null,
+    onCameraExpandedChange: (Boolean) -> Unit = {},
+    onCameraGestureActiveChange: (Boolean) -> Unit = {},
 ) {
     val activity = LocalActivity.current
     val hostActivity = activity as? FragmentActivity
@@ -125,28 +147,28 @@ fun HomeScreenRouteContent(
             )
         )
     }
-    @Suppress("DEPRECATION")
-    fun openLiveCameras(currentCamUrl: String) {
-        fun base(u: String) = u.substringBefore("?")
-        val ts = System.currentTimeMillis()
-
-        val curb  = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=$ts"
-        val north = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=$ts"
-        val south = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=$ts"
-
-        val all = listOf(
-            CameraCard("Curb", curb),
-            CameraCard("North", north),
-            CameraCard("South", south),
-        )
-
-        val currentBase = base(currentCamUrl)
-        val first = all.firstOrNull { base(it.url) == currentBase } ?: all.first()
-        val ordered = listOf(first) + all.filter { it != first }
-
-        activity?.startActivity(LiveCamerasActivity.intent(activity, ordered))
-        activity?.overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-    }
+//    @Suppress("DEPRECATION")
+//    fun openLiveCameras(currentCamUrl: String) {
+//        fun base(u: String) = u.substringBefore("?")
+//        val ts = System.currentTimeMillis()
+//
+//        val curb  = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=$ts"
+//        val north = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=$ts"
+//        val south = "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=$ts"
+//
+//        val all = listOf(
+//            CameraCard("Curb", curb),
+//            CameraCard("North", north),
+//            CameraCard("South", south),
+//        )
+//
+//        val currentBase = base(currentCamUrl)
+//        val first = all.firstOrNull { base(it.url) == currentBase } ?: all.first()
+//        val ordered = listOf(first) + all.filter { it != first }
+//
+//        activity?.startActivity(LiveCamerasActivity.intent(activity, ordered))
+//        activity?.overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+//    }
     var exitRevealed by rememberSaveable { mutableStateOf(false) }
 
     BackHandler {
@@ -179,6 +201,7 @@ fun HomeScreenRouteContent(
     var dataEnabled by rememberSaveable { mutableStateOf(false) }
     var isUserOffline by rememberSaveable { mutableStateOf(false) }
     var justBecameOnline by rememberSaveable { mutableStateOf(false) }
+    var externalAppPrompt by remember { mutableStateOf<ExternalAppPrompt?>(null) }
 
     val currentCamUrl = remember(currentTab, refreshToken) {
         val base = camBaseUrl(currentTab)
@@ -274,13 +297,20 @@ fun HomeScreenRouteContent(
         animationSpec = tween(durationMillis = 450),
         label = "camProgress"
     )
-    val gridInteractive = camProgress < 0.02f
+//    val gridInteractive = camProgress < 0.02f
 
     var gridInstanceKey by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(camExpanded) { if (!camExpanded) gridInstanceKey++ }
+    DisposableEffect(Unit) {
+        onDispose { onCameraGestureActiveChange(false) }
+    }
+
+    LaunchedEffect(camExpanded) {
+        onCameraExpandedChange(camExpanded)
+        if (!camExpanded) gridInstanceKey++
+    }
 
     val siriWaveProgress = if (isSiriGlowEnabled) {
-        siriCardEdgeGlowOverlay(expanded = camExpanded, durationMillis = 2500)
+        siriCardEdgeGlowOverlay(expanded = camExpanded, durationMillis = 8500)
     } else 0f
 
     val cardWeight = if (camExpanded) 1f else 0.5f
@@ -355,6 +385,14 @@ fun HomeScreenRouteContent(
             activity?.  overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         }
 
+        fun launchShared(cls: Class<*>) {
+            val host = activity ?: return
+            host.startActivity(
+                Intent(host, cls),
+                ActivityOptionsCompat.makeSceneTransitionAnimation(host).toBundle()
+            )
+        }
+
         fun launchCardScreen(cardId: String) {
             val i = Intent(activity, WebviewflightActivity::class.java).apply {
                 putExtra("start_card", cardId)
@@ -372,16 +410,71 @@ fun HomeScreenRouteContent(
             activity?.  overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         }
 
+
+
+        fun launchExternalApp(
+            appName: String,
+            packageName: String,
+            activityName: String,
+            webUrl: String
+        ) {
+            val hostActivity = activity ?: return
+            val explicitIntent = Intent(Intent.ACTION_MAIN).apply {
+                component = ComponentName(packageName, activityName)
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching {
+                hostActivity.startActivity(explicitIntent)
+            }.recoverCatching {
+                val packageIntent = hostActivity.packageManager
+                    .getLaunchIntentForPackage(packageName)
+                    ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    ?: throw ActivityNotFoundException(packageName)
+                hostActivity.startActivity(packageIntent)
+            }.getOrElse {
+                externalAppPrompt = ExternalAppPrompt(
+                    appName = appName,
+                    packageName = packageName,
+                    webUrl = webUrl
+                )
+            }
+        }
+
         when (id) {
             "card1" -> launchPlayerScreen()
             "card2" -> launchCardScreen("card2")
             "card3" -> launchCardScreen("card3")
             "card4" -> launchCardScreen("card4")
-            "card5" -> launchPlain(QRCodeComposeActivity::class.java)
+            "card5" -> launchShared(QRCodeComposeActivity::class.java)
             "card6" -> launchPlain(SettingsActivity::class.java)
-            "card7" -> launchPlain(AllContactsActivity::class.java)
-            "card8" -> launchPlain(AllNotesActivity::class.java)
-            "card9" -> launchPlain(ProfileDetailsComposeActivity::class.java)
+            "card7" -> openContactsPage?.invoke() ?: launchPlain(AllContactsActivity::class.java)
+            "card8" -> openNotesPage?.invoke() ?: launchPlain(AllNotesActivity::class.java)
+            "card9" -> launchShared(ProfileDetailsComposeActivity::class.java)
+            "card10" -> launchExternalApp(
+                appName = "Uber Driver",
+                packageName = "com.ubercab.driver",
+                activityName = "com.ubercab.carbon.core.CarbonActivity",
+                webUrl = "https://m.uber.com/ul/"
+            )
+            "card11" -> launchExternalApp(
+                appName = "Lyft Driver",
+                packageName = "com.lyft.android.driver",
+                activityName = "com.lyft.android.driver.app.ui.DriverMainActivity",
+                webUrl = "https://www.lyft.com/drive"
+            )
+            "card12" -> launchExternalApp(
+                appName = "Flightradar24",
+                packageName = "com.flightradar24free",
+                activityName = "com.flightradar24free.feature.splash.view.SplashActivity",
+                webUrl = "https://www.flightradar24.com"
+            )
+            "card13" -> launchExternalApp(
+                appName = "FlightAware",
+                packageName = "com.flightaware.android.liveFlightTracker",
+                activityName = "com.flightaware.android.liveFlightTracker.splash.SplashActivity",
+                webUrl = "https://www.flightaware.com"
+            )
             else -> Unit
         }
     }
@@ -398,6 +491,46 @@ fun HomeScreenRouteContent(
         Color(0xFFFDFDFD).copy(alpha = 0.92f)
     }
 
+    externalAppPrompt?.let { prompt ->
+        fun openUri(url: String) {
+            val host = activity ?: return
+            host.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
+        }
+
+        AlertDialog(
+            onDismissRequest = { externalAppPrompt = null },
+            title = { Text("${prompt.appName} is not installed") },
+            text = {
+                Text(
+                    "Install it from Google Play, or continue in the web version."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        externalAppPrompt = null
+                        val marketUrl = "market://details?id=${prompt.packageName}"
+                        val webPlayUrl = "https://play.google.com/store/apps/details?id=${prompt.packageName}"
+                        runCatching { openUri(marketUrl) }
+                            .onFailure { openUri(webPlayUrl) }
+                    }
+                ) {
+                    Text("Google Play")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        externalAppPrompt = null
+                        runCatching { openUri(prompt.webUrl) }
+                    }
+                ) {
+                    Text("Open web")
+                }
+            }
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
 
@@ -407,6 +540,19 @@ fun HomeScreenRouteContent(
                     .fillMaxWidth()
                     .weight(cardWeight)
                     .padding(4.dp.us(ui))
+                    .pointerInput(onCameraGestureActiveChange) {
+                        awaitPointerEventScope {
+                            var wasActive = false
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val isActive = event.changes.any { it.pressed }
+                                if (isActive != wasActive) {
+                                    wasActive = isActive
+                                    onCameraGestureActiveChange(isActive)
+                                }
+                            }
+                        }
+                    }
 
             ) {
 
@@ -525,7 +671,7 @@ fun HomeScreenRouteContent(
                                             lens(
                                                 refractionHeight = 0.dp.toPx(),
                                                 refractionAmount = 0.dp.toPx(),
-                                                depthEffect = true,
+                                                depthEffect = false,
                                                 chromaticAberration = false
                                             )
                                         }
@@ -769,36 +915,38 @@ fun HomeScreenRouteContent(
                             )
                         }
 
-                    TopLeftPillActions(
-                        backdrop = cameraBackdrop,
-                        backIconRes = R.drawable.baseline_arrow_back_ios_24,
-                        menuIconRes = R.drawable.more_vert_24dp_ffffff_fill1_wght400_grad0_opsz24,
-                        exitIconRes = R.drawable.ic_samsung_close,
-                        onMenu = { openMenuSheet() },
-                        onExit = { exitApp() },
-                        menuExpanded = menuExpanded,          // ✅
-                        onMenuDismiss = { closeMenuSheet() }, // ✅
-                        notesCount = notesCount,              // ✅
-                        contactsCount = contactsCount,        // ✅
+//                    TopLeftPillActions(
+//                        modifier = Modifier
+//                            .align(Alignment.TopStart)
+//                            .padding(start = 12.dp, top = 22.dp)
+//                            .zIndex(20f),
+//                        backdrop = cameraBackdrop,
+//                        backIconRes = R.drawable.exit_to_app_24dp_ffffff_fill1_wght400_grad0_opsz24,
+//                        exitIconRes = R.drawable.ic_samsung_close,
+//                        onExit = { exitApp() },
+//                    )
+
+                    Row(
                         modifier = Modifier
-                            .zIndex(5f)
-                            .align(Alignment.TopStart)
-                            .padding(start = 12.dp, top = 24.dp)
-                    )
-
-
-
-
-                    // REFRESH PILL (RESTORED)
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(start = 12.dp, end = 12.dp, bottom = 11.dp)
+                            .zIndex(10f),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         RefreshStatusPill(
                             backdrop = cameraBackdrop,
                             isRefreshing = isRefreshing,
-                            countdownMs = countdownMs,
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(start = 12.dp, bottom = 11.dp)
-                                .zIndex(10f)
+                            countdownMs = countdownMs
                         )
+
+                        CameraSwitchButtons(
+                            currentTab = currentTab,
+                            backdrop = cameraBackdrop,
+                            onTabSelected = onTabChangeInternal
+                        )
+                    }
                     }
                 }
 
@@ -814,14 +962,9 @@ fun HomeScreenRouteContent(
             ) {
                 key(gridInstanceKey) {
                     FlightsGlassScreen(
-                        selectedTab = currentTab,
-                        onTabChanged = { tab -> onTabChangeInternal(tab) },
-                        onFullScreen = { openLiveCameras(currentCamUrl) },
                         onBack = { exitApp() },
-                        onMenu = { openMenuSheet() },
                         onOpenCard = { cardId -> openActivityByCard(cardId) },
                         showTopArea = false,
-                        isInteractive = gridInteractive,
                         backdropOverride = backdrop
                     )
                 }
@@ -836,6 +979,115 @@ fun HomeScreenRouteContent(
         }
     }
 
+}
+
+@Composable
+private fun CameraSwitchButtons(
+    currentTab: FlightsTab,
+    backdrop: LayerBackdrop,
+    onTabSelected: (FlightsTab) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CameraSwitchButton(
+            label = "P",
+            selected = currentTab == FlightsTab.Curb,
+            backdrop = backdrop
+        ) { onTabSelected(FlightsTab.Curb) }
+
+        CameraSwitchButton(
+            label = "N",
+            selected = currentTab == FlightsTab.North,
+            backdrop = backdrop
+        ) { onTabSelected(FlightsTab.North) }
+
+        CameraSwitchButton(
+            label = "S",
+            selected = currentTab == FlightsTab.South,
+            backdrop = backdrop
+        ) { onTabSelected(FlightsTab.South) }
+    }
+}
+
+@Composable
+private fun CameraSwitchButton(
+    label: String,
+    selected: Boolean,
+    backdrop: LayerBackdrop,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
+    }
+    val shape = CircleShape
+    val tint = if (selected) Color(0xFF78A9FF) else Color.White
+    val textColor = if (selected) Color.White else Color.White.copy(alpha = 0.88f)
+
+    Box(
+        modifier = modifier
+            .size(if (selected) 34.dp else 30.dp)
+            .clip(shape)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                shadow = null,
+                highlight = {
+                    Highlight(
+                        width = if (selected) 0.55.dp else 0.35.dp,
+                        blurRadius = 1.dp,
+                        alpha = if (selected) 0.60f else 0.34f,
+                        style = HighlightStyle.Plain
+                    )
+                },
+                effects = {
+                    vibrancy()
+                    colorControls(
+                        brightness = if (isDark) 0.03f else 0.06f,
+                        contrast = 1.25f,
+                        saturation = 1.35f
+                    )
+                    blur(if (isDark) 8.dp.toPx() else 6.dp.toPx())
+                    lens(
+                        refractionHeight = 8.dp.toPx(),
+                        refractionAmount = 22.dp.toPx(),
+                        depthEffect = false,
+                        chromaticAberration = false
+                    )
+                },
+                onDrawSurface = {
+                    drawRect(Color.Black.copy(alpha = if (isDark) 0.20f else 0.08f))
+                    drawRect(tint.copy(alpha = if (selected) 0.32f else 0.12f))
+                }
+            )
+            .graphicsLayer {
+                val progress = interactiveHighlight.pressProgress
+                val scale = lerp(1f, 1.045f, progress)
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = null,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center,
+            fontSize = 12.sp
+        )
+    }
 }
 
 
@@ -900,18 +1152,5 @@ half4 main(float2 coord) {
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenRouteContentPreview() {
-    FlightsTheme {
-        val backdrop = rememberLayerBackdrop()
 
-        HomeScreenRouteContent(
-            backdrop = backdrop,
-            openMenuSheet = {},
-            closeMenuSheet = {},        // ✅ added
-            menuExpanded = false,       // ✅ added
-            notesCount = 3,             // ✅ fake preview value
-            contactsCount = 5,          // ✅ fake preview value
-            triggerRefreshNow = {},
-            exitApp = {}
-        )
-    }
 }

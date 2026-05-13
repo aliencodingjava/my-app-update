@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
+
 @Suppress("DEPRECATION")
 class WebviewflightActivity : ComponentActivity() {
 
@@ -60,18 +61,17 @@ class WebviewflightActivity : ComponentActivity() {
                         finish()
                     },
                     onExitNormal = { finishWithAnim() },
-
-
                     onOpenWelcome = { },
-
                     backdrop = rememberLayerBackdrop(),
 
-
-                    onClick = { finishWithAnim() },
-                    isInteractive = true
                 )
             }
         }
+    }
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Do nothing — prevents activity recreation on rotation
+        // The JS orientation change listener handles sheet repositioning
     }
 
     private fun finishWithAnim() {
