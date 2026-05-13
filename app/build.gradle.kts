@@ -74,10 +74,10 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 238
-        versionName = "0.2.234"
+        versionCode = 248
+        versionName = "0.2.244"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Mar-08-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"May-12-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
