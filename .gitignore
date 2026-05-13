@@ -36,6 +36,6 @@ app/release/
 # ---- Local screenshots / design scratch files ----
 main_menu*.png
 
-# ---- OPTIONAL: Firebase (uncomment if you do NOT want to commit these) ----
+# ---- OPTIONAL: Firebase  ----
 # google-services.json
 # app/google-services.json
