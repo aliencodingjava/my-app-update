@@ -91,6 +91,67 @@ object SupabaseStorageUploader {
         }
     }
 
+    suspend fun uploadNoteAttachmentAndReturnPath(
+        context: Context,
+        userId: String,
+        authToken: String,
+        noteId: String,
+        sourceUri: Uri,
+        fileName: String,
+        mimeHint: String?,
+        bucket: String = "note-attachments",
+    ): String? = withContext(Dispatchers.IO) {
+        try {
+            val bytes = context.contentResolver
+                .openInputStream(sourceUri)
+                ?.use { it.readBytes() }
+                ?: return@withContext null
+
+            val mime = mimeHint
+                ?: context.contentResolver.getType(sourceUri)
+                ?: when (fileName.substringAfterLast('.', "").lowercase()) {
+                    "m4a" -> "audio/mp4"
+                    "mp3" -> "audio/mpeg"
+                    "wav" -> "audio/wav"
+                    "png" -> "image/png"
+                    "jpg", "jpeg" -> "image/jpeg"
+                    "pdf" -> "application/pdf"
+                    else -> "application/octet-stream"
+                }
+
+            val safeName = fileName.ifBlank { "attachment" }
+                .replace(Regex("""[^\w.\-]+"""), "_")
+                .take(120)
+            val objectPath = "notes/$userId/$noteId/${System.currentTimeMillis()}_$safeName"
+            val encodedPath = objectPath
+                .split("/")
+                .joinToString("/") { URLEncoder.encode(it, "UTF-8") }
+
+            val req = Request.Builder()
+                .url("$supabaseUrl/storage/v1/object/$bucket/$encodedPath")
+                .addHeader("apikey", supabaseAnonKey)
+                .addHeader("Authorization", "Bearer $authToken")
+                .addHeader("Content-Type", mime)
+                .addHeader("x-upsert", "false")
+                .post(bytes.toRequestBody(mime.toMediaType()))
+                .build()
+
+            client.newCall(req).execute().use { resp ->
+                val bodyText = runCatching { resp.body.string() }.getOrNull().orEmpty()
+                if (!resp.isSuccessful) {
+                    Log.e(TAG, "❌ Note attachment upload failed: ${resp.code} $bodyText")
+                    return@withContext null
+                }
+            }
+
+            Log.d(TAG, "✅ Note attachment uploaded: $objectPath")
+            objectPath
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ uploadNoteAttachmentAndReturnPath failed: ${e.message}", e)
+            null
+        }
+    }
+
     // ----------------------------
     // Signed URL
     // ----------------------------

@@ -2,7 +2,6 @@ package com.flights.studio
 
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
@@ -14,21 +13,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sign
 import kotlin.math.tanh
 
 @Composable
@@ -37,28 +36,17 @@ fun TopGlassChip(
     backdrop: com.kyant.backdrop.Backdrop,
     isInteractive: Boolean = true,
     onClick: (() -> Unit)? = null,
-    content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit
+    content: @Composable androidx.compose.foundation.layout.RowScope.(Color) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(999.dp)
-
-    val tint = if (isDark) {
-        Color.White.copy(alpha = 0.10f)
-    } else {
-        Color.White.copy(alpha = 0.34f) // stronger white tint in light mode
-    }
-
-    val contrast = if (isDark) {
-        Color.White.copy(alpha = 0.03f)
-    } else {
-        Color.White.copy(alpha = 0.50f) // extra soft milk layer
-    }
+    val adaptive = rememberAdaptiveLuminance(enabled = true)
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(
             animationScope = animationScope
         )
     }
+    val luminanceOffset = (adaptive.luminance * 2f - 1f).let { it.sign * it * it }
 
     Row(
         modifier = modifier
@@ -66,32 +54,47 @@ fun TopGlassChip(
                 backdrop = backdrop,
                 shape = { shape },
                 highlight = {
-                    if (isDark) {
-                        Highlight(
-                            width = 0.45.dp,
-                            blurRadius = 1.6.dp,
-                            alpha = 0.50f,
-                            style = HighlightStyle.Plain
-                        )
-                    } else {
-                        Highlight(
-                            width = 0.40.dp,
-                            blurRadius = 1.2.dp,
-                            alpha = 1.0f,
-                            style = HighlightStyle.Plain
-                        )
-                    }
+                    Highlight(
+                        width = 0.45.dp,
+                        blurRadius = 1.4.dp,
+                        alpha = 0.86f,
+                        style = HighlightStyle.Plain
+                    )
                 },
                 shadow = null,
                 effects = {
-                    vibrancy()
-                    blur(1.5.dp.toPx(), edgeTreatment = TileMode.Clamp)
+                    colorControls(
+                        brightness = if (luminanceOffset > 0f) {
+                            lerp(0.1f, 0.5f, luminanceOffset)
+                        } else {
+                            lerp(0.1f, -0.2f, -luminanceOffset)
+                        },
+                        contrast = if (luminanceOffset > 0f) {
+                            lerp(1f, 0f, luminanceOffset)
+                        } else {
+                            1f
+                        },
+                        saturation = 1.5f
+                    )
+                    blur(
+                        radius = if (luminanceOffset > 0f) {
+                            lerp(8.dp.toPx(), 9.dp.toPx(), luminanceOffset)
+                        } else {
+                            lerp(8.dp.toPx(), 2.dp.toPx(), -luminanceOffset)
+                        }
+                    )
                     lens(
-                        refractionHeight = 20.dp.toPx(),
-                        refractionAmount = 30.dp.toPx(),
-                        depthEffect = false,
+                        refractionHeight = 24.dp.toPx(),
+                        refractionAmount = size.minDimension / 2f,
+                        depthEffect = true,
                         chromaticAberration = false
                     )
+                },
+                onDrawBackdrop = { drawBackdrop ->
+                    drawBackdrop()
+                    adaptive.layer.record {
+                        drawBackdrop()
+                    }
                 },
                 layerBlock = if (isInteractive) {
                     {
@@ -121,10 +124,6 @@ fun TopGlassChip(
                 } else {
                     null
                 },
-                onDrawSurface = {
-                    drawRect(tint)
-                    drawRect(contrast)
-                }
             )
             .then(
                 if (onClick != null) {
@@ -151,6 +150,7 @@ fun TopGlassChip(
             .padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
-        content = content
-    )
+    ) {
+        content(adaptive.contentColor)
+    }
 }

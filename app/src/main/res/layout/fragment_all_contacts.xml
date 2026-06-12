@@ -9,20 +9,37 @@
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/contactsComposeView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:visibility="gone" />
 
-    <!-- Kept only so older fragment helper code still has a binding target while the list runs in Compose. -->
+    <!-- Hot scrolling path: native RecyclerView rows keep the contacts list smooth. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingStart="14dp"
-        android:paddingTop="0dp"
-        android:paddingEnd="14dp"
-        android:paddingBottom="0dp"
+        android:paddingStart="2dp"
+        android:paddingTop="96dp"
+        android:paddingEnd="2dp"
+        android:paddingBottom="96dp"
         android:visibility="gone"
         tools:listitem="@layout/item_contact" />
+
+    <LinearLayout
+        android:id="@+id/alphabetIndex"
+        android:layout_width="28dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginTop="104dp"
+        android:layout_marginEnd="2dp"
+        android:layout_marginBottom="118dp"
+        android:background="@android:color/transparent"
+        android:clipToPadding="false"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:visibility="gone" />
 
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

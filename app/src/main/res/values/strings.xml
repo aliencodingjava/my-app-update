@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">JH AirTracker</string>
+    <string name="google_maps_api_key" translatable="false">AIzaSyC0uQUt8Vh_7cm-niHAaIjTpp8pAfoDpGE</string>
     <string name="fab_content_desc">fab_content</string>
     <string name="imageview">TImageView</string>
     <string name="jackson_hole_airport_n1250_east_airport_road">1250 East Airport Road</string>
@@ -36,7 +37,7 @@
     <!-- Preference Titles -->
     <string name="new_features">New Feature - Sync for auto update</string>
 
-    <!-- Messages Preferences -->
+    <!-- Briefing Preferences -->
 
 
     <!-- Sync Preferences -->
@@ -268,12 +269,13 @@ Track flights, save notes, manage contacts, and watch aviation videos — all in
     <string name="your_app_download_is_in_progress">your app download is in progress…</string>
     <string name="search">Search</string>
     <string name="add_contact">Add Contact</string>
-    <string name="contacts">My Contacts</string>
+    <string name="contacts">Contacts</string>
     <string name="name">Name</string>
     <string name="phone">Phone</string>
     <string name="update_contact">Update contact</string>
     <string name="delete">delete</string>
     <string name="delete_contact">delete contact</string>
+    <string name="open_chat">Open Briefing</string>
     <string name="edit_note">Edit Note</string>
     <string name="expand_collapse">expand collapse</string>
     <string name="add_note">add_note</string>
@@ -319,9 +321,10 @@ Track flights, save notes, manage contacts, and watch aviation videos — all in
     <string name="snackbar_message" translatable="false">%1$d removed</string>
     <string name="Home">Home</string>
     <string name="qr_code">Qr Code</string>
-    <string name="All_contacts">All contacts</string>
+    <string name="All_contacts">Contacts</string>
     <string name="Import_contacts">import contacts</string>
     <string name="contacts_bottom_notes">Notes</string>
+    <string name="chat_bottom_tab">Briefing</string>
     <string name="new_contacts_count">New contacts count</string>
     <string name="total_contacts">Contacts</string>
     <string name="make_a_call">Make a call</string>
@@ -476,6 +479,8 @@ Track flights, save notes, manage contacts, and watch aviation videos — all in
     <string name="settings_changelog_title">Changelog</string>
     <string name="settings_app_icon_title">App Icon</string>
     <string name="settings_app_icon_summary">Choose the icon shown on your device.</string>
+    <string name="settings_messages_storage_title">Briefing Storage</string>
+    <string name="settings_messages_storage_summary">Open Briefing storage and cache tools.</string>
     <string name="settings_language_title">Language</string>
     <string name="settings_language_summary">Choose the language used by supported screens.</string>
     <string name="settings_language_picker_title">Choose language</string>
@@ -483,6 +488,12 @@ Track flights, save notes, manage contacts, and watch aviation videos — all in
     <string name="settings_language_spanish">Spanish</string>
     <string name="settings_camera_glow_title">Camera Glow</string>
     <string name="settings_camera_glow_summary">Show the animated glow around the camera action.</string>
+    <string name="settings_briefing_weather_title">Briefing Weather</string>
+    <string name="settings_briefing_weather_summary">Show weather condition, temperature, and animations in AI Brief.</string>
+    <string name="settings_main_page_keep_awake_title">Main Page Always On</string>
+    <string name="settings_main_page_keep_awake_summary">Keep the screen from sleeping on the home camera page.</string>
+    <string name="settings_live_cameras_keep_awake_title">Live Cameras Always On</string>
+    <string name="settings_live_cameras_keep_awake_summary">Keep the screen from sleeping while Live Cameras is open.</string>
     <string name="settings_airport_phone_title">Airport Phone</string>
     <string name="settings_airport_operations_title">Airport Operations</string>
     <string name="settings_airport_services_title">Airport Services</string>

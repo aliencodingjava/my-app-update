@@ -4,20 +4,13 @@ import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
 import android.content.SharedPreferences
-import android.graphics.RenderEffect
 import android.os.Build
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.RequiresApi
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -59,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.toArgb
@@ -71,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityOptionsCompat
@@ -85,15 +80,18 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.drawPlainBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
-import com.kyant.backdrop.effects.effect
 import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.runtimeShaderEffect
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
+import com.kyant.capsule.ContinuousCapsule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
 
@@ -108,6 +106,12 @@ private fun camBaseUrl(tab: FlightsTab): String = when (tab) {
     FlightsTab.Curb  -> "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg"
     FlightsTab.North -> "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg"
     FlightsTab.South -> "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg"
+}
+
+private fun camArchiveTitle(tab: FlightsTab): String = when (tab) {
+    FlightsTab.Curb -> "Curb"
+    FlightsTab.North -> "North"
+    FlightsTab.South -> "South"
 }
 
 
@@ -181,6 +185,7 @@ fun HomeScreenRouteContent(
     }
 
     val context = LocalContext.current
+    val appContext = remember(context) { context.applicationContext }
     val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
     val initialToken = remember { prefs.getLong("cam_last_token", 0L) }
 
@@ -207,6 +212,7 @@ fun HomeScreenRouteContent(
         val base = camBaseUrl(currentTab)
         if (refreshToken == 0L) base else "$base?v=$refreshToken"
     }
+    var lastArchivedMainCameraUrl by rememberSaveable { mutableStateOf<String?>(null) }
 
     var isZoomInteracting by remember { mutableStateOf(false) }
 
@@ -385,6 +391,14 @@ fun HomeScreenRouteContent(
             activity?.  overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         }
 
+        fun launchMainPage(page: Int) {
+            activity?.startActivity(
+                Intent(activity, MainActivity::class.java)
+                    .putExtra(MainActivity.EXTRA_START_PAGE, page)
+            )
+            activity?.overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+        }
+
         fun launchShared(cls: Class<*>) {
             val host = activity ?: return
             host.startActivity(
@@ -448,7 +462,7 @@ fun HomeScreenRouteContent(
             "card4" -> launchCardScreen("card4")
             "card5" -> launchShared(QRCodeComposeActivity::class.java)
             "card6" -> launchPlain(SettingsActivity::class.java)
-            "card7" -> openContactsPage?.invoke() ?: launchPlain(AllContactsActivity::class.java)
+            "card7" -> openContactsPage?.invoke() ?: launchMainPage(MainActivity.PAGE_BRIEFING)
             "card8" -> openNotesPage?.invoke() ?: launchPlain(AllNotesActivity::class.java)
             "card9" -> launchShared(ProfileDetailsComposeActivity::class.java)
             "card10" -> launchExternalApp(
@@ -617,7 +631,15 @@ fun HomeScreenRouteContent(
                                     isRefreshing = false
                                     lockNoRefresh = false
                                     prefs.edit { putLong("cam_last_token", refreshToken) }
-
+                                    if (lastArchivedMainCameraUrl != currentCamUrl) {
+                                        lastArchivedMainCameraUrl = currentCamUrl
+                                        animationScope.launch {
+                                            LiveCameraArchiveStore.saveSnapshot(
+                                                appContext,
+                                                CameraCard(camArchiveTitle(currentTab), currentCamUrl)
+                                            )
+                                        }
+                                    }
                                 },
                                 onImageLoadFailed = {
                                     isRefreshing = false
@@ -690,52 +712,17 @@ fun HomeScreenRouteContent(
                                     }
                                 )
                         )
-                        // 3) grab zone overlay
-                        val gestureConfig = remember {
-                            ExpandCollapseGestureConfig(
-                                expandDistance = 180.dp.us(ui)
-                            )
-
-                        }
-                        Box(
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .height(86.dp.us(ui))
-                                .zIndex(0f)
-                                .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
-                                .expandCollapseGrabGesture(
-                                    isExpanded = camExpanded,
-                                    onExpandedChange = onCamExpandedChange,
-                                    config = gestureConfig
-                                )
-                        )
-
                         // Siri overlay
                         if (isSiriGlowEnabled) {
                             SiriWaveOverlay(
                                 progress = siriWaveProgress,
                                 modifier = Modifier
                                     .matchParentSize()
-                                    .zIndex(0.5f)
+                                    .zIndex(0.5f),
+                                cornerRadius = 16.dp
                             )
                         }
 
-                        // nudge hint
-                        val nudge = remember { Animatable(0f) }
-                        LaunchedEffect(camExpanded) {
-                            nudge.stop()
-                            nudge.snapTo(0f)
-                            if (!camExpanded) {
-                                nudge.animateTo(12f, tween(420, easing = FastOutSlowInEasing))
-                                delay(120)
-                                nudge.animateTo(0f, tween(520, easing = FastOutSlowInEasing))
-                            } else {
-                                nudge.animateTo(-10f, tween(420, easing = FastOutSlowInEasing))
-                                delay(120)
-                                nudge.animateTo(0f, tween(520, easing = FastOutSlowInEasing))
-                            }
-                        }
                         LaunchedEffect(Unit) {
                             // if we have no token yet, or it's older than ~1 minute, refresh quickly
                             val age = System.currentTimeMillis() - refreshToken
@@ -754,142 +741,6 @@ fun HomeScreenRouteContent(
 //                                .zIndex(0f)
 //                        ) {
 
-                        val hintAlpha by animateFloatAsState(
-                            targetValue = 1f,
-                            animationSpec = tween(250),
-                            label = "hintAlpha"
-                        )
-
-                    val handle = Color.White.copy(alpha = 0.88f)
-                    val handleUnder = Color.Black.copy(alpha = 0.30f)
-
-                    val infinite = rememberInfiniteTransition(label = "handleInfinite")
-
-                    val breathe by infinite.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "handleBreathe"
-                    )
-
-                    val shimmer by infinite.animateFloat(
-                        initialValue = 0f,
-                        targetValue = 1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(durationMillis = 2200, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart
-                        ),
-                        label = "handleShimmer"
-                    )
-
-                    val driftTarget = if (camExpanded) -3f else 3f
-                    val drift by animateFloatAsState(
-                        targetValue = driftTarget,
-                        animationSpec = tween(240, easing = FastOutSlowInEasing),
-                        label = "handleDrift"
-                    )
-
-                    val arrowRotation by animateFloatAsState(
-                        targetValue = if (camExpanded) 180f else 0f,
-                        animationSpec = tween(240, easing = FastOutSlowInEasing),
-                        label = "hintArrowRotation"
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 15.dp.us(ui))
-                    ) {
-
-                        Column(
-                            modifier = Modifier.graphicsLayer {
-
-                                // 🔥 stronger vertical breathe
-                                val breatheOffset = lerp(-2.4f, 2.4f, breathe)
-
-                                translationY = nudge.value + drift + breatheOffset
-
-                                // 🔥 slightly stronger pulse
-                                val scalePulse = lerp(0.978f, 1.022f, breathe)
-                                scaleX = scalePulse
-                                scaleY = scalePulse
-
-                                alpha = hintAlpha
-                            },
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-
-                            repeat(3) { i ->
-
-                                val position = i / 2f
-                                val centerFactor = 1f - abs(position - 0.5f) * 2f
-
-                                val lineWidth = lerp(22f, 34f, centerFactor).dp
-                                val baseAlpha = lerp(0.65f, 0.95f, centerFactor)
-
-                                val shimmerCurve = shimmer * shimmer * (3 - 2 * shimmer)
-                                val shimmerBoost = if (i == 1) shimmerCurve * 0.16f else 0f
-
-                                // 🔥 stronger depth shift
-                                val depthShift = lerp(-0.9f, 0.9f, breathe) * centerFactor
-
-                                // 🔥 tiny horizontal sway
-                                val horizontalDrift = lerp(-0.6f, 0.6f, breathe) * centerFactor
-
-                                Box(
-                                    Modifier
-                                        .graphicsLayer {
-                                            translationY = depthShift
-                                            translationX = horizontalDrift
-                                        }
-                                        .size(
-                                            width = lineWidth.us(ui),
-                                            height = 3.dp.us(ui)
-                                        )
-                                        .clip(CircleShape)
-                                        .background(
-                                            handleUnder.copy(
-                                                alpha = (0.18f + shimmerBoost).coerceIn(0f, 1f)
-                                            )
-                                        )
-                                        .padding(0.5.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            handle.copy(
-                                                alpha = (baseAlpha + shimmerBoost).coerceIn(0f, 1f)
-                                            )
-                                        )
-                                )
-                            }
-
-                            Icon(
-                                imageVector = Icons.Filled.ExpandMore,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.82f),
-                                modifier = Modifier
-                                    .size(18.dp.us(ui))
-                                    .graphicsLayer {
-
-                                        rotationZ = arrowRotation
-
-                                        // 🔥 more noticeable float
-                                        translationY =
-                                            (drift * 0.4f) +
-                                                    lerp(-1.6f, 1.6f, breathe)
-
-                                        // 🔥 slightly stronger pulse
-                                        val arrowScale = lerp(0.94f, 1.06f, breathe)
-                                        scaleX = arrowScale
-                                        scaleY = arrowScale
-
-                                        alpha = 0.9f
-                                    }
-                            )
-                        }                    }
                     // OFFLINE HUD (RESTORED)
                         if (!hasInternet || isUserOffline) {
                             CameraErrorOverlay(
@@ -935,11 +786,22 @@ fun HomeScreenRouteContent(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        RefreshStatusPill(
-                            backdrop = cameraBackdrop,
-                            isRefreshing = isRefreshing,
-                            countdownMs = countdownMs
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RefreshStatusPill(
+                                backdrop = cameraBackdrop,
+                                isRefreshing = isRefreshing,
+                                countdownMs = countdownMs
+                            )
+
+                            CameraExpandTogglePill(
+                                expanded = camExpanded,
+                                backdrop = cameraBackdrop,
+                                onClick = { onCamExpandedChange(!camExpanded) }
+                            )
+                        }
 
                         CameraSwitchButtons(
                             currentTab = currentTab,
@@ -1010,6 +872,106 @@ private fun CameraSwitchButtons(
             selected = currentTab == FlightsTab.South,
             backdrop = backdrop
         ) { onTabSelected(FlightsTab.South) }
+    }
+}
+
+@Composable
+private fun CameraExpandTogglePill(
+    expanded: Boolean,
+    backdrop: LayerBackdrop,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val containerColor = if (isDark) {
+        Color(0xFF1A1A1A).copy(alpha = 0.70f)
+    } else {
+        Color(0xFFFAFAFA).copy(alpha = 0.30f)
+    }
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
+    }
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(240, easing = FastOutSlowInEasing),
+        label = "cameraExpandToggleRotation"
+    )
+    val textColor = Color.White.copy(alpha = if (expanded) 1f else 0.90f)
+
+    Row(
+        modifier = modifier
+            .size(30.dp)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { CircleShape },
+                effects = {
+                    vibrancy()
+                    blur(radius = 0f, edgeTreatment = TileMode.Clamp)
+                    val cornerRadiusPx = size.height / 2f
+                    val safeHeight = cornerRadiusPx * 0.55f
+                    lens(
+                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
+                        refractionAmount = (size.minDimension * 0.80f)
+                            .coerceIn(0f, size.minDimension),
+                        depthEffect = false,
+                        chromaticAberration = false
+                    )
+                },
+                layerBlock = {
+                    val width = size.width
+                    val height = size.height
+
+                    val press = interactiveHighlight.pressProgress
+                    val zoomAmountPx = 1.5.dp.toPx()
+                    val baseScale = lerp(1f, 1f + zoomAmountPx / size.height, press)
+
+                    val maxOffset = size.minDimension
+                    val k = 0.025f
+                    val offset = interactiveHighlight.offset
+
+                    val maxDragScale = 3.0.dp.toPx() / size.height
+                    val ang = atan2(offset.y, offset.x)
+
+                    val pressDragScaleX =
+                        baseScale +
+                                maxDragScale *
+                                abs(cos(ang) * offset.x / size.maxDimension) *
+                                (width / height).fastCoerceAtMost(1f)
+
+                    val pressDragScaleY =
+                        baseScale +
+                                maxDragScale *
+                                abs(sin(ang) * offset.y / size.maxDimension) *
+                                (height / width).fastCoerceAtMost(1f)
+
+                    translationX = maxOffset * tanh(k * offset.x / maxOffset)
+                    translationY = maxOffset * tanh(k * offset.y / maxOffset)
+
+                    scaleX = pressDragScaleX
+                    scaleY = pressDragScaleY
+                },
+                onDrawSurface = { drawRect(containerColor) }
+            )
+            .then(interactiveHighlight.modifier)
+            .then(interactiveHighlight.gestureModifier)
+            .clickable(
+                interactionSource = null,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick
+            ),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Filled.ExpandMore,
+            contentDescription = if (expanded) "Collapse camera" else "Expand camera",
+            tint = textColor,
+            modifier = Modifier
+                .size(16.dp)
+                .graphicsLayer { rotationZ = arrowRotation }
+        )
     }
 }
 
@@ -1117,11 +1079,9 @@ fun BottomProgressiveBlurStrip(
                     blur(8.dp.toPx())
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-                        effect(
-                            RenderEffect.createRuntimeShaderEffect(
-                                obtainRuntimeShader(
-                                    "AlphaMask",
-                                    """
+                        runtimeShaderEffect(
+                            key = "BottomProgressiveBlurStripAlphaMask",
+                            shaderString = """
 uniform shader content;
 uniform float2 size;
 layout(color) uniform half4 tint;
@@ -1133,15 +1093,13 @@ half4 main(float2 coord) {
     float tintAlpha = smoothstep(size.y, size.y * 0.25, y);
     return mix(content.eval(coord) * blurAlpha, tint * tintAlpha, tintIntensity);
 }
-                                    """.trimIndent()
-                                ).apply {
-                                    setFloatUniform("size", size.width, size.height)
-                                    setColorUniform("tint", tintColor.toArgb())
-                                    setFloatUniform("tintIntensity", 0.8f)
-                                },
-                                "content"
-                            )
-                        )
+                                    """.trimIndent(),
+                            uniformShaderName = "content"
+                        ) {
+                            setFloatUniform("size", size.width, size.height)
+                            setColorUniform("tint", tintColor)
+                            setFloatUniform("tintIntensity", 0.8f)
+                        }
                     }
                 }
             ),

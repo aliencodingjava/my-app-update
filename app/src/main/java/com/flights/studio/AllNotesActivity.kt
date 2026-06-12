@@ -129,6 +129,7 @@ class AllNotesActivity : LocaleActivity() {
             }
 
             val imagesCount = NoteMediaStore.getUris(this, text).size
+            val attachmentCounts = countNoteAttachments(NoteAttachmentStore.getItems(this, text))
             val title = resolveTitle(text).orEmpty()   // ✅ pull from adapter/cache
 
             val bellOn = getSharedPreferences("reminder_flags", MODE_PRIVATE)
@@ -142,6 +143,9 @@ class AllNotesActivity : LocaleActivity() {
                     id = key,
                     text = text,
                     imagesCount = imagesCount,
+                    attachmentsCount = attachmentCounts.documents,
+                    audioCount = attachmentCounts.audio,
+                    videoCount = attachmentCounts.video,
                     title = title,
                     hasReminder = bellOn,
                     hasBadge = badgeOn
@@ -201,6 +205,8 @@ class AllNotesActivity : LocaleActivity() {
                     note = note,
                     title = title,
                     images = images,
+                    attachments = NoteAttachmentStore.getItems(this, note),
+                    voiceNotes = NoteVoiceStore.getItems(this, note),
                     wantsReminder = wantsReminder,
                     position = position
                 )
@@ -303,7 +309,8 @@ class AllNotesActivity : LocaleActivity() {
                                 isMultiSelectMode = selectedKeys.isNotEmpty()
                                 deleteSelectedNotes()
                             },
-                            onOpenNote = { row, position -> onNoteClick(row.text, position) }
+                            onOpenNote = { row, position -> onNoteClick(row.text, position) },
+                            onNotesSettingsChanged = ::refreshNotesDisplayFromSettings
 
 
 
@@ -433,11 +440,39 @@ class AllNotesActivity : LocaleActivity() {
             val userTitle      = result.data?.getStringExtra("NEW_NOTE_TITLE").orEmpty()
             val imageStrings   = result.data?.getStringArrayListExtra("NEW_NOTE_IMAGES") ?: arrayListOf()
             val imageUris      = imageStrings.mapNotNull { runCatching { it.toUri() }.getOrNull() }
+            val voiceUris      = result.data?.getStringArrayListExtra("NEW_NOTE_VOICE_URIS") ?: arrayListOf()
+            val voiceDurations = result.data?.getLongArrayExtra("NEW_NOTE_VOICE_DURATIONS") ?: longArrayOf()
+            val voiceCreatedAt = result.data?.getLongArrayExtra("NEW_NOTE_VOICE_CREATED_AT") ?: longArrayOf()
+            val voiceItems = voiceUris.mapIndexed { index, uri ->
+                NoteVoiceItem(
+                    uri = uri,
+                    durationMs = voiceDurations.getOrNull(index) ?: 0L,
+                    createdAtMs = voiceCreatedAt.getOrNull(index) ?: System.currentTimeMillis()
+                )
+            }
+            val fileUris = result.data?.getStringArrayListExtra("NEW_NOTE_FILE_URIS") ?: arrayListOf()
+            val fileNames = result.data?.getStringArrayListExtra("NEW_NOTE_FILE_NAMES") ?: arrayListOf()
+            val fileMimes = result.data?.getStringArrayListExtra("NEW_NOTE_FILE_MIMES") ?: arrayListOf()
+            val fileSizes = result.data?.getLongArrayExtra("NEW_NOTE_FILE_SIZES") ?: longArrayOf()
+            val fileItems = fileUris.mapIndexed { index, uri ->
+                NoteAttachmentItem(
+                    uri = uri,
+                    name = fileNames.getOrNull(index).orEmpty().ifBlank { "Attachment ${index + 1}" },
+                    mime = fileMimes.getOrNull(index)?.takeIf { it.isNotBlank() },
+                    sizeBytes = fileSizes.getOrNull(index) ?: 0L
+                )
+            }
 
             if (!newNoteContent.isNullOrBlank()) {
                 addLocalNote(newNoteContent)
                 if (imageUris.isNotEmpty()) {
                     NoteMediaStore.setUris(this, newNoteContent, imageUris)
+                }
+                if (voiceItems.isNotEmpty()) {
+                    NoteVoiceStore.setItems(this, newNoteContent, voiceItems)
+                }
+                if (fileItems.isNotEmpty()) {
+                    NoteAttachmentStore.setItems(this, newNoteContent, fileItems)
                 }
                 if (userTitle.isNotBlank()) {
                     notesAdapter.setUserTitle(newNoteContent, userTitle)
@@ -533,6 +568,28 @@ class AllNotesActivity : LocaleActivity() {
 
             val updatedImageStrings = data.getStringArrayListExtra("UPDATED_IMAGES") ?: arrayListOf()
             val updatedImageUris = updatedImageStrings.mapNotNull { runCatching { it.toUri() }.getOrNull() }
+            val updatedFileUris = data.getStringArrayListExtra("UPDATED_FILE_URIS") ?: arrayListOf()
+            val updatedFileNames = data.getStringArrayListExtra("UPDATED_FILE_NAMES") ?: arrayListOf()
+            val updatedFileMimes = data.getStringArrayListExtra("UPDATED_FILE_MIMES") ?: arrayListOf()
+            val updatedFileSizes = data.getLongArrayExtra("UPDATED_FILE_SIZES") ?: longArrayOf()
+            val updatedFiles = updatedFileUris.mapIndexed { index, uri ->
+                NoteAttachmentItem(
+                    uri = uri,
+                    name = updatedFileNames.getOrNull(index).orEmpty().ifBlank { "Attachment ${index + 1}" },
+                    mime = updatedFileMimes.getOrNull(index)?.takeIf { it.isNotBlank() },
+                    sizeBytes = updatedFileSizes.getOrNull(index) ?: 0L
+                )
+            }
+            val updatedVoiceUris = data.getStringArrayListExtra("UPDATED_VOICE_URIS") ?: arrayListOf()
+            val updatedVoiceDurations = data.getLongArrayExtra("UPDATED_VOICE_DURATIONS") ?: longArrayOf()
+            val updatedVoiceCreatedAt = data.getLongArrayExtra("UPDATED_VOICE_CREATED_AT") ?: longArrayOf()
+            val updatedVoiceItems = updatedVoiceUris.mapIndexed { index, uri ->
+                NoteVoiceItem(
+                    uri = uri,
+                    durationMs = updatedVoiceDurations.getOrNull(index) ?: 0L,
+                    createdAtMs = updatedVoiceCreatedAt.getOrNull(index) ?: System.currentTimeMillis()
+                )
+            }
 
             if (updatedNote.isBlank()) return@registerForActivityResult
 
@@ -546,6 +603,8 @@ class AllNotesActivity : LocaleActivity() {
                     // move title mapping + images key if your images are keyed by note text
                     notesAdapter.migrateUserTitle(oldNote, updatedNote)
                     NoteMediaStore.migrateNoteKey(this, oldNote, updatedNote)
+                    NoteVoiceStore.migrateNoteKey(this, oldNote, updatedNote)
+                    NoteAttachmentStore.migrateNoteKey(this, oldNote, updatedNote)
 
                     // keep uid maps consistent
                     contentToUid[updatedNote] = contentToUid.remove(oldNote) ?: ensureLocalUid(updatedNote)
@@ -564,6 +623,8 @@ class AllNotesActivity : LocaleActivity() {
 
             // ✅ 2) Persist images under the NEW content
             NoteMediaStore.setUris(this, updatedNote, updatedImageUris)
+            NoteVoiceStore.setItems(this, updatedNote, updatedVoiceItems)
+            NoteAttachmentStore.setItems(this, updatedNote, updatedFiles)
 
             // ✅ 2.5) Title store FIRST (so rebuild reads fresh title)
             if (updatedTitle.isNotBlank()) notesAdapter.setUserTitle(updatedNote, updatedTitle)
@@ -715,6 +776,12 @@ class AllNotesActivity : LocaleActivity() {
                 idToContent[id] = row.content
                 contentToId[row.content] = id
                 saveIdMaps()
+                uploadNoteAttachmentsToSupabase(
+                    content = row.content,
+                    noteId = id,
+                    userId = userId,
+                    authToken = session.accessToken
+                )
             }
         }
         Log.d("SupabaseSync", "Note inserted: ${inserted.firstOrNull()?.id}")
@@ -743,6 +810,12 @@ class AllNotesActivity : LocaleActivity() {
                         idToContent[row.id] = row.content
                         contentToId[row.content] = row.id
                         saveIdMaps()
+                        uploadNoteAttachmentsToSupabase(
+                            content = row.content,
+                            noteId = row.id,
+                            userId = userId,
+                            authToken = session.accessToken
+                        )
                     }
                 }
                 withContext(Dispatchers.Main) {
@@ -761,6 +834,107 @@ class AllNotesActivity : LocaleActivity() {
             sp.edit { putStringSet("pending_adds", pending) }
         }
     }
+
+    private suspend fun uploadNoteAttachmentsToSupabase(
+        content: String,
+        noteId: String,
+        userId: String,
+        authToken: String
+    ) = withContext(Dispatchers.IO) {
+        val imageUris = NoteMediaStore.getUris(this@AllNotesActivity, content)
+        val fileItems = NoteAttachmentStore.getItems(this@AllNotesActivity, content)
+        val voiceItems = NoteVoiceStore.getItems(this@AllNotesActivity, content)
+        val uploaded = mutableListOf<UserNoteAttachment>()
+
+        imageUris.forEachIndexed { index, uri ->
+            val path = SupabaseStorageUploader.uploadNoteAttachmentAndReturnPath(
+                context = this@AllNotesActivity,
+                userId = userId,
+                authToken = authToken,
+                noteId = noteId,
+                sourceUri = uri,
+                fileName = noteImageFileName(uri, index),
+                mimeHint = contentResolver.getType(uri) ?: "image/jpeg"
+            ) ?: return@forEachIndexed
+            uploaded += UserNoteAttachment(
+                userId = userId,
+                noteId = noteId,
+                storagePath = path,
+                fileName = noteImageFileName(uri, index),
+                mimeType = contentResolver.getType(uri) ?: "image/jpeg",
+                sizeBytes = noteUriSize(uri),
+                kind = "image"
+            )
+        }
+
+        fileItems.forEach { item ->
+            if (!item.remotePath.isNullOrBlank()) return@forEach
+            val path = SupabaseStorageUploader.uploadNoteAttachmentAndReturnPath(
+                context = this@AllNotesActivity,
+                userId = userId,
+                authToken = authToken,
+                noteId = noteId,
+                sourceUri = item.asUri,
+                fileName = item.name,
+                mimeHint = item.mime
+            ) ?: return@forEach
+            NoteAttachmentStore.updateRemotePath(this@AllNotesActivity, content, item.uri, path)
+            uploaded += UserNoteAttachment(
+                userId = userId,
+                noteId = noteId,
+                storagePath = path,
+                fileName = item.name,
+                mimeType = item.mime,
+                sizeBytes = item.sizeBytes,
+                kind = "file"
+            )
+        }
+
+        voiceItems.forEachIndexed { index, item ->
+            val path = SupabaseStorageUploader.uploadNoteAttachmentAndReturnPath(
+                context = this@AllNotesActivity,
+                userId = userId,
+                authToken = authToken,
+                noteId = noteId,
+                sourceUri = item.asUri,
+                fileName = "voice_${index + 1}.m4a",
+                mimeHint = "audio/mp4"
+            ) ?: return@forEachIndexed
+            uploaded += UserNoteAttachment(
+                userId = userId,
+                noteId = noteId,
+                storagePath = path,
+                fileName = "voice_${index + 1}.m4a",
+                mimeType = "audio/mp4",
+                sizeBytes = java.io.File(item.asUri.path.orEmpty()).length().coerceAtLeast(0L),
+                kind = "voice"
+            )
+        }
+
+        if (uploaded.isNotEmpty()) {
+            runCatching {
+                SupabaseManager.client.postgrest
+                    .from("user_note_attachments")
+                    .insert(uploaded)
+            }.onFailure {
+                Log.e("SupabaseSync", "Attachment metadata insert failed; storage upload may still be present", it)
+            }
+        }
+    }
+
+    private fun noteImageFileName(uri: android.net.Uri, index: Int): String {
+        val raw = uri.lastPathSegment
+            ?.substringAfterLast('/')
+            ?.takeIf { it.isNotBlank() && "." in it }
+        return raw ?: "photo_${index + 1}.jpg"
+    }
+
+    private fun noteUriSize(uri: android.net.Uri): Long =
+        runCatching {
+            contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
+                descriptor.length.takeIf { it >= 0L } ?: 0L
+            } ?: 0L
+        }.getOrDefault(0L)
 
     private suspend fun pullFromSupabaseAndReconcile() {
         val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return
@@ -850,6 +1024,8 @@ class AllNotesActivity : LocaleActivity() {
                     getSharedPreferences("reminder_badges", MODE_PRIVATE).edit { remove(c.hashCode().toString()) }
                     getSharedPreferences("reminder_flags", MODE_PRIVATE).edit { remove(c.hashCode().toString()) }
                     NoteMediaStore.deleteAllForNote(this@AllNotesActivity, c)
+                    NoteVoiceStore.deleteAllForNote(this@AllNotesActivity, c)
+                    NoteAttachmentStore.deleteAllForNote(this@AllNotesActivity, c)
                     removeUidFor(c)
                 }
                 allNotes.removeAll(toDeleteLocally.toSet())
@@ -884,6 +1060,27 @@ class AllNotesActivity : LocaleActivity() {
             ?: NotesCacheManager.cachedTitles[note]?.let {
                 HtmlCompat.fromHtml(it, HtmlCompat.FROM_HTML_OPTION_USE_CSS_COLORS).toString()
             }
+    }
+
+    private fun refreshNotesDisplayFromSettings() {
+        val settings = readNotesPageSettings()
+        val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
+
+        notesAdapter.applyPageSettings(
+            compact = settings.compact,
+            showImagesBadge = settings.showImagesBadge,
+            showReminderBadge = settings.showReminderBadge,
+            showReminderBell = settings.showReminderBell,
+            titleTopCompactDp = settings.titleTopCompactDp,
+            titleTopNormalDp = settings.titleTopNormalDp
+        )
+        notesAdapter.preloadReminderFlags(this)
+        notesAdapter.preloadBadgeStates(this)
+        notesAdapter.submit(sorted)
+
+        rebuildBoth(sorted)
+        notesCount = sorted.size
+        showFabBadge(null)
     }
 
     @Suppress("DEPRECATION")
@@ -922,6 +1119,28 @@ class AllNotesActivity : LocaleActivity() {
 
                 val updatedImageStrings = data?.getStringArrayListExtra("UPDATED_IMAGES") ?: arrayListOf()
                 val updatedImageUris = updatedImageStrings.mapNotNull { runCatching { it.toUri() }.getOrNull() }
+                val updatedFileUris = data?.getStringArrayListExtra("UPDATED_FILE_URIS") ?: arrayListOf()
+                val updatedFileNames = data?.getStringArrayListExtra("UPDATED_FILE_NAMES") ?: arrayListOf()
+                val updatedFileMimes = data?.getStringArrayListExtra("UPDATED_FILE_MIMES") ?: arrayListOf()
+                val updatedFileSizes = data?.getLongArrayExtra("UPDATED_FILE_SIZES") ?: longArrayOf()
+                val updatedFiles = updatedFileUris.mapIndexed { index, uri ->
+                    NoteAttachmentItem(
+                        uri = uri,
+                        name = updatedFileNames.getOrNull(index).orEmpty().ifBlank { "Attachment ${index + 1}" },
+                        mime = updatedFileMimes.getOrNull(index)?.takeIf { it.isNotBlank() },
+                        sizeBytes = updatedFileSizes.getOrNull(index) ?: 0L
+                    )
+                }
+                val updatedVoiceUris = data?.getStringArrayListExtra("UPDATED_VOICE_URIS") ?: arrayListOf()
+                val updatedVoiceDurations = data?.getLongArrayExtra("UPDATED_VOICE_DURATIONS") ?: longArrayOf()
+                val updatedVoiceCreatedAt = data?.getLongArrayExtra("UPDATED_VOICE_CREATED_AT") ?: longArrayOf()
+                val updatedVoiceItems = updatedVoiceUris.mapIndexed { index, uri ->
+                    NoteVoiceItem(
+                        uri = uri,
+                        durationMs = updatedVoiceDurations.getOrNull(index) ?: 0L,
+                        createdAtMs = updatedVoiceCreatedAt.getOrNull(index) ?: System.currentTimeMillis()
+                    )
+                }
 
                 if (!updatedNote.isNullOrEmpty() && position in notesText.indices) {
 
@@ -932,6 +1151,8 @@ class AllNotesActivity : LocaleActivity() {
                     if (oldNote != updatedNote) {
                         notesAdapter.migrateUserTitle(oldNote, updatedNote)
                         NoteMediaStore.migrateNoteKey(this, oldNote, updatedNote)
+                        NoteVoiceStore.migrateNoteKey(this, oldNote, updatedNote)
+                        NoteAttachmentStore.migrateNoteKey(this, oldNote, updatedNote)
 
                         // keep uid mapping consistent
                         contentToUid[updatedNote] = contentToUid.remove(oldNote) ?: ensureLocalUid(updatedNote)
@@ -952,6 +1173,8 @@ class AllNotesActivity : LocaleActivity() {
 
                     // 3) persist images under NEW content
                     NoteMediaStore.setUris(this, updatedNote, updatedImageUris)
+                    NoteVoiceStore.setItems(this, updatedNote, updatedVoiceItems)
+                    NoteAttachmentStore.setItems(this, updatedNote, updatedFiles)
 
                     // 4) rebuild DISPLAY from RAW (sort applied)
                     val settings = readNotesPageSettings()
@@ -1187,6 +1410,8 @@ class AllNotesActivity : LocaleActivity() {
                 // finalize media + uid cleanup
                 deleted.forEach { (note, _, _) ->
                     NoteMediaStore.deleteAllForNote(this@AllNotesActivity, note)
+                    NoteVoiceStore.deleteAllForNote(this@AllNotesActivity, note)
+                    NoteAttachmentStore.deleteAllForNote(this@AllNotesActivity, note)
                     removeUidFor(note)
                 }
 
@@ -1812,7 +2037,8 @@ class AllNotesActivity : LocaleActivity() {
     }
 
     private fun goToAllContactsScreen() {
-        val intent = Intent(this, AllContactsActivity::class.java)
+        val intent = Intent(this, MainActivity::class.java)
+            .putExtra(MainActivity.EXTRA_START_PAGE, MainActivity.PAGE_BRIEFING)
         startActivity(intent)
         overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
         finish()

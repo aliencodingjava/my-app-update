@@ -2,6 +2,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
+
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -18,6 +20,13 @@ val props = Properties().apply {
 
 val supabaseUrl: String? = props.getProperty("SUPABASE_URL", "")
 val supabaseAnonKey: String? = props.getProperty("SUPABASE_ANON_KEY", "")
+val geminiApiKey: String = props.getProperty("GEMINI_API_KEY", "")
+
+fun buildConfigString(value: String): String {
+    return "\"" + value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"") + "\""
+}
 
 
 
@@ -71,14 +80,19 @@ android {
         applicationId = "com.flights.studio"
         minSdk = 26
         targetSdk = 37
-        versionCode = 249
-        versionName = "0.2.245"
+        ndk {
+            //noinspection ChromeOsAbiSupport,ChromeOsAbiSupport
+            abiFilters += listOf("arm64-v8a")
+        }
+        versionCode = 250
+        versionName = "0.2.246"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"May-12-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Jun-11-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "GEMINI_API_KEY", buildConfigString(geminiApiKey))
 
         signingConfig = signingConfigs.getByName("release")
     }
@@ -87,8 +101,9 @@ android {
         getByName("release") {
 
 
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            //noinspection NotShrinkingResources
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -146,6 +161,10 @@ android {
 
 }
 
+configurations.matching { it.name == "releaseRuntimeClasspath" }.configureEach {
+    exclude(group = "androidx.recyclerview", module = "recyclerview")
+}
+
 dependencies {
     // ----- Ktor -----
     implementation(libs.ktor.client.core)
@@ -155,13 +174,12 @@ dependencies {
     implementation(libs.ktor.client.auth)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
-
     // ----- JSON / Serialization -----
     implementation(libs.kotlinx.serialization.json.jvm)
 
     // ----- Supabase -----
     implementation(platform(libs.bom)) // only if libs.bom is your Supabase BOM
-    implementation(libs.storage.kt)
+    implementation(libs.supabase.storage)
 
     // ----- AndroidX Core -----
     implementation(libs.activity)
@@ -198,7 +216,7 @@ dependencies {
     implementation(libs.play.services.contextmanager)
     implementation(libs.animation.core)
     implementation(libs.zoomable.image.glide)
-    ksp(libs.ksp)
+    ksp(libs.glide.ksp)
 
     implementation(libs.bigimageviewer)
     implementation(libs.glideimageloader)
@@ -281,16 +299,15 @@ dependencies {
     implementation(libs.lazycolumnscrollbar)
 
     implementation(libs.coil.compose)
-    implementation(libs.compose)
+    implementation(libs.ui)
+    implementation(libs.ui.graphics)
+    implementation(libs.ui.tooling.preview)
     implementation(libs.coil3.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.zoomable)
     implementation(libs.constraintlayout.compose)
 
-    implementation(libs.ui.graphics)
-    implementation(libs.ui)
     implementation(libs.animation)
-    implementation(libs.ui.tooling.preview)
 
     debugImplementation(libs.ui.tooling)
     androidTestImplementation(libs.ui.test.manifest)

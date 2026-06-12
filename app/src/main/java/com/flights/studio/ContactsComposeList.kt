@@ -1,6 +1,8 @@
 package com.flights.studio
 
+import android.os.Build
 import android.view.HapticFeedbackConstants
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -30,6 +32,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -64,6 +67,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -87,6 +91,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
@@ -105,6 +110,7 @@ import java.io.File
 import kotlin.math.roundToInt
 import android.graphics.Color as AndroidColor
 
+@RequiresApi(Build.VERSION_CODES.R)
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class,
@@ -113,7 +119,6 @@ import android.graphics.Color as AndroidColor
 @Composable
 fun ContactsComposeList(
     contacts: List<AllContact>,
-    totalContactsCount: Int = contacts.size,
     topSearchQuery: String,
     palettes: Map<String, ContactsAdapter.ColorPalette>,
     onFloatingSearchVisibleChange: (Boolean) -> Unit,
@@ -122,6 +127,7 @@ fun ContactsComposeList(
     onSwipeDeleteContact: (AllContact) -> Unit,
     onPaletteClick: (AllContact) -> Unit,
     onCallContact: (AllContact) -> Unit,
+    onOpenChat: (AllContact) -> Unit,
     onAddContact: () -> Unit,
     onImportContacts: () -> Unit,
     modifier: Modifier = Modifier
@@ -131,7 +137,6 @@ fun ContactsComposeList(
     val density = LocalDensity.current
     val thresholdPx = with(density) { 24.dp.roundToPx() }
     val contactsSnapshot by remember { derivedStateOf { contacts.toList() } }
-
     LaunchedEffect(listState) {
         snapshotFlow {
             listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
@@ -202,6 +207,7 @@ fun ContactsComposeList(
                         ContactComposeRow(
                             contact = contact,
                             palette = palettes[contact.id],
+                            onOpenChat = onOpenChat,
                             onEditContact = onEditContact,
                             onDeleteContact = onDeleteContact,
                             onSwipeDeleteContact = onSwipeDeleteContact,
@@ -478,6 +484,7 @@ private fun ContactsTopAppBar(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.R)
 @Composable
 private fun ContactComposeRow(
     contact: AllContact,
@@ -486,13 +493,14 @@ private fun ContactComposeRow(
     onDeleteContact: (AllContact) -> Unit,
     onSwipeDeleteContact: (AllContact) -> Unit,
     onPaletteClick: (AllContact) -> Unit,
-    onCallContact: (AllContact) -> Unit
+    onCallContact: (AllContact) -> Unit,
+    onOpenChat: (AllContact) -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val view = LocalView.current
     val shape = RoundedCornerShape(22.dp)
     var expanded by rememberSaveable(contact.id) { mutableStateOf(false) }
-    var offsetX by remember(contact.id) { mutableStateOf(0f) }
+    var offsetX by remember(contact.id) { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
     val maxSwipePx = with(density) { 104.dp.toPx() }
     val openThresholdPx = with(density) { 24.dp.toPx() }
@@ -573,6 +581,13 @@ private fun ContactComposeRow(
         }
 
         Surface(
+            onClick = {
+                if (offsetX < 0f) {
+                    offsetX = 0f
+                } else {
+                    onOpenChat(contact)
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(offsetX.roundToInt(), 0) }
@@ -780,6 +795,88 @@ private fun ContactInitialsText(name: String) {
         fontWeight = FontWeight.Black,
         maxLines = 1
     )
+}
+
+@Composable
+private fun RecentTextContactsRow(
+    contacts: List<AllContact>,
+    onOpenChat: (AllContact) -> Unit
+) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(contacts, key = { "recent_text_${it.id}" }) { contact ->
+            Surface(
+                onClick = { onOpenChat(contact) },
+                color = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ) {
+                Column(
+                    modifier = Modifier.width(70.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    ContactAvatarCircle(contact = contact, size = 58.dp)
+                    Text(
+                        text = contact.name.ifBlank { "Contact" },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 5.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContactAvatarCircle(contact: AllContact, size: Dp) {
+    val photoModel = contact.photoUri?.trim()?.takeIf { it.isNotBlank() }?.let { raw ->
+        when {
+            raw.startsWith("content://", true) -> raw.toUri()
+            raw.startsWith("file://", true) -> raw.toUri()
+            raw.startsWith("http://", true) || raw.startsWith("https://", true) -> raw
+            raw.startsWith("/") -> File(raw)
+            else -> raw.toUri()
+        }
+    }
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Color(contact.color)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (photoModel != null) {
+            AsyncImage(
+                model = photoModel,
+                contentDescription = contact.name,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Text(
+                text = contact.name.contactInitials(),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+        }
+    }
+}
+
+private fun String.contactInitials(): String {
+    val parts = trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    return when {
+        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}".uppercase()
+        parts.size == 1 -> parts[0].take(2).uppercase()
+        else -> "?"
+    }
 }
 
 @Composable

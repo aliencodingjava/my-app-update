@@ -1,227 +1,131 @@
 uniform float2 resolution;
 uniform float time;
 uniform float intensity;
+uniform float cornerRadius;
 
-// --- Utils ----------------------------------------------------------------
+// Adapted from the linked SwiftUI prototype idea:
+// animated mesh-gradient color field, clipped to a rounded-rectangle edge mask,
+// plus a bright blurred rim.
 
-float hash(float2 p) {
-    return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
+float sinRange(float low, float high, float offset, float scale, float t) {
+    float amp = (high - low) * 0.5;
+    float mid = (high + low) * 0.5;
+    return mid + amp * sin(scale * t + offset);
 }
 
-float noise(float2 p) {
-    float2 i = floor(p);
-    float2 f = fract(p);
-    float ux = f.x * f.x * (3.0 - 2.0 * f.x);
-    float uy = f.y * f.y * (3.0 - 2.0 * f.y);
-
-    return mix(
-    mix(hash(i), hash(i + float2(1.0, 0.0)), ux),
-    mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), ux),
-    uy
-    );
+float roundedRectSignedDistance(float2 fragCoord, float radius) {
+    float2 halfSize = resolution * 0.5;
+    float2 p = fragCoord - halfSize;
+    float2 q = abs(p) - (halfSize - float2(radius, radius));
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
 }
 
-// --- Edge distance --------------------------------------------------------
-
-float edgeDist(float2 uv) {
-    float dx = min(uv.x, 1.0 - uv.x);
-    float dy = min(uv.y, 1.0 - uv.y);
-    return min(dx, dy);
+float3 addMeshPoint(float2 uv, float2 point, float3 color, float radius, inout float weight) {
+    float2 delta = uv - point;
+    float d2 = dot(delta, delta);
+    float w = exp(-d2 / (radius * radius));
+    weight += w;
+    return color * w;
 }
 
-// --- Traveling particles --------------------------------------------------
+float3 meshColor(float2 uv, float t) {
+    float weight = 0.0;
+    float3 col = float3(0.0, 0.0, 0.0);
 
-float particles(float2 uv, float t) {
-    float result = 0.0;
+    float3 yellow = float3(1.00, 0.86, 0.00);
+    float3 purple = float3(0.74, 0.00, 1.00);
+    float3 indigo = float3(0.12, 0.15, 1.00);
+    float3 orange = float3(1.00, 0.48, 0.00);
+    float3 red = float3(1.00, 0.00, 0.24);
+    float3 blue = float3(0.00, 0.52, 1.00);
+    float3 green = float3(0.00, 1.00, 0.28);
+    float3 mint = float3(0.00, 1.00, 0.88);
+    float3 ice = float3(0.96, 1.00, 1.00);
 
-    for (int i = 0; i < 1; i++) {
-        float fi = float(i);
-        float offset = fi * 0.27 + hash(float2(fi, 0.0));
-        float speed = 0.13;
+    // A 3x3 animated mesh, following the same spirit as MeshGradientView.swift.
+    col += addMeshPoint(uv, float2(0.00, 0.00), yellow, 0.54, weight);
+    col += addMeshPoint(uv, float2(0.50, 0.00), purple, 0.54, weight);
+    col += addMeshPoint(uv, float2(1.00, 0.00), indigo, 0.54, weight);
 
-        float cycle = fract(t * speed + offset);
-        float perimPos = cycle * 5.0;
+    col += addMeshPoint(uv, float2(
+        sinRange(-0.20, 0.20, 0.439, 0.342, t),
+        sinRange(0.30, 0.70, 3.420, 0.984, t)
+    ), orange, 0.48, weight);
 
-        // soft appear and soft disappear
-        float fadeIn  = smoothstep(0.00, 0.04, cycle);
-        float fadeOut = 1.0 - smoothstep(0.94, 1.00, cycle);
-        float life = fadeIn * fadeOut;
-        float2 particlePos;
-        float2 dir;
-        float2 perp;
+    col += addMeshPoint(uv, float2(
+        sinRange(0.18, 0.82, 0.239, 0.084, t),
+        sinRange(0.20, 0.80, 5.210, 0.242, t)
+    ), red, 0.48, weight);
 
-        if (perimPos < 1.0) {
-            // bottom edge, moving right
-            particlePos = float2(perimPos, 0.0);
-            dir  = float2(1.0, 0.0);
-            perp = float2(0.0, 1.0);
-        } else if (perimPos < 2.0) {
-            // right edge, moving up
-            particlePos = float2(1.0, perimPos - 1.0);
-            dir  = float2(0.0, 1.0);
-            perp = float2(1.0, 0.0);
-        } else if (perimPos < 3.0) {
-            // top edge, moving left
-            particlePos = float2(1.0 - (perimPos - 2.0), 1.0);
-            dir  = float2(-1.0, 0.0);
-            perp = float2(0.0, 1.0);
-        } else {
-            // left edge, moving down
-            particlePos = float2(0.0, 1.0 - (perimPos - 3.0));
-            dir  = float2(0.0, -1.0);
-            perp = float2(1.0, 0.0);
-        }
+    col += addMeshPoint(uv, float2(
+        sinRange(0.80, 1.20, 0.939, 0.084, t),
+        sinRange(0.40, 0.80, 0.250, 0.642, t)
+    ), blue, 0.48, weight);
 
-        float2 delta = float2(
-        uv.x - particlePos.x,
-        uv.y - particlePos.y
-        );
+    col += addMeshPoint(uv, float2(
+        sinRange(-0.15, 0.20, 1.439, 0.442, t),
+        sinRange(0.88, 1.20, 3.420, 0.984, t)
+    ), indigo, 0.50, weight);
 
-        // distance along motion and across motion
-        float along  = dot(delta, dir);
-        float across = dot(delta, perp);
+    col += addMeshPoint(uv, float2(
+        sinRange(0.30, 0.62, 0.339, 0.784, t),
+        sinRange(0.86, 1.14, 1.220, 0.772, t)
+    ), green, 0.50, weight);
 
-        // in front of particle
-        float ahead = max(along, 0.0);
+    col += addMeshPoint(uv, float2(
+        sinRange(0.82, 1.20, 0.939, 0.056, t),
+        sinRange(0.82, 1.18, 0.470, 0.342, t)
+    ), mint, 0.50, weight);
 
-        // behind particle = tail
-        float behind = max(-along, 0.0);
+    col = col / max(weight, 0.001);
 
-        // knobs
-        float width   = 0.010;                           // trail thickness
-        float headLen = 0.045;                           // short bright front
-        float tailLen = 0.26 + sin(t * 1.6 + fi) * 0.025; // longer back tail
-
-        float crossFade = exp(-(across * across) / (width * width));
-
-        float head = exp(-(ahead * ahead) / (headLen * headLen));
-        float tail = exp(-(behind * behind) / (tailLen * tailLen));
-
-        // slower fade at very end of tail
-        tail = pow(tail, 0.42);
-
-        // masks so front and back behave differently
-        float headMask = step(0.0, along);
-        float tailMask = 1.0 - headMask;
-
-        // small bright core at the particle itself
-        float core = exp(-dot(delta, delta) / (0.022 * 0.022)) * 0.26;
-
-        float trail =
-        crossFade *
-        (head * headMask * 0.90 + tail * tailMask * 0.95);
-
-        result += (core + trail) * life;
-    }
-
-    return result;
+    float gray = dot(col, float3(0.299, 0.587, 0.114));
+    col = mix(float3(gray, gray, gray), col, 2.40);
+    return clamp(mix(col, ice, 0.02), 0.0, 1.0);
 }
 
-// --- Smooth edge glow -----------------------------------------------------
+float2 rotateUv(float2 uv, float angle) {
+    float aspect = resolution.x / max(resolution.y, 1.0);
+    float2 p = uv - 0.5;
+    p.x *= aspect;
 
-float edgeGlow(float2 uv) {
-    float dist = edgeDist(uv);
+    float s = sin(angle);
+    float c = cos(angle);
+    p = float2(p.x * c - p.y * s, p.x * s + p.y * c);
 
-    float core = 1.0 - smoothstep(0.0, 0.045, dist);
-    float mid  = 1.0 - smoothstep(0.0, 0.11, dist);
-    float soft = 1.0 - smoothstep(0.0, 0.22, dist);
-
-    return core * 1.15 + mid * 0.55 + soft * 0.28;
+    p.x /= aspect;
+    return p + 0.5;
 }
-
-// --- Ambient edge wave ----------------------------------------------------
-
-float ambientWave(float2 uv, float t) {
-    float breath = sin(t * 0.8) * 0.5 + 0.5;
-    float perlin = noise(float2(uv.x * 6.0 + t * 0.2, uv.y * 6.0 - t * 0.15));
-    return (breath * 0.4 + 0.6) * (perlin * 0.3 + 0.7);
-}
-
-// --- Color palette --------------------------------------------------------
-
-float3 iosGradient(float t) {
-    float3 c1 = float3(0.08, 0.86, 1.00); // cyan
-    float3 c2 = float3(0.28, 0.58, 1.00); // blue
-    float3 c3 = float3(0.62, 0.34, 1.00); // purple
-    float3 c4 = float3(1.00, 0.34, 0.78); // pink
-    float3 c5 = float3(1.00, 0.44, 0.52); // warm magenta/red
-
-    t = fract(t);
-
-    if (t < 0.25) {
-        return mix(c1, c2, t / 0.25);
-    } else if (t < 0.50) {
-        return mix(c2, c3, (t - 0.25) / 0.25);
-    } else if (t < 0.75) {
-        return mix(c3, c4, (t - 0.50) / 0.25);
-    } else {
-        return mix(c4, c5, (t - 0.75) / 0.25);
-    }
-}
-
-// --- Main -----------------------------------------------------------------
 
 half4 main(float2 fragCoord) {
-    float2 uv = float2(fragCoord.x / resolution.x, fragCoord.y / resolution.y);
-    float t = time;
+    float2 uv = fragCoord / resolution;
+    float t = time * 1.75;
 
-    float edge = edgeGlow(uv);
-    float ptcls = particles(uv, t);
-    float ambient = ambientWave(uv, t);
+    float radius = clamp(cornerRadius, 0.0, min(resolution.x, resolution.y) * 0.5);
+    float sd = roundedRectSignedDistance(fragCoord, radius);
+    float inside = 1.0 - smoothstep(0.0, 2.0, sd);
+    float d = abs(sd);
 
-    float brightness = edge * ambient + ptcls * 1.15;
+    // Prototype-like mask: bright stroke, blurred stroke, and subtle inner spill.
+    float whiteStroke = 1.0 - smoothstep(0.0, 12.5, d);
+    float colorStroke = 1.0 - smoothstep(0.5, 44.0, d);
+    float glow = 1.0 - smoothstep(8.0, 132.0, d);
+    float innerSpill = (1.0 - smoothstep(16.0, 172.0, -sd)) * smoothstep(0.0, 16.0, -sd);
 
-    // base animated color
-    float n1 = noise(float2(uv.x * 3.0 + t * 0.05, uv.y * 3.0 - t * 0.04));
-    float n2 = noise(float2(uv.x * 7.0 - t * 0.07, uv.y * 7.0 + t * 0.06));
-    float colorT = t * 0.055 + n1 * 0.18 + n2 * 0.10;
+    float2 meshUv = rotateUv(uv, time * 0.22);
+    float2 meshUvSlow = rotateUv(uv, -time * 0.10) * 0.92 + float2(0.04, 0.05);
+    float3 col = meshColor(meshUv, t);
+    float3 shifted = meshColor(meshUvSlow, t + 1.7);
+    col = mix(col, shifted, 0.26);
 
-    float3 baseCol = iosGradient(colorT);
-    float3 edgeCol = iosGradient(colorT + 0.12);
-    float3 particleCol = iosGradient(colorT + 0.30);
-    float3 shimmerCol = iosGradient(colorT + 0.48);
+    float mask = whiteStroke * 0.68 + colorStroke * 0.82 + glow * 0.36 + innerSpill * 0.12;
+    float breathing = 0.94 + 0.06 * sin(time * 0.72);
 
-    // richer colored base
-    float edgeMix = clamp(edge * 0.55, 0.0, 1.0);
-    float3 col = mix(baseCol, edgeCol, edgeMix);
+    col *= 1.18 + (whiteStroke + colorStroke) * 0.92;
+    col = mix(col, float3(1.0, 0.98, 1.0), whiteStroke * 0.10);
 
-    // colored particles instead of white particles
-    col = float3(
-    col.r + particleCol.r * ptcls * 0.38,
-    col.g + particleCol.g * ptcls * 0.38,
-    col.b + particleCol.b * ptcls * 0.38
-    );
-
-    // colored shimmer instead of white shimmer
-    float shimmer = noise(float2(uv.x * 25.0 + t * 1.5, uv.y * 25.0 - t * 1.1));
-    shimmer = pow(shimmer, 6.0) * 0.18;
-
-    col = float3(
-    col.r + shimmerCol.r * shimmer,
-    col.g + shimmerCol.g * shimmer,
-    col.b + shimmerCol.b * shimmer
-    );
-
-    // brightness
-    float brightMult = 0.78 + brightness * 0.42;
-    float bloomMult = 1.0 + brightness * 0.16;
-
-    col = float3(
-    col.r * brightMult * bloomMult,
-    col.g * brightMult * bloomMult,
-    col.b * brightMult * bloomMult
-    );
-
-    // alpha
-    float alphaRaw = clamp((edge * 0.78 + ptcls * 1.00) * intensity, 0.0, 1.0);
-    float alpha = pow(alphaRaw, 0.60);
-
-    // premultiply
-    col = float3(
-    clamp(col.r, 0.0, 1.0) * alpha,
-    clamp(col.g, 0.0, 1.0) * alpha,
-    clamp(col.b, 0.0, 1.0) * alpha
-    );
+    float alpha = clamp(pow(clamp(mask * breathing, 0.0, 1.0), 0.52) * (0.90 + 0.05 * intensity), 0.0, 0.95) * inside;
+    col = clamp(col, 0.0, 1.0) * alpha;
 
     return half4(col, alpha);
 }

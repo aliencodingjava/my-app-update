@@ -140,6 +140,11 @@ class SettingsActivity : LocaleActivity() {
                             },
                             onShareApp = ::shareApp,
                             onOpenSearch = ::openSearchView,
+                            onOpenQrCode = {
+                                startActivityWithTransition(
+                                    Intent(this@SettingsActivity, QRCodeComposeActivity::class.java)
+                                )
+                            },
                             onOpenProfile = {
                                 startActivityWithTransition(
                                     Intent(this@SettingsActivity, ProfileDetailsComposeActivity::class.java)

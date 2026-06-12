@@ -234,6 +234,7 @@ class NotesAdapter(
         val imagesCount = if (showImagesBadge) {
             NoteMediaStore.getUris(holder.composeView.context, note).size
         } else 0
+        val attachmentCounts = countNoteAttachments(NoteAttachmentStore.getItems(holder.composeView.context, note))
 
         val typedTitle = userTypedTitles[note]
         val cachedTitle = NotesCacheManager.cachedTitles[note]
@@ -271,6 +272,9 @@ class NotesAdapter(
                         showReminderBell = bellOn,
                         showReminderBadge = badgeOn,
                         imagesCount = imagesCount,
+                        attachmentsCount = attachmentCounts.documents,
+                        audioCount = attachmentCounts.audio,
+                        videoCount = attachmentCounts.video,
                         onClick = { onClick(note, holder.bindingAdapterPosition) },
                         onLongClick = { onLongClick(note) },
                         onEdit = { onEditIconClick(note, holder.bindingAdapterPosition) },

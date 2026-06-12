@@ -1,94 +1,93 @@
 {
     "social_networks": {
-    "facebook": "📘",
-    "instagram": "📸",
-    "twitter": "🐦",
-    "youtube": "📺",
-    "linkedin": "🔗",
-    "whatsapp": "💬",
-    "tiktok": "🎶",
-    "pinterest": "📌",
-    "reddit": "👽",
-    "snapchat": "👻",
-    "vimeo": "🎥",
-    "telegram": "📱",
-    "discord": "🎮",
-    "skype": "🖥️",
-    "zoom": "💻",
-    "slack": "📚",
-    "twitch": "🎮",
-    "tumblr": "📑",
-    "quora": "❓",
-    "myspace": "🌐",
-    "foursquare": "📍",
-    "google_plus": "➕",
-    "periscope": "📡",
-    "medium": "📝",
-    "clubhouse": "🏠",
-    "yelp": "⭐",
-    "meetup": "🤝",
-    "badoo": "❤️"
+    "facebook": "ðŸ“˜",
+    "instagram": "ðŸ“¸",
+    "twitter": "ðŸ¦",
+    "youtube": "ðŸ“º",
+    "linkedin": "ðŸ”—",
+    "whatsapp": "ðŸ’¬",
+    "tiktok": "ðŸŽ¶",
+    "pinterest": "ðŸ“Œ",
+    "reddit": "ðŸ‘½",
+    "snapchat": "ðŸ‘»",
+    "vimeo": "ðŸŽ¥",
+    "discord": "ðŸŽ®",
+    "skype": "ðŸ–¥ï¸",
+    "zoom": "ðŸ’»",
+    "slack": "ðŸ“š",
+    "twitch": "ðŸŽ®",
+    "tumblr": "ðŸ“‘",
+    "quora": "â“",
+    "myspace": "ðŸŒ",
+    "foursquare": "ðŸ“",
+    "google_plus": "âž•",
+    "periscope": "ðŸ“¡",
+    "medium": "ðŸ“",
+    "clubhouse": "ðŸ ",
+    "yelp": "â­",
+    "meetup": "ðŸ¤",
+    "badoo": "â¤ï¸"
     },
     "animals": {
-    "cat": "🐱",
-    "dog": "🐶",
-    "lion": "🦁",
-    "elephant": "🐘",
-    "tiger": "🐯",
-    "horse": "🐴",
-    "cow": "🐄",
-    "monkey": "🐒",
-    "panda": "🐼",
-    "koala": "🐨",
-    "rabbit": "🐇",
-    "sheep": "🐑",
-    "pig": "🐖",
-    "chicken": "🐔",
-    "bird": "🐦",
-    "fish": "🐟",
-    "dolphin": "🐬",
-    "whale": "🐋",
-    "octopus": "🐙",
-    "frog": "🐸",
-    "snake": "🐍",
-    "mouse": "🐭",
-    "rat": "🐀",
-    "bat": "🦇",
-    "beetle": "🪲"
+    "cat": "ðŸ±",
+    "dog": "ðŸ¶",
+    "lion": "ðŸ¦",
+    "elephant": "ðŸ˜",
+    "tiger": "ðŸ¯",
+    "horse": "ðŸ´",
+    "cow": "ðŸ„",
+    "monkey": "ðŸ’",
+    "panda": "ðŸ¼",
+    "koala": "ðŸ¨",
+    "rabbit": "ðŸ‡",
+    "sheep": "ðŸ‘",
+    "pig": "ðŸ–",
+    "chicken": "ðŸ”",
+    "bird": "ðŸ¦",
+    "fish": "ðŸŸ",
+    "dolphin": "ðŸ¬",
+    "whale": "ðŸ‹",
+    "octopus": "ðŸ™",
+    "frog": "ðŸ¸",
+    "snake": "ðŸ",
+    "mouse": "ðŸ­",
+    "rat": "ðŸ€",
+    "bat": "ðŸ¦‡",
+    "beetle": "ðŸª²"
     },
     "weather": {
-        "sunny": "☀️", "cloudy": "☁️", "rainy": "🌧️", "stormy": "⛈️", "snowy": "❄️", "windy": "🌬️", "foggy": "🌫️", "thunderstorm": "🌩️", "tornado": "🌪️", "hail": "🌨️", "drizzle": "🌦️", "partly_cloudy": "🌤️"
+        "sunny": "â˜€ï¸", "cloudy": "â˜ï¸", "rainy": "ðŸŒ§ï¸", "stormy": "â›ˆï¸", "snowy": "â„ï¸", "windy": "ðŸŒ¬ï¸", "foggy": "ðŸŒ«ï¸", "thunderstorm": "ðŸŒ©ï¸", "tornado": "ðŸŒªï¸", "hail": "ðŸŒ¨ï¸", "drizzle": "ðŸŒ¦ï¸", "partly_cloudy": "ðŸŒ¤ï¸"
     },
     "objects": {
-        "car": "🚗", "bus": "🚌", "train": "🚆", "bicycle": "🚲", "airplane": "✈️", "rocket": "🚀", "ship": "🚢", "truck": "🚚", "helicopter": "🚁", "motorcycle": "🏍️", "camera": "📷", "watch": "⌚", "laptop": "💻", "phone": "📱", "light_bulb": "💡", "microscope": "🔬", "glasses": "👓", "scissors": "✂️", "anchor": "⚓", "bell": "🔔", "battery": "🔋", "lock": "🔒", "key": "🔑", "magnifying_glass": "🔍"
+        "car": "ðŸš—", "bus": "ðŸšŒ", "train": "ðŸš†", "bicycle": "ðŸš²", "airplane": "âœˆï¸", "rocket": "ðŸš€", "ship": "ðŸš¢", "truck": "ðŸšš", "helicopter": "ðŸš", "motorcycle": "ðŸï¸", "camera": "ðŸ“·", "watch": "âŒš", "laptop": "ðŸ’»", "phone": "ðŸ“±", "light_bulb": "ðŸ’¡", "microscope": "ðŸ”¬", "glasses": "ðŸ‘“", "scissors": "âœ‚ï¸", "anchor": "âš“", "bell": "ðŸ””", "battery": "ðŸ”‹", "lock": "ðŸ”’", "key": "ðŸ”‘", "magnifying_glass": "ðŸ”"
     },
     "emotions": {
-        "happy": "😊", "sad": "😢", "angry": "😠", "surprised": "😲", "crying": "😭", "laughing": "😂", "blushing": "😊", "love": "❤️", "kiss": "😘", "heart_eyes": "😍", "cool": "😎", "confused": "😕", "shocked": "😱", "wink": "😉", "sleepy": "😴", "sick": "🤢", "dizzy": "🤯", "relieved": "😌", "thinking": "🤔", "flushed": "😳", "grinning": "😁", "frown": "🙁"
+        "happy": "ðŸ˜Š", "sad": "ðŸ˜¢", "angry": "ðŸ˜ ", "surprised": "ðŸ˜²", "crying": "ðŸ˜­", "laughing": "ðŸ˜‚", "blushing": "ðŸ˜Š", "love": "â¤ï¸", "kiss": "ðŸ˜˜", "heart_eyes": "ðŸ˜", "cool": "ðŸ˜Ž", "confused": "ðŸ˜•", "shocked": "ðŸ˜±", "wink": "ðŸ˜‰", "sleepy": "ðŸ˜´", "sick": "ðŸ¤¢", "dizzy": "ðŸ¤¯", "relieved": "ðŸ˜Œ", "thinking": "ðŸ¤”", "flushed": "ðŸ˜³", "grinning": "ðŸ˜", "frown": "ðŸ™"
     },
     "people": {
-        "man": "👨", "woman": "👩", "girl": "👧", "boy": "👦", "baby": "👶", "adult": "👵", "older_woman": "👵", "older_man": "👴", "family": "👪", "couple": "👩‍❤️‍👨", "couple_woman_woman": "👩‍❤️‍👩", "couple_man_man": "👨‍❤️‍👨", "teacher": "👩‍🏫", "doctor": "👨‍⚕️", "nurse": "👩‍⚕️", "scientist": "👩‍🔬", "astronaut": "👩‍🚀", "chef": "👨‍🍳", "police_officer": "👮‍♂️", "firefighter": "👨‍🚒"
+        "man": "ðŸ‘¨", "woman": "ðŸ‘©", "girl": "ðŸ‘§", "boy": "ðŸ‘¦", "baby": "ðŸ‘¶", "adult": "ðŸ‘µ", "older_woman": "ðŸ‘µ", "older_man": "ðŸ‘´", "family": "ðŸ‘ª", "couple": "ðŸ‘©â€â¤ï¸â€ðŸ‘¨", "couple_woman_woman": "ðŸ‘©â€â¤ï¸â€ðŸ‘©", "couple_man_man": "ðŸ‘¨â€â¤ï¸â€ðŸ‘¨", "teacher": "ðŸ‘©â€ðŸ«", "doctor": "ðŸ‘¨â€âš•ï¸", "nurse": "ðŸ‘©â€âš•ï¸", "scientist": "ðŸ‘©â€ðŸ”¬", "astronaut": "ðŸ‘©â€ðŸš€", "chef": "ðŸ‘¨â€ðŸ³", "police_officer": "ðŸ‘®â€â™‚ï¸", "firefighter": "ðŸ‘¨â€ðŸš’"
     },
     
         "nature": {
-            "tree": "🌳", "flower": "🌸", "rose": "🌹", "sunflower": "🌻", "cactus": "🌵", "palm_tree": "🌴", "seedling": "🌱", "herb": "🌿", "evergreen_tree": "🌲", "maple_leaf": "🍁", "fallen_leaf": "🍂", "leaf_fluttering_in_wind": "🍃"
+            "tree": "ðŸŒ³", "flower": "ðŸŒ¸", "rose": "ðŸŒ¹", "sunflower": "ðŸŒ»", "cactus": "ðŸŒµ", "palm_tree": "ðŸŒ´", "seedling": "ðŸŒ±", "herb": "ðŸŒ¿", "evergreen_tree": "ðŸŒ²", "maple_leaf": "ðŸ", "fallen_leaf": "ðŸ‚", "leaf_fluttering_in_wind": "ðŸƒ"
         },
         "travel": {
-            "luggage": "🧳", "passport_control": "🛂", "ticket": "🎫", "world_map": "🗺️", "mountain": "🏔️", "beach": "🏖️", "desert": "🏜️", "volcano": "🌋", "mount_fuji": "🗻", "camping": "🏕️", "tent": "⛺", "ferry": "⛴️"
+            "luggage": "ðŸ§³", "passport_control": "ðŸ›‚", "ticket": "ðŸŽ«", "world_map": "ðŸ—ºï¸", "mountain": "ðŸ”ï¸", "beach": "ðŸ–ï¸", "desert": "ðŸœï¸", "volcano": "ðŸŒ‹", "mount_fuji": "ðŸ—»", "camping": "ðŸ•ï¸", "tent": "â›º", "ferry": "â›´ï¸"
         },
         "activities": {
-            "soccer": "⚽", "basketball": "🏀", "baseball": "⚾", "football": "American football", "rugby": "🏉", "tennis": "🎾", "badminton": "🏸", "cricket": "🏏", "boxing": "🥊", "golf": "🏌️‍♂️", "ping_pong": "🏓", "bowling": "🎳", "ice_skate": "⛸️"
+            "soccer": "âš½", "basketball": "ðŸ€", "baseball": "âš¾", "football": "American football", "rugby": "ðŸ‰", "tennis": "ðŸŽ¾", "badminton": "ðŸ¸", "cricket": "ðŸ", "boxing": "ðŸ¥Š", "golf": "ðŸŒï¸â€â™‚ï¸", "ping_pong": "ðŸ“", "bowling": "ðŸŽ³", "ice_skate": "â›¸ï¸"
         },
         "music": {
-            "guitar": "🎸", "violin": "🎻", "trumpet": "🎺", "saxophone": "🎷", "drum": "🥁", "microphone": "🎤", "headphones": "🎧", "musical_note": "🎶", "musical_keyboard": "🎹", "radio": "📻", "studio_microphone": "🎙️", "vuvuzela": "📯"
+            "guitar": "ðŸŽ¸", "violin": "ðŸŽ»", "trumpet": "ðŸŽº", "saxophone": "ðŸŽ·", "drum": "ðŸ¥", "microphone": "ðŸŽ¤", "headphones": "ðŸŽ§", "musical_note": "ðŸŽ¶", "musical_keyboard": "ðŸŽ¹", "radio": "ðŸ“»", "studio_microphone": "ðŸŽ™ï¸", "vuvuzela": "ðŸ“¯"
         },
         "vehicles": {
-            "taxi": "🚖", "minibus": "🚐", "snowplow": "🚜", "tractor": "🚜", "ambulance": "🚑", "police_car": "🚓", "fire_engine": "🚒"
+            "taxi": "ðŸš–", "minibus": "ðŸš", "snowplow": "ðŸšœ", "tractor": "ðŸšœ", "ambulance": "ðŸš‘", "police_car": "ðŸš“", "fire_engine": "ðŸš’"
         },
         "technology": {
-            "robot": "🤖", "computer": "💻", "tv": "📺", "telephone": "☎️", "fax": "📠", "printer": "🖨️", "camera": "📷", "video_camera": "🎥", "smartphone": "📱", "tablet": "📲", "satellite": "📡"
+            "robot": "ðŸ¤–", "computer": "ðŸ’»", "tv": "ðŸ“º", "telephone": "â˜Žï¸", "fax": "ðŸ“ ", "printer": "ðŸ–¨ï¸", "camera": "ðŸ“·", "video_camera": "ðŸŽ¥", "smartphone": "ðŸ“±", "tablet": "ðŸ“²", "satellite": "ðŸ“¡"
         },
         "buildings": {
-            "house": "🏠", "office": "🏢", "hospital": "🏥", "school": "🏫", "hotel": "🏨", "bank": "🏦", "post_office": "🏣", "church": "⛪", "mosque": "🕌", "synagogue": "🕍", "castle": "🏰", "factory": "🏭", "stadium": "🏟️"
+            "house": "ðŸ ", "office": "ðŸ¢", "hospital": "ðŸ¥", "school": "ðŸ«", "hotel": "ðŸ¨", "bank": "ðŸ¦", "post_office": "ðŸ£", "church": "â›ª", "mosque": "ðŸ•Œ", "synagogue": "ðŸ•", "castle": "ðŸ°", "factory": "ðŸ­", "stadium": "ðŸŸï¸"
         }
     
     

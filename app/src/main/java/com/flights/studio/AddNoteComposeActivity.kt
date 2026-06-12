@@ -7,22 +7,29 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.provider.OpenableColumns
 import android.view.Window
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -31,11 +38,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,16 +54,17 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -64,8 +73,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -74,7 +81,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -101,7 +107,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -111,7 +119,9 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -119,6 +129,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityCompat
@@ -138,6 +149,10 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.io.File
+import java.util.Locale
 import androidx.compose.foundation.lazy.itemsIndexed as listItemsIndexed
 
 data class TipMeta(
@@ -151,7 +166,576 @@ data class TitleSuggestion(
     val why: String
 )
 
+@Composable
+private fun AddNoteMenuAction(
+    iconText: String,
+    title: String,
+    subtitle: String,
+    accent: Color,
+    container: Color,
+    modifier: Modifier = Modifier,
+    trailing: String? = null,
+    showDot: Boolean = false,
+    onClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = container,
+        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.14f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            AddNoteMenuIcon(iconText = iconText, accent = accent)
 
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = scheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = scheme.onSurfaceVariant.copy(alpha = 0.76f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (showDot) {
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(scheme.error)
+                )
+            }
+
+            if (trailing != null) {
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = accent.copy(alpha = 0.13f),
+                    border = BorderStroke(1.dp, accent.copy(alpha = 0.18f))
+                ) {
+                    Text(
+                        text = trailing,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = accent
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddNoteMenuCompactAction(
+    iconText: String,
+    title: String,
+    accent: Color,
+    container: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier
+            .height(86.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = container,
+        border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.14f))
+    ) {
+        Column(
+            modifier = Modifier.padding(11.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            AddNoteMenuIcon(iconText = iconText, accent = accent)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = scheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddNoteTodoTemplateCard(
+    template: AddNoteTodoTemplate,
+    accent: Color,
+    container: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier
+            .height(126.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        color = container,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.22f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AddNoteMenuIcon(iconText = template.icon, accent = accent)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = template.title,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                        color = scheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = template.badge,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = accent,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Text(
+                text = template.subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant.copy(alpha = 0.82f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .height(4.dp)
+                        .weight(1f)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(accent.copy(alpha = 0.26f))
+                )
+                Spacer(Modifier.width(9.dp))
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = accent.copy(alpha = 0.14f)
+                ) {
+                    Text(
+                        text = "Insert",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = accent,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddNoteMenuIcon(
+    iconText: String,
+    accent: Color
+) {
+    Surface(
+        modifier = Modifier.size(34.dp),
+        shape = RoundedCornerShape(13.dp),
+        color = accent.copy(alpha = 0.15f),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.18f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = iconText,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Clip
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddNoteMenuStatusChip(
+    text: String,
+    active: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val scheme = MaterialTheme.colorScheme
+    val color = if (active) scheme.primary else scheme.onSurfaceVariant
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        color = color.copy(alpha = if (active) 0.14f else 0.08f),
+        border = BorderStroke(1.dp, color.copy(alpha = if (active) 0.22f else 0.12f))
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun AddNoteVoiceRecorderCard(
+    voiceNotes: List<AddNoteVoiceAttachment>,
+    isRecording: Boolean,
+    elapsedMs: Long,
+    level: Float,
+    isDark: Boolean,
+    compact: Boolean,
+    onPressStart: () -> Unit,
+    onPressEnd: (Boolean) -> Unit,
+    onRemove: (AddNoteVoiceAttachment) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = if (isRecording) scheme.error else scheme.primary
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = if (isDark) Color(0xFF1D242C) else Color(0xFFF4F8FC),
+        border = BorderStroke(
+            1.dp,
+            if (isRecording) scheme.error.copy(alpha = 0.44f) else scheme.outline.copy(alpha = 0.14f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = if (compact) 8.dp else 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(if (compact) 34.dp else 38.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    color = accent.copy(alpha = 0.16f),
+                    border = BorderStroke(1.dp, accent.copy(alpha = 0.20f))
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (isRecording) "REC" else "Mic",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                            color = accent,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isRecording) "Recording voice note" else "Voice note",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                        color = scheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (isRecording) "Release to save ${formatVoiceDuration(elapsedMs)}" else "Hold mic, talk, release to attach",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.onSurfaceVariant.copy(alpha = 0.82f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .height(if (compact) 34.dp else 38.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                onPressStart()
+                                val up = waitForUpOrCancellation()
+                                onPressEnd(up == null)
+                            }
+                        },
+                    shape = RoundedCornerShape(999.dp),
+                    color = accent.copy(alpha = if (isRecording) 0.24f else 0.14f),
+                    border = BorderStroke(1.dp, accent.copy(alpha = 0.28f))
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isRecording) "Release" else "Hold",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = accent,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+
+            if (isRecording) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(28.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    repeat(18) { index ->
+                        val wave = ((index % 6) + 1) / 6f
+                        val height = (6 + (22 * (level * 0.65f + wave * 0.35f))).dp
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(height)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(accent.copy(alpha = 0.34f + (level * 0.32f)))
+                        )
+                    }
+                }
+            }
+
+            if (voiceNotes.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    voiceNotes.forEachIndexed { index, item ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isDark) Color(0xFF26313B) else Color.White.copy(alpha = 0.70f),
+                            border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.10f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Voice ${index + 1}",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = scheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = formatVoiceDuration(item.durationMs),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = scheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "Remove",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = scheme.error,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .clickable { onRemove(item) }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddNoteQuickToolPill(
+    label: String,
+    detail: String,
+    accent: Color,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    starIcon: Boolean = false,
+    onClick: () -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier
+            .height(36.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(999.dp),
+        color = if (selected) accent.copy(alpha = 0.18f) else scheme.surfaceVariant.copy(alpha = 0.48f),
+        border = BorderStroke(1.dp, accent.copy(alpha = if (selected) 0.34f else 0.16f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            when {
+                starIcon -> Text(
+                    text = "✦",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                    color = accent,
+                    maxLines = 1
+                )
+                icon != null -> Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(13.dp)
+                )
+                else -> Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(accent.copy(alpha = if (selected) 1f else 0.58f))
+                )
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = scheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AddNoteVoiceHoldPill(
+    isRecording: Boolean,
+    elapsedMs: Long,
+    modifier: Modifier = Modifier,
+    onPressStart: () -> Unit,
+    onPressEnd: (Boolean) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = if (isRecording) scheme.error else scheme.primary
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    onPressStart()
+                    val up = waitForUpOrCancellation()
+                    onPressEnd(up == null)
+                }
+            },
+        shape = RoundedCornerShape(999.dp),
+        color = accent.copy(alpha = if (isRecording) 0.20f else 0.12f),
+        border = BorderStroke(1.dp, accent.copy(alpha = if (isRecording) 0.42f else 0.20f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(if (isRecording) 8.dp else 6.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(accent)
+            )
+            Text(
+                text = if (isRecording) formatVoiceDuration(elapsedMs) else "Voice",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                color = accent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AddNoteVoiceInputChip(
+    voiceNotes: List<AddNoteVoiceAttachment>,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
+    onRemove: (AddNoteVoiceAttachment) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = scheme.primary
+    androidx.compose.foundation.lazy.LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        listItemsIndexed(voiceNotes) { index, item ->
+            Surface(
+                modifier = Modifier.height(36.dp),
+                shape = RoundedCornerShape(999.dp),
+                color = if (isDark) Color(0xFF26313B) else Color(0xFFEAF3FF),
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.22f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(accent)
+                    )
+                    Text(
+                        text = "Voice ${index + 1} · ${formatVoiceDuration(item.durationMs)}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                        color = scheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Remove",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = scheme.error,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .clickable { onRemove(item) }
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
 
 class AddNoteComposeActivity : ComponentActivity() {
 
@@ -180,6 +764,10 @@ class AddNoteComposeActivity : ComponentActivity() {
 
         // Let Compose handle system bars paddings
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+        )
 
         setContent {
             // ✅ match your other pages: set bar icon colors from Compose (no NPE)
@@ -198,7 +786,7 @@ class AddNoteComposeActivity : ComponentActivity() {
             FlightsTheme {
                 AddNoteScreen(
                     onBack = { finishWithAnim() },
-                    onSave = { note, title, images, wantsReminder ->
+                    onSave = { note, title, images, voiceNotes, fileAttachments, wantsReminder ->
                         if (note.isBlank()) return@AddNoteScreen
 
                         val result = Intent().apply {
@@ -207,6 +795,34 @@ class AddNoteComposeActivity : ComponentActivity() {
                             putStringArrayListExtra(
                                 "NEW_NOTE_IMAGES",
                                 ArrayList(images.map { it.toString() })
+                            )
+                            putStringArrayListExtra(
+                                "NEW_NOTE_VOICE_URIS",
+                                ArrayList(voiceNotes.map { it.uri.toString() })
+                            )
+                            putExtra(
+                                "NEW_NOTE_VOICE_DURATIONS",
+                                voiceNotes.map { it.durationMs }.toLongArray()
+                            )
+                            putExtra(
+                                "NEW_NOTE_VOICE_CREATED_AT",
+                                voiceNotes.map { it.createdAtMs }.toLongArray()
+                            )
+                            putStringArrayListExtra(
+                                "NEW_NOTE_FILE_URIS",
+                                ArrayList(fileAttachments.map { it.uri.toString() })
+                            )
+                            putStringArrayListExtra(
+                                "NEW_NOTE_FILE_NAMES",
+                                ArrayList(fileAttachments.map { it.name })
+                            )
+                            putStringArrayListExtra(
+                                "NEW_NOTE_FILE_MIMES",
+                                ArrayList(fileAttachments.map { it.mime.orEmpty() })
+                            )
+                            putExtra(
+                                "NEW_NOTE_FILE_SIZES",
+                                fileAttachments.map { it.sizeBytes }.toLongArray()
                             )
                             putExtra("NEW_NOTE_WANTS_REMINDER", wantsReminder)
                         }
@@ -228,6 +844,79 @@ class AddNoteComposeActivity : ComponentActivity() {
     }
 }
 private enum class SheetViewMode { Grid, Large, List }
+private enum class AddNoteToolMenuPage { Main, TodoTemplates }
+
+private data class AddNoteTodoTemplate(
+    val icon: String,
+    val title: String,
+    val subtitle: String,
+    val badge: String,
+    val body: String
+)
+
+private data class AddNoteVoiceAttachment(
+    val uri: Uri,
+    val durationMs: Long,
+    val createdAtMs: Long
+)
+
+private data class AddNoteFileAttachment(
+    val uri: Uri,
+    val name: String,
+    val mime: String?,
+    val sizeBytes: Long
+)
+
+private fun AddNoteFileAttachment.extension(): String =
+    name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+
+private fun AddNoteFileAttachment.isAudioFile(): Boolean {
+    val m = mime.orEmpty().lowercase()
+    return m.startsWith("audio/") || extension() in setOf("mp3", "m4a", "aac", "wav", "flac", "ogg", "opus", "amr")
+}
+
+private fun AddNoteFileAttachment.isVideoFile(): Boolean {
+    val m = mime.orEmpty().lowercase()
+    return m.startsWith("video/") || extension() in setOf("mp4", "mov", "m4v", "mkv", "webm", "avi", "3gp")
+}
+
+private fun AddNoteFileAttachment.sortBucket(): Int = when {
+    isAudioFile() -> 1
+    isVideoFile() -> 2
+    else -> 0
+}
+
+private fun formatVoiceDuration(durationMs: Long): String {
+    val totalSeconds = (durationMs / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d:%02d".format(Locale.US, minutes, seconds)
+}
+
+private fun createVoiceNoteFile(context: Context): File {
+    val dir = File(context.filesDir, "voice_notes").apply { mkdirs() }
+    return File(dir, "voice_${System.currentTimeMillis()}.m4a")
+}
+
+private fun queryAttachmentMeta(context: Context, uri: Uri): Triple<String, String?, Long> {
+    val cr = context.contentResolver
+    var name: String? = null
+    var size = -1L
+    cr.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
+        ?.use { c ->
+            if (c.moveToFirst()) {
+                val nameIdx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIdx = c.getColumnIndex(OpenableColumns.SIZE)
+                if (nameIdx >= 0) name = c.getString(nameIdx)
+                if (sizeIdx >= 0 && !c.isNull(sizeIdx)) size = c.getLong(sizeIdx)
+            }
+        }
+    val fallback = uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: "attachment_${System.currentTimeMillis()}"
+    val mime = cr.getType(uri)
+    return Triple(name?.takeIf { it.isNotBlank() } ?: fallback, mime, size.coerceAtLeast(0L))
+}
+
 private const val MAX_NOTE_CHARS = 5_000_000      // you can raise to 5_000_000 if you want
 private const val PASTE_JUMP = 5_000              // consider it a paste if jump is big
 private const val PASTE_CHUNK = 8_192             // chunk size for safe appending
@@ -238,7 +927,7 @@ private const val PASTE_CHUNK = 8_192             // chunk size for safe appendi
 @Composable
 private fun AddNoteScreen(
     onBack: () -> Unit,
-    onSave: (note: String, title: String, images: List<Uri>, wantsReminder: Boolean) -> Unit
+    onSave: (note: String, title: String, images: List<Uri>, voiceNotes: List<AddNoteVoiceAttachment>, fileAttachments: List<AddNoteFileAttachment>, wantsReminder: Boolean) -> Unit
 ) {
 
     val context = LocalContext.current
@@ -249,6 +938,40 @@ private fun AddNoteScreen(
     var noteFocused by rememberSaveable { mutableStateOf(false) }
     val isDark = isSystemInDarkTheme()
     val scheme = MaterialTheme.colorScheme
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
+    val keyboardActive = noteFocused && imeBottomDp > 0.dp
+    val tinyComposer = configuration.screenHeightDp < 680
+    val compactComposer = configuration.screenHeightDp < 760
+    val composerPadding = when {
+        keyboardActive -> 8.dp
+        tinyComposer -> 10.dp
+        compactComposer -> 12.dp
+        else -> 16.dp
+    }
+    val composerGap = when {
+        keyboardActive -> 6.dp
+        tinyComposer -> 8.dp
+        compactComposer -> 10.dp
+        else -> 12.dp
+    }
+    val actionTileHeight = when {
+        keyboardActive -> 36.dp
+        tinyComposer -> 38.dp
+        compactComposer -> 42.dp
+        else -> 46.dp
+    }
+    val actionTilePadding = if (keyboardActive || tinyComposer) 3.dp else 5.dp
+    val actionIconSize = if (keyboardActive || tinyComposer) 12.dp else 14.dp
+    val actionIconGap = if (keyboardActive || tinyComposer) 1.dp else 2.dp
+    val noteEditorHeight = when {
+        keyboardActive -> 88.dp
+        tinyComposer -> 132.dp
+        compactComposer -> 174.dp
+        else -> 250.dp
+    }
+    val titleIconSize = if (keyboardActive) 30.dp else if (tinyComposer) 32.dp else 38.dp
 
     @Stable
     data class NoteUiPalette(
@@ -295,10 +1018,335 @@ private fun AddNoteScreen(
     // State
     var title by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var isCorrectingNote by rememberSaveable { mutableStateOf(false) }
+    var correctionStatus by rememberSaveable { mutableStateOf<String?>(null) }
     var wantsReminder by rememberSaveable { mutableStateOf(false) }
     val images = remember { mutableStateListOf<Uri>() }
+    val voiceNotes = remember { mutableStateListOf<AddNoteVoiceAttachment>() }
+    val fileAttachments = remember { mutableStateListOf<AddNoteFileAttachment>() }
+    var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var activeRecordingFile by remember { mutableStateOf<File?>(null) }
+    var recordingStartedAtMs by remember { mutableStateOf(0L) }
+    var recordingElapsedMs by remember { mutableStateOf(0L) }
+    var recordingLevel by remember { mutableStateOf(0f) }
+    var isRecordingVoice by rememberSaveable { mutableStateOf(false) }
     var showAllImages by rememberSaveable { mutableStateOf(false) }
+    var showAllFiles by rememberSaveable { mutableStateOf(false) }
     var sheetViewMode by rememberSaveable { mutableStateOf(SheetViewMode.Grid) }
+    val todoTemplates = remember {
+        listOf(
+            AddNoteTodoTemplate(
+                icon = "📅",
+                title = "Planner",
+                subtitle = "Time blocks, errands, waiting items, tomorrow carry-over.",
+                badge = "Daily",
+                body = """
+                    Planner
+                    
+                    Today
+                    □ Top priority:
+                    □ Time block:
+                    □ Calls / messages:
+                    □ Errands:
+                    
+                    Waiting on
+                    □ 
+                    
+                    Move to tomorrow
+                    □ 
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "💡",
+                title = "Idea",
+                subtitle = "Capture the problem, why it matters, and the first test.",
+                badge = "Create",
+                body = """
+                    Idea brief
+                    
+                    □ Problem:
+                    □ Who it helps:
+                    □ Better solution:
+                    □ First test:
+                    □ Save for later:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "⭐",
+                title = "Priority",
+                subtitle = "Separate urgent work from nice-to-have noise.",
+                badge = "Focus",
+                body = """
+                    Priority list
+                    
+                    Must finish
+                    □ 
+                    □ 
+                    
+                    Important next
+                    □ 
+                    □ 
+                    
+                    Not today
+                    □ 
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🛒",
+                title = "Shopping",
+                subtitle = "Essentials, optional items, store and budget.",
+                badge = "List",
+                body = """
+                    Shopping list
+                    
+                    Essentials
+                    □ 
+                    □ 
+                    □ 
+                    
+                    Optional
+                    □ 
+                    
+                    Before checkout
+                    □ Budget:
+                    □ Store:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "📍",
+                title = "Location",
+                subtitle = "A place-based checklist for errands or visits.",
+                badge = "Place",
+                body = """
+                    Location task
+                    
+                    Place:
+                    □ Arrive by:
+                    □ Do there:
+                    □ Ask / confirm:
+                    □ Before leaving:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "⏰",
+                title = "Reminder",
+                subtitle = "Time, prep, action, and follow-up in one note.",
+                badge = "Time",
+                body = """
+                    Reminder plan
+                    
+                    When:
+                    □ Date:
+                    □ Time:
+                    □ Prepare before:
+                    □ Action:
+                    □ Follow up:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "📷",
+                title = "Photo",
+                subtitle = "Shot list so photos are not random or missing context.",
+                badge = "Media",
+                body = """
+                    Photo checklist
+                    
+                    □ Main shot:
+                    □ Detail shot:
+                    □ Wide/context shot:
+                    □ Retake if blurry:
+                    □ Add caption:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🎤",
+                title = "Voice note",
+                subtitle = "Turn a recording into clear actions and details.",
+                badge = "Audio",
+                body = """
+                    Voice note plan
+                    
+                    □ Record point:
+                    □ Key quote:
+                    □ Action item:
+                    □ Person/place mentioned:
+                    □ Convert to note:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "📎",
+                title = "Attachment",
+                subtitle = "Track why a file or link matters.",
+                badge = "File",
+                body = """
+                    Attachment checklist
+                    
+                    □ File/link:
+                    □ What it proves:
+                    □ Related note:
+                    □ Share with:
+                    □ Save location:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🏷",
+                title = "Tags",
+                subtitle = "Make the note easier to find later.",
+                badge = "Sort",
+                body = """
+                    Tags
+                    
+                    □ Category:
+                    □ People:
+                    □ Place:
+                    □ Status:
+                    □ Priority:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "📊",
+                title = "Progress",
+                subtitle = "Milestones from started to finished.",
+                badge = "Track",
+                body = """
+                    Progress tracker
+                    
+                    Goal:
+                    □ 0% - started:
+                    □ 25% - first milestone:
+                    □ 50% - halfway:
+                    □ 75% - review:
+                    □ 100% - done:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🎯",
+                title = "Goal",
+                subtitle = "Define the target, deadline, and success measure.",
+                badge = "Aim",
+                body = """
+                    Goal plan
+                    
+                    Goal:
+                    □ Why it matters:
+                    □ First action:
+                    □ Deadline:
+                    □ Success measure:
+                    □ Next review:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🧠",
+                title = "Brainstorm",
+                subtitle = "Collect options, risks, and the next experiment.",
+                badge = "Think",
+                body = """
+                    Brainstorm board
+                    
+                    Topic:
+                    □ Option:
+                    □ Option:
+                    □ Risk:
+                    □ Best direction:
+                    □ Next experiment:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🚀",
+                title = "Project",
+                subtitle = "Outcome, scope, blocker, owner, and review.",
+                badge = "Build",
+                body = """
+                    Project checklist
+                    
+                    Project:
+                    □ Outcome:
+                    □ Scope:
+                    □ Next task:
+                    □ Blocker:
+                    □ Owner:
+                    □ Ship / review:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🧩",
+                title = "Bug fix",
+                subtitle = "Reproduce, cause, fix, test, and verify.",
+                badge = "Dev",
+                body = """
+                    Bug fix checklist
+                    
+                    Issue:
+                    □ Steps to reproduce:
+                    □ Expected result:
+                    □ Actual result:
+                    □ Likely cause:
+                    □ Fix:
+                    □ Test / verify:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "✈",
+                title = "Airport shift",
+                subtitle = "Arrivals, departures, delays, and follow-up.",
+                badge = "Ops",
+                body = """
+                    Airport shift
+                    
+                    Today:
+                    □ Arrivals to watch:
+                    □ Departures to watch:
+                    □ Delays:
+                    □ Cancellations:
+                    □ Calls / follow-up:
+                    □ Notes for next shift:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🗓",
+                title = "Meeting",
+                subtitle = "Agenda, decisions, owners, and next actions.",
+                badge = "Work",
+                body = """
+                    Meeting notes
+                    
+                    Topic:
+                    □ Agenda:
+                    □ Decision:
+                    □ Owner:
+                    □ Deadline:
+                    □ Follow-up message:
+                """.trimIndent()
+            ),
+            AddNoteTodoTemplate(
+                icon = "🧳",
+                title = "Travel prep",
+                subtitle = "Pack, documents, timing, and last checks.",
+                badge = "Trip",
+                body = """
+                    Travel prep
+                    
+                    Before leaving
+                    □ Documents:
+                    □ Charger / tech:
+                    □ Clothes:
+                    □ Ride / parking:
+                    □ Arrival plan:
+                    
+                    Last check
+                    □ Keys / wallet:
+                    □ Door locked:
+                """.trimIndent()
+            )
+        )
+    }
+
+    LaunchedEffect(correctionStatus, isCorrectingNote) {
+        if (correctionStatus != null && !isCorrectingNote) {
+            kotlinx.coroutines.delay(2400)
+            correctionStatus = null
+        }
+    }
 
     // Tip/dot logic (same behavior you already had)
     var showHelp by rememberSaveable { mutableStateOf(false) }
@@ -351,6 +1399,28 @@ private fun AddNoteScreen(
             showNotifDialog = true
         }
     }
+    val audioPermLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            runCatching { recorder?.release() }
+            recorder = null
+        }
+    }
+
+    LaunchedEffect(isRecordingVoice) {
+        while (isRecordingVoice) {
+            val started = recordingStartedAtMs
+            recordingElapsedMs = if (started > 0L) SystemClock.elapsedRealtime() - started else 0L
+            val amplitude = runCatching { recorder?.maxAmplitude ?: 0 }.getOrDefault(0)
+            recordingLevel = (amplitude / 32767f).coerceIn(0.08f, 1f)
+            kotlinx.coroutines.delay(80)
+        }
+        recordingLevel = 0f
+    }
+
     fun closeManualTitleOnly() {
         showManualTitle = false
         titleFocused = false
@@ -403,6 +1473,244 @@ private fun AddNoteScreen(
         }
     }
 
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+
+        val existing = fileAttachments.map { it.uri }.toSet()
+        uris.forEach { uri ->
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            val (name, mime, size) = queryAttachmentMeta(context, uri)
+            if (mime?.startsWith("image/", ignoreCase = true) == true) {
+                val file = importImageIntoAppStorage(context, uri, subDir = "notes_photos") ?: return@forEach
+                val localUri = Uri.fromFile(file)
+                if (localUri !in images) images.add(localUri)
+                return@forEach
+            }
+
+            val file = importImageIntoAppStorage(context, uri, subDir = "notes_files") ?: return@forEach
+            val localUri = Uri.fromFile(file)
+            if (localUri !in existing) {
+                fileAttachments.add(
+                    AddNoteFileAttachment(
+                        uri = localUri,
+                        name = name,
+                        mime = mime,
+                        sizeBytes = if (size > 0L) size else file.length()
+                    )
+                )
+            }
+        }
+    }
+
+    fun toggleReminder() {
+        if (wantsReminder) {
+            wantsReminder = false
+            return
+        }
+
+        if (NotificationGate.areNotificationsEnabled(context)) {
+            wantsReminder = true
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            showNotifDialog = true
+        }
+    }
+
+    fun focusNoteEditor() {
+        showManualTitle = false
+        titleFocused = false
+        focusManager.clearFocus(force = true)
+        closeManualTitleOnly()
+        noteFocusRequester.requestFocus()
+        keyboard?.show()
+    }
+
+    fun appendToNote(block: String) {
+        val spacer = when {
+            note.isBlank() -> ""
+            note.endsWith("\n\n") -> ""
+            note.endsWith("\n") -> "\n"
+            else -> "\n\n"
+        }
+        note = (note + spacer + block).take(MAX_NOTE_CHARS)
+        focusNoteEditor()
+    }
+
+    fun startVoiceRecording() {
+        if (isRecordingVoice) return
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            audioPermLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+
+        focusManager.clearFocus(force = true)
+        keyboard?.hide()
+
+        val file = createVoiceNoteFile(context)
+        val newRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            MediaRecorder(context)
+        } else {
+            MediaRecorder()
+        }
+
+        runCatching {
+            newRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            newRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            newRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            newRecorder.setAudioEncodingBitRate(96_000)
+            newRecorder.setAudioSamplingRate(44_100)
+            newRecorder.setOutputFile(file.absolutePath)
+            newRecorder.prepare()
+            newRecorder.start()
+        }.onSuccess {
+            recorder = newRecorder
+            activeRecordingFile = file
+            recordingStartedAtMs = SystemClock.elapsedRealtime()
+            recordingElapsedMs = 0L
+            isRecordingVoice = true
+        }.onFailure {
+            runCatching { newRecorder.release() }
+            file.delete()
+            isRecordingVoice = false
+        }
+    }
+
+    fun stopVoiceRecording(cancel: Boolean) {
+        val activeRecorder = recorder ?: return
+        val file = activeRecordingFile
+        val duration = if (recordingStartedAtMs > 0L) {
+            SystemClock.elapsedRealtime() - recordingStartedAtMs
+        } else {
+            recordingElapsedMs
+        }
+
+        recorder = null
+        activeRecordingFile = null
+        recordingStartedAtMs = 0L
+        isRecordingVoice = false
+
+        runCatching { activeRecorder.stop() }
+        runCatching { activeRecorder.release() }
+
+        if (cancel || file == null || duration < 450L || !file.exists()) {
+            file?.delete()
+            return
+        }
+
+        val attachment = AddNoteVoiceAttachment(
+            uri = Uri.fromFile(file),
+            durationMs = duration,
+            createdAtMs = System.currentTimeMillis()
+        )
+        voiceNotes.add(attachment)
+    }
+
+    fun removeVoiceAttachment(item: AddNoteVoiceAttachment) {
+        voiceNotes.remove(item)
+        val line = "Voice note - ${formatVoiceDuration(item.durationMs)}"
+        note = note
+            .lines()
+            .filterNot { it.trim() == line }
+            .joinToString("\n")
+            .replace(Regex("\\n{3,}"), "\n\n")
+            .trim()
+        if (item.uri.scheme == "file") File(item.uri.path.orEmpty()).delete()
+    }
+
+    fun insertTodoBlock() {
+        appendToNote("To do\n□ \n□ \n□ ")
+    }
+
+    fun insertTodoTemplate(template: AddNoteTodoTemplate) {
+        appendToNote(template.body)
+    }
+
+    fun insertTimestamp() {
+        val stamp = SimpleDateFormat("EEE, MMM d, h:mm a", Locale.getDefault()).format(Date())
+        appendToNote(stamp)
+    }
+
+    fun cleanedNoteText(raw: String): String =
+        raw.lines()
+            .map { it.trimEnd() }
+            .joinToString("\n")
+            .replace(Regex("\\n{3,}"), "\n\n")
+            .trim()
+
+    suspend fun cleanPasteAndCorrectGrammar() {
+        if (note.isBlank()) {
+            correctionStatus = "Nothing to correct"
+            focusNoteEditor()
+            return
+        }
+
+        isCorrectingNote = true
+        correctionStatus = "Correcting spelling, grammar, and style..."
+        val original = note
+        val cleaned = cleanedNoteText(original)
+        if (cleaned != original) note = cleaned
+        focusNoteEditor()
+
+        val prompt = buildString {
+            appendLine("Polish and correct the user's note.")
+            appendLine("Rules:")
+            appendLine("- Preserve the original language.")
+            appendLine("- Preserve meaning, names, times, airports, flight numbers, code, and lists.")
+            appendLine("- Correct spelling, grammar, punctuation, capitalization, sentence structure, and pasted spacing.")
+            appendLine("- Improve style and clarity lightly, but keep the user's voice.")
+            appendLine("- Do not summarize.")
+            appendLine("- Do not translate.")
+            appendLine("- Do not add commentary.")
+            appendLine("- Return only the corrected and polished note text.")
+            appendLine()
+            appendLine("NOTE:")
+            appendLine(cleaned.take(6000))
+        }
+
+        runCatching {
+            GeminiClient.generate(prompt, callTimeoutMillis = 12_000)
+                .trim()
+                .removePrefix("```")
+                .removeSuffix("```")
+                .trim()
+        }.onSuccess { corrected ->
+            if (corrected.isBlank()) {
+                correctionStatus = "AI returned empty text"
+                return@onSuccess
+            }
+
+            val finalText = corrected.take(MAX_NOTE_CHARS)
+            if (finalText == original) {
+                correctionStatus = "Already polished"
+            } else {
+                note = finalText
+                correctionStatus = "Corrected spelling, grammar, and style"
+            }
+            focusNoteEditor()
+        }.onFailure {
+            correctionStatus =
+                if (cleaned != original) "Cleaned spacing, AI unavailable" else "AI correction unavailable"
+            focusNoteEditor()
+        }.also {
+            isCorrectingNote = false
+        }
+    }
 
     val pageBg = LocalAppPageBg.current
 
@@ -440,9 +1748,13 @@ private fun AddNoteScreen(
             // ✅ same “rounded bottom” header style like your profile screen
 
             Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(20f),
                 shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
                 color = ui.topBarBg,
-                shadowElevation = if (isDark) 0.dp else 1.dp
+                tonalElevation = 0.dp,
+                shadowElevation = if (isDark) 2.dp else 4.dp
             ) {
                 CenterAlignedTopAppBar(
                     title = {
@@ -472,6 +1784,7 @@ private fun AddNoteScreen(
 
                         val canSave = note.isNotBlank()
                         var menuOpen by remember { mutableStateOf(false) }
+                        var menuPage by remember { mutableStateOf(AddNoteToolMenuPage.Main) }
                         val titleTint = when {
                             aiPlaceholderLoading -> MaterialTheme.colorScheme.onSurfaceVariant
                             aiPlaceholder != null -> MaterialTheme.colorScheme.primary
@@ -633,7 +1946,14 @@ private fun AddNoteScreen(
                                                         return@launch
                                                     }
 
-                                                    onSave(note, finalTitle, images.toList(), finalWantsReminder)
+                                                    onSave(
+                                                        note,
+                                                        finalTitle,
+                                                        images.toList(),
+                                                        voiceNotes.toList(),
+                                                        fileAttachments.toList(),
+                                                        finalWantsReminder
+                                                    )
 
                                                 } finally {
                                                     saving = false
@@ -686,15 +2006,17 @@ private fun AddNoteScreen(
                                         label = "splitArrow"
                                     )
 
-                                    // ✅ you want it to LOOK disabled when nothing is set
-                                    val trailEnabled = wantsReminder || images.isNotEmpty()
+                                    val trailEnabled = true
                                     val hlColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
 
 
                                     Box(Modifier.wrapContentSize()) {
                                         SplitButtonDefaults.TrailingButton(
                                             checked = menuOpen,
-                                            onCheckedChange = { menuOpen = it },
+                                            onCheckedChange = {
+                                                menuOpen = it
+                                                if (!it) menuPage = AddNoteToolMenuPage.Main
+                                            },
                                             enabled = trailEnabled,
                                             colors = btnColors,
                                             shapes = rightShapes,
@@ -737,125 +2059,207 @@ private fun AddNoteScreen(
                                                     .clickable(
                                                         interactionSource = remember { MutableInteractionSource() },
                                                         indication = null
-                                                    ) { menuOpen = !menuOpen }
+                                                    ) {
+                                                        menuOpen = !menuOpen
+                                                        if (!menuOpen) menuPage = AddNoteToolMenuPage.Main
+                                                    }
                                             )
                                         }
                                     }
                                 }
                             )
 
-                            // ✅ YOUR MENU: unchanged
+                            // Modern note tools. Photo/reminder/suggest live inside the composer.
                             DropdownMenuPopup(
                                 expanded = menuOpen,
-                                onDismissRequest = { menuOpen = false }
+                                onDismissRequest = {
+                                    menuOpen = false
+                                    menuPage = AddNoteToolMenuPage.Main
+                                },
+                                offset = DpOffset(x = 0.dp, y = 64.dp)
                             ) {
-                                val itemCount = 4
+                                val panelColor = if (isDark) Color(0xFF232425) else Color(0xFFFEFEFE)
+                                val panelInner = if (isDark) Color(0xFF2A2C2F) else scheme.surfaceVariant.copy(alpha = 0.58f)
+                                val panelBorder = if (isDark) Color(0xFF333538) else Color(0xFFE3E3E4)
 
-                                DropdownMenuGroup(
-                                    shapes = MenuDefaults.groupShape(index = 0, count = 1),
-                                    containerColor = MenuDefaults.groupVibrantContainerColor
+                                Surface(
+                                    modifier = Modifier
+                                        .width(328.dp)
+                                        .padding(6.dp),
+                                    shape = RoundedCornerShape(28.dp),
+                                    color = panelColor,
+                                    shadowElevation = 8.dp,
+                                    border = BorderStroke(1.dp, panelBorder)
                                 ) {
-                                    DropdownMenuItem(
-                                        selected = false,
-                                        onClick = {
-                                            menuOpen = false
-                                            picker.launch(arrayOf("image/*"))
-                                        },
-                                        text = { Text("Add photo") },
-                                        shapes = MenuDefaults.itemShape(index = 0, count = itemCount),
-                                        colors = MenuDefaults.itemColors(),
-                                        trailingIcon = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) }
-                                    )
-
-                                    DropdownMenuItem(
-                                        selected = false,
-                                        onClick = {
-                                            menuOpen = false
-
-                                            if (wantsReminder) {
-                                                wantsReminder = false
-                                                return@DropdownMenuItem
-                                            }
-
-                                            if (NotificationGate.areNotificationsEnabled(context)) {
-                                                wantsReminder = true
-                                            } else {
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                                    ActivityCompat.checkSelfPermission(
-                                                        context, Manifest.permission.POST_NOTIFICATIONS
-                                                    ) != PackageManager.PERMISSION_GRANTED
-                                                ) {
-                                                    notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                                } else {
-                                                    showNotifDialog = true
-                                                }
-                                            }
-                                        },
-                                        text = { Text(if (wantsReminder) "Remove reminder" else "Add reminder") },
-                                        shapes = MenuDefaults.itemShape(index = 1, count = itemCount),
-                                        colors = MenuDefaults.itemColors(),
-                                        trailingIcon = { Text(if (wantsReminder) "⏰" else "⏱️") }
-                                    )
-
-                                    DropdownMenuItem(
-                                        selected = false,
-                                        onClick = {
-                                            menuOpen = false
-                                            if (tipEnabled) {
-                                                showTitleTip(expanded = false)
-                                            } else {
-                                                context.startActivity(Intent(context, NotesSettingsComposeActivity::class.java))
-                                            }
-                                        },
-                                        text = {
-                                            Column {
-                                                Text("Info", style = MaterialTheme.typography.labelLarge)
+                                    Column(Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    text = if (tipEnabled) "Smart suggestions active" else "Turn on in settings",
+                                                    text = if (menuPage == AddNoteToolMenuPage.Main) "Note tools" else "To-do templates",
+                                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = scheme.onSurface
+                                                )
+                                                Text(
+                                                    text = if (menuPage == AddNoteToolMenuPage.Main) "Fast actions for this draft" else "Pick the checklist you need",
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    color = scheme.onSurfaceVariant.copy(alpha = 0.74f)
                                                 )
                                             }
-                                        },
-                                        shapes = MenuDefaults.itemShape(index = 2, count = itemCount),
-                                        colors = MenuDefaults.itemColors(),
-                                        leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
-                                        trailingIcon = {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (showDot) {
-                                                    Box(
-                                                        Modifier
-                                                            .size(8.dp)
-                                                            .clip(RoundedCornerShape(50))
-                                                            .background(MaterialTheme.colorScheme.error)
-                                                    )
-                                                    Spacer(Modifier.width(10.dp))
-                                                }
 
-                                                Surface(
-                                                    shape = RoundedCornerShape(999.dp),
-                                                    color = if (tipEnabled)
-                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                                                    else
-                                                        MaterialTheme.colorScheme.surfaceVariant,
-                                                    border = BorderStroke(
-                                                        1.dp,
-                                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
-                                                    )
-                                                ) {
-                                                    Text(
-                                                        text = if (tipEnabled) "On" else "Off",
-                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = if (tipEnabled)
-                                                            MaterialTheme.colorScheme.primary
-                                                        else
-                                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                            Surface(
+                                                shape = RoundedCornerShape(999.dp),
+                                                color = scheme.primary.copy(alpha = 0.14f),
+                                                border = BorderStroke(1.dp, scheme.primary.copy(alpha = 0.22f))
+                                            ) {
+                                                Text(
+                                                    text = if (menuPage == AddNoteToolMenuPage.Main) "Add Note" else "Back",
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(999.dp))
+                                                        .clickable(
+                                                            enabled = menuPage != AddNoteToolMenuPage.Main,
+                                                            interactionSource = remember { MutableInteractionSource() },
+                                                            indication = null
+                                                        ) { menuPage = AddNoteToolMenuPage.Main }
+                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                                    color = scheme.primary
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(Modifier.height(10.dp))
+
+                                        if (menuPage == AddNoteToolMenuPage.Main) {
+                                            AddNoteMenuAction(
+                                                iconText = "□",
+                                                title = "To-do list",
+                                                subtitle = "Choose planner, project, shopping, and more",
+                                                accent = scheme.primary,
+                                                container = panelInner,
+                                                onClick = { menuPage = AddNoteToolMenuPage.TodoTemplates }
+                                            )
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                AddNoteMenuCompactAction(
+                                                    modifier = Modifier.weight(1f),
+                                                    iconText = "Now",
+                                                    title = "Timestamp",
+                                                    accent = scheme.tertiary,
+                                                    container = panelInner,
+                                                    onClick = {
+                                                        menuOpen = false
+                                                        menuPage = AddNoteToolMenuPage.Main
+                                                        insertTimestamp()
+                                                    }
+                                                )
+
+                                                AddNoteMenuCompactAction(
+                                                    modifier = Modifier.weight(1f),
+                                                    iconText = "Aa",
+                                                    title = "Clean + grammar",
+                                                    accent = scheme.secondary,
+                                                    container = panelInner,
+                                                    onClick = {
+                                                        menuOpen = false
+                                                        menuPage = AddNoteToolMenuPage.Main
+                                                        scope.launch { cleanPasteAndCorrectGrammar() }
+                                                    }
+                                                )
+                                            }
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            AddNoteMenuAction(
+                                                iconText = "AI",
+                                                title = "Smart titles",
+                                                subtitle = if (tipEnabled) "Open suggestions and title help" else "Turn suggestions on in settings",
+                                                accent = scheme.primary,
+                                                container = panelInner,
+                                                showDot = showDot,
+                                                onClick = {
+                                                    menuOpen = false
+                                                    menuPage = AddNoteToolMenuPage.Main
+                                                    if (tipEnabled) {
+                                                        showTitleTip(expanded = false)
+                                                    } else {
+                                                        context.startActivity(Intent(context, NotesSettingsComposeActivity::class.java))
+                                                    }
+                                                }
+                                            )
+
+                                            Spacer(Modifier.height(8.dp))
+
+                                            AddNoteMenuAction(
+                                                iconText = "i",
+                                                title = "Notes settings",
+                                                subtitle = "Layout, badges, title suggestions",
+                                                accent = scheme.onSurfaceVariant,
+                                                container = panelInner,
+                                                trailing = if (tipEnabled) "On" else "Off",
+                                                onClick = {
+                                                    menuOpen = false
+                                                    menuPage = AddNoteToolMenuPage.Main
+                                                    context.startActivity(Intent(context, NotesSettingsComposeActivity::class.java))
+                                                }
+                                            )
+
+                                            Spacer(Modifier.height(10.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                AddNoteMenuStatusChip(
+                                                    text = if (images.isEmpty()) "No photos" else "${images.size} photo${if (images.size == 1) "" else "s"}",
+                                                    active = images.isNotEmpty(),
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                AddNoteMenuStatusChip(
+                                                    text = if (wantsReminder) "Reminder on" else "No reminder",
+                                                    active = wantsReminder,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            }
+                                        } else {
+                                            val templateAccents = listOf(
+                                                scheme.primary,
+                                                scheme.tertiary,
+                                                Color(0xFFFFC857),
+                                                Color(0xFF7DD3FC),
+                                                Color(0xFF8EE3A8),
+                                                Color(0xFFFF8A80)
+                                            )
+                                            LazyVerticalGrid(
+                                                columns = GridCells.Fixed(2),
+                                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(430.dp)
+                                            ) {
+                                                itemsIndexed(todoTemplates) { index, template ->
+                                                    AddNoteTodoTemplateCard(
+                                                        template = template,
+                                                        accent = templateAccents[index % templateAccents.size],
+                                                        container = panelInner,
+                                                        onClick = {
+                                                            menuOpen = false
+                                                            menuPage = AddNoteToolMenuPage.Main
+                                                            insertTodoTemplate(template)
+                                                        }
                                                     )
                                                 }
                                             }
                                         }
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -912,10 +2316,13 @@ private fun AddNoteScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .imePadding()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(bottom = if (keyboardActive) imeBottomDp else 0.dp)
+                        .clipToBounds()
+                        .padding(
+                            horizontal = 14.dp,
+                            vertical = if (keyboardActive) 8.dp else 12.dp
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(if (keyboardActive) 8.dp else 12.dp)
                 ) {
                     fun placeholderKey(noteText: String, imgCount: Int): String {
                         val t = noteText.trim()
@@ -1008,239 +2415,219 @@ private fun AddNoteScreen(
                     }
 
 
-                    // ✅ STACK like your sketch: big title box, note overlaps it (no gap)
-                    Box(modifier = Modifier.fillMaxWidth()) {
+                    val titleStripText = when {
+                        title.isNotBlank() -> title
+                        aiPlaceholderLoading -> "Thinking…"
+                        aiPlaceholder != null -> aiPlaceholder!!
+                        else -> "Smart title"
+                    }
+                    val titleFieldPlaceholder = when {
+                        aiPlaceholderLoading -> "Thinking…"
+                        aiPlaceholder != null -> aiPlaceholder!!
+                        else -> "Title"
+                    }
+                    val titleIsSmart = titleFromAi || aiPlaceholder != null || aiPlaceholderLoading
+                    val composerColor = if (isDark) Color(0xFF232425) else Color(0xFFFEFEFE)
+                    val composerBorder = if (isDark) Color(0xFF333538) else Color(0xFFE3E3E4)
+                    val smartTitleColor = if (isDark) Color(0xFF18314F) else Color(0xFFEAF3FF)
+                    val smartTitleIdleColor = if (isDark) Color(0xFF252D38) else Color(0xFFF3F7FC)
+                    val smartTitleBorder = if (isDark) Color(0xFF426B9E) else Color(0xFFB7D7FF)
+                    val noteInputColor = if (isDark) Color(0xFF1B1D20) else Color(0xFFF7F4EF)
+                    val noteInputBorder = if (isDark) Color(0xFF3B3E44) else Color(0xFFE6DCD0)
+                    val quietTileColor = if (isDark) Color(0xFF202D3B) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f)
+                    val recordingAccent = MaterialTheme.colorScheme.error
+                    val composerNoteHeight = if (images.isNotEmpty()) {
+                        when {
+                            tinyComposer -> 92.dp
+                            compactComposer -> 118.dp
+                            else -> 160.dp
+                        }
+                    } else {
+                        noteEditorHeight
+                    }
+                    val noteInputTopInset = if (keyboardActive || tinyComposer) 52.dp else 58.dp
+                    val voiceInputVisible = voiceNotes.isNotEmpty()
+                    val noteInputBottomInset = if (voiceInputVisible) 44.dp else 0.dp
 
-                        // treat title-focus / manual-title like focus too
-                        // ✅ big title box height + overlap amount
-                        val titleBoxH = 92.dp
-                        val overlap = 28.dp
-                        val topEdgePad = 16.dp // title text ALWAYS near top edge
-
-                        // ✅ lift BOTH together (so overlap never changes, no gap)
-                        val stackLiftY = 0.dp
-
-                        val hintTextScale = 1f
-
-                        // --- Title AI box (BACKGROUND) ---
-                        val showTitleBox = tipEnabled
-                        if (showTitleBox) {
-
-                            val boxText = when {
-                                title.isNotBlank() -> title
-                                aiPlaceholderLoading -> "Thinking…"
-                                aiPlaceholder != null -> aiPlaceholder!!
-                                else -> "Suggestion"
-                            }
-
-                            val fieldPlaceholder = when {
-                                aiPlaceholderLoading -> "Thinking…"
-                                aiPlaceholder != null -> aiPlaceholder!!
-                                else -> "Title"
-                            }
-
-                            val aiActive = titleFromAi || aiPlaceholder != null
-
-                            val boxColor = when {
-                                aiActive && isDark -> MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
-                                aiActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                                else -> ui.cardBg
-                            }
-
-                            val aiBorder = when {
-                                aiActive -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
-                                else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
-                            }
-
-
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(28.dp),
+                        color = composerColor,
+                        shadowElevation = 0.dp,
+                        border = BorderStroke(
+                            1.dp,
+                            composerBorder
+                        )
+                    ) {
+                        Column(Modifier.padding(composerPadding)) {
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 28.dp)
-                                    .padding(top = 10.dp)
-                                    .height(titleBoxH)               // ✅ BIG box
-                                    .offset { androidx.compose.ui.unit.IntOffset(0, stackLiftY.roundToPx()) }
-                                    .zIndex(0f)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null
-                                    ) { showManualTitle = true },
-                                shape = RoundedCornerShape(12.dp),
-                                color = boxColor,
-                                shadowElevation = 0.dp,
-                                border = BorderStroke(1.dp, aiBorder)
-
+                                    ) {
+                                        showManualTitle = true
+                                    },
+                                shape = RoundedCornerShape(20.dp),
+                                color = if (titleIsSmart) {
+                                    smartTitleColor
+                                } else {
+                                    smartTitleIdleColor
+                                },
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (titleIsSmart) smartTitleBorder
+                                    else smartTitleBorder.copy(alpha = if (isDark) 0.42f else 0.55f)
+                                )
                             ) {
-                                Box(
-                                    Modifier
-                                        .fillMaxSize()
-                                        .padding(start = 14.dp, end = 14.dp, top = topEdgePad, bottom = 10.dp),
-                                    contentAlignment = Alignment.TopCenter
+                                Row(
+                                    modifier = Modifier.padding(if (tinyComposer) 10.dp else 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-
-                                    // ✅ PINNED to top ALWAYS
-                                    if (showManualTitle) {
-                                        OutlinedTextField(
-                                            value = title,
-                                            onValueChange = {
-                                                title = it
-                                                titleFromAi = false
-                                            },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .focusRequester(titleFocusRequester)
-                                                .onFocusChanged { titleFocused = it.isFocused },
-                                            singleLine = true,
-                                            keyboardOptions = KeyboardOptions(
-                                                capitalization = KeyboardCapitalization.Sentences,
-                                                autoCorrectEnabled = false
-                                            ),
-                                            shape = RoundedCornerShape(12.dp),
-                                            placeholder = {
-                                                Text(fieldPlaceholder, style = MaterialTheme.typography.labelSmall)
-                                            },
-                                            colors = OutlinedTextFieldDefaults.colors(
-                                                focusedContainerColor = Color.Transparent,
-                                                unfocusedContainerColor = Color.Transparent,
-                                                focusedBorderColor = Color.Transparent,
-                                                unfocusedBorderColor = Color.Transparent,
-                                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                                                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                    Surface(
+                                        modifier = Modifier.size(titleIconSize),
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.AutoAwesome,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
                                             )
-                                        )
-                                    } else {
-
-                                        val showAiIcon = aiPlaceholderLoading || aiPlaceholder != null || titleFromAi
-
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .wrapContentWidth()
-                                                .graphicsLayer {
-                                                    scaleX = hintTextScale
-                                                    scaleY = hintTextScale
-                                                    transformOrigin = TransformOrigin(0.5f, 0.5f)
-                                                }
-                                        ) {
-                                            if (showAiIcon && !aiPlaceholderLoading) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.AutoAwesome,
-                                                    contentDescription = "AI",
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier
-                                                        .size(18.dp)
-                                                        .padding(end = 6.dp)
-                                                )
-                                            }
-
-                                            if (aiPlaceholderLoading) {
-                                                ShimmerThinkingTextCompat(
-                                                    text = "Thinking…",
-                                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                                )
-                                            } else {
-                                                Text(
-                                                    text = boxText,
-                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
                                         }
-
-
                                     }
 
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        if (showManualTitle) {
+                                            OutlinedTextField(
+                                                value = title,
+                                                onValueChange = {
+                                                    title = it
+                                                    titleFromAi = false
+                                                },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .focusRequester(titleFocusRequester)
+                                                    .onFocusChanged { titleFocused = it.isFocused },
+                                                singleLine = true,
+                                                keyboardOptions = KeyboardOptions(
+                                                    capitalization = KeyboardCapitalization.Sentences,
+                                                    autoCorrectEnabled = false
+                                                ),
+                                                shape = RoundedCornerShape(12.dp),
+                                                placeholder = {
+                                                    Text(titleFieldPlaceholder, style = MaterialTheme.typography.labelSmall)
+                                                },
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedContainerColor = Color.Transparent,
+                                                    unfocusedContainerColor = Color.Transparent,
+                                                    focusedBorderColor = Color.Transparent,
+                                                    unfocusedBorderColor = Color.Transparent,
+                                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                                    focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                                                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                                                )
+                                            )
+                                        } else if (aiPlaceholderLoading) {
+                                            ShimmerThinkingTextCompat(
+                                                text = "Thinking…",
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                            )
+                                        } else {
+                                            Text(
+                                                text = titleStripText,
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                                color = if (isDark) Color(0xFFE7F1FF) else Color(0xFF123B68),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                        }
 
-                        // --- Note card (FOREGROUND) overlaps title box ---
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = titleBoxH - overlap) // ✅ overlap = NO GAP visible
-                                .offset { androidx.compose.ui.unit.IntOffset(0, stackLiftY.roundToPx()) }
-                                .zIndex(1f)
-                                .clickable(
-                                    interactionSource = noteTap,
-                                    indication = null
-                                ) {
-                                    showManualTitle = false
-                                    titleFocused = false
-                                    focusManager.clearFocus(force = true)
-                                    closeManualTitleOnly()
-                                    noteFocusRequester.requestFocus()
-                                    keyboard?.show()
-                                },
-                            shape = RoundedCornerShape(18.dp),
-                            color = ui.cardBg,
-                            shadowElevation = 1.dp
-                        ) {
-                            Column(Modifier.padding(14.dp)) {
+                            Spacer(Modifier.height(composerGap))
 
-                                Box {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Write your note",
-                                            style = MaterialTheme.typography.labelLarge,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-
-                                        Spacer(Modifier.weight(1f))
-
-                                        Text(
-                                            text = "${note.length}",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                                alpha = 0.70f
-                                            )
-                                        )
-                                    }
-
-                                    if (wantsReminder) {
-                                        AssistChip(
-                                            onClick = { wantsReminder = false },
-                                            label = {
-                                                Text(
-                                                    "Reminder set",
-                                                    style = MaterialTheme.typography.labelSmall
-                                                )
-                                            },
-                                            colors = AssistChipDefaults.assistChipColors(
-                                                containerColor = MaterialTheme.colorScheme.primary.copy(
-                                                    alpha = 0.18f
-                                                ),
-                                                labelColor = MaterialTheme.colorScheme.primary
-                                            ),
-                                            border = null,
-                                            modifier = Modifier
-                                                .align(Alignment.CenterStart)
-                                                .padding(start = 130.dp)
-                                                .height(20.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(Modifier.height(4.dp))
-
-                                Text(
-                                    text = "Paste links, add details, dump ideas — anything",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                AddNoteVoiceHoldPill(
+                                    isRecording = isRecordingVoice,
+                                    elapsedMs = recordingElapsedMs,
+                                    modifier = Modifier.weight(1f),
+                                    onPressStart = { startVoiceRecording() },
+                                    onPressEnd = { canceled -> stopVoiceRecording(canceled) }
                                 )
+                                AddNoteQuickToolPill(
+                                    label = "Reminder",
+                                    detail = if (wantsReminder) "On" else "Off",
+                                    accent = MaterialTheme.colorScheme.tertiary,
+                                    selected = wantsReminder,
+                                    modifier = Modifier.weight(1f),
+                                    icon = if (wantsReminder) Icons.Filled.Notifications else Icons.Filled.NotificationsNone,
+                                    onClick = { toggleReminder() }
+                                )
+                                AddNoteQuickToolPill(
+                                    label = "Attach",
+                                    detail = if (fileAttachments.isEmpty()) "File" else "${fileAttachments.size}",
+                                    accent = MaterialTheme.colorScheme.secondary,
+                                    selected = fileAttachments.isNotEmpty(),
+                                    modifier = Modifier.weight(1f),
+                                    icon = Icons.Filled.AttachFile,
+                                    onClick = { filePicker.launch(arrayOf("*/*")) }
+                                )
+                                AddNoteQuickToolPill(
+                                    label = "Suggest",
+                                    detail = if (tipEnabled) "AI" else "Off",
+                                    accent = MaterialTheme.colorScheme.primary,
+                                    selected = tipEnabled,
+                                    modifier = Modifier.weight(1f),
+                                    starIcon = true,
+                                    onClick = {
+                                        if (tipEnabled) {
+                                            showTitleTip(expanded = true)
+                                        } else {
+                                            context.startActivity(Intent(context, NotesSettingsComposeActivity::class.java))
+                                        }
+                                    }
+                                )
+                            }
 
-                                Spacer(Modifier.height(10.dp))
+                            Spacer(Modifier.height(composerGap))
 
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(composerNoteHeight)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(
+                                        if (noteFocused) {
+                                            if (isDark) Color(0xFF20262E) else Color(0xFFFFF9F1)
+                                        } else {
+                                            noteInputColor
+                                        }
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (noteFocused) {
+                                            if (isDark) Color(0xFF7DB4FF) else Color(0xFFD39A61)
+                                        } else {
+                                            noteInputBorder
+                                        },
+                                        shape = RoundedCornerShape(24.dp)
+                                    )
+                                    .padding(2.dp)
+                            ) {
                                 OutlinedTextField(
                                     value = note,
                                     onValueChange = { new ->
+                                        correctionStatus = null
                                         val old = note
 
                                         if (new.length > MAX_NOTE_CHARS) {
@@ -1271,62 +2658,331 @@ private fun AddNoteScreen(
                                         }
                                     },
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(210.dp)
+                                        .fillMaxSize()
+                                        .padding(top = noteInputTopInset, bottom = noteInputBottomInset)
+                                        .blur(if (isRecordingVoice) 2.5.dp else 0.dp)
                                         .focusRequester(noteFocusRequester)
                                         .onFocusChanged { fs ->
                                             noteFocused = fs.isFocused
-
-                                            // ✅ when note gets focus, close title edit + return to centered suggestion
                                             if (fs.isFocused) {
                                                 showManualTitle = false
                                                 titleFocused = false
                                             }
+                                        }
+                                        .clickable(
+                                            interactionSource = noteTap,
+                                            indication = null
+                                        ) {
+                                            showManualTitle = false
+                                            titleFocused = false
+                                            focusManager.clearFocus(force = true)
+                                            closeManualTitleOnly()
+                                            noteFocusRequester.requestFocus()
+                                            keyboard?.show()
                                         },
-
                                     keyboardOptions = KeyboardOptions(
                                         capitalization = KeyboardCapitalization.Sentences,
                                         autoCorrectEnabled = false
                                     ),
-                                    shape = RoundedCornerShape(14.dp),
+                                    shape = RoundedCornerShape(22.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        focusedContainerColor = MaterialTheme.colorScheme.surface.copy(
-                                            alpha = 0.35f
-                                        ),
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(
-                                            alpha = 0.25f
-                                        ),
-                                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(
-                                            alpha = 0.35f
-                                        ),
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(
-                                            alpha = 0.18f
-                                        ),
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedBorderColor = Color.Transparent,
+                                        unfocusedBorderColor = Color.Transparent,
                                         focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                         unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                        focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.70f
-                                        ),
-                                        unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.70f
-                                        ),
+                                        focusedPlaceholderColor = if (isDark) Color(0xFFC8C0B6) else Color(0xFF7D6D5F),
+                                        unfocusedPlaceholderColor = if (isDark) Color(0xFFC8C0B6) else Color(0xFF7D6D5F),
                                     )
                                 )
+
+                                Row(
+                                    modifier = Modifier
+                                        .align(Alignment.TopStart)
+                                        .fillMaxWidth()
+                                        .padding(start = 14.dp, top = 8.dp, end = 8.dp),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(top = 1.dp)
+                                    ) {
+                                        Text(
+                                            text = "Write note",
+                                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                                            color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (note.isBlank()) {
+                                            Text(
+                                                text = "Paste text, insert a checklist, or correct it with AI.",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                                color = if (isDark) Color(0xFFC8C0B6) else Color(0xFF7D6D5F),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+
+                                    Surface(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(999.dp))
+                                            .clickable {
+                                                note = ""
+                                                correctionStatus = null
+                                                isCorrectingNote = false
+                                                noteFocusRequester.requestFocus()
+                                                keyboard?.show()
+                                            },
+                                        shape = RoundedCornerShape(999.dp),
+                                        color = if (isDark) Color(0xFF262A31) else Color(0xFFF0E7DD),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isDark) Color(0xFF3C424D) else Color(0xFFE0D1C0)
+                                        )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "${note.length} chars",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1
+                                            )
+
+                                            Box(
+                                                Modifier
+                                                    .width(1.dp)
+                                                    .height(12.dp)
+                                                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.34f))
+                                            )
+
+                                            Text(
+                                                text = "Clear",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = if (isDark) Color.White else Color(0xFF6D4F35),
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = isRecordingVoice,
+                                    enter = fadeIn(animationSpec = tween(durationMillis = 520)),
+                                    exit = fadeOut(animationSpec = tween(durationMillis = 260)),
+                                    modifier = Modifier.align(Alignment.Center)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(24.dp),
+                                        color = if (isDark) {
+                                            Color(0xFF121417).copy(alpha = 0.74f)
+                                        } else {
+                                            Color.White.copy(alpha = 0.78f)
+                                        },
+                                        border = BorderStroke(
+                                            1.dp,
+                                            recordingAccent.copy(alpha = if (isDark) 0.34f else 0.24f)
+                                        ),
+                                        shadowElevation = 1.dp
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(
+                                                text = "Hold voice to record",
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Black),
+                                                color = if (isDark) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1
+                                            )
+                                            NoteThinWaveLine(
+                                                progress = 1f,
+                                                active = true,
+                                                level = recordingLevel,
+                                                modifier = Modifier
+                                                    .width(138.dp)
+                                                    .height(8.dp),
+                                                color = recordingAccent,
+                                                trackColor = recordingAccent.copy(alpha = 0.14f),
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (voiceInputVisible) {
+                                    AddNoteVoiceInputChip(
+                                        voiceNotes = voiceNotes,
+                                        isDark = isDark,
+                                        onRemove = { item -> removeVoiceAttachment(item) },
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(start = 12.dp, end = 12.dp, bottom = 10.dp)
+                                    )
+                                }
+
+                                if (isCorrectingNote || correctionStatus != null) {
+                                    Surface(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(start = 14.dp, end = 14.dp, bottom = 12.dp),
+                                        shape = RoundedCornerShape(999.dp),
+                                        color = if (isDark) Color(0xFF2A2521) else Color(0xFFFFF5E8),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            if (isDark) Color(0xFF6F5C47) else Color(0xFFE4C49E)
+                                        )
+                                    ) {
+                                        Box(Modifier.padding(horizontal = 12.dp, vertical = 7.dp)) {
+                                            if (isCorrectingNote) {
+                                                ShimmerThinkingTextCompat(
+                                                    text = "Correcting spelling, grammar, and style...",
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = correctionStatus.orEmpty(),
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                                    color = if (isDark) Color(0xFFFFD8A8) else Color(0xFF76512B),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (fileAttachments.isNotEmpty()) {
+                        val sortedFiles = fileAttachments.sortedWith(
+                            compareBy<AddNoteFileAttachment> { it.sortBucket() }
+                                .thenBy { it.name.lowercase() }
+                        )
+                        val visibleFiles = if (showAllFiles) sortedFiles else sortedFiles.take(3)
+                        val hiddenFiles = (fileAttachments.size - visibleFiles.size).coerceAtLeast(0)
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = ui.cardBg),
+                            elevation = CardDefaults.cardElevation(0.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Files (${fileAttachments.size})",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                visibleFiles.forEach { item ->
+                                    if (item.isAudioFile()) {
+                                        NoteAudioMiniPlayer(
+                                            uri = item.uri,
+                                            title = item.name,
+                                            subtitle = "Audio",
+                                            modifier = Modifier.fillMaxWidth(),
+                                            onRemove = {
+                                                fileAttachments.remove(item)
+                                                if (item.uri.scheme == "file") File(item.uri.path.orEmpty()).delete()
+                                            }
+                                        )
+                                    } else {
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(36.dp),
+                                            shape = RoundedCornerShape(999.dp),
+                                            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.AttachFile,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.secondary,
+                                                    modifier = Modifier.size(13.dp)
+                                                )
+                                                Text(
+                                                    text = item.name,
+                                                    modifier = Modifier.weight(1f),
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = "Remove",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(999.dp))
+                                                        .clickable {
+                                                            fileAttachments.remove(item)
+                                                            if (item.uri.scheme == "file") File(item.uri.path.orEmpty()).delete()
+                                                        }
+                                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                if (fileAttachments.size > 3) {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(999.dp))
+                                            .clickable { showAllFiles = !showAllFiles },
+                                        shape = RoundedCornerShape(999.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                                    ) {
+                                        Text(
+                                            text = if (showAllFiles) "Show less" else "+$hiddenFiles more",
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
 
                     // ---- Images preview (clean grid) ----
                     if (images.isNotEmpty()) {
-                        val maxShow = 6
+                        val maxShow = when {
+                            tinyComposer || compactComposer -> 2
+                            else -> 4
+                        }
                         val extra = (images.size - maxShow).coerceAtLeast(0)
+                        val previewGridHeight = when {
+                            tinyComposer -> 92.dp
+                            compactComposer -> 112.dp
+                            configuration.screenHeightDp < 900 -> 214.dp
+                            else -> 232.dp
+                        }
 
                         Card(
-                            shape = RoundedCornerShape(18.dp),
+                            shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = ui.cardBg),
                             elevation = CardDefaults.cardElevation(0.dp)
                         ) {
-                            Column(Modifier.padding(14.dp)) {
+                            Column(Modifier.padding(10.dp)) {
 
                                 // ✅ header is clickable -> opens "All images"
                                 Row(
@@ -1342,42 +2998,36 @@ private fun AddNoteScreen(
                                 ) {
                                     Text(
                                         text = "Images (${images.size})",
-                                        style = MaterialTheme.typography.labelLarge,
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Spacer(Modifier.weight(1f))
                                     Text(
                                         text = "View all",
-                                        style = MaterialTheme.typography.labelMedium,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
                                     )
                                 }
 
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(8.dp))
 
                                 LazyVerticalGrid(
                                     columns = GridCells.Fixed(2),
                                     state = rememberLazyGridState(),
                                     userScrollEnabled = false, // ✅ let parent scroll handle it
-                                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(
-                                            when {
-                                                images.size <= 2 -> 180.dp
-                                                images.size <= 4 -> 370.dp
-                                                else -> 560.dp
-                                            }
-                                        )
+                                        .height(previewGridHeight)
                                 ) {
                                     itemsIndexed(images.take(maxShow)) { index, uri ->
-                                        val shape = RoundedCornerShape(14.dp)
+                                        val shape = RoundedCornerShape(12.dp)
 
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .aspectRatio(1.25f)
+                                                .aspectRatio(1.6f)
                                                 .clip(shape)
                                                 .border(
                                                     width = 1.dp,
@@ -1399,8 +3049,8 @@ private fun AddNoteScreen(
                                                 onClick = { images.remove(uri) },
                                                 modifier = Modifier
                                                     .align(Alignment.TopEnd)
-                                                    .padding(6.dp)
-                                                    .size(28.dp)
+                                                    .padding(5.dp)
+                                                    .size(22.dp)
                                                     .zIndex(2f),
                                                 colors = IconButtonDefaults.filledTonalIconButtonColors(
                                                     containerColor = MaterialTheme.colorScheme.surface.copy(
@@ -1412,7 +3062,7 @@ private fun AddNoteScreen(
                                                 Icon(
                                                     imageVector = Icons.Filled.Close,
                                                     contentDescription = "Remove",
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(13.dp)
                                                 )
                                             }
 
@@ -1798,7 +3448,7 @@ private fun AddNoteScreen(
         val lines = n.lines().map { it.trim() }.filter { it.isNotBlank() }
         val hasLink = Regex("""https?://\S+""").containsMatchIn(n)
         val hasChecklist =
-            lines.any { it.startsWith("- ") || it.startsWith("• ") || it.matches(Regex("""\d+\.\s+.*""")) }
+            lines.any { it.startsWith("□") || it.startsWith("☐") || it.startsWith("- ") || it.startsWith("• ") || it.matches(Regex("""\d+\.\s+.*""")) }
         val isLong = n.length >= 800
 
         return when {
@@ -1881,7 +3531,7 @@ private fun AddNoteScreen(
 
         // 3) If it looks like checklist -> list title
         val hasChecklist = lines.any {
-            it.startsWith("- ") || it.startsWith("• ") || it.matches(Regex("""\d+\.\s+.*"""))
+            it.startsWith("□") || it.startsWith("☐") || it.startsWith("- ") || it.startsWith("• ") || it.matches(Regex("""\d+\.\s+.*"""))
         }
         if (hasChecklist) {
             picks += TitleSuggestion(
@@ -2194,7 +3844,7 @@ fun enforceMeaningfulTitle(
             val firstSentence = n.split(Regex("""[.!?\n]""")).firstOrNull().orEmpty()
 
             val hasChecklist = lines.any {
-                it.startsWith("- ") || it.startsWith("• ") || it.matches(Regex("""\d+\.\s+.*"""))
+                it.startsWith("□") || it.startsWith("☐") || it.startsWith("- ") || it.startsWith("• ") || it.matches(Regex("""\d+\.\s+.*"""))
             }
 
             base = when {

@@ -38,6 +38,26 @@ object FlightsTabsInjector {
           "Detroit":"DTW","Houston":"IAH","Boston":"BOS","Washington":"DCA",
           "Charlotte":"CLT","Miami":"MIA","New York":"JFK","Las Vegas":"LAS","Portland":"PDX"
         };
+        const AIRLINE_PREFIXES = {
+          DAL:'Delta', DL:'Delta',
+          UAL:'United', UA:'United',
+          AAL:'American', AA:'American',
+          ASA:'Alaska', AS:'Alaska',
+          SKW:'SkyWest',
+          SWA:'Southwest', WN:'Southwest',
+          JBU:'JetBlue', B6:'JetBlue',
+          FFT:'Frontier', F9:'Frontier',
+          NKS:'Spirit', NK:'Spirit',
+          EDV:'Endeavor Air',
+          RPA:'Republic Airways',
+          ENY:'Envoy Air',
+          QXE:'Horizon Air',
+          PDT:'Piedmont',
+          ASH:'Mesa Airlines',
+          GJS:'GoJet Airlines',
+          UCA:'CommutAir',
+          TSS:'TriState Aviation'
+        };
 
         const BBOX = { lamin:30, lomin:-125, lamax:50, lomax:-88 };
 
@@ -97,6 +117,17 @@ object FlightsTabsInjector {
           const a = Math.sin(dLa/2)**2 + Math.cos(la1*d2r)*Math.cos(la2*d2r)*Math.sin(dLo/2)**2;
           return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
+        function bearingTo(la1, lo1, la2, lo2) {
+          const d2r = Math.PI / 180, r2d = 180 / Math.PI;
+          const y = Math.sin((lo2 - lo1) * d2r) * Math.cos(la2 * d2r);
+          const x = Math.cos(la1 * d2r) * Math.sin(la2 * d2r)
+            - Math.sin(la1 * d2r) * Math.cos(la2 * d2r) * Math.cos((lo2 - lo1) * d2r);
+          return (Math.atan2(y, x) * r2d + 360) % 360;
+        }
+        function angleDiff(a, b) {
+          if (a == null || b == null) return 180;
+          return Math.abs(((a - b + 540) % 360) - 180);
+        }
 
         function clockToDate(str) {
           if (!str) return null;
@@ -118,6 +149,107 @@ object FlightsTabsInjector {
           return d;
         }
         function recentLanding(f) { const m = minsAgo(f.actual || f.sched || ''); return m != null && m >= 0 && m <= 90; }
+        function escHtml(value) {
+          return String(value ?? '').replace(/[&<>"']/g, ch => ({
+            '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+          })[ch]);
+        }
+        function cleanDayText(el) {
+          const raw = el?.dataset?.fsDayLabel
+            || el?.querySelector?.('.fs-day-label')?.textContent
+            || el?.textContent
+            || '';
+          return raw.replace(/\s+/g, ' ').trim()
+            .replace(/\s+\d+\s+flights?\s+total.*$/i, '')
+            .replace(/\s+last\s+updated.*$/i, '')
+            .replace(/\s+last\s+update\s*:.*$/i, '')
+            .trim();
+        }
+        function signedTimeDiffMins(sched, actual) {
+          const s = clockToMins(sched), a = clockToMins(actual);
+          if (s == null || a == null) return null;
+          let d = a - s;
+          if (d < -720) d += 1440;
+          if (d > 720) d -= 1440;
+          return d;
+        }
+        function fmtSignedMins(mins) {
+          const abs = Math.abs(Math.round(mins || 0));
+          if (abs === 0) return 'on schedule';
+          const label = fmtMin(abs);
+          return mins > 0 ? `${label} late` : `${label} early`;
+        }
+
+        function applyFlightRowStatusClasses() {
+          const con = document.getElementById('flight-container');
+          if (!con) return;
+          con.querySelectorAll('table.jha-flights tbody tr').forEach(row => {
+            if (row.querySelector('.day') || row.querySelector('th')) return;
+            row.classList.remove('fs-row-arrived','fs-row-diverted','fs-row-cancelled');
+            const statusEl = row.querySelector('.status span') || row.querySelector('.status');
+            const status = (statusEl?.textContent || '').trim().toLowerCase();
+            if (!status) return;
+            if (status.includes('cancel')) {
+              row.classList.add('fs-row-cancelled');
+            } else if (status.includes('divert')) {
+              row.classList.add('fs-row-diverted');
+            } else if (status.includes('arrived')) {
+              row.classList.add('fs-row-arrived');
+            }
+          });
+        }
+
+        function applyFlightDateCounts() {
+          const con = document.getElementById('flight-container');
+          if (!con) return;
+          const updatedEl = con.querySelector('.flight-table__time');
+          let updatedText = (updatedEl?.textContent || '').replace(/\s+/g, ' ').trim();
+          updatedText = updatedText
+            .replace(/^last\s*update\s*:?\s*/i, '')
+            .replace(/^last\s*updated\s*:?\s*/i, '')
+            .replace(/^updated\s*:?\s*/i, '')
+            .replace(/\s*([ap])\.?m\.?\b/ig, (_, period) => period.toLowerCase() + 'm')
+            .trim();
+          const updatedLabel = updatedText ? `last updated ${updatedText}` : '';
+          con.querySelectorAll('table.jha-flights tbody').forEach(body => {
+            const rows = [...body.querySelectorAll('tr')];
+            rows.forEach((row, index) => {
+              const day = row.querySelector('.day');
+              if (!day) return;
+              if (!day.dataset.fsDayLabel) {
+                day.dataset.fsDayLabel = day.textContent.trim();
+              }
+              let count = 0;
+              for (let i = index + 1; i < rows.length; i++) {
+                if (rows[i].querySelector('.day')) break;
+                if (rows[i].querySelector('td.airline,td.flight,.airline,.flight')) count++;
+              }
+              const label = day.dataset.fsDayLabel || '';
+              const suffix = `${count} flight${count === 1 ? '' : 's'} total`;
+              const updated = updatedLabel ? `<span class="fs-day-updated">${updatedLabel}</span>` : '';
+              const nextHtml = `<span class="fs-day-label">${label}</span><span class="fs-day-count">${suffix}</span>${updated}`;
+              if (day.innerHTML !== nextHtml) {
+                day.innerHTML = nextHtml;
+              }
+            });
+          });
+        }
+
+        function applyEnhancedTableCells() {
+          const con = document.getElementById('flight-container');
+          if (!con) return;
+          con.querySelectorAll('table.jha-flights tbody tr').forEach(row => {
+            if (row.querySelector('.day') || row.querySelector('th')) return;
+            ['airline','flight','from','sched','actual'].forEach(cls => {
+              const cell = row.querySelector(`td.${cls}`);
+              if (!cell || Array.from(cell.children).some(child => child.classList?.contains('fs-cell-chip'))) return;
+              const chip = document.createElement('span');
+              chip.className = `fs-cell-chip fs-cell-${cls}`;
+              while (cell.firstChild) chip.appendChild(cell.firstChild);
+              cell.appendChild(chip);
+            });
+          });
+        }
 
         function fmtMin(total) {
           if (total == null) return '';
@@ -198,6 +330,39 @@ object FlightsTabsInjector {
           return wxCache;
         }
 
+        function weatherCondition(wx) {
+          const raw = `${wx?.icon || ''} ${wx?.temp || ''}`.toLowerCase();
+          const cloud = parseInt(wx?.cloud);
+          const vis = parseFloat(wx?.vis);
+          if (/thunder|lightning|storm|t-?storm/.test(raw)) return 'thunder';
+          if (/rain|shower|storm|drizzle|precip/.test(raw)) return 'rain';
+          if (!isNaN(vis) && vis <= 2) return 'cloudy';
+          if (!isNaN(cloud) && cloud >= 70) return 'cloudy';
+          if (!isNaN(cloud) && cloud >= 30) return 'partly';
+          const hour = new Date().getHours();
+          return hour >= 6 && hour < 20 ? 'sunny' : 'night';
+        }
+
+        function syncWeatherSnapshot() {
+          try {
+            if (!window.FlightsAndroidBridge?.updateWeatherSnapshot) return;
+            const wx = getWx();
+            if (!wx?.temp) return;
+            const condition = weatherCondition(wx);
+            const detail = [];
+            if (wx.windSpeed) detail.push(`Wind ${wx.windSpeed} ${wx.windUnit || 'mph'} ${wx.windDir || ''}`.trim());
+            if (wx.cloud != null) detail.push(`Cloud ${wx.cloud}%`);
+            if (wx.vis != null) detail.push(`Vis ${wx.vis} mi`);
+            window.FlightsAndroidBridge.updateWeatherSnapshot(JSON.stringify({
+              temp: wx.temp,
+              condition,
+              summary: detail.join(' • '),
+              source: 'airport_web',
+              updatedAt: Date.now()
+            }));
+          } catch (e) {}
+        }
+
         function wxWarnings(wx) {
           const out = [];
           if (wx.vis != null && wx.vis <= 3)
@@ -212,10 +377,22 @@ object FlightsTabsInjector {
         // ─────────────────────────────────────────────────────────────
         // AIRCRAFT SOURCES
         // ─────────────────────────────────────────────────────────────
+        async function fetchJson(proxyPath, directUrl, sourceName) {
+          try {
+            const r = await fetch(proxyPath, { cache: 'no-store' });
+            if (r?.ok) return await r.json();
+          } catch {}
+          const r = await fetch(directUrl, { cache: 'no-store' });
+          if (!r?.ok) throw new Error(sourceName + ' ' + r?.status);
+          return await r.json();
+        }
         async function fetchAdsbLol() {
-          const r = await fetch(`https://api.adsb.lol/v2/lat/${JAC_LAT}/lon/${JAC_LON}/dist/500`);
-          if (!r?.ok) throw new Error('adsb.lol ' + r?.status);
-          const d = await r.json(); if (!d?.ac) throw new Error('adsb.lol no ac');
+          const d = await fetchJson(
+            '/__fs_proxy/adsb_lol',
+            `https://api.adsb.lol/v2/lat/${JAC_LAT}/lon/${JAC_LON}/dist/500`,
+            'adsb.lol'
+          );
+          if (!d?.ac) throw new Error('adsb.lol no ac');
           return d.ac.map(a => {
             const alt = (typeof a.alt_baro==='number' ? a.alt_baro : (a.alt_geom ?? 0));
             return [a.hex, (a.flight||a.r||'').trim(), null,null,null, a.lon??null, a.lat??null,
@@ -223,14 +400,18 @@ object FlightsTabsInjector {
           });
         }
         async function fetchAdsbFi() {
-          const r = await fetch(`https://api.adsb.fi/v1/lat=${JAC_LAT}&lon=${JAC_LON}&radius=500`);
-          if (!r?.ok) throw new Error('adsb.fi ' + r?.status);
-          const d = await r.json(); if (!d?.aircraft) throw new Error('adsb.fi no aircraft');
-          return d.aircraft.map(a => {
-            const alt = a.altitude ?? 0;
-            return [a.icao, (a.callsign||a.registration||'').trim(), null,null,null,
-                    a.lon??null, a.lat??null, alt*0.3048, null, (a.speed??0)/1.94384,
-                    a.heading??null, (a.vert_rate??0)*0.00508, null, alt*0.3048];
+          const d = await fetchJson(
+            '/__fs_proxy/adsb_fi',
+            `https://opendata.adsb.fi/api/v3/lat/${JAC_LAT}/lon/${JAC_LON}/dist/250`,
+            'adsb.fi'
+          );
+          const aircraft = d?.ac || d?.aircraft;
+          if (!aircraft?.length) throw new Error('adsb.fi no aircraft');
+          return aircraft.map(a => {
+            const alt = (typeof a.alt_baro==='number' ? a.alt_baro : (a.alt_geom ?? a.altitude ?? 0));
+            return [a.hex||a.icao, (a.flight||a.callsign||a.registration||a.r||'').trim(), null,null,null,
+                    a.lon??null, a.lat??null, alt*0.3048, null, (a.gs??a.speed??0)/1.94384,
+                    a.track??a.heading??null, (a.baro_rate??a.geom_rate??a.vert_rate??0)*0.00508, null, alt*0.3048];
           });
         }
 
@@ -239,12 +420,18 @@ object FlightsTabsInjector {
           acFetching = true;
           try {
             let states = null;
-            try {
-              const r = await fetch(`https://opensky-network.org/api/states/all?lamin=${BBOX.lamin}&lomin=${BBOX.lomin}&lamax=${BBOX.lamax}&lomax=${BBOX.lomax}`);
-              if (r?.ok) { const d = await r.json(); if (d?.states?.length) states = d.states; }
-            } catch {}
-            if (!states) try { states = await fetchAdsbLol(); } catch {}
+            try { states = await fetchAdsbLol(); } catch {}
             if (!states) try { states = await fetchAdsbFi(); } catch {}
+            try {
+              if (!states) {
+                const d = await fetchJson(
+                  '/__fs_proxy/opensky',
+                  `https://opensky-network.org/api/states/all?lamin=${BBOX.lamin}&lomin=${BBOX.lomin}&lamax=${BBOX.lamax}&lomax=${BBOX.lomax}`,
+                  'opensky'
+                );
+                if (d?.states?.length) states = d.states;
+              }
+            } catch {}
             if (!states?.length) {
               acOk = false;
               return;
@@ -371,6 +558,18 @@ object FlightsTabsInjector {
           return [...new Set(out)];
         }
 
+        function callsignParts(cs) {
+          const c = (cs||'').trim().toUpperCase().replace(/\s+/g,'');
+          const m = c.match(/^([A-Z]{2,3})(\d+[A-Z]?)$/);
+          return { norm: c, prefix: m ? m[1] : c.replace(/[^A-Z]/g,'').slice(0,3), flight: m ? m[2] : c.replace(/[A-Z]/g,'') };
+        }
+        function airlineFromCallsign(cs) {
+          const p = callsignParts(cs).prefix;
+          return AIRLINE_PREFIXES[p] || AIRLINE_PREFIXES[p.slice(0,2)] || '';
+        }
+        function flightNumberFromCallsign(cs) {
+          return callsignParts(cs).flight || '';
+        }
         function operatorFromCallsign(cs) {
           const c = (cs||'').trim().toUpperCase().replace(/\s+/g,'');
           if (c.startsWith('SKW')) return 'SkyWest';
@@ -382,6 +581,8 @@ object FlightsTabsInjector {
           if (c.startsWith('ASH')) return 'Mesa Airlines';
           if (c.startsWith('GJS')) return 'GoJet Airlines';
           if (c.startsWith('PSA')) return 'PSA Airlines';
+          if (c.startsWith('UCA')) return 'CommutAir';
+          if (c.startsWith('TSS')) return 'TriState Aviation';
           return '';
         }
         function operatingCarrier(airline, flight) {
@@ -401,10 +602,25 @@ object FlightsTabsInjector {
             for (const c of candidates(f.airline, f.flight)) {
               const cc = c.replace(/\s+/g,'').toUpperCase();
               if (cc === norm || (digs && cc.replace(/[A-Z]/g,'') === digs))
-                return { from: airportCode(f.from)||f.from||'', confirmed: true };
+                return {
+                  from: airportCode(f.from)||f.from||'',
+                  to: 'JAC',
+                  airline: f.airline || airlineFromCallsign(cs),
+                  flight: f.flight || flightNumberFromCallsign(cs),
+                  operator: operatorFromCallsign(cs) || operatingCarrier(f.airline, f.flight),
+                  confirmed: true
+                };
             }
           }
           return null;
+        }
+        function landingIntent(dist, alt, vr, speed, heading, route, lat, lon) {
+          if (route?.confirmed) return { label: 'Landing JAC', cls: 'confirmed' };
+          const targetBearing = heading != null && lat != null && lon != null ? bearingTo(lat, lon, JAC_LAT, JAC_LON) : null;
+          const aligned = heading != null && targetBearing != null && angleDiff(heading, targetBearing) <= 55;
+          if (dist <= 8 || (dist <= 18 && alt <= 7000 && aligned)) return { label: 'Likely JAC', cls: 'likely' };
+          if (dist <= 35 && aligned && (vr < -64 || speed < 230)) return { label: 'Possible JAC', cls: 'possible' };
+          return { label: 'Nearby traffic', cls: 'nearby' };
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -419,9 +635,16 @@ object FlightsTabsInjector {
             const alt = Math.round((s[13]||s[7]||0)*3.28084);
             const spd = Math.round((s[9]||0)*1.94384);
             const vr  = s[11]||0;
+            const heading = s[10] != null ? Math.round(s[10]) : null;
             const dist= haversine(lat,lon,JAC_LAT,JAC_LON);
             if (dist>maxD || vr>800 || (spd<30&&dist>2)) continue;
-            list.push({ callsign:(s[1]||'').trim(), alt, spd, dist:Math.round(dist), vr });
+            const callsign = (s[1]||'').trim();
+            list.push({
+              callsign,
+              airline: airlineFromCallsign(callsign),
+              flight: flightNumberFromCallsign(callsign),
+              alt, spd, dist:Math.round(dist), vr, heading, lat, lon
+            });
           }
           return list.sort((a,b) => a.dist - b.dist);
         }
@@ -489,17 +712,25 @@ object FlightsTabsInjector {
                 const eta  = etaMins(ac.dist, ac.spd);
                 const cf   = confLevel(ac.dist, ac.alt, ac.vr, ac.spd);
                 const route= routeForCallsign(ac.callsign);
+                const intent = landingIntent(ac.dist, ac.alt, ac.vr, ac.spd, ac.heading, route, ac.lat, ac.lon);
+                const airline = route?.airline || ac.airline || 'Unknown airline';
+                const flight = route?.flight || ac.flight || ac.callsign || '';
+                const routeText = route?.confirmed ? `${route.from} → ${route.to || 'JAC'}` : `${intent.label}${ac.heading != null ? ` • ${ac.heading}°` : ''}`;
+                const operator = route?.operator || operatorFromCallsign(ac.callsign);
                 const aC   = showColor ? altClass(ac.alt) : '';
                 const sC   = showColor ? spdClass(ac.spd) : '';
                 return `<div class="fs-inbound-card${ac.dist<10?' final':''}">
                   <div class="fs-inbound-main">
                     <div class="fs-inbound-line1">
                       <span class="fs-inbound-icon">✈</span>
-                      <span class="fs-inbound-callsign">${ac.callsign||'Unknown'}</span>
-                      ${route?.confirmed?`<span class="fs-inbound-route">${route.from} → JAC</span>`:''}
+                      <span class="fs-inbound-callsign">${escHtml(airline)}${flight ? ` ${escHtml(flight)}` : ''}</span>
+                      <span class="fs-inbound-route">${escHtml(routeText)}</span>
+                      <span class="fs-landing-pill ${intent.cls}">${escHtml(intent.label)}</span>
                       ${eta?`<span class="fs-inbound-eta">ETA ${eta} min</span>`:''}
                     </div>
                     <div class="fs-inbound-line2">
+                      <span>${escHtml(ac.callsign||'No callsign')}</span>
+                      ${operator?`<span>• ${escHtml(operator)}</span>`:''}
                       <span class="fs-inbound-dist">${ac.dist} mi</span>
                       <span class="fs-inbound-alt ${aC}">${ac.alt.toLocaleString()} ft</span>
                       <span class="fs-inbound-spd ${sC}">${ac.spd} kt</span>
@@ -520,6 +751,7 @@ object FlightsTabsInjector {
         // ─────────────────────────────────────────────────────────────
         function arrivalRows() {
           if (!scrapeDirty && scrapeCache) return scrapeCache;
+          applyFlightRowStatusClasses();
           const con = document.getElementById('flight-container'); if (!con) return [];
           const rows = [];
           const txt = (row, selector, index) => {
@@ -546,7 +778,7 @@ object FlightsTabsInjector {
             let curDate = '', todayLabel = '';
             table.querySelectorAll('tbody tr').forEach(row => {
               const dc = row.querySelector('.day');
-              if (dc) { curDate = dc.textContent.trim(); if (!todayLabel) todayLabel = curDate; return; }
+              if (dc) { curDate = cleanDayText(dc); if (!todayLabel) todayLabel = curDate; return; }
               if (!todayLabel) todayLabel = curDate;
               const an = row.querySelector('.airline'), fn = row.querySelector('.flight');
               const cells = row.querySelectorAll('td');
@@ -570,10 +802,19 @@ object FlightsTabsInjector {
         }
 
         function scrapeAll() {
+          applyFlightRowStatusClasses();
           const con = document.getElementById('flight-container'); if (!con) return null;
           const wx  = getWx();
           const luEl= document.querySelector('.flight-table__time');
-          const lastUpdate = luEl ? luEl.textContent.trim() : '';
+          const normalizeLastUpdate = text => {
+            const cleaned = (text || '').replace(/\s+/g, ' ').trim()
+              .replace(/^last\s*update\s*:?\s*/i, '')
+              .replace(/^last\s*updated\s*:?\s*/i, '')
+              .replace(/^updated\s*:?\s*/i, '')
+              .trim();
+            return cleaned ? `Updated ${cleaned}` : '';
+          };
+          const lastUpdate = normalizeLastUpdate(luEl ? luEl.textContent : '');
           let arrAlerts=[], depAlerts=[];
           let totArr=0,totDep=0,totArrTm=0,totDepTm=0;
           let todayLbl='', tomorrowLbl='';
@@ -595,7 +836,7 @@ object FlightsTabsInjector {
             table.querySelectorAll('tbody tr').forEach(row => {
               const dc = row.querySelector('.day');
               if (dc) {
-                curDate = dc.textContent.trim();
+                curDate = cleanDayText(dc);
                 if (!todayLbl) todayLbl = curDate;
                 else if (!tomorrowLbl && curDate !== todayLbl) tomorrowLbl = curDate;
                 return;
@@ -657,6 +898,290 @@ object FlightsTabsInjector {
           };
         }
 
+        function flightTableKind(table) {
+          const wrap = table?.closest?.('.-arrival, .-departure, [class*="arrival"], [class*="departure"]');
+          const wrapClass = (wrap?.className || '').toString().toLowerCase();
+          if (wrapClass.includes('departure')) return 'departure';
+          if (wrapClass.includes('arrival')) return 'arrival';
+          const heads = [...(table?.querySelectorAll?.('th') || [])].map(th => th.innerText.trim().toLowerCase());
+          if (heads.includes('to')) return 'departure';
+          if (heads.includes('from')) return 'arrival';
+          const prevText = (table?.previousElementSibling?.innerText || table?.parentElement?.previousElementSibling?.innerText || '').toLowerCase();
+          if (prevText.includes('departure')) return 'departure';
+          if (prevText.includes('arrival')) return 'arrival';
+          return 'arrival';
+        }
+
+        function textFromCell(row, selector, index) {
+          const el = row.querySelector(selector);
+          if (el) return el.innerText.replace(/\s+/g, ' ').trim();
+          const cells = row.querySelectorAll('td');
+          return (cells[index]?.innerText || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function rowFlightData(row) {
+          if (!row || row.querySelector('.day') || row.querySelector('th')) return null;
+          const table = row.closest('table.jha-flights');
+          const kind = flightTableKind(table);
+          const airline = textFromCell(row, '.airline', 0);
+          const flight = textFromCell(row, '.flight', 1);
+          if (!airline || !flight) return null;
+          const statusEl = row.querySelector('.status span') || row.querySelector('.status');
+          let day = '';
+          let prev = row.previousElementSibling;
+          while (prev) {
+            const dc = prev.querySelector?.('.day');
+            if (dc) { day = cleanDayText(dc); break; }
+            prev = prev.previousElementSibling;
+          }
+          const place = textFromCell(row, kind === 'departure' ? '.to' : '.from', 2);
+          return {
+            row, kind, day,
+            airline,
+            flight,
+            place,
+            placeLabel: kind === 'departure' ? 'To' : 'From',
+            route: kind === 'departure' ? `JAC to ${place || 'destination'}` : `${place || 'origin'} to JAC`,
+            sched: textFromCell(row, '.sched', 3),
+            actual: textFromCell(row, '.actual', 4),
+            status: (statusEl?.textContent || textFromCell(row, '.status', 5) || 'Scheduled').trim()
+          };
+        }
+
+        function statusTone(status) {
+          const s = (status || '').toLowerCase();
+          if (s.includes('cancel')) return 'cancelled';
+          if (s.includes('divert')) return 'diverted';
+          if (s.includes('delay')) return 'delayed';
+          if (s.includes('arriv')) return 'arrived';
+          return 'ontime';
+        }
+
+        function airlineCodes(airline) {
+          const a = (airline || '').toLowerCase();
+          if (a.includes('united')) return { iata:'UA', icao:'UAL' };
+          if (a.includes('delta')) return { iata:'DL', icao:'DAL' };
+          if (a.includes('american')) return { iata:'AA', icao:'AAL' };
+          if (a.includes('alaska')) return { iata:'AS', icao:'ASA' };
+          if (a.includes('southwest')) return { iata:'WN', icao:'SWA' };
+          if (a.includes('jetblue')) return { iata:'B6', icao:'JBU' };
+          if (a.includes('frontier')) return { iata:'F9', icao:'FFT' };
+          if (a.includes('spirit')) return { iata:'NK', icao:'NKS' };
+          if (a.includes('skywest')) return { iata:'OO', icao:'SKW' };
+          return { iata:'', icao:'' };
+        }
+
+        function flightLookupTokens(f) {
+          const raw = (f.flight || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const digits = raw.replace(/^[A-Z]{2,3}/, '').replace(/[A-Z]/g, '');
+          const codes = airlineCodes(f.airline);
+          const iata = /^[A-Z]/.test(raw) ? raw : (codes.iata && digits ? `${codes.iata}${digits}` : raw);
+          const icao = codes.icao && digits ? `${codes.icao}${digits}` : iata;
+          return { iata, icao };
+        }
+
+        function flightTimingSummary(f) {
+          const tone = statusTone(f.status);
+          if (tone === 'cancelled') return 'Cancelled by airline or airport operations';
+          if (tone === 'diverted') return 'Diverted from the scheduled arrival plan';
+          const diff = signedTimeDiffMins(f.sched, f.actual);
+          if (diff == null) return 'No time comparison available yet';
+          if (diff === 0) return 'On schedule';
+          return tone === 'arrived' ? `Arrived ${fmtSignedMins(diff)}` : `Currently ${fmtSignedMins(diff)}`;
+        }
+
+        function closeFlightDetailDialog() {
+          const overlay = document.getElementById('fs-flight-detail-overlay');
+          if (overlay) {
+            try { overlay._fsCleanup?.(); } catch {}
+            overlay.remove();
+          }
+          document.documentElement.classList.remove('fs-flight-detail-open');
+          if (window.fsPositionFlightDetail === overlay?._fsRelayout) {
+            window.fsPositionFlightDetail = null;
+          }
+        }
+
+        function liveFlightMarkup(ac, f) {
+          if (!ac) {
+            return `<div class="fs-detail-live-empty">
+              No live aircraft match right now. Arrived flights often disappear from ADS-B shortly after landing.
+            </div>`;
+          }
+          const dist = haversine(ac.lat, ac.lon, JAC_LAT, JAC_LON);
+          const eta = etaMins(dist, ac.speed);
+          const op = operatorFromCallsign(ac.callsign) || operatingCarrier(f.airline, f.flight);
+          return `<div class="fs-detail-live-grid">
+            <span><b>${escHtml(ac.callsign || 'Unknown')}</b><em>Callsign</em></span>
+            <span><b>${Math.round(dist)} mi</b><em>From JAC</em></span>
+            <span><b>${ac.altitude.toLocaleString()} ft</b><em>Altitude</em></span>
+            <span><b>${ac.speed} kt</b><em>Speed</em></span>
+            <span><b>${ac.heading == null ? '--' : `${ac.heading} deg`}</b><em>Heading</em></span>
+            <span><b>${eta == null ? '--' : `${eta} min`}</b><em>ETA</em></span>
+            ${op ? `<span class="wide"><b>${escHtml(op)}</b><em>Operating carrier</em></span>` : ''}
+          </div>`;
+        }
+
+        async function hydrateFlightDetailLive(f) {
+          const live = document.getElementById('fs-flight-detail-live');
+          if (!live) return;
+          live.innerHTML = `<div class="fs-detail-live-loading">Searching live ADS-B near Jackson Hole...</div>`;
+          let ac = null;
+          try {
+            ac = await matchCandidates(candidates(f.airline, f.flight));
+          } catch {}
+          if (!document.getElementById('fs-flight-detail-live')) return;
+          live.innerHTML = liveFlightMarkup(ac, f);
+          try {
+            window.fsPositionFlightDetail?.();
+            requestAnimationFrame(() => window.fsPositionFlightDetail?.());
+          } catch {}
+        }
+
+        function positionFlightDetailPopover(f, overlay) {
+          const card = overlay?.querySelector?.('.fs-flight-detail-card');
+          const row = f?.row;
+          if (!card || !row) return;
+          const airlineAnchor = row.querySelector('td.airline .fs-cell-chip, .airline .fs-cell-chip, td.airline, .airline');
+          const rect = (airlineAnchor || row).getBoundingClientRect();
+          const margin = 10;
+          const bottomReserve = Math.max(96, (document.getElementById('fs-bottom-tabs')?.offsetHeight || 0) + 22);
+          const width = Math.min(300, Math.max(252, window.innerWidth - margin * 2));
+          card.style.setProperty('width', `${width}px`, 'important');
+          card.style.setProperty('min-height', '292px', 'important');
+          card.style.setProperty('max-height', `${Math.max(292, Math.min(430, window.innerHeight - bottomReserve - margin * 2))}px`, 'important');
+          card.style.setProperty('height', 'auto', 'important');
+          card.style.setProperty('left', '0px', 'important');
+          card.style.setProperty('top', '0px', 'important');
+          card.classList.remove('above');
+          const measured = card.getBoundingClientRect();
+          const height = Math.min(measured.height || 300, Math.max(240, window.innerHeight - margin * 2));
+          const anchorX = rect.left + rect.width / 2;
+          let left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
+          if (window.innerWidth - width - margin < margin) left = margin;
+          let top = rect.bottom + 10;
+          const maxBottom = window.innerHeight - bottomReserve;
+          let above = false;
+          if (top + height > maxBottom && rect.top - height - 10 >= margin) {
+            top = rect.top - height - 10;
+            above = true;
+          } else if (top + height > window.innerHeight - margin) {
+            top = Math.max(margin, Math.min(rect.bottom + 10, window.innerHeight - height - margin));
+          }
+          const arrow = Math.min(Math.max(anchorX - left, 28), width - 28);
+          card.style.setProperty('left', `${Math.round(left)}px`, 'important');
+          card.style.setProperty('top', `${Math.round(top)}px`, 'important');
+          card.style.setProperty('--fs-detail-arrow-left', `${Math.round(arrow)}px`);
+          if (above) card.classList.add('above');
+        }
+
+        function showFlightDetailDialog(f) {
+          if (!f) return;
+          closeFlightDetailDialog();
+          const tone = statusTone(f.status);
+          const tokens = flightLookupTokens(f);
+          const fr24 = tokens.iata ? `https://www.flightradar24.com/data/flights/${tokens.iata.toLowerCase()}` : 'https://www.flightradar24.com/data';
+          const aware = tokens.icao ? `https://www.flightaware.com/live/flight/${tokens.icao}` : 'https://www.flightaware.com/live/';
+          const overlay = document.createElement('div');
+          overlay.id = 'fs-flight-detail-overlay';
+          overlay.innerHTML = `<div class="fs-flight-detail-card ${tone}" role="dialog" aria-modal="true" aria-label="Flight details">
+            <button type="button" class="fs-detail-close" data-fs-detail-close aria-label="Close">x</button>
+            <div class="fs-detail-kicker">${escHtml(f.kind === 'departure' ? 'Departure details' : 'Arrival details')}</div>
+            <div class="fs-detail-title">
+              <span>${escHtml(f.airline)} ${escHtml(f.flight)}</span>
+              <span class="fs-detail-status ${tone}">${escHtml(f.status || 'Scheduled')}</span>
+            </div>
+            <div class="fs-detail-route">${escHtml(f.route)}</div>
+            ${f.day ? `<div class="fs-detail-day">${escHtml(f.day)}</div>` : ''}
+            <div class="fs-detail-summary">${escHtml(flightTimingSummary(f))}</div>
+            <div class="fs-detail-metrics">
+              <span><b>${escHtml(f.sched || '--')}</b><em>Scheduled</em></span>
+              <span><b>${escHtml(f.actual || '--')}</b><em>Actual</em></span>
+              <span><b>${escHtml(airportCode(f.place) || f.place || '--')}</b><em>${escHtml(f.placeLabel)}</em></span>
+            </div>
+            <div class="fs-detail-section-title">Live radar match</div>
+            <div id="fs-flight-detail-live" class="fs-detail-live"></div>
+            <div class="fs-detail-actions">
+              <a href="${fr24}" target="_blank" rel="noopener">FlightRadar24</a>
+              <a href="${aware}" target="_blank" rel="noopener">FlightAware</a>
+            </div>
+          </div>`;
+          overlay.addEventListener('click', e => {
+            if (e.target === overlay || e.target.closest('[data-fs-detail-close]')) closeFlightDetailDialog();
+          });
+          document.body.appendChild(overlay);
+          document.documentElement.classList.add('fs-flight-detail-open');
+          const relayout = () => positionFlightDetailPopover(f, overlay);
+          overlay._fsRelayout = relayout;
+          overlay._fsCleanup = () => {
+            window.removeEventListener('scroll', relayout, true);
+            window.removeEventListener('resize', relayout);
+          };
+          window.addEventListener('scroll', relayout, true);
+          window.addEventListener('resize', relayout);
+          window.fsPositionFlightDetail = relayout;
+          relayout();
+          requestAnimationFrame(relayout);
+          hydrateFlightDetailLive(f);
+          setTimeout(relayout, 180);
+        }
+
+        function bindFlightRowDetails() {
+          const con = document.getElementById('flight-container');
+          if (!con) return;
+          con.querySelectorAll('table.jha-flights tbody tr').forEach(row => {
+            if (row.dataset.fsDetailBound === '1' || row.querySelector('.day') || row.querySelector('th')) return;
+            if (!rowFlightData(row)) return;
+            row.dataset.fsDetailBound = '1';
+            row.classList.add('fs-flight-detail-ready');
+            let timer = null, startX = 0, startY = 0;
+            const clear = () => {
+              if (timer) clearTimeout(timer);
+              timer = null;
+              row.classList.remove('fs-flight-holding');
+            };
+            const point = ev => {
+              const t = ev.touches?.[0] || ev.changedTouches?.[0] || ev;
+              return { x: t.clientX || 0, y: t.clientY || 0 };
+            };
+            const start = ev => {
+              if (ev.button != null && ev.button !== 0) return;
+              if (ev.touches && ev.touches.length > 1) return;
+              const p = point(ev);
+              startX = p.x; startY = p.y;
+              clear();
+              row.classList.add('fs-flight-holding');
+              timer = setTimeout(() => {
+                const f = rowFlightData(row);
+                clear();
+                if (!f) return;
+                try { navigator.vibrate?.(18); } catch {}
+                try { window.getSelection?.().removeAllRanges?.(); } catch {}
+                showFlightDetailDialog(f);
+              }, 950);
+            };
+            const move = ev => {
+              if (!timer) return;
+              const p = point(ev);
+              if (Math.abs(p.x - startX) > 12 || Math.abs(p.y - startY) > 12) clear();
+            };
+            row.addEventListener('touchstart', start, { passive: true });
+            row.addEventListener('touchmove', move, { passive: true });
+            row.addEventListener('touchend', clear, { passive: true });
+            row.addEventListener('touchcancel', clear, { passive: true });
+            row.addEventListener('mousedown', start);
+            row.addEventListener('mousemove', move);
+            row.addEventListener('mouseup', clear);
+            row.addEventListener('mouseleave', clear);
+            row.addEventListener('contextmenu', ev => {
+              ev.preventDefault();
+              clear();
+              showFlightDetailDialog(rowFlightData(row));
+            });
+            row.addEventListener('selectstart', ev => ev.preventDefault());
+          });
+        }
+
         function smartReason(min, airline, flight, wx) {
           if (min>=20 && wx?.windSpeed>=20) return 'Strong crosswinds affecting operations';
           const seed = (airline+flight).length;
@@ -706,6 +1231,108 @@ object FlightsTabsInjector {
           }
           if (data.lastUpdate) parts.push(`<span class="fs-ops-pill fs-ops-time">${data.lastUpdate}</span>`);
           return `<div class="fs-ops-summary">${parts.join('')}</div>`;
+        }
+
+        function collectAiFlightRows() {
+          const con = document.getElementById('flight-container');
+          if (!con) return [];
+          const rows = [];
+          con.querySelectorAll('table.jha-flights tbody tr').forEach(row => {
+            const data = rowFlightData(row);
+            if (!data) return;
+            const tone = statusTone(data.status);
+            const delay = tone === 'cancelled' || tone === 'diverted' ? 0 : delayMins(data.sched, data.actual);
+            rows.push({
+              kind: data.kind,
+              day: data.day,
+              airline: data.airline,
+              flight: data.flight,
+              place: data.place,
+              route: data.route,
+              sched: data.sched,
+              actual: data.actual,
+              status: data.status || 'Scheduled',
+              tone,
+              delay
+            });
+          });
+          return rows;
+        }
+
+        function aiSummaryLine(rows) {
+          const delayedRows = rows.filter(f => f.tone === 'delayed' || f.delay > 0);
+          const delayed = delayedRows.length;
+          const cancelled = rows.filter(f => f.tone === 'cancelled').length;
+          const diverted = rows.filter(f => f.tone === 'diverted').length;
+          if (!rows.length) return 'Flight table is still loading.';
+          const days = [];
+          rows.forEach(f => {
+            const key = f.day || 'Today';
+            let d = days.find(item => item.key === key);
+            if (!d) {
+              d = { key, arr: 0, dep: 0 };
+              days.push(d);
+            }
+            if (f.kind === 'departure') d.dep += 1; else d.arr += 1;
+          });
+          const dayText = days.slice(0, 2).map((d, index) => {
+            const label = d.key || (index === 0 ? 'Today' : 'Tomorrow');
+            return `${label}: ${d.arr} arrival${d.arr === 1 ? '' : 's'}, ${d.dep} departure${d.dep === 1 ? '' : 's'}`;
+          }).join('. ');
+          const longestDelay = delayedRows.reduce((max, f) => Math.max(max, f.delay || 0), 0);
+          const delayTail = longestDelay > 0 ? ` Longest visible delay is ${longestDelay} min.` : '';
+          const issueText = (!delayed && !cancelled && !diverted)
+            ? 'No delays, cancellations, or diversions visible right now.'
+            : `${delayed} delayed, ${cancelled} cancelled, ${diverted} diverted.${delayTail}`;
+          return `${dayText}. ${issueText}`;
+        }
+
+        function aiFlightSnapshot(rows) {
+          const firstDay = rows[0]?.day || 'Today';
+          const briefingRows = rows.filter(f => (f.day || 'Today') === firstDay);
+          const sourceRows = briefingRows.length ? briefingRows : rows;
+          const issues = sourceRows
+            .filter(f => f.tone === 'cancelled' || f.tone === 'diverted' || f.tone === 'delayed' || f.delay > 0)
+            .sort((a, b) => {
+              const rank = f => f.tone === 'cancelled' ? 3 : f.tone === 'diverted' ? 2 : 1;
+              return rank(b) - rank(a) || (b.delay || 0) - (a.delay || 0);
+            });
+          const delayedRows = sourceRows.filter(f => f.tone === 'delayed' || f.delay > 0);
+          return {
+            summary: aiSummaryLine(sourceRows),
+            issueCount: issues.length,
+            issues: issues.slice(0, 4).map(f => {
+              const label = f.tone === 'cancelled' ? 'Cancelled'
+                : f.tone === 'diverted' ? 'Diverted'
+                : f.delay > 0 ? `+${f.delay} min`
+                : (f.status || 'Delayed');
+              const time = f.actual && f.actual !== f.sched ? `${f.sched} → ${f.actual}` : (f.sched || 'time pending');
+              return {
+                label,
+                flight: `${f.airline} ${f.flight}`.trim(),
+                route: f.route || '',
+                time,
+                tone: f.tone || ''
+              };
+            }),
+            arrivalCount: sourceRows.filter(f => f.kind !== 'departure').length,
+            departureCount: sourceRows.filter(f => f.kind === 'departure').length,
+            delayedCount: delayedRows.length,
+            cancelledCount: sourceRows.filter(f => f.tone === 'cancelled').length,
+            divertedCount: sourceRows.filter(f => f.tone === 'diverted').length,
+            source: 'webview_table',
+            updatedAt: Date.now()
+          };
+        }
+
+        function syncAiBriefSnapshot() {
+          try {
+            if (!window.FlightsAndroidBridge?.updateFlightBriefSnapshot) return;
+            const rows = collectAiFlightRows();
+            if (!rows.length) return;
+            window.FlightsAndroidBridge.updateFlightBriefSnapshot(JSON.stringify(aiFlightSnapshot(rows)));
+            syncWeatherSnapshot();
+          } catch (e) {}
         }
 
         function dockIconSvg() {
@@ -761,14 +1388,12 @@ object FlightsTabsInjector {
           if (liveHtml) out.push(liveHtml);
           // ── arrivals alerts
           if (arrAlerts.length) out.push(`<div class="fs-alert-section arrival-alert">
-            ${lastUpdate?`<div class="fs-last-update-corner">${lastUpdate}</div>`:''}
             <div class="fs-section-title">🔴 Arrivals</div>
             ${chipsHtml(arrAlerts,true)}
             ${arrAlerts.map(a=>`<div class="fs-alert-item ${statusClass(a)}">${a.html}</div>`).join('')}
           </div>`);
           // ── departures alerts
           if (depAlerts.length) out.push(`<div class="fs-alert-section departure-alert">
-            ${lastUpdate?`<div class="fs-last-update-corner">${lastUpdate}</div>`:''}
             <div class="fs-section-title">🔵 Departures</div>
             ${chipsHtml(depAlerts,false)}
             ${depAlerts.map(a=>`<div class="fs-alert-item ${statusClass(a)}">${a.html}</div>`).join('')}
@@ -794,7 +1419,6 @@ object FlightsTabsInjector {
                   ${totArrTm&&totDepTm?'<span>•</span>':''}
                   ${countRow(depSvg,totDepTm,'departures')}
                 </div>`:''}
-              ${lastUpdate?`<div class="fs-last-update">${lastUpdate}</div>`:''}
             </div>`);
           }
           return out.join('');
@@ -888,9 +1512,11 @@ object FlightsTabsInjector {
     ${titleRow(icon, airline, flight)}
     <span class="fs-live-badges">
       <span class="fs-badge fs-badge-${badge.cls}">${badge.text}</span>
+      <span class="fs-landing-pill confirmed">Landing JAC</span>
     </span>
   </div>
-  <div class="fs-live-line2 strong"><span>En route • ${route}</span></div>
+  <div class="fs-live-line2 strong"><span>En route to JAC • ${route}</span></div>
+  ${operator ? `<div class="fs-live-line3">Airline: ${escHtml(airline || airlineFromCallsign(ac.rawCallsign) || 'Unknown')} • Operated by ${escHtml(operator)}</div>` : `<div class="fs-live-line3">Airline: ${escHtml(airline || airlineFromCallsign(ac.rawCallsign) || 'Unknown')}</div>`}
 
   <div class="fs-live-line2">
     <span class="fs-live-dist">${Math.round(dist)} mi</span>
@@ -960,12 +1586,13 @@ object FlightsTabsInjector {
                 ${titleRow(icon, airline, flight)}
                 <span class="fs-live-badges">
                   <span class="fs-badge fs-badge-${badge.cls}">${badge.text}</span>
+                  <span class="fs-landing-pill confirmed">Landing JAC</span>
                   ${sev ? `<span class="fs-badge fs-badge-${sev.cls}">${sev.text}</span>` : ''}
                 </span>
                 ${eta != null && eta > 0 && state !== 'landed' ? `<span class="fs-live-eta">${fmtMin(eta)} remaining</span>` : ''}
               </div>
-              <div class="fs-live-line2 strong"><span>${status} • ${route}</span></div>
-              ${operator ? `<div class="fs-live-line3">Operated by ${operator}</div>` : ''}
+              <div class="fs-live-line2 strong"><span>${status} to JAC • ${route}</span></div>
+              <div class="fs-live-line3">Airline: ${escHtml(airline || 'Unknown')}${operator ? ` • Operated by ${escHtml(operator)}` : ''}</div>
               <div class="fs-live-line2">
                 ${sched ? `<span>Sched ${sched}</span>` : ''}
                 ${actual ? `<span>• Est ${actual}</span>` : ''}
@@ -1907,6 +2534,12 @@ object FlightsTabsInjector {
         let styleEl = document.getElementById('fs_custom_style');
         if (!styleEl) { styleEl=document.createElement('style'); styleEl.id='fs_custom_style'; document.head.appendChild(styleEl); }
         styleEl.innerHTML = `__FS_CSS__`;
+        applyFlightRowStatusClasses();
+        applyFlightDateCounts();
+        applyEnhancedTableCells();
+        bindFlightRowDetails();
+        syncWeatherSnapshot();
+        setTimeout(syncAiBriefSnapshot, 900);
 
         // Main observer (tab bar guard)
         window.fsMainObserver?.disconnect();
@@ -1920,6 +2553,13 @@ object FlightsTabsInjector {
         window.fsFlightsObserver?.disconnect();
         window.fsFlightsObserver = new MutationObserver(() => {
           scrapeDirty = true;
+          applyFlightRowStatusClasses();
+          applyFlightDateCounts();
+          applyEnhancedTableCells();
+          bindFlightRowDetails();
+          syncWeatherSnapshot();
+          clearTimeout(window.fsAiBriefSnapshotTimer);
+          window.fsAiBriefSnapshotTimer = setTimeout(syncAiBriefSnapshot, 900);
           if (!document.getElementById('fs-alerts-overlay')) return;
           clearTimeout(_alertTimer);
           const isDocked = typeof window.fsGetY==='function' && typeof window.fsDockY==='function'
@@ -1932,8 +2572,19 @@ object FlightsTabsInjector {
         // ─────────────────────────────────────────────────────────────
         // TAB BAR
         // ─────────────────────────────────────────────────────────────
-        if (!SHOW_TABS) { document.getElementById('fs-bottom-tabs')?.remove(); return; }
+        if (!SHOW_TABS) {
+          document.getElementById('fs-bottom-tabs')?.remove();
+          document.getElementById('fs-progressive-bottom-blur')?.remove();
+          return;
+        }
         if (document.getElementById('fs-bottom-tabs')) return;
+
+        let progressiveBlur = document.getElementById('fs-progressive-bottom-blur');
+        if (!progressiveBlur) {
+          progressiveBlur = document.createElement('div');
+          progressiveBlur.id = 'fs-progressive-bottom-blur';
+          document.documentElement.appendChild(progressiveBlur);
+        }
 
         const tabBar = document.createElement('div');
         tabBar.id = 'fs-bottom-tabs';
@@ -1977,7 +2628,7 @@ object FlightsTabsInjector {
         // Blur tabBar on scroll
         window.addEventListener('scroll', () => {
           const max = document.body.scrollHeight - window.innerHeight; if (max<=0) return;
-          tabBar.style.backdropFilter = `blur(${3+(window.scrollY/max)*2}px) saturate(160%)`;
+          tabBar.style.backdropFilter = `blur(${18+(window.scrollY/max)*16}px) saturate(160%)`;
         });
 
         // Sub-page toggle state

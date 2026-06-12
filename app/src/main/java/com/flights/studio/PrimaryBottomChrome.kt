@@ -3,8 +3,10 @@ package com.flights.studio
 import android.content.Context
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,7 +18,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,11 +36,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
-import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -52,8 +55,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -64,9 +70,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -77,7 +86,7 @@ import kotlinx.coroutines.withContext
 
 enum class PrimaryTabDestination {
     Home,
-    Contacts,
+    Briefing,
     Notes,
     Settings
 }
@@ -92,7 +101,7 @@ data class PrimaryMenuAction(
 @Composable
 fun PrimaryBottomChrome(
     selectedTab: PrimaryTabDestination,
-    backdrop: Backdrop,
+    backdrop: LayerBackdrop,
     menuVisible: Boolean,
     menuActions: List<PrimaryMenuAction>,
     onMenuDismiss: () -> Unit,
@@ -102,9 +111,15 @@ fun PrimaryBottomChrome(
     onOpenSettings: () -> Unit,
     onOpenMenu: () -> Unit,
     showTabs: Boolean = true,
-    showMenu: Boolean = true
+    showMenu: Boolean = true,
+    contentView: android.view.View? = null,
+    menuIcon: ImageVector = Icons.Filled.Menu
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(30f)
+    ) {
         if (showTabs) {
             PrimaryQuickTabBar(
                 modifier = Modifier
@@ -117,7 +132,9 @@ fun PrimaryBottomChrome(
                 onOpenContacts = onOpenContacts,
                 onOpenNotes = onOpenNotes,
                 onOpenSettings = onOpenSettings,
-                onOpenMenu = onOpenMenu
+                onOpenMenu = onOpenMenu,
+                contentView = contentView,
+                menuIcon = menuIcon
             )
         }
 
@@ -126,6 +143,7 @@ fun PrimaryBottomChrome(
                 visible = menuVisible,
                 modifier = Modifier.align(Alignment.BottomCenter),
                 backdrop = backdrop,
+                contentView = contentView,
                 actions = menuActions,
                 onDismiss = onMenuDismiss
             )
@@ -137,18 +155,20 @@ fun PrimaryBottomChrome(
 private fun PrimaryQuickTabBar(
     modifier: Modifier = Modifier,
     selectedTab: PrimaryTabDestination,
-    backdrop: Backdrop,
+    backdrop: LayerBackdrop,
     onOpenHome: () -> Unit,
     onOpenContacts: () -> Unit,
     onOpenNotes: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenMenu: () -> Unit
+    onOpenMenu: () -> Unit,
+    contentView: android.view.View?,
+    menuIcon: ImageVector
 ) {
-    val isDark = isSystemInDarkTheme()
-    val glassColor = if (isDark) {
-        Color(0x7B000000).copy(alpha = 0.76f)
-    } else {
-        Color(0xFFE6E2E7).copy(alpha = 0.58f)
+    val glassColor = bottomTabBarTint()
+    val overlayTint = bottomTabBarOverlayTint()
+    var draggedTabIndex by remember { mutableStateOf<Int?>(null) }
+    val pageTabActions = remember(onOpenHome, onOpenContacts, onOpenNotes, onOpenSettings) {
+        listOf(onOpenHome, onOpenContacts, onOpenNotes, onOpenSettings)
     }
 
     Box(
@@ -156,17 +176,19 @@ private fun PrimaryQuickTabBar(
             .padding(horizontal = GlassChromeHorizontalPadding)
             .fillMaxWidth()
             .height(56.dp)
+            .shadow(GlassChromeShadowElevation, GlassChromeShape, clip = false)
+            .clip(GlassChromeShape)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { GlassChromeShape },
-                shadow = null,
+                shadow = { bottomChromeShadow() },
                 highlight = null,
                 effects = {
                     vibrancy()
-                    blur(1.5.dp.toPx(), edgeTreatment = TileMode.Clamp)
+                    blur(GlassChromeBackdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
                     lens(
-                        refractionHeight = 20.dp.toPx(),
-                        refractionAmount = 30.dp.toPx(),
+                        refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
+                        refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
                         depthEffect = false,
                         chromaticAberration = false
                     )
@@ -174,48 +196,74 @@ private fun PrimaryQuickTabBar(
                 onDrawSurface = { drawRect(glassColor) }
             )
             .background(
-                color = if (isDark) {
-                    Color.White.copy(alpha = 0.06f)
-                } else {
-                    Color(0xFF7CB342).copy(alpha = 0.06f)
-                },
+                color = overlayTint,
                 shape = GlassChromeShape
             )
     ) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { FrostedActionBarBlurView(it) },
+            update = {
+                it.contentView = contentView
+                it.scrimColor = glassColor.toArgb()
+                it.cornerRadiusPx = it.resources.displayMetrics.density * 28f
+                it.useLiquidRefraction = true
+                it.blurRadiusPx = GlassChromeNativeBlurPx
+                it.saturation = 1.18f
+                it.refractIntensity = GlassChromeNativeRefractionIntensity
+            }
+        )
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(3.dp),
+                .padding(3.dp)
+                .pointerInput(pageTabActions) {
+                    fun moveSelection(x: Float) {
+                        val tabWidth = size.width / 5f
+                        val index = (x / tabWidth).toInt().coerceIn(0, 4)
+                        if (index in pageTabActions.indices && draggedTabIndex != index) {
+                            draggedTabIndex = index
+                            pageTabActions[index]()
+                        }
+                    }
+
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { offset -> moveSelection(offset.x) },
+                        onDragCancel = { draggedTabIndex = null },
+                        onDragEnd = { draggedTabIndex = null },
+                        onDrag = { change, _ -> moveSelection(change.position.x) }
+                    )
+                },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             PrimaryQuickTab(
                 label = stringResource(R.string.Home),
                 icon = Icons.Filled.Home,
-                selected = selectedTab == PrimaryTabDestination.Home,
+                selected = draggedTabIndex == 0 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Home),
                 onClick = onOpenHome
             )
             PrimaryQuickTab(
-                label = stringResource(R.string.total_contacts),
-                icon = Icons.Filled.Groups,
-                selected = selectedTab == PrimaryTabDestination.Contacts,
+                label = stringResource(R.string.chat_bottom_tab),
+                icon = Icons.Filled.Info,
+                selected = selectedTab == PrimaryTabDestination.Briefing,
                 onClick = onOpenContacts
             )
             PrimaryQuickTab(
                 label = stringResource(R.string.contacts_bottom_notes),
                 icon = Icons.AutoMirrored.Filled.Article,
-                selected = selectedTab == PrimaryTabDestination.Notes,
+                selected = draggedTabIndex == 2 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Notes),
                 onClick = onOpenNotes
             )
             PrimaryQuickTab(
                 label = stringResource(R.string.menu_settings),
                 icon = Icons.Filled.Settings,
-                selected = selectedTab == PrimaryTabDestination.Settings,
+                selected = draggedTabIndex == 3 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Settings),
                 onClick = onOpenSettings
             )
             PrimaryQuickTab(
                 label = stringResource(R.string.settings_menu_tab),
-                icon = Icons.Filled.Menu,
+                icon = menuIcon,
                 selected = false,
                 onClick = onOpenMenu
             )
@@ -230,28 +278,73 @@ private fun RowScope.PrimaryQuickTab(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val inactiveColor = if (isDark) {
-        Color.White.copy(alpha = 0.72f)
-    } else {
-        Color(0xFF555763)
-    }
-    val selectedContentColor = if (isDark) {
-        Color.White
-    } else {
-        Color(0xFF0B57D0)
-    }
+    val inactiveColor = bottomTabInactiveColor()
+    val selectedContentColor = primaryTabAccentColor()
+    val selectedPillColor = bottomTabSelectedPillColor()
+    val pressSource = remember { MutableInteractionSource() }
+    val isPressed by pressSource.collectIsPressedAsState()
+    val pillAlpha by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = tween(durationMillis = if (selected) 180 else 120, easing = FastOutSlowInEasing),
+        label = "primaryTabPillAlpha"
+    )
+    val pillScale by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.84f,
+        animationSpec = spring(dampingRatio = 0.78f, stiffness = 520f),
+        label = "primaryTabPillScale"
+    )
+    val contentScale by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.94f,
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = 620f),
+        label = "primaryTabContentScale"
+    )
+
+    val pressAlpha by animateFloatAsState(
+        targetValue = if (isPressed && !selected) 0.10f else 0f,
+        animationSpec = tween(90),
+        label = "primaryTabPressAlpha"
+    )
 
     Box(
         modifier = Modifier
             .weight(1f)
-            .height(46.dp)
+            .height(48.dp)
             .clip(GlassChromeInnerShape)
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = pressSource,
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = pillAlpha
+                    scaleX = pillScale
+                    scaleY = pillScale
+                }
+                .background(selectedPillColor, GlassChromeInnerShape)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = pressAlpha
+                }
+                .background(
+                    selectedPillColor.copy(alpha = 0.35f),
+                    GlassChromeInnerShape
+                )
+        )
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = contentScale
+                    scaleY = contentScale
+                },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -273,17 +366,6 @@ private fun RowScope.PrimaryQuickTab(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.34f)
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(
-                        if (selected) selectedContentColor
-                        else Color.Transparent
-                    )
-            )
         }
     }
 }
@@ -292,28 +374,22 @@ private fun RowScope.PrimaryQuickTab(
 private fun PrimaryMenuSheet(
     visible: Boolean,
     modifier: Modifier = Modifier,
-    backdrop: Backdrop,
+    backdrop: LayerBackdrop,
+    contentView: android.view.View?,
     actions: List<PrimaryMenuAction>,
     onDismiss: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val panelColor = if (isDark) {
-        Color(0xFF202124).copy(alpha = 0.62f)
-    } else {
-        Color(0xFFE6E2E7).copy(alpha = 0.52f)
-    }
+    val panelColor = bottomTabBarTint()
+    val overlayTint = bottomTabBarOverlayTint()
     val textColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
     val iconColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
-    val buttonColor = if (isDark) {
-        Color.White.copy(alpha = 0.14f)
-    } else {
-        Color.White.copy(alpha = 0.96f)
-    }
+    val buttonColor = bottomTabSelectedPillColor()
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(animationSpec = tween(durationMillis = 90)),
-        exit = fadeOut(animationSpec = tween(durationMillis = 140))
+        enter = fadeIn(animationSpec = tween(durationMillis = 130)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 160))
     ) {
         Box(
             modifier = Modifier
@@ -331,19 +407,19 @@ private fun PrimaryMenuSheet(
         visible = visible,
         modifier = modifier.imePadding(),
         enter = slideInVertically(
-            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
             initialOffsetY = { it / 2 }
-        ) + fadeIn(animationSpec = tween(durationMillis = 120)) +
+        ) + fadeIn(animationSpec = tween(durationMillis = 170)) +
             scaleIn(
-                animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
-                initialScale = 0.96f
+                animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
+                initialScale = 0.94f
             ),
         exit = slideOutVertically(
-            animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+            animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
             targetOffsetY = { it / 3 }
-        ) + fadeOut(animationSpec = tween(durationMillis = 120)) +
+        ) + fadeOut(animationSpec = tween(durationMillis = 150)) +
             scaleOut(
-                animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+                animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
                 targetScale = 0.98f
             )
     ) {
@@ -355,6 +431,7 @@ private fun PrimaryMenuSheet(
                     bottom = GlassChromeHorizontalPadding
                 )
                 .fillMaxWidth()
+                .shadow(GlassChromeShadowElevation, GlassChromeShape, clip = false)
                 .clip(GlassChromeShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -368,17 +445,31 @@ private fun PrimaryMenuSheet(
                     highlight = null,
                     effects = {
                         vibrancy()
-                        blur(4.dp.toPx())
+                        blur(GlassChromeBackdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
                         lens(
-                            refractionHeight = 22.dp.toPx(),
-                            refractionAmount = 72.dp.toPx(),
+                            refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
+                            refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
                             depthEffect = false,
-                            chromaticAberration = true
+                            chromaticAberration = false
                         )
                     },
                     onDrawSurface = { drawRect(panelColor) }
                 )
+                .background(overlayTint, GlassChromeShape)
         ) {
+            AndroidView(
+                modifier = Modifier.matchParentSize(),
+                factory = { FrostedActionBarBlurView(it) },
+                update = {
+                    it.contentView = contentView
+                    it.scrimColor = panelColor.toArgb()
+                    it.cornerRadiusPx = it.resources.displayMetrics.density * 28f
+                    it.useLiquidRefraction = true
+                    it.blurRadiusPx = GlassChromeNativeBlurPx
+                    it.saturation = 1.18f
+                    it.refractIntensity = GlassChromeNativeRefractionIntensity
+                }
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

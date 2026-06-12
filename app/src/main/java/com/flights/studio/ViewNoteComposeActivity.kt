@@ -11,26 +11,34 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Edit
@@ -47,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -60,6 +69,7 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class ViewNoteComposeActivity : ComponentActivity() {
 
@@ -157,6 +167,12 @@ class ViewNoteComposeActivity : ComponentActivity() {
                                 note = note,
                                 title = title,
                                 images = NoteMediaStore.getUris(this, uid), // pass images
+                                attachments = NoteAttachmentStore.getItems(this, uid).ifEmpty {
+                                    NoteAttachmentStore.getItems(this, note)
+                                },
+                                voiceNotes = NoteVoiceStore.getItems(this, uid).ifEmpty {
+                                    NoteVoiceStore.getItems(this, note)
+                                },
                                 wantsReminder = false,                            // or real value if stored
                                 position = position
                             )
@@ -184,6 +200,13 @@ class ViewNoteComposeActivity : ComponentActivity() {
     }
 }
 
+private fun formatVoiceDuration(durationMs: Long): String {
+    val totalSeconds = (durationMs / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d:%02d".format(java.util.Locale.US, minutes, seconds)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ViewNoteScreen(
@@ -201,6 +224,30 @@ private fun ViewNoteScreen(
     ) {
         value = if (uid.isNullOrBlank()) emptyList()
         else withContext(Dispatchers.IO) { NoteMediaStore.getUris(ctx, uid) }
+    }
+    val voiceItems by produceState(
+        initialValue = emptyList<NoteVoiceItem>(),
+        key1 = uid,
+        key2 = note
+    ) {
+        value = withContext(Dispatchers.IO) {
+            val key = uid?.takeIf { it.isNotBlank() } ?: note
+            NoteVoiceStore.getItems(ctx, key).ifEmpty {
+                NoteVoiceStore.getItems(ctx, note)
+            }
+        }
+    }
+    val fileItems by produceState(
+        initialValue = emptyList<NoteAttachmentItem>(),
+        key1 = uid,
+        key2 = note
+    ) {
+        value = withContext(Dispatchers.IO) {
+            val key = uid?.takeIf { it.isNotBlank() } ?: note
+            NoteAttachmentStore.getItems(ctx, key).ifEmpty {
+                NoteAttachmentStore.getItems(ctx, note)
+            }
+        }
     }
 
 
@@ -280,6 +327,13 @@ private fun ViewNoteScreen(
                     )
                 }
 
+                if (voiceItems.isNotEmpty() || fileItems.isNotEmpty()) {
+                    NoteMediaBox(
+                        voiceItems = voiceItems,
+                        fileItems = fileItems
+                    )
+                }
+
                 // ✅ ONLY text scrolls
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -289,7 +343,7 @@ private fun ViewNoteScreen(
                         Surface(
                             shape = RoundedCornerShape(18.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant,
-                            shadowElevation = 1.dp
+                            shadowElevation = 0.dp
                         ) {
                             Text(
                                 text = note,
@@ -321,9 +375,9 @@ private fun NoteImagesRow(
                 Surface(
                     shape = shape,
                     color = MaterialTheme.colorScheme.surfaceVariant,
-                    shadowElevation = 1.dp,
+                    shadowElevation = 0.dp,
                     modifier = Modifier
-                        .width(240.dp)
+                        .width(180.dp)
                         .aspectRatio(16f / 10f)
                         .clickable { onImageClick(index) }
                 ) {
@@ -337,7 +391,7 @@ private fun NoteImagesRow(
                             ImagePlaceholderSurface(
                                 modifier = Modifier.fillMaxSize(),
                                 shape = shape,
-                                iconSize = 34,
+                                iconSize = 26,
                                 alpha = 0.55f
                             )
                         },
@@ -346,7 +400,7 @@ private fun NoteImagesRow(
                             ImagePlaceholderSurface(
                                 modifier = Modifier.fillMaxSize(),
                                 shape = shape,
-                                iconSize = 34,
+                                iconSize = 26,
                                 alpha = 0.55f
                             )
                         }
@@ -354,4 +408,177 @@ private fun NoteImagesRow(
                 }
             }
         }
+}
+
+@Composable
+private fun NoteVoiceCard(index: Int, item: NoteVoiceItem) {
+    NoteAudioMiniPlayer(
+        uri = item.asUri,
+        title = "Voice ${index + 1}",
+        subtitle = formatVoiceDuration(item.durationMs),
+        modifier = Modifier.width(190.dp)
+    )
+}
+
+@Composable
+private fun NoteMediaBox(
+    voiceItems: List<NoteVoiceItem>,
+    fileItems: List<NoteAttachmentItem>
+) {
+    val documents = remember(fileItems) {
+        fileItems
+            .filterNot { it.isAudioAttachment() || it.isVideoAttachment() }
+            .sortedBy { it.name.lowercase() }
+    }
+    val audio = remember(fileItems) {
+        fileItems
+            .filter { it.isAudioAttachment() }
+            .sortedBy { it.name.lowercase() }
+    }
+    val video = remember(fileItems) {
+        fileItems
+            .filter { it.isVideoAttachment() }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+        ),
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (voiceItems.isNotEmpty()) {
+                NoteMediaCategoryRow(title = "Voice", count = voiceItems.size) {
+                    itemsIndexed(voiceItems) { index, item ->
+                        NoteVoiceCard(index = index, item = item)
+                    }
+                }
+            }
+            if (documents.isNotEmpty()) {
+                NoteMediaCategoryRow(title = "Files", count = documents.size) {
+                    itemsIndexed(documents) { _, item ->
+                        NoteAttachmentPill(item, label = "File")
+                    }
+                }
+            }
+            if (audio.isNotEmpty()) {
+                NoteMediaCategoryRow(title = "Audio", count = audio.size) {
+                    itemsIndexed(audio) { _, item ->
+                        NoteAudioMiniPlayer(
+                            uri = item.asUri,
+                            title = item.name,
+                            subtitle = "Audio",
+                            modifier = Modifier.width(190.dp)
+                        )
+                    }
+                }
+            }
+            if (video.isNotEmpty()) {
+                NoteMediaCategoryRow(title = "Video", count = video.size) {
+                    itemsIndexed(video) { _, item ->
+                        NoteAttachmentPill(item, label = "Video")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteMediaCategoryRow(
+    title: String,
+    count: Int,
+    content: LazyListScope.() -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "$title ($count)",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 0.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun NoteAttachmentPill(
+    item: NoteAttachmentItem,
+    label: String
+) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.11f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f)
+        ),
+        modifier = Modifier
+            .height(40.dp)
+            .width(190.dp)
+            .clickable {
+                val uri = item.asUri
+                val openUri = if (uri.scheme == "file") {
+                    FileProvider.getUriForFile(
+                        ctx,
+                        "${ctx.packageName}.fileprovider",
+                        File(uri.path.orEmpty())
+                    )
+                } else {
+                    uri
+                }
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(openUri, item.mime ?: "*/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                runCatching { ctx.startActivity(Intent.createChooser(intent, "Open attachment")) }
+            }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = item.mime ?: "Attachment",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = "Open",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                color = MaterialTheme.colorScheme.secondary
+            )
+        }
+    }
 }

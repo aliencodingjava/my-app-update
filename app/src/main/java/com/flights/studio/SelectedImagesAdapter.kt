@@ -44,7 +44,7 @@ class SelectedImagesAdapter(
             .into(h.img)
 
         h.btnRemove.setOnClickListener {
-            val idx = h.bindingAdapterPosition
+            val idx = h.adapterPosition
             if (idx != RecyclerView.NO_POSITION) {
                 val removed = items.removeAt(idx)
                 notifyItemRemoved(idx)

@@ -112,7 +112,7 @@ class ItemListDialogFragment : BottomSheetDialogFragment() {
         inner class ViewHolder(val binding: ItemListCardBinding) : RecyclerView.ViewHolder(binding.root) {
             init {
                 binding.cardView.setOnClickListener {
-                    val position = bindingAdapterPosition
+                    val position = adapterPosition
                     if (position != RecyclerView.NO_POSITION) itemClick(position)
                 }
 

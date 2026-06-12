@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,9 +31,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -48,16 +46,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 
 @Composable
 fun MainWelcomeOnboardingOverlay(
     visible: Boolean,
+    backdrop: Backdrop,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -90,30 +97,33 @@ fun MainWelcomeOnboardingOverlay(
             )
     ) {
         Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.20f),
-                            Color.Black.copy(alpha = 0.62f)
-                        )
-                    )
-                )
-                .padding(horizontal = 16.dp, vertical = 18.dp)
-                .navigationBarsPadding(),
+            Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            MainWelcomeCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        scaleX = 1f + (t * 0.01f)
-                        scaleY = 1f + (t * 0.01f)
-                    },
-                onDone = onDone
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(Color.Black.copy(alpha = 0.36f))
             )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 18.dp)
+                    .navigationBarsPadding(),
+                contentAlignment = Alignment.Center
+            ) {
+                MainWelcomeCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            scaleX = 1f + (t * 0.01f)
+                            scaleY = 1f + (t * 0.01f)
+                        },
+                    backdrop = backdrop,
+                    onDone = onDone
+                )
+            }
         }
     }
 }
@@ -121,27 +131,54 @@ fun MainWelcomeOnboardingOverlay(
 @Composable
 private fun MainWelcomeCard(
     onDone: () -> Unit,
+    backdrop: Backdrop,
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(28.dp)
-    val glassBg = Brush.verticalGradient(
-        listOf(
-            cs.surfaceContainerHighest.copy(alpha = 0.94f),
-            cs.surfaceContainerHigh.copy(alpha = 0.88f),
-            cs.surface.copy(alpha = 0.84f),
-        )
-    )
+    val glassTint = if (isDark) {
+        Color.Black.copy(alpha = 0.42f)
+    } else {
+        Color.White.copy(alpha = 0.50f)
+    }
     val stroke = Brush.verticalGradient(
         listOf(
-            Color.White.copy(alpha = 0.36f),
-            Color.White.copy(alpha = 0.12f),
-            Color.Transparent
+            Color.White.copy(alpha = if (isDark) 0.28f else 0.58f),
+            Color.White.copy(alpha = if (isDark) 0.08f else 0.20f),
+            cs.outline.copy(alpha = 0.10f)
         )
     )
 
     Surface(
-        modifier = modifier.heightIn(max = 660.dp),
+        modifier = modifier
+            .heightIn(min = 320.dp)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                shadow = null,
+                highlight = {
+                    Highlight(
+                        width = if (isDark) 0.45.dp else 0.30.dp,
+                        blurRadius = if (isDark) 1.6.dp else 1.dp,
+                        alpha = if (isDark) 0.50f else 0.80f,
+                        style = HighlightStyle.Plain
+                    )
+                },
+                effects = {
+                    vibrancy()
+                    blur(24.dp.toPx(), edgeTreatment = TileMode.Mirror)
+                    lens(
+                        refractionHeight = 24.dp.toPx(),
+                        refractionAmount = 24.dp.toPx(),
+                        depthEffect = false,
+                        chromaticAberration = false
+                    )
+                },
+                onDrawSurface = {
+                    drawRect(glassTint)
+                }
+            ),
         shape = shape,
         color = Color.Transparent,
         tonalElevation = 0.dp,
@@ -150,32 +187,16 @@ private fun MainWelcomeCard(
         Box(
             Modifier
                 .fillMaxWidth()
-                .background(glassBg, shape)
                 .border(width = 1.dp, brush = stroke, shape = shape)
-                .border(width = 1.dp, color = cs.outline.copy(alpha = 0.12f), shape = shape)
+                .border(width = 1.dp, color = cs.outline.copy(alpha = if (isDark) 0.12f else 0.16f), shape = shape)
         ) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(cs.primary.copy(alpha = 0.10f), Color.Transparent),
-                            radius = 900f
-                        ),
-                        shape = shape
-                    )
-            )
-
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                MainWelcomeIllustration()
-
                 Text(
                     text = "Welcome to JAC Airport",
                     color = cs.onSurface,
@@ -200,11 +221,13 @@ private fun MainWelcomeCard(
                 Button(
                     onClick = onDone,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = cs.primary,
-                        contentColor = cs.onPrimary
+                        containerColor = cs.surfaceContainerHigh,
+                        contentColor = if (isDark) Color.White else cs.onSurface
                     ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                     contentPadding = PaddingValues(horizontal = 18.dp, vertical = 13.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp)
                 ) {
                     Text(
                         text = "Done",
@@ -213,75 +236,6 @@ private fun MainWelcomeCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun MainWelcomeIllustration() {
-    val cs = MaterialTheme.colorScheme
-    val panelShape = RoundedCornerShape(22.dp)
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(2.9f),
-        shape = panelShape,
-        color = cs.surfaceVariant,
-        tonalElevation = 2.dp,
-        shadowElevation = 1.dp
-    ) {
-        Row(
-            Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            WelcomeIconBubble(R.drawable.fullscreen_24dp_46152f_fill1_wght400_grad0_opsz24)
-            WelcomeIconBubble(R.drawable.ic_oui_notes)
-            WelcomeIconBubble(R.drawable.ic_oui_contact)
-
-            Column(
-                Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = cs.onSurface.copy(alpha = 0.10f)
-                ) { Spacer(Modifier.size(width = 126.dp, height = 9.dp)) }
-
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = cs.onSurface.copy(alpha = 0.07f)
-                ) { Spacer(Modifier.size(width = 92.dp, height = 9.dp)) }
-
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = cs.onSurface.copy(alpha = 0.06f)
-                ) { Spacer(Modifier.size(width = 70.dp, height = 9.dp)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WelcomeIconBubble(@DrawableRes iconRes: Int) {
-    val cs = MaterialTheme.colorScheme
-
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = cs.primary.copy(alpha = 0.12f),
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp
-    ) {
-        Icon(
-            painter = painterResource(iconRes),
-            contentDescription = null,
-            tint = cs.primary,
-            modifier = Modifier
-                .padding(12.dp)
-                .size(26.dp)
-        )
     }
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,20 +23,17 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -47,20 +45,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 
 @Composable
 fun NotesWelcomeOnboardingOverlay(
     visible: Boolean,
+    backdrop: Backdrop?,
     onContinue: () -> Unit,
     modifier: Modifier = Modifier,
     onSecondary: (() -> Unit)? = null,
     secondaryText: String = "Maybe later",
-    ) {
+) {
     // slight “breathing” scale when visible (feels premium)
     val t by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
@@ -84,36 +91,36 @@ fun NotesWelcomeOnboardingOverlay(
                 ) +
                 scaleOut(targetScale = 0.985f, animationSpec = spring(dampingRatio = 1.0f, stiffness = Spring.StiffnessMedium))
     ) {
-        MaterialTheme.colorScheme
-
         Box(
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.32f),
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f),
-                            Color.Black.copy(alpha = 0.60f)
-                        )
-                    )
-                )
-                .padding(16.dp),
+            Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-
-
-        NotesWelcomeCardPro(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        scaleX = 1f + (t * 0.01f)
-                        scaleY = 1f + (t * 0.01f)
-                    },
-                onContinue = onContinue,
-                onSecondary = onSecondary,
-                secondaryText = secondaryText
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .background(Color.Black.copy(alpha = 0.36f))
             )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 18.dp)
+                    .navigationBarsPadding(),
+                contentAlignment = Alignment.Center
+            ) {
+                NotesWelcomeCardPro(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            scaleX = 1f + (t * 0.01f)
+                            scaleY = 1f + (t * 0.01f)
+                        },
+                    backdrop = backdrop,
+                    onContinue = onContinue,
+                    onSecondary = onSecondary,
+                    secondaryText = secondaryText
+                )
+            }
         }
     }
 }
@@ -121,73 +128,80 @@ fun NotesWelcomeOnboardingOverlay(
 @Composable
 private fun NotesWelcomeCardPro(
     onContinue: () -> Unit,
+    backdrop: Backdrop?,
     onSecondary: (() -> Unit)?,
     secondaryText: String,
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(28.dp)
-
-    // Premium glass-ish background (works in light + dark)
-    val glassBg = Brush.verticalGradient(
-        listOf(
-            cs.surfaceContainerHighest.copy(alpha = 0.92f),
-            cs.surfaceContainerHigh.copy(alpha = 0.86f),
-            cs.surface.copy(alpha = 0.82f),
-        )
-    )
-
-    // Subtle highlight stroke (top brighter, bottom softer)
+    val glassTint = if (isDark) {
+        Color.Black.copy(alpha = 0.42f)
+    } else {
+        Color.White.copy(alpha = 0.50f)
+    }
     val stroke = Brush.verticalGradient(
         listOf(
-            Color.White.copy(alpha = 0.35f),
-            Color.White.copy(alpha = 0.10f),
-            Color.Transparent
+            Color.White.copy(alpha = if (isDark) 0.28f else 0.58f),
+            Color.White.copy(alpha = if (isDark) 0.08f else 0.20f),
+            cs.outline.copy(alpha = 0.10f)
         )
     )
+    val sizedModifier = modifier.heightIn(min = 320.dp)
+    val glassModifier = if (backdrop != null) {
+        sizedModifier.drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            shadow = null,
+            highlight = {
+                Highlight(
+                    width = if (isDark) 0.45.dp else 0.30.dp,
+                    blurRadius = if (isDark) 1.6.dp else 1.dp,
+                    alpha = if (isDark) 0.50f else 0.80f,
+                    style = HighlightStyle.Plain
+                )
+            },
+            effects = {
+                vibrancy()
+                blur(24.dp.toPx(), edgeTreatment = TileMode.Mirror)
+                lens(
+                    refractionHeight = 24.dp.toPx(),
+                    refractionAmount = 24.dp.toPx(),
+                    depthEffect = false,
+                    chromaticAberration = false
+                )
+            },
+            onDrawSurface = {
+                drawRect(glassTint)
+            }
+        )
+    } else {
+        sizedModifier.background(glassTint, shape)
+    }
 
     Surface(
-        modifier = modifier
-            .heightIn(min = 320.dp),
+        modifier = glassModifier,
         shape = shape,
         color = Color.Transparent,
         tonalElevation = 0.dp,
-        shadowElevation = 0.dp // ✅ real depth
+        shadowElevation = 0.dp
     ) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .background(glassBg, shape)
                 .border(width = 1.dp, brush = stroke, shape = shape)
                 .border(
                     width = 1.dp,
-                    color = cs.outline.copy(alpha = 0.10f),
+                    color = cs.outline.copy(alpha = if (isDark) 0.12f else 0.16f),
                     shape = shape
                 )
         ) {
-            // Tiny inner sheen (premium “polish”)
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                cs.primary.copy(alpha = 0.10f),
-                                Color.Transparent
-                            ),
-                            radius = 900f
-                        ),
-                        shape = shape
-                    )
-            )
-
             Column(
                 Modifier.padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                IllustrationPanel()
-
                 Text(
                     text = "Welcome to Notes",
                     color = cs.onSurface,
@@ -220,7 +234,8 @@ private fun NotesWelcomeCardPro(
                         OutlinedButton(
                             onClick = onSecondary,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(18.dp)
                         ) {
                             Text(
                                 text = secondaryText,
@@ -233,14 +248,16 @@ private fun NotesWelcomeCardPro(
                     Button(
                         onClick = onContinue,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = cs.primary,
-                            contentColor = cs.onPrimary
+                            containerColor = cs.surfaceContainerHigh,
+                            contentColor = if (isDark) Color.White else cs.onSurface
                         ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp)
                     ) {
                         Text(
-                            text = "Continue",
+                            text = "Add note",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                             maxLines = 1
                         )
@@ -260,56 +277,65 @@ private fun PremiumFeaturesGrid(
     val shape = RoundedCornerShape(18.dp)
 
     val items = listOf(
-        ChipItem("Photos", "🖼️"),
-        ChipItem("AI titles", "✨"),
-        ChipItem("Reminders", "⏰"),
-        ChipItem("Badges", "🏷️"),
+        ChipItem("AI title", "✨"),
+        ChipItem("To-do", "☑"),
+        ChipItem("Grammar", "Aa"),
+        ChipItem("Voice", "Mic"),
+        ChipItem("Reminder", "⏰"),
+        ChipItem("Photos", "Img"),
+        ChipItem("Files", "Doc"),
+        ChipItem("Composer", "✎"),
         ChipItem("Settings", "⚙️"),
         ChipItem("Search", "🔎"),
         ChipItem("Sort", "⇅"),
-        ChipItem("Grid", "▦"),
         ChipItem("Sync", "☁️"),
     )
 
-    Column(
-        modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        cs.surfaceVariant.copy(alpha = 0.46f),
-                        cs.surface.copy(alpha = 0.26f)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            cs.surfaceContainerHigh.copy(alpha = 0.82f),
+                            cs.surfaceContainer.copy(alpha = 0.64f)
+                        )
                     )
                 )
-            )
-            .border(1.dp, cs.outline.copy(alpha = 0.11f), shape)
-            .padding(horizontal = 10.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // tiny header line (optional but looks premium)
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .border(1.dp, cs.outline.copy(alpha = 0.12f), shape)
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                "Highlights",
-                color = cs.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Text(
-                "${items.size} features",
-                color = cs.onSurfaceVariant.copy(alpha = 0.85f),
-                style = MaterialTheme.typography.labelSmall
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Highlights",
+                    color = cs.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Text(
+                    "${items.size} features",
+                    color = cs.onSurfaceVariant.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+
+            PremiumChipGrid3(
+                items = items,
+                modifier = Modifier.fillMaxWidth()
             )
         }
-
-        // 3 columns, auto-wrap (super compact)
-        PremiumChipGrid3(
-            items = items,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
 
@@ -388,71 +414,13 @@ private fun PremiumMiniChip(
 }
 
 
-@Composable
-private fun IllustrationPanel() {
-    val cs = MaterialTheme.colorScheme
-    val panelShape = RoundedCornerShape(22.dp)
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(2.9f),
-        shape = panelShape,
-        color = cs.surfaceVariant,
-        tonalElevation = 2.dp,     // 👈 subtle material lift
-        shadowElevation = 1.dp     // 👈 soft shadow like note card
-    ) {
-        Box(
-            Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = cs.primary.copy(alpha = 0.12f),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.EditNote,
-                        contentDescription = null,
-                        tint = cs.primary,
-                        modifier = Modifier
-                            .padding(14.dp)
-                            .size(34.dp)
-                    )
-                }
-
-                Spacer(Modifier.width(12.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = cs.onSurface.copy(alpha = 0.10f)
-                    ) { Spacer(Modifier.size(width = 140.dp, height = 9.dp)) }
-
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = cs.onSurface.copy(alpha = 0.07f)
-                    ) { Spacer(Modifier.size(width = 104.dp, height = 9.dp)) }
-
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = cs.onSurface.copy(alpha = 0.06f)
-                    ) { Spacer(Modifier.size(width = 84.dp, height = 9.dp)) }
-                }
-            }
-        }
-    }
-}
-
 @Preview(name = "Welcome Overlay - Pro", showBackground = true, backgroundColor = 0xFFEFEFEF)
 @Composable
 private fun Preview_NotesWelcomeOverlay_Pro() {
     MaterialTheme {
         NotesWelcomeOnboardingOverlay(
             visible = true,
+            backdrop = null,
             onContinue = {},
             onSecondary = {},
             secondaryText = "Create first note"

@@ -14,6 +14,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +23,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -134,6 +134,7 @@ private fun ContactsWelcomeCard(
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(28.dp)
     val glassBg = Brush.verticalGradient(
         listOf(
@@ -181,8 +182,6 @@ private fun ContactsWelcomeCard(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                ContactsIllustrationPanel()
-
                 Text(
                     text = "Welcome to Contacts",
                     color = cs.onSurface,
@@ -214,7 +213,8 @@ private fun ContactsWelcomeCard(
                         OutlinedButton(
                             onClick = onSecondary,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(18.dp)
                         ) {
                             Text(
                                 text = secondaryText,
@@ -227,11 +227,13 @@ private fun ContactsWelcomeCard(
                     Button(
                         onClick = onContinue,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = cs.primary,
-                            contentColor = cs.onPrimary
+                            containerColor = cs.surfaceContainerHigh,
+                            contentColor = if (isDark) Color.White else cs.onSurface
                         ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(18.dp)
                     ) {
                         Text(
                             text = "Add contact",
@@ -364,64 +366,6 @@ private fun ContactsMiniChip(
                 color = cs.onSurface,
                 modifier = Modifier.weight(1f)
             )
-        }
-    }
-}
-
-@Composable
-private fun ContactsIllustrationPanel() {
-    val cs = MaterialTheme.colorScheme
-    val panelShape = RoundedCornerShape(22.dp)
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(2.9f),
-        shape = panelShape,
-        color = cs.surfaceVariant,
-        tonalElevation = 2.dp,
-        shadowElevation = 1.dp
-    ) {
-        Box(
-            Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = cs.primary.copy(alpha = 0.12f),
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PersonAdd,
-                        contentDescription = null,
-                        tint = cs.primary,
-                        modifier = Modifier
-                            .padding(14.dp)
-                            .size(34.dp)
-                    )
-                }
-
-                Spacer(Modifier.width(12.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = cs.onSurface.copy(alpha = 0.10f)
-                    ) { Spacer(Modifier.size(width = 140.dp, height = 9.dp)) }
-
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = cs.onSurface.copy(alpha = 0.07f)
-                    ) { Spacer(Modifier.size(width = 104.dp, height = 9.dp)) }
-
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = cs.onSurface.copy(alpha = 0.06f)
-                    ) { Spacer(Modifier.size(width = 84.dp, height = 9.dp)) }
-                }
-            }
         }
     }
 }

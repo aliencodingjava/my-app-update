@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -19,6 +20,7 @@ class LiveCamerasActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyKeepScreenOnPreference()
 
         val cards: List<CameraCard> =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
@@ -41,9 +43,26 @@ class LiveCamerasActivity : ComponentActivity() {
 
                 LiveCamerasPage(
                     cards = cards,
-                    onClose = { finish() }
+                    onClose = { finish() },
+                    onOpenArchive = {
+                        startActivity(Intent(this@LiveCamerasActivity, LiveCameraArchiveActivity::class.java))
+                        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                    }
                 )
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyKeepScreenOnPreference()
+    }
+
+    private fun applyKeepScreenOnPreference() {
+        if (SettingsStore.liveCamerasKeepAwake(this)) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 

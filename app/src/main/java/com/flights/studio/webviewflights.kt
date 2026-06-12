@@ -3,6 +3,8 @@ package com.flights.studio
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -16,6 +18,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.JavascriptInterface
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.compose.BackHandler
@@ -38,6 +41,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,22 +57,24 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.DismissibleNavigationDrawer
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,22 +88,28 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.core.net.toUri
 import androidx.core.text.HtmlCompat
-import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 import com.flights.studio.FlightsTabsInjector.injectHideTriggers
 import com.flights.studio.SettingsStore.prefs
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import kotlin.math.abs
 
 @Composable
@@ -110,6 +122,17 @@ fun hasInternet(context: Context): Boolean {
     val caps = cm.getNetworkCapabilities(network) ?: return false
     return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }
+
+private fun isWebCard(cardId: String): Boolean =
+    cardId == "card1" ||
+        cardId == "card2" ||
+        cardId == "card3" ||
+        cardId == "card4" ||
+        cardId == "about_us" ||
+        cardId == "contact_us"
+
+private fun webCardOrFlights(cardId: String): String =
+    if (isWebCard(cardId)) cardId else "card3"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,6 +153,8 @@ fun WebviewFlights(
     }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var cardId by rememberSaveable { mutableStateOf(startCardId) }
+    var activeWebCardId by rememberSaveable { mutableStateOf(webCardOrFlights(startCardId)) }
+    val webBlurTint = if (isSystemInDarkTheme()) Color(0xFF2B2924) else Color(0xFFF4F1E9)
 
 
     LaunchedEffect(cardId) {
@@ -143,7 +168,7 @@ fun WebviewFlights(
         "card2" -> "News"
         "card3" -> "Flights"
         "card4" -> "FBO"
-        "settings" -> "⚙ Web Settings"
+        "settings" -> "Web Settings"
         "about_us" -> "About Us"
         "contact_us" -> "Contact Us"
         "privacy_policy" -> "Privacy Policy"
@@ -155,11 +180,22 @@ fun WebviewFlights(
     fun setCard(id: String) {
         previousCard = cardId
         cardId = id
+        if (isWebCard(id)) {
+            activeWebCardId = id
+        }
         scope.launch { drawerState.close() }
+    }
+
+    fun exitToMainApp() {
+        scope.launch { drawerState.close() }
+        if (returnHome) onExitToHome() else onExitNormal()
     }
 
     BackHandler(enabled = cardId != startCardId) {
         cardId = previousCard
+        if (isWebCard(previousCard)) {
+            activeWebCardId = previousCard
+        }
     }
 
 
@@ -256,44 +292,27 @@ fun WebviewFlights(
                         onClick = { setCard("licenses") }
                     )
 
+                    HorizontalDivider(Modifier.padding(vertical = 12.dp))
+
+                    NavigationDrawerItem(
+                        label = { Text("Web Settings") },
+                        selected = cardId == "settings",
+                        icon = { Icon(Icons.Default.Settings, null) },
+                        onClick = { setCard("settings") }
+                    )
+
+                    NavigationDrawerItem(
+                        label = { Text("Main app") },
+                        selected = false,
+                        icon = { Icon(Icons.Default.Home, null) },
+                        onClick = { exitToMainApp() }
+                    )
+
                     Spacer(Modifier.height(16.dp))
                 }
             }
         }
     ) {
-
-        val isDark = isSystemInDarkTheme()
-
-        val topBarFg = if (isDark) Color.White
-        else MaterialTheme.colorScheme.onSurface
-        val gradient = Brush.verticalGradient(
-            colors = if (isDark) {
-                listOf(
-                    Color(0xFF2B2924),                     // fully solid
-                    Color(0xFF2B2924),                     // keep solid longer
-                    Color(0xFF2E2C27),                     // still solid
-                    Color(0xFF2E2C27).copy(alpha = 0.95f),
-                    Color(0xFF2E2C27).copy(alpha = 0.90f),
-                    Color(0xFF2E2C27).copy(alpha = 0.80f),
-                    Color(0xFF2E2C27).copy(alpha = 0.70f),
-                    Color(0xFF2E2C27).copy(alpha = 0.60f),
-                    Color.Transparent
-                )
-            } else {
-                listOf(
-                    MaterialTheme.colorScheme.surface,
-                    MaterialTheme.colorScheme.surface,
-                    MaterialTheme.colorScheme.surface,
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.70f),
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.50f),
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.25f),
-                    Color.Transparent
-                )
-            }
-        )
-
 
         val alpha by animateFloatAsState(
             targetValue = if (screenVisible) 1f else 0f,
@@ -333,97 +352,133 @@ fun WebviewFlights(
                 }
         ) {
 
-            // ===== FULLSCREEN CONTENT =====
+            WebCardContent(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(backdrop)
+                    .graphicsLayer {
+                        this.alpha = if (isWebCard(cardId)) 1f else 0f
+                    }
+                    .zIndex(0f),
+                cardId = activeWebCardId,
+            )
+
+            // ===== FULLSCREEN OVERLAYS =====
             when (cardId) {
 
                 "settings" -> {
                     SettingsScreen(
                         modifier = Modifier
                             .fillMaxSize()
+                            .layerBackdrop(backdrop)
                             .padding(top = 0.dp)
+                            .zIndex(1f)
                     )
                 }
 
                 "privacy_policy" -> {
                     PrivacyPolicyScreen(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .layerBackdrop(backdrop)
+                            .zIndex(1f)
                     )
                 }
 
                 "licenses" -> {
                     LicensesScreen(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .layerBackdrop(backdrop)
+                            .zIndex(1f)
                     )
-                }
-
-                else -> {
-                    key(cardId) {
-                        WebCardContent(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .layerBackdrop(backdrop),
-                            cardId = cardId
-                        )
-                    }
                 }
             }
 
-            // ===== OVERLAY GRADIENT TOP BAR =====
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
-                    .background(gradient)
-                    .align(Alignment.TopCenter)
-            ) {
-                Row(
+            if (cardId != "card3" && cardId != "privacy_policy" && cardId != "licenses") {
+                BackdropGradientLayer(
+                    backdrop = backdrop,
+                    height = 76.dp,
+                    blurDp = 4.dp,
+                    tintColor = webBlurTint,
+                    tintIntensity = 0.62f,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 40.dp, start = 10.dp, end = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TopGlassChip(
-                        backdrop = backdrop,
-                        onClick = {
-                            scope.launch { drawerState.open() }
-                        },
-                        content = {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Open navigation drawer",
-                                tint = topBarFg,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    )
-
-                    Spacer(Modifier.width(10.dp))
-
-                    TopGlassChip(
-                        backdrop = backdrop,
-                        content = {
-                            Text(
-                                text = screenTitle,
-                                color = topBarFg,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
-                    )
-
-                    Spacer(Modifier.weight(1f))
-
-                    TopRightPillActions(
-                        backdrop = backdrop,
-                        onHome = {
-                            if (returnHome) onExitToHome()
-                            else onExitNormal()
-                        },
-                        onSettings = {
-                            setCard("settings")
-                        }
-                    )
-                }
+                        .align(Alignment.BottomCenter)
+                        .zIndex(0.5f)
+                )
             }
+
+            WebViewSettingsStyleTopAppBar(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(3f),
+                backdrop = backdrop,
+                title = screenTitle,
+                onNavigationClick = { scope.launch { drawerState.open() } }
+            )
+        }
+    }
+}
+
+@Composable
+private fun WebViewSettingsStyleTopAppBar(
+    backdrop: LayerBackdrop,
+    title: String,
+    onNavigationClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val topBarShape = RoundedCornerShape(0.dp)
+    val barColor = topActionBarTint()
+    val contentColor = if (isDark) Color.White else Color(0xFF111111)
+
+    Surface(
+        shape = topBarShape,
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(96.dp)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { topBarShape },
+                shadow = null,
+                highlight = null,
+                effects = {
+                    blur(
+                        radius = TopActionBarBlurDp.dp.toPx(),
+                        edgeTreatment = TileMode.Mirror
+                    )
+                },
+                onDrawSurface = { drawRect(barColor) }
+            )
+    ) {
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(start = 8.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onNavigationClick) {
+                Icon(
+                    imageVector = Icons.Filled.Menu,
+                    contentDescription = "Open navigation drawer",
+                    tint = contentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Text(
+                text = title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 2.dp, end = 12.dp),
+                color = contentColor,
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1
+            )
         }
     }
 }
@@ -502,15 +557,490 @@ fun LicensesScreen(modifier: Modifier = Modifier) {
 }
 
 
-@Suppress("DEPRECATION")
-private fun applyWebViewDarkMode(settings: WebSettings, isDark: Boolean) {
-    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-        WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDark)
-    } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-        WebSettingsCompat.setForceDark(
-            settings,
-            if (isDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+internal fun flightTableRuntimeCss(
+    theme: String,
+    textZoom: Int,
+    previewFrame: Boolean = false
+): String {
+    val safeTheme = theme.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.ifBlank { "mint" }
+    val scale = textZoom.coerceIn(60, 100) / 100f
+    val frameCss = if (previewFrame) {
+        """
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          min-height: 100% !important;
+          overflow: hidden !important;
+          background: transparent !important;
+        }
+        body {
+          font-family: frutigerroman, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        #flight-container {
+          padding: 0 !important;
+          min-height: 100% !important;
+          height: 100% !important;
+        }
+        #flight-container .flight-table-wrap,
+        #flight-container .table-scroll {
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: transparent !important;
+        }
+        html.fs-settings-preview #flight-container .jha-flights .status span {
+          width: calc(46px * var(--flight-text-scale, 1)) !important;
+          min-width: calc(46px * var(--flight-text-scale, 1)) !important;
+          max-width: calc(46px * var(--flight-text-scale, 1)) !important;
+          height: calc(20px * var(--flight-text-scale, 1)) !important;
+          min-height: calc(20px * var(--flight-text-scale, 1)) !important;
+          box-sizing: border-box !important;
+          padding: 0 calc(4px * var(--flight-text-scale, 1)) !important;
+          font-size: calc(8.6px * var(--flight-text-scale, 1)) !important;
+          line-height: 1 !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          white-space: nowrap !important;
+        }
+        """.trimIndent()
+    } else {
+        ""
+    }
+
+    return """
+        #flight-container {
+          --flight-text-scale: $scale;
+        }
+        html.fs-theme-light #flight-container {
+          --fs-table-page:#f8faff; --fs-table-card:#ffffff; --fs-table-head:#f0f4fa; --fs-table-date:#eef4ff;
+          --fs-table-row:#ffffff; --fs-table-text:#111827; --fs-table-muted:#687283;
+          --fs-table-border:rgba(15,23,42,0.09); --fs-row-arrived-bg:#eaf8f0;
+          --fs-status-good:#056b34; --fs-status-good-bg:#c6f3d4; --fs-status-good-border:rgba(22,163,74,0.36);
+          --fs-status-neutral:#263346; --fs-status-neutral-bg:#edf4fb; --fs-status-neutral-border:#b8c8d9;
+          --fs-time-chip-text:#173b63; --fs-time-chip-bg:#e3f1ff; --fs-time-chip-border:#8fb8e3;
+        }
+        html.fs-theme-mint #flight-container {
+          --fs-table-page:#f2fbf8; --fs-table-card:#ffffff; --fs-table-head:#eaf8f3; --fs-table-date:#e4f7f0;
+          --fs-table-row:#fbfffd; --fs-table-text:#10201c; --fs-table-muted:#5d706a;
+          --fs-table-border:rgba(34,185,129,0.18); --fs-row-arrived-bg:#e3f8ee;
+          --fs-status-good:#057a45; --fs-status-good-bg:#c9f5df; --fs-status-good-border:rgba(34,185,129,0.36);
+          --fs-status-neutral:#21453d; --fs-status-neutral-bg:#e5f5ef; --fs-status-neutral-border:#a9d7c8;
+          --fs-time-chip-text:#105846; --fs-time-chip-bg:#daf6ec; --fs-time-chip-border:#7bc7af;
+        }
+        html.fs-theme-sky #flight-container {
+          --fs-table-page:#f0f7ff; --fs-table-card:#ffffff; --fs-table-head:#e1eeff; --fs-table-date:#d8eaff;
+          --fs-table-row:#f8fbff; --fs-table-text:#10243f; --fs-table-muted:#55708f;
+          --fs-table-border:rgba(59,130,246,0.20); --fs-row-arrived-bg:#e4f6ff;
+          --fs-status-good:#075985; --fs-status-good-bg:#d8f1ff; --fs-status-good-border:rgba(14,165,233,0.34);
+          --fs-status-neutral:#1d4f7a; --fs-status-neutral-bg:#e4f0ff; --fs-status-neutral-border:#a8caef;
+          --fs-time-chip-text:#174d7d; --fs-time-chip-bg:#dceeff; --fs-time-chip-border:#83b4e7;
+        }
+        html.fs-theme-ocean #flight-container {
+          --fs-table-page:#071820; --fs-table-card:#0d2430; --fs-table-head:#133443; --fs-table-date:#0b2c3b;
+          --fs-table-row:#0b202b; --fs-table-text:#e8fbff; --fs-table-muted:#91b5c0;
+          --fs-table-border:rgba(125,211,252,0.16); --fs-row-arrived-bg:#0b3a36;
+          --fs-status-good:#b4fff1; --fs-status-good-bg:#126055; --fs-status-good-border:rgba(45,212,191,0.38);
+          --fs-status-neutral:#e9fbff; --fs-status-neutral-bg:#173242; --fs-status-neutral-border:#3d697a;
+          --fs-time-chip-text:#d8fbff; --fs-time-chip-bg:#12384a; --fs-time-chip-border:#2c7189;
+        }
+        html.fs-theme-violet #flight-container {
+          --fs-table-page:#f7f3ff; --fs-table-card:#ffffff; --fs-table-head:#ede7ff; --fs-table-date:#e9ddff;
+          --fs-table-row:#fffcff; --fs-table-text:#261b3f; --fs-table-muted:#6e6188;
+          --fs-table-border:rgba(139,92,246,0.20); --fs-row-arrived-bg:#edebff;
+          --fs-status-good:#5b21b6; --fs-status-good-bg:#e8ddff; --fs-status-good-border:rgba(139,92,246,0.34);
+          --fs-status-neutral:#39275f; --fs-status-neutral-bg:#f0eaff; --fs-status-neutral-border:#cbbcf1;
+          --fs-time-chip-text:#4b2a86; --fs-time-chip-bg:#eee6ff; --fs-time-chip-border:#b9a0ee;
+        }
+        html.fs-theme-rose #flight-container {
+          --fs-table-page:#fff5fa; --fs-table-card:#ffffff; --fs-table-head:#fce7f3; --fs-table-date:#fbd8eb;
+          --fs-table-row:#fffbfd; --fs-table-text:#3e122a; --fs-table-muted:#856174;
+          --fs-table-border:rgba(236,72,153,0.18); --fs-row-arrived-bg:#ffe8f1;
+          --fs-status-good:#9d174d; --fs-status-good-bg:#ffdce9; --fs-status-good-border:rgba(236,72,153,0.30);
+          --fs-status-neutral:#662846; --fs-status-neutral-bg:#fff0f6; --fs-status-neutral-border:#efb8d2;
+          --fs-time-chip-text:#7a234e; --fs-time-chip-bg:#ffe6f1; --fs-time-chip-border:#e99abd;
+        }
+        html.fs-theme-amber #flight-container {
+          --fs-table-page:#fffaec; --fs-table-card:#ffffff; --fs-table-head:#fff0c7; --fs-table-date:#ffe9aa;
+          --fs-table-row:#fffcf4; --fs-table-text:#34230c; --fs-table-muted:#7e6741;
+          --fs-table-border:rgba(245,158,11,0.22); --fs-row-arrived-bg:#fff4d9;
+          --fs-status-good:#92500a; --fs-status-good-bg:#ffe7ae; --fs-status-good-border:rgba(245,158,11,0.34);
+          --fs-status-neutral:#5b3b0d; --fs-status-neutral-bg:#fff2cc; --fs-status-neutral-border:#e2bd68;
+          --fs-time-chip-text:#71470c; --fs-time-chip-bg:#ffedbf; --fs-time-chip-border:#dca94f;
+        }
+        html.fs-theme-gray #flight-container {
+          --fs-table-page:#f4f6f8; --fs-table-card:#ffffff; --fs-table-head:#eceff3; --fs-table-date:#e7ebf0;
+          --fs-table-row:#fdfdfe; --fs-table-text:#1f2937; --fs-table-muted:#6b7280;
+          --fs-table-border:rgba(100,116,139,0.18); --fs-row-arrived-bg:#e9eef2;
+          --fs-status-good:#475569; --fs-status-good-bg:#e2e8f0; --fs-status-good-border:rgba(100,116,139,0.28);
+          --fs-status-neutral:#263346; --fs-status-neutral-bg:#edf2f7; --fs-status-neutral-border:#bdc7d3;
+          --fs-time-chip-text:#334155; --fs-time-chip-bg:#e9f0f8; --fs-time-chip-border:#aab8c8;
+        }
+        html.fs-theme-dark #flight-container {
+          --fs-table-page:#07111c; --fs-table-card:#111c28; --fs-table-head:#172433; --fs-table-date:#0d1726;
+          --fs-table-row:#101b27; --fs-table-text:#eaf2f8; --fs-table-muted:#91a0ae;
+          --fs-table-border:rgba(255,255,255,0.09); --fs-row-arrived-bg:#0d332c;
+          --fs-status-good:#a4ffc5; --fs-status-good-bg:#115f34; --fs-status-good-border:rgba(87,255,151,0.44);
+          --fs-status-neutral:#f1f7ff; --fs-status-neutral-bg:#243142; --fs-status-neutral-border:#526173;
+          --fs-time-chip-text:#d7ecff; --fs-time-chip-bg:#183249; --fs-time-chip-border:#315f87;
+        }
+        html.fs-theme-auto #flight-container {
+          --fs-table-page:#f8faff; --fs-table-card:#ffffff; --fs-table-head:#f0f4fa; --fs-table-date:#eef4ff;
+          --fs-table-row:#ffffff; --fs-table-text:#111827; --fs-table-muted:#687283;
+          --fs-table-border:rgba(15,23,42,0.09); --fs-row-arrived-bg:#eaf8f0;
+          --fs-status-good:#056b34; --fs-status-good-bg:#c6f3d4; --fs-status-good-border:rgba(22,163,74,0.36);
+          --fs-status-neutral:#263346; --fs-status-neutral-bg:#edf4fb; --fs-status-neutral-border:#b8c8d9;
+          --fs-time-chip-text:#173b63; --fs-time-chip-bg:#e3f1ff; --fs-time-chip-border:#8fb8e3;
+        }
+        @media (prefers-color-scheme: dark) {
+          html.fs-theme-auto #flight-container {
+            --fs-table-page:#07111c; --fs-table-card:#111c28; --fs-table-head:#172433; --fs-table-date:#0d1726;
+            --fs-table-row:#101b27; --fs-table-text:#eaf2f8; --fs-table-muted:#91a0ae;
+            --fs-table-border:rgba(255,255,255,0.09); --fs-row-arrived-bg:#0d332c;
+            --fs-status-good:#a4ffc5; --fs-status-good-bg:#115f34; --fs-status-good-border:rgba(87,255,151,0.44);
+            --fs-status-neutral:#f1f7ff; --fs-status-neutral-bg:#243142; --fs-status-neutral-border:#526173;
+            --fs-time-chip-text:#d7ecff; --fs-time-chip-bg:#183249; --fs-time-chip-border:#315f87;
+          }
+        }
+        html.fs-theme-$safeTheme #flight-container {
+          --flight-text-scale: $scale;
+        }
+        html.fs-grouped-flights #flight-container .jha-flights tr.fs-airline-group-row td {
+          height: auto !important;
+          padding: calc(12px * var(--flight-text-scale, 1)) calc(14px * var(--flight-text-scale, 1)) !important;
+          background: linear-gradient(135deg, color-mix(in srgb, var(--fs-table-head) 82%, var(--fs-table-card)), var(--fs-table-card)) !important;
+          color: var(--fs-table-text) !important;
+          border-top: 1px solid var(--fs-table-border) !important;
+        }
+        html.fs-grouped-flights #flight-container .fs-airline-group-label {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          gap: calc(12px * var(--flight-text-scale, 1)) !important;
+          font-weight: 950 !important;
+          letter-spacing: .035em !important;
+        }
+        html.fs-grouped-flights #flight-container .fs-airline-group-meta {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: calc(8px * var(--flight-text-scale, 1)) !important;
+          color: var(--fs-table-muted) !important;
+          font-size: calc(11px * var(--flight-text-scale, 1)) !important;
+          font-weight: 850 !important;
+          white-space: nowrap !important;
+        }
+        html.fs-web-high-contrast #flight-container .jha-flights {
+          -webkit-font-smoothing: antialiased !important;
+          text-rendering: geometricPrecision !important;
+        }
+        html.fs-web-reduce-motion *, html.fs-web-reduce-motion *::before, html.fs-web-reduce-motion *::after {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.001ms !important;
+          scroll-behavior: auto !important;
+        }
+        $frameCss
+    """.trimIndent()
+}
+
+private fun String.toJavaScriptSingleQuotedString(): String {
+    return replace("\\", "\\\\")
+        .replace("'", "\\'")
+        .replace("\r", "")
+        .replace("\n", "\\n")
+}
+
+private fun injectWebRuntimePreferences(
+    view: WebView?,
+    theme: String,
+    textZoom: Int,
+    enhancedTable: Boolean,
+    groupedFlights: Boolean,
+    highContrast: Boolean,
+    reduceMotion: Boolean
+) {
+    val safeTheme = theme.filter { it.isLetterOrDigit() || it == '-' || it == '_' }.ifBlank { "mint" }
+    val safeZoom = textZoom.coerceIn(60, 100)
+    val textScale = safeZoom / 100f
+    val runtimeCss = flightTableRuntimeCss(
+        theme = safeTheme,
+        textZoom = safeZoom
+    ).toJavaScriptSingleQuotedString()
+    val js = """
+        (function() {
+          var root = document.documentElement;
+          var body = document.body;
+          var theme = '$safeTheme';
+          root.style.setProperty('--flight-text-scale', '$textScale');
+          root.classList.remove('fs-theme-light','fs-theme-mint','fs-theme-sky','fs-theme-ocean','fs-theme-violet','fs-theme-rose','fs-theme-amber','fs-theme-gray','fs-theme-dark','fs-theme-auto');
+          root.classList.add('fs-theme-' + theme);
+          if (body) {
+            body.classList.remove('fs-theme-light','fs-theme-mint','fs-theme-sky','fs-theme-ocean','fs-theme-violet','fs-theme-rose','fs-theme-amber','fs-theme-gray','fs-theme-dark','fs-theme-auto');
+            body.classList.add('fs-theme-' + theme);
+          }
+          root.classList.toggle('fs-enhanced-table', $enhancedTable);
+          root.classList.toggle('fs-grouped-flights', $groupedFlights);
+          root.classList.toggle('fs-web-high-contrast', $highContrast);
+          root.classList.toggle('fs-web-reduce-motion', $reduceMotion);
+          if (!document.head) return;
+          var style = document.getElementById('fs_web_runtime_prefs');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = 'fs_web_runtime_prefs';
+            document.head.appendChild(style);
+          }
+          style.textContent = '$runtimeCss';
+          function cleanText(el) {
+            return (el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim();
+          }
+          function airlineName(row) {
+            var cell = row.querySelector('td.airline, .airline');
+            var value = cleanText(cell);
+            if (!value) return 'Other';
+            var upper = value.toUpperCase();
+            var map = {
+              'UA': 'United', 'UAL': 'United', 'UNITED': 'United',
+              'AA': 'American', 'AAL': 'American', 'AMERICAN': 'American',
+              'DL': 'Delta', 'DAL': 'Delta', 'DELTA': 'Delta',
+              'AS': 'Alaska', 'ASA': 'Alaska', 'ALASKA': 'Alaska',
+              'B6': 'JetBlue', 'JBU': 'JetBlue', 'JETBLUE': 'JetBlue',
+              'WN': 'Southwest', 'SWA': 'Southwest', 'SOUTHWEST': 'Southwest'
+            };
+            return map[upper] || value;
+          }
+          function parseMinutes(value) {
+            var s = String(value || '').toLowerCase().trim();
+            var m = s.match(/(\d{1,2})\s*:\s*(\d{2})\s*([ap])\.?m?\.?/i);
+            if (!m) return 99999;
+            var h = parseInt(m[1], 10);
+            var min = parseInt(m[2], 10);
+            if (m[3].toLowerCase() === 'p' && h !== 12) h += 12;
+            if (m[3].toLowerCase() === 'a' && h === 12) h = 0;
+            return h * 60 + min;
+          }
+          function rowTime(row) {
+            return parseMinutes(cleanText(row.querySelector('td.sched, .sched')) || cleanText(row.querySelector('td.actual, .actual')));
+          }
+          function isFlightRow(row) {
+            return row && !row.classList.contains('fs-airline-group-row') && !row.querySelector('.day') && !row.querySelector('th') && row.querySelector('td.airline,td.flight,.airline,.flight');
+          }
+          function isDayRow(row) {
+            return row && !row.classList.contains('fs-airline-group-row') && row.querySelector('.day');
+          }
+          function originalOrder(row, fallback) {
+            var value = parseInt(row.dataset.fsOriginalIndex || '', 10);
+            return isNaN(value) ? fallback : value;
+          }
+          function ensureOriginalIndexes(body) {
+            Array.prototype.forEach.call(body.children, function(row, index) {
+              if (!row.classList.contains('fs-airline-group-row') && !row.dataset.fsOriginalIndex) {
+                row.dataset.fsOriginalIndex = String(index);
+              }
+            });
+            body.dataset.fsIndexed = 'true';
+          }
+          function tableColSpan(table, sampleRow) {
+            return Math.max(1, table.querySelectorAll('thead th').length || (sampleRow && sampleRow.children.length) || 6);
+          }
+          function createAirlineGroupRow(table, group) {
+            var header = document.createElement('tr');
+            header.className = 'fs-airline-group-row';
+            var td = document.createElement('td');
+            td.colSpan = tableColSpan(table, group.rows[0]);
+            var label = document.createElement('div');
+            label.className = 'fs-airline-group-label';
+            var name = document.createElement('span');
+            name.textContent = group.name;
+            var meta = document.createElement('span');
+            meta.className = 'fs-airline-group-meta';
+            var firstTime = cleanText(group.rows[0].querySelector('td.sched, .sched')) || cleanText(group.rows[0].querySelector('td.actual, .actual'));
+            meta.textContent = group.rows.length + ' flight' + (group.rows.length === 1 ? '' : 's') + (firstTime ? ' • first ' + firstTime : '');
+            label.appendChild(name);
+            label.appendChild(meta);
+            td.appendChild(label);
+            header.appendChild(td);
+            return header;
+          }
+          function appendGroupedRowsForSection(body, table, rows) {
+            var groups = {};
+            rows.forEach(function(row) {
+              var name = airlineName(row);
+              if (!groups[name]) groups[name] = [];
+              groups[name].push(row);
+            });
+            Object.keys(groups).map(function(name) {
+              var items = groups[name].slice().sort(function(a, b) { return rowTime(a) - rowTime(b); });
+              return { name: name, rows: items, first: rowTime(items[0]) };
+            }).sort(function(a, b) {
+              if (a.first !== b.first) return a.first - b.first;
+              return a.name.localeCompare(b.name);
+            }).forEach(function(group) {
+              body.appendChild(createAirlineGroupRow(table, group));
+              group.rows.forEach(function(row) {
+                row.style.display = '';
+                body.appendChild(row);
+              });
+            });
+          }
+          function restoreFlightOrder(table) {
+            var body = table && table.tBodies && table.tBodies[0];
+            if (!body) return;
+            body.querySelectorAll('tr.fs-airline-group-row').forEach(function(row) { row.remove(); });
+            Array.prototype.forEach.call(body.children, function(row) { row.style.display = ''; });
+            Array.prototype.slice.call(body.children).sort(function(a, b) {
+              return originalOrder(a, 0) - originalOrder(b, 0);
+            }).forEach(function(row) { body.appendChild(row); });
+            body.dataset.fsGroupedApplied = 'false';
+          }
+          function groupFlightTable(table) {
+            var body = table && table.tBodies && table.tBodies[0];
+            if (!body || window.fsGroupingBusy) return;
+            window.fsGroupingBusy = true;
+            try {
+              body.querySelectorAll('tr.fs-airline-group-row').forEach(function(row) { row.remove(); });
+              ensureOriginalIndexes(body);
+              var originalRows = Array.prototype.slice.call(body.children)
+                .filter(function(row) { return !row.classList.contains('fs-airline-group-row'); })
+                .sort(function(a, b) { return originalOrder(a, 0) - originalOrder(b, 0); });
+              if (!originalRows.some(isFlightRow)) {
+                body.dataset.fsGroupedApplied = 'false';
+                return;
+              }
+              originalRows.forEach(function(row) { row.style.display = ''; });
+              var prelude = [];
+              var sections = [];
+              var current = null;
+              originalRows.forEach(function(row) {
+                if (isDayRow(row)) {
+                  if (current) sections.push(current);
+                  current = { day: row, extras: [], rows: [] };
+                } else if (isFlightRow(row)) {
+                  if (!current) current = { day: null, extras: [], rows: [] };
+                  current.rows.push(row);
+                } else {
+                  if (current) current.extras.push(row);
+                  else prelude.push(row);
+                }
+              });
+              if (current) sections.push(current);
+              prelude.forEach(function(row) { body.appendChild(row); });
+              sections.forEach(function(section) {
+                if (section.day) body.appendChild(section.day);
+                section.extras.forEach(function(row) { body.appendChild(row); });
+                appendGroupedRowsForSection(body, table, section.rows);
+              });
+              body.dataset.fsGroupedApplied = 'true';
+            } finally {
+              window.fsGroupingBusy = false;
+            }
+          }
+          function applyGroupedFlights() {
+            document.querySelectorAll('#flight-container table.jha-flights').forEach(function(table) {
+              if ($groupedFlights) groupFlightTable(table);
+              else restoreFlightOrder(table);
+            });
+          }
+          clearTimeout(window.fsGroupedFlightsTimer);
+          window.fsGroupedFlightsTimer = setTimeout(applyGroupedFlights, 60);
+          if (window.fsGroupedFlightsObserver) window.fsGroupedFlightsObserver.disconnect();
+          var con = document.getElementById('flight-container');
+          if (con) {
+            window.fsGroupedFlightsObserver = new MutationObserver(function() {
+              if (window.fsGroupingBusy) return;
+              clearTimeout(window.fsGroupedFlightsTimer);
+              window.fsGroupedFlightsTimer = setTimeout(applyGroupedFlights, 160);
+            });
+            window.fsGroupedFlightsObserver.observe(con, { childList: true, subtree: true });
+          }
+        })();
+    """.trimIndent()
+    view?.evaluateJavascript(js, null)
+}
+
+private fun isExternalFlightTrackerUrl(url: String?): Boolean {
+    val host = runCatching { url?.toUri()?.host.orEmpty().lowercase() }.getOrDefault("")
+    return host == "flightradar24.com" ||
+            host.endsWith(".flightradar24.com") ||
+            host == "flightaware.com" ||
+            host.endsWith(".flightaware.com")
+}
+
+private fun openExternalFlightTracker(context: Context, url: String): Boolean {
+    return runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, url.toUri()).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
         )
+        true
+    }.getOrDefault(false)
+}
+
+private fun webIntroAnimationKey(url: String?): String? {
+    val cleaned = url
+        ?.substringBefore('#')
+        ?.substringBefore('?')
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: return null
+    return cleaned.removeSuffix("/")
+}
+
+private fun proxiedFlightApiResponse(path: String): WebResourceResponse? {
+    val target = when (path) {
+        "/__fs_proxy/adsb_lol" ->
+            "https://api.adsb.lol/v2/lat/43.6073/lon/-110.7377/dist/500"
+        "/__fs_proxy/adsb_fi" ->
+            "https://opendata.adsb.fi/api/v3/lat/43.6073/lon/-110.7377/dist/250"
+        "/__fs_proxy/opensky" ->
+            "https://opensky-network.org/api/states/all?lamin=30&lomin=-125&lamax=50&lomax=-88"
+        else -> return null
+    }
+
+    val body = runCatching {
+        val connection = (URL(target).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 7000
+            readTimeout = 7000
+            requestMethod = "GET"
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("User-Agent", "JHAirTracker/1.0 Android WebView")
+        }
+        try {
+            val stream = if (connection.responseCode in 200..299) {
+                connection.inputStream
+            } else {
+                connection.errorStream
+            }
+            stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrElse { "{}" }
+
+    return WebResourceResponse(
+        "application/json",
+        "UTF-8",
+        ByteArrayInputStream(body.toByteArray())
+    )
+}
+
+private class FlightBriefBridge(context: Context) {
+    private val appContext = context.applicationContext
+
+    @JavascriptInterface
+    fun updateFlightBriefSnapshot(json: String) {
+        SettingsStore.setFlightBriefSnapshot(appContext, json)
+    }
+
+    @JavascriptInterface
+    fun updateWeatherSnapshot(json: String) {
+        val taggedJson = runCatching {
+            JSONObject(json).apply {
+                put("source", optString("source").ifBlank { "airport_web" })
+                if (!has("updatedAt")) put("updatedAt", System.currentTimeMillis())
+            }.toString()
+        }.getOrElse { json }
+        SettingsStore.setBriefingWeatherSnapshot(appContext, taggedJson)
     }
 }
 
@@ -523,12 +1053,35 @@ private fun WebCardContent(
     val context = LocalContext.current
 
     val isDark = isSystemInDarkTheme()
+    val webPrefs = remember(context) { prefs(context) }
+    var settingsRevision by remember(webPrefs) { mutableIntStateOf(0) }
+
+    DisposableEffect(webPrefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            settingsRevision += 1
+        }
+        webPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            webPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    val enhancedTable = remember(settingsRevision) { SettingsStore.enhancedTable(context) }
+    val groupedFlights = remember(settingsRevision) { SettingsStore.groupFlights(context) }
+    val highContrastWeb = remember(settingsRevision) { SettingsStore.highContrastWeb(context) }
+    val reduceWebMotion = remember(settingsRevision) { SettingsStore.reduceWebMotion(context) }
+    val cachePages = remember(settingsRevision) { SettingsStore.cachePages(context) }
+    val hwAccel = remember(settingsRevision) { SettingsStore.hardwareAccel(context) }
+    val textZoomPref = remember(settingsRevision) { SettingsStore.textZoom(context) }
+    val webTheme = remember(settingsRevision) { SettingsStore.webTheme(context) }
     val baseWebColor = if (isDark) Color(0xFF2B2924) else Color(0xFFF4F1E9)
     val url = remember(cardId) { urlForCard(cardId) }
 
     var progress by remember(url) { mutableIntStateOf(0) }
     var showError by remember(url) { mutableStateOf(false) }
     var reloadTick by remember(url) { mutableIntStateOf(0) }
+    var loadedRootUrl by remember { mutableStateOf<String?>(null) }
+    var animatedRootUrl by remember { mutableStateOf<String?>(null) }
 
     val adHosts = remember { listOf("doubleclick.net", "googlesyndication.com") }
 
@@ -541,7 +1094,7 @@ private fun WebCardContent(
 
         WebView(context).apply {
             setBackgroundColor(baseWebColor.toArgb())
-            if (prefs(context).getBoolean("hw_accel", true)) {
+            if (hwAccel) {
                 setLayerType(View.LAYER_TYPE_HARDWARE, null)
             } else {
                 setLayerType(View.LAYER_TYPE_SOFTWARE, null)
@@ -604,8 +1157,8 @@ private fun WebCardContent(
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
-                cacheMode = WebSettings.LOAD_DEFAULT
-                textZoom = prefs(context).getInt("text_zoom", 80)
+                cacheMode = if (cachePages) WebSettings.LOAD_CACHE_ELSE_NETWORK else WebSettings.LOAD_DEFAULT
+                textZoom = 100
 
                 setSupportZoom(false)
                 builtInZoomControls = false
@@ -615,18 +1168,47 @@ private fun WebCardContent(
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 allowFileAccess = false
                 allowContentAccess = false
-                applyWebViewDarkMode(this, prefs(context).getBoolean("dark_web", true))
-
             }
 
+            addJavascriptInterface(FlightBriefBridge(context), "FlightsAndroidBridge")
 
 
             webViewClient = object : WebViewClient() {
 
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: WebResourceRequest
+                ): Boolean {
+                    val targetUrl = request.url?.toString()
+                    if (isExternalFlightTrackerUrl(targetUrl)) {
+                        view?.evaluateJavascript(
+                            "try{document.getElementById('fs-flight-detail-overlay')?.remove();document.documentElement.classList.remove('fs-flight-detail-open');}catch(e){}",
+                            null
+                        )
+                        return targetUrl != null && openExternalFlightTracker(context, targetUrl)
+                    }
+                    return false
+                }
+
+                @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                    if (isExternalFlightTrackerUrl(url)) {
+                        view?.evaluateJavascript(
+                            "try{document.getElementById('fs-flight-detail-overlay')?.remove();document.documentElement.classList.remove('fs-flight-detail-open');}catch(e){}",
+                            null
+                        )
+                        return url != null && openExternalFlightTracker(context, url)
+                    }
+                    return false
+                }
+
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                     showError = false
                     progress = 0
-                    view?.alpha = 0f
+                    val animationKey = webIntroAnimationKey(url)
+                    if (animationKey != null && animatedRootUrl != animationKey) {
+                        view?.alpha = 0f
+                    }
                     super.onPageStarted(view, url, favicon)
                 }
 
@@ -636,6 +1218,9 @@ private fun WebCardContent(
                 ): WebResourceResponse? {
 
                     val u = request.url.toString()
+                    proxiedFlightApiResponse(request.url.path.orEmpty())?.let {
+                        return it
+                    }
 
                     if (u.contains("scripts.min.js") ||
                         u.contains("trigger") ||
@@ -649,7 +1234,7 @@ private fun WebCardContent(
                     }
 
                     val host = request.url.host.orEmpty()
-                    if (adHosts.any { host.contains(it) }) {
+                    if (SettingsStore.blockTrackers(context) && adHosts.any { host.contains(it) }) {
                         return WebResourceResponse(
                             "text/plain",
                             "utf-8",
@@ -667,29 +1252,49 @@ private fun WebCardContent(
                         url?.startsWith("https://www.jacksonholeairport.com/flights/") == true &&
                                 url.endsWith("/flights/")
 
+                    injectWebRuntimePreferences(
+                        view,
+                        SettingsStore.webTheme(context),
+                        SettingsStore.textZoom(context),
+                        SettingsStore.enhancedTable(context),
+                        SettingsStore.groupFlights(context),
+                        SettingsStore.highContrastWeb(context),
+                        SettingsStore.reduceWebMotion(context)
+                    )
                     injectHideTriggers(view, cardId == "card3", isFlightsMain)
 
                     if (!hasMainFrameError) {
+                        val animationKey = webIntroAnimationKey(url)
+                        val shouldAnimateIntro = animationKey != null && animatedRootUrl != animationKey
 
                         view?.animate()?.cancel()
 
-                        // Initial state (before animation)
-                        view?.scaleX = 1.04f
-                        view?.scaleY = 1.04f
-                        view?.translationX = 40f
-                        view?.alpha = 0f
+                        if (shouldAnimateIntro) {
+                            animatedRootUrl = animationKey
 
-                        // Animate to natural state
-                        view?.animate()
-                            ?.alpha(1f)
-                            ?.translationX(0f)
-                            ?.scaleX(1f)
-                            ?.scaleY(1f)
-                            ?.setDuration(300)
-                            ?.setInterpolator(
-                                android.view.animation.PathInterpolator(0.4f, 0f, 0.2f, 1f)
-                            )
-                            ?.start()
+                            // Initial state (before animation)
+                            view?.scaleX = 1.04f
+                            view?.scaleY = 1.04f
+                            view?.translationX = 40f
+                            view?.alpha = 0f
+
+                            // Animate to natural state
+                            view?.animate()
+                                ?.alpha(1f)
+                                ?.translationX(0f)
+                                ?.scaleX(1f)
+                                ?.scaleY(1f)
+                                ?.setDuration(300)
+                                ?.setInterpolator(
+                                    android.view.animation.PathInterpolator(0.4f, 0f, 0.2f, 1f)
+                                )
+                                ?.start()
+                        } else {
+                            view?.alpha = 1f
+                            view?.translationX = 0f
+                            view?.scaleX = 1f
+                            view?.scaleY = 1f
+                        }
                     }
 
                     super.onPageFinished(view, url)
@@ -726,16 +1331,30 @@ private fun WebCardContent(
             factory = { webView },
             update = { wv ->
 
-                applyWebViewDarkMode(wv.settings, isDark)
+                wv.setBackgroundColor(baseWebColor.toArgb())
+                wv.setLayerType(
+                    if (hwAccel) View.LAYER_TYPE_HARDWARE else View.LAYER_TYPE_SOFTWARE,
+                    null
+                )
+                wv.settings.textZoom = 100
+                wv.settings.cacheMode = if (cachePages) {
+                    WebSettings.LOAD_CACHE_ELSE_NETWORK
+                } else {
+                    WebSettings.LOAD_DEFAULT
+                }
+                injectWebRuntimePreferences(wv, webTheme, textZoomPref, enhancedTable, groupedFlights, highContrastWeb, reduceWebMotion)
 
-                // Only load first time
-                if (wv.url == null) {
+                if (loadedRootUrl != url) {
 
                     if (!hasInternet(context)) {
                         showError = true
                         return@AndroidView
                     }
 
+                    progress = 0
+                    showError = false
+                    hasMainFrameError = false
+                    loadedRootUrl = url
                     wv.loadUrl(url)
                 }
                 if (reloadTick > 0) {

@@ -15,6 +15,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import kotlin.math.sin
 
 private fun loadSiriGlowShaderSource(context: Context): String {
@@ -29,7 +32,8 @@ private fun loadSiriGlowShaderSource(context: Context): String {
 @Composable
 fun SiriWaveOverlay(
     progress: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    cornerRadius: Dp = 16.dp
 ) {
     if (progress <= 0f) return
 
@@ -41,15 +45,17 @@ fun SiriWaveOverlay(
     }
 
     val source = shaderSource ?: return
-    val shader = remember(source) { RuntimeShader(source) }
+    val shader = remember(source) { runCatching { RuntimeShader(source) }.getOrNull() } ?: return
 
     val t = progress.coerceIn(0f, 1f)
     val intensity = 0.62f + 0.38f * sin(t * 3.2f)
+    val cornerRadiusPx = with(LocalDensity.current) { cornerRadius.toPx() }
 
     Canvas(modifier = modifier) {
         shader.setFloatUniform("resolution", size.width, size.height)
         shader.setFloatUniform("time", t * 6.0f)
         shader.setFloatUniform("intensity", intensity)
+        shader.setFloatUniform("cornerRadius", cornerRadiusPx)
 
         drawRect(
             brush = ShaderBrush(shader),

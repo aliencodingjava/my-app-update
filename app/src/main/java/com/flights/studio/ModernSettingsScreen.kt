@@ -11,12 +11,14 @@ import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,6 +29,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -45,6 +48,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -56,6 +60,7 @@ import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ColorLens
@@ -66,11 +71,13 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -78,11 +85,11 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -91,7 +98,6 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -105,8 +111,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -164,9 +172,11 @@ fun ModernSettingsScreen(
     onOpenContacts: () -> Unit,
     onShareApp: () -> Unit,
     onOpenSearch: () -> Unit,
+    onOpenQrCode: () -> Unit,
     onOpenProfile: () -> Unit,
     showBottomChrome: Boolean = true,
     modalBottomPadding: Dp = GlassChromeHorizontalPadding,
+    feedbackRequestToken: Int = 0,
     onModalVisibleChange: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -190,8 +200,22 @@ fun ModernSettingsScreen(
     DisposableEffect(Unit) {
         onDispose { onModalVisibleChange(false) }
     }
+    LaunchedEffect(feedbackRequestToken) {
+        if (feedbackRequestToken > 0) {
+            showFeedbackSheet.value = true
+        }
+    }
     var cameraGlowEnabled by remember {
         mutableStateOf(prefs.getBoolean(KEY_CAMERA_GLOW, true))
+    }
+    var briefingWeatherEnabled by remember {
+        mutableStateOf(SettingsStore.briefingWeatherEnabled(appContext))
+    }
+    var mainPageKeepAwake by remember {
+        mutableStateOf(SettingsStore.mainPageKeepAwake(appContext))
+    }
+    var liveCamerasKeepAwake by remember {
+        mutableStateOf(SettingsStore.liveCamerasKeepAwake(appContext))
     }
     val userPrefs = remember(appContext) { UserPreferencesManager(appContext) }
     val profileName = userPrefs.userName
@@ -261,6 +285,60 @@ fun ModernSettingsScreen(
                     onClick = {
                         cameraGlowEnabled = !cameraGlowEnabled
                         prefs.edit { putBoolean(KEY_CAMERA_GLOW, cameraGlowEnabled) }
+                    }
+                ),
+                SettingsEntry(
+                    title = stringResource(R.string.settings_briefing_weather_title),
+                    summary = stringResource(R.string.settings_briefing_weather_summary),
+                    icon = Icons.Filled.Wifi,
+                    trailing = {
+                        Switch(
+                            checked = briefingWeatherEnabled,
+                            onCheckedChange = { enabled ->
+                                briefingWeatherEnabled = enabled
+                                SettingsStore.setBriefingWeatherEnabled(appContext, enabled)
+                            }
+                        )
+                    },
+                    onClick = {
+                        briefingWeatherEnabled = !briefingWeatherEnabled
+                        SettingsStore.setBriefingWeatherEnabled(appContext, briefingWeatherEnabled)
+                    }
+                ),
+                SettingsEntry(
+                    title = stringResource(R.string.settings_main_page_keep_awake_title),
+                    summary = stringResource(R.string.settings_main_page_keep_awake_summary),
+                    icon = Icons.Filled.LightMode,
+                    trailing = {
+                        Switch(
+                            checked = mainPageKeepAwake,
+                            onCheckedChange = { enabled ->
+                                mainPageKeepAwake = enabled
+                                SettingsStore.setMainPageKeepAwake(appContext, enabled)
+                            }
+                        )
+                    },
+                    onClick = {
+                        mainPageKeepAwake = !mainPageKeepAwake
+                        SettingsStore.setMainPageKeepAwake(appContext, mainPageKeepAwake)
+                    }
+                ),
+                SettingsEntry(
+                    title = stringResource(R.string.settings_live_cameras_keep_awake_title),
+                    summary = stringResource(R.string.settings_live_cameras_keep_awake_summary),
+                    icon = Icons.Filled.LightMode,
+                    trailing = {
+                        Switch(
+                            checked = liveCamerasKeepAwake,
+                            onCheckedChange = { enabled ->
+                                liveCamerasKeepAwake = enabled
+                                SettingsStore.setLiveCamerasKeepAwake(appContext, enabled)
+                            }
+                        )
+                    },
+                    onClick = {
+                        liveCamerasKeepAwake = !liveCamerasKeepAwake
+                        SettingsStore.setLiveCamerasKeepAwake(appContext, liveCamerasKeepAwake)
                     }
                 )
             )
@@ -395,7 +473,7 @@ fun ModernSettingsScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize(),
-                    contentPadding = PaddingValues(start = 14.dp, top = 108.dp, end = 14.dp, bottom = 88.dp),
+                    contentPadding = PaddingValues(start = 8.dp, top = 112.dp, end = 8.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     visibleSections.forEach { section ->
@@ -422,6 +500,7 @@ fun ModernSettingsScreen(
                 profileInitials = profileInitials,
                 profilePhotoRaw = profilePhotoRaw,
                 appContext = appContext,
+                onOpenSearch = onOpenSearch,
                 onOpenProfile = onOpenProfile,
                 modifier = Modifier.align(Alignment.TopCenter)
             )
@@ -486,54 +565,19 @@ fun ModernSettingsScreen(
             onDismiss = { showMenuSheet.value = false },
             actions = listOf(
                 SettingsMenuAction(
-                    label = stringResource(R.string.search),
-                    icon = Icons.Filled.Search,
-                    onClick = onOpenSearch
+                    label = "Profile",
+                    icon = Icons.Filled.AccountCircle,
+                    onClick = onOpenProfile
                 ),
                 SettingsMenuAction(
-                    label = stringResource(R.string.settings_software_update_title),
-                    icon = Icons.Filled.SystemUpdate,
-                    onClick = onOpenSoftwareUpdate
-                ),
-                SettingsMenuAction(
-                    label = stringResource(R.string.settings_app_icon_title),
-                    icon = Icons.Filled.Palette,
-                    onClick = onOpenAppIcon
-                ),
-                SettingsMenuAction(
-                    label = stringResource(R.string.settings_language_title),
-                    icon = Icons.Filled.Language,
-                    onClick = { showLanguageSheet.value = true }
-                ),
-                SettingsMenuAction(
-                    label = stringResource(R.string.settings_signup_title),
-                    icon = Icons.Filled.Notifications,
-                    onClick = onOpenNotifications
-                ),
-                SettingsMenuAction(
-                    label = stringResource(R.string.settings_rate_title),
-                    icon = Icons.Filled.Star,
-                    onClick = onOpenRateUs
+                    label = "QR Code",
+                    icon = Icons.Filled.QrCode2,
+                    onClick = onOpenQrCode
                 ),
                 SettingsMenuAction(
                     label = stringResource(R.string.settings_feedback_title),
                     icon = Icons.Filled.Feedback,
                     onClick = { showFeedbackSheet.value = true }
-                ),
-                SettingsMenuAction(
-                    label = stringResource(R.string.settings_share_title),
-                    icon = Icons.Filled.Share,
-                    onClick = onShareApp
-                ),
-                SettingsMenuAction(
-                    label = stringResource(R.string.settings_privacy_title),
-                    icon = Icons.Filled.PrivacyTip,
-                    onClick = { onOpenCardDrawer("privacy_policy") }
-                ),
-                SettingsMenuAction(
-                    label = stringResource(R.string.settings_licenses_title),
-                    icon = Icons.Filled.GppGood,
-                    onClick = { onOpenCardDrawer("licenses") }
                 )
             )
         )
@@ -550,40 +594,34 @@ private fun SettingsQuickTabBar(
     onOpenSettings: () -> Unit,
     onOpenMenu: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val glassColor = if (isDark) {
-        Color(0xFF34363C).copy(alpha = 0.76f)
-    } else {
-        Color(0xFFE6E2E7).copy(alpha = 0.58f)
-    }
+    val glassColor = bottomTabBarTint()
+    val overlayTint = bottomTabBarOverlayTint()
     Box(
         modifier = modifier
             .padding(horizontal = GlassChromeHorizontalPadding)
             .fillMaxWidth()
             .height(56.dp)
+            .shadow(GlassChromeShadowElevation, GlassChromeShape, clip = false)
+            .clip(GlassChromeShape)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { GlassChromeShape },
-                shadow = null,
+                shadow = { bottomChromeShadow() },
                 highlight = null,
                 effects = {
                     vibrancy()
-                    blur(3.dp.toPx())
+                    blur(GlassChromeBackdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
                     lens(
-                        refractionHeight = 14.dp.toPx(),
-                        refractionAmount = 48.dp.toPx(),
+                        refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
+                        refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
                         depthEffect = false,
-                        chromaticAberration = true
+                        chromaticAberration = false
                     )
                 },
                 onDrawSurface = { drawRect(glassColor) }
             )
             .background(
-                color = if (isDark) {
-                    Color.White.copy(alpha = 0.06f)
-                } else {
-                    Color(0xFF7A7480).copy(alpha = 0.06f)
-                },
+                color = overlayTint,
                 shape = GlassChromeShape
             )
     ) {
@@ -635,17 +673,24 @@ private fun RowScope.SettingsQuickTab(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val inactiveColor = if (isDark) {
-        Color.White.copy(alpha = 0.72f)
-    } else {
-        Color(0xFF555763)
-    }
-    val selectedContentColor = if (isDark) {
-        Color.White
-    } else {
-        Color(0xFF0B57D0)
-    }
+    val inactiveColor = bottomTabInactiveColor()
+    val selectedContentColor = primaryTabAccentColor()
+    val selectedPillColor = bottomTabSelectedPillColor()
+    val pillAlpha by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = tween(durationMillis = if (selected) 180 else 120, easing = FastOutSlowInEasing),
+        label = "settingsTabPillAlpha"
+    )
+    val pillScale by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.84f,
+        animationSpec = spring(dampingRatio = 0.78f, stiffness = 520f),
+        label = "settingsTabPillScale"
+    )
+    val contentScale by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.94f,
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = 620f),
+        label = "settingsTabContentScale"
+    )
 
     Box(
         modifier = Modifier
@@ -655,8 +700,23 @@ private fun RowScope.SettingsQuickTab(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = pillAlpha
+                    scaleX = pillScale
+                    scaleY = pillScale
+                }
+                .background(selectedPillColor, GlassChromeInnerShape)
+        )
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = contentScale
+                    scaleY = contentScale
+                },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -677,17 +737,6 @@ private fun RowScope.SettingsQuickTab(
                 color = if (selected) selectedContentColor else inactiveColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.34f)
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(
-                        if (selected) selectedContentColor
-                        else Color.Transparent
-                    )
             )
         }
     }
@@ -878,85 +927,73 @@ private fun SettingsGlassTopAppBar(
     profileInitials: String,
     profilePhotoRaw: String,
     appContext: Context,
+    onOpenSearch: () -> Unit,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val topBarShape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
-    val containerColor = if (isDark) {
-        Color(0xFF1a1a1a).copy(0.80f)
-    } else {
-        Color(0xFFFAFAFA).copy(0.60f)
-    }
+    val topBarShape = RoundedCornerShape(0.dp)
+    val barColor = topActionBarTint()
+    val contentColor = if (isDark) Color.White else Color(0xFF111111)
 
     Surface(
         shape = topBarShape,
         color = Color.Transparent,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
-        modifier = modifier.drawBackdrop(
-            backdrop = backdrop,
-            shape = { topBarShape },
-            highlight = {
-                Highlight(
-                    width = 0.50.dp,
-                    blurRadius = 1.dp,
-                    alpha = 0.20f,
-                    style = HighlightStyle.Ambient,
-                )
-            },
-            effects = {
-                blur(
-                    radius = 1f.dp.toPx(),
-                    edgeTreatment = TileMode.Mirror
-                )
-                lens(
-                    refractionHeight = 60f,
-                    refractionAmount = 80f,
-                    depthEffect = false,
-                    chromaticAberration = false
-                )
-            },
-            onDrawSurface = { drawRect(containerColor) }
-        )
-    ) {
-        CenterAlignedTopAppBar(
-            navigationIcon = {},
-            title = {
-                Text(
-                    text = stringResource(R.string.menu_settings),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1
-                )
-            },
-            actions = {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onOpenProfile
-                        )
-                ) {
-                    SettingsProfileAvatar(
-                        appContext = appContext,
-                        rawPhoto = profilePhotoRaw,
-                        initials = profileInitials,
-                        modifier = Modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxWidth()
+            .height(96.dp)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { topBarShape },
+                shadow = null,
+                highlight = null,
+                effects = {
+                    blur(
+                        radius = TopActionBarBlurDp.dp.toPx(),
+                        edgeTreatment = TileMode.Mirror
                     )
-                }
-                Spacer(Modifier.width(14.dp))
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.Transparent,
-                scrolledContainerColor = Color.Unspecified,
-                navigationIconContentColor = Color.Unspecified,
-                titleContentColor = Color.Unspecified,
-                actionIconContentColor = Color.Unspecified
+                },
+                onDrawSurface = { drawRect(barColor) }
             )
-        )
+    ) {
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(start = 20.dp, end = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.menu_settings),
+                modifier = Modifier.weight(1f),
+                color = contentColor,
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1
+            )
+            IconButton(onClick = onOpenSearch) {
+                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search), tint = contentColor)
+            }
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onOpenProfile
+                    )
+            ) {
+                SettingsProfileAvatar(
+                    appContext = appContext,
+                    rawPhoto = profilePhotoRaw,
+                    initials = profileInitials,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
     }
 }
 
@@ -1082,7 +1119,7 @@ private fun SettingsSectionGroup(section: SettingsSection) {
             modifier = Modifier.padding(horizontal = 10.dp)
         )
 
-        SettingsSurface(shape = RoundedCornerShape(22.dp)) {
+        SettingsSurface(shape = RoundedCornerShape(18.dp)) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 section.entries.forEachIndexed { index, entry ->
                     SettingsRow(entry)
@@ -1178,22 +1215,17 @@ private fun SettingsSurface(
     content: @Composable () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    Surface(
-        modifier = modifier.clip(shape),
-        shape = shape,
-        color = if (isDark) {
-            Color(0xFF1D1726).copy(alpha = 0.88f)
-        } else {
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
-        },
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.34f else 0.22f)
-        ),
-        content = content
-    )
+    val cardColor = if (isDark) Color(0xFF232425) else Color(0xFFFEFEFE)
+    val borderColor = if (isDark) Color(0xFF333538) else Color(0xFFE3E3E4)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(cardColor)
+            .border(BorderStroke(1.dp, borderColor), shape)
+    ) {
+        content()
+    }
 }
 
 @Composable

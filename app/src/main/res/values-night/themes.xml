@@ -11,7 +11,6 @@
         <item name="android:windowBackground">@color/app_topbar_base</item>
         <item name="windowSplashScreenBackground">@color/app_topbar_base</item>
 
-        <!-- HIDE ICON -->
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_transparent</item>
         <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="windowSplashScreenAnimationDuration">0</item>
@@ -46,13 +45,6 @@
         <item name="android:windowLightStatusBar">false</item>
 
     </style>
-    <!-- res/values-night/styles.xml (Dark Theme) -->
-    <style name="AllContactsActivity.Theme" parent="Base.Theme.Test">
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:textSize">14sp</item>
-
-    </style>
-
     <style name="AllNotesActivity.Theme" parent="Base.Theme.Test">
         <item name="android:textSize">14sp</item>
         <item name="android:windowLightStatusBar">false</item>

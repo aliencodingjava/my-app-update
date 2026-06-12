@@ -418,6 +418,10 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="settings_language_spanish">Español</string>
     <string name="settings_camera_glow_title">Brillo de cámara</string>
     <string name="settings_camera_glow_summary">Muestra el brillo animado alrededor de la acción de cámara.</string>
+    <string name="settings_main_page_keep_awake_title">Pantalla principal siempre activa</string>
+    <string name="settings_main_page_keep_awake_summary">Evita que la pantalla se apague en la página principal de cámaras.</string>
+    <string name="settings_live_cameras_keep_awake_title">Cámaras en vivo siempre activas</string>
+    <string name="settings_live_cameras_keep_awake_summary">Evita que la pantalla se apague mientras Cámaras en vivo está abierta.</string>
     <string name="settings_airport_phone_title">Teléfono del aeropuerto</string>
     <string name="settings_airport_operations_title">Operaciones del aeropuerto</string>
     <string name="settings_airport_services_title">Servicios del aeropuerto</string>

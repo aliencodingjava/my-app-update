@@ -29,8 +29,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,10 +47,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -89,6 +94,9 @@ fun NoteItem(
     selected: Boolean,
     showReminderBell: Boolean, showReminderBadge: Boolean,
     imagesCount: Int,
+    attachmentsCount: Int = 0,
+    audioCount: Int = 0,
+    videoCount: Int = 0,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onEdit: () -> Unit,
@@ -97,6 +105,8 @@ fun NoteItem(
     titleTopCompactDp: Int,
     titleTopNormalDp: Int,
     isInteractive: Boolean = true,
+    palette: NotesPaletteColors? = null,
+    smallMediaBadges: Boolean = false,
 ) {
     val railW = if (compact) 45.dp else 60.dp
     val h = if (compact) 80.dp else 140.dp
@@ -106,6 +116,7 @@ fun NoteItem(
     val titlePadV = if (compact) 4.dp else 7.dp
     val titlePadH = if (compact) 10.dp else 12.dp
     val titleShape = RoundedCornerShape(if (compact) 10.dp else 12.dp)
+    val cardShape = RoundedCornerShape(18.dp)
     val noteMaxLines = if (compact) 2 else 4
     val titleMaxLines = 1
     val colBottom = if (compact) 6.dp else 10.dp
@@ -116,17 +127,18 @@ fun NoteItem(
 
 
 // Container: in light, use warmBase; in dark, keep your dark glass
-    val containerColor = if (isLightTheme) {
-        Color(0xFFFAFAFA).copy(alpha = 0.10f)
+    val containerColor = palette?.noteTint ?: if (isLightTheme) {
+        Color(0xFFFDF9FF).copy(alpha = 0.54f)
     } else {
-        Color(0xFF1a1a1a).copy(alpha = 0.01f)
+        Color(0xFF201923).copy(alpha = 0.58f)
     }
 
-    val noteAccentSurfaceColor = if (isLightTheme) {
-        Color.White
+    val noteAccentSurfaceColor = palette?.titleRail ?: if (isLightTheme) {
+        Color(0xFFEFE7F6).copy(alpha = 0.96f)
     } else {
-        Color(0xFF1D1726).copy(alpha = 0.88f)
+        Color(0xFF2A2131).copy(alpha = 0.92f)
     }
+    val noteActionColor = palette?.accent ?: if (isLightTheme) Color(0xFF6D4B86) else Color(0xFFCBB6E5)
     val settingsBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.34f else 0.22f)
 
 
@@ -156,10 +168,30 @@ fun NoteItem(
         modifier = Modifier
             .fillMaxWidth()
             .height(h)
-            .border(
-                BorderStroke(1.dp, settingsBorderColor),
-                RoundedCornerShape(18.dp)
-            )
+            .graphicsLayer {
+                if (isInteractive && size.width > 0f && size.height > 0f) {
+                    val progress = interactiveHighlight.pressProgress
+                    val zoomAmountPx = 3.5.dp.toPx()
+                    val scale = lerp(1f, 1f + zoomAmountPx / size.height, progress)
+                    val maxOffset = size.minDimension
+                    val k = 0.025f
+                    val offset = interactiveHighlight.offset
+                    translationX = maxOffset * tanh(k * offset.x / maxOffset)
+                    translationY = maxOffset * tanh(k * offset.y / maxOffset)
+
+                    val maxDragScale = 1.5.dp.toPx() / size.height
+                    val ang = atan2(offset.y, offset.x)
+                    scaleX = scale +
+                        maxDragScale *
+                        abs(cos(ang) * offset.x / size.maxDimension) *
+                        (size.width / size.height).fastCoerceAtMost(1f)
+                    scaleY = scale +
+                        maxDragScale *
+                        abs(sin(ang) * offset.y / size.maxDimension) *
+                        (size.height / size.width).fastCoerceAtMost(1f)
+                }
+            }
+            .clip(cardShape)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { ContinuousRoundedRectangle(18f.dp) },
@@ -194,40 +226,14 @@ fun NoteItem(
                         chromaticAberration = false
                     )
                 },
-                layerBlock = if (isInteractive) {
-                    {
-                        val width = size.width
-                        val height = size.height
-                        val progress = interactiveHighlight.pressProgress
-
-                        val zoomAmountPx = 3.5.dp.toPx()
-                        val scale = lerp(1f, 1f + zoomAmountPx / size.height, progress)
-
-                        val maxOffset = size.minDimension
-                        val k = 0.025f
-                        val offset = interactiveHighlight.offset
-
-                        translationX = maxOffset * tanh(k * offset.x / maxOffset)
-                        translationY = maxOffset * tanh(k * offset.y / maxOffset)
-
-                        val maxDragScale = 1.5.dp.toPx() / size.height
-                        val ang = atan2(offset.y, offset.x)
-
-                        scaleX = scale +
-                                maxDragScale *
-                                abs(cos(ang) * offset.x / size.maxDimension) *
-                                (width / height).fastCoerceAtMost(1f)
-
-                        scaleY = scale +
-                                maxDragScale *
-                                abs(sin(ang) * offset.y / size.maxDimension) *
-                                (height / width).fastCoerceAtMost(1f)
-                    }
-                } else null,
                 onDrawSurface = {
                     drawRect(containerColor)
                     if (selected) drawRect(selectedOverlay)
                 }
+            )
+            .border(
+                BorderStroke(1.dp, settingsBorderColor),
+                cardShape
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
@@ -255,6 +261,7 @@ fun NoteItem(
                             .fillMaxSize()
                             .padding(vertical = if (compact) 4.dp else 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         // EDIT
                         IconButton(
@@ -265,11 +272,9 @@ fun NoteItem(
                                 imageVector = Icons.Filled.Edit,
                                 contentDescription = "Edit",
                                 modifier = Modifier.size(iconSize),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = noteActionColor
                             )
                         }
-
-                        Spacer(Modifier.height(if (compact) 6.dp else 12.dp))
 
                         // CALENDAR + DOT (dot anchored to ICON, not button)
                         if (showReminderBell) {
@@ -286,7 +291,7 @@ fun NoteItem(
                                         imageVector = Icons.Filled.CalendarMonth,
                                         contentDescription = "Reminder",
                                         modifier = Modifier.matchParentSize(),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        tint = noteActionColor
                                     )
 
                                     if (showReminderBadge) {
@@ -319,7 +324,6 @@ fun NoteItem(
                                         val ringColor =
                                             Color.White.copy(alpha = if (isSystemInDarkTheme()) 0.90f else 0.75f)
 
-                                        @Suppress("KotlinConstantConditions")
                                         AnimatedBadge(
                                             visible = showReminderBadge,
                                             baseColor = MaterialTheme.colorScheme.error,
@@ -376,42 +380,50 @@ fun NoteItem(
 
 
 
-                //  IMAGES BADGE — PRO (slightly bigger everywhere)
+                // Media badges stay intentionally small so compact and two-column notes remain clean.
+                val tightMediaBadges = dense || smallMediaBadges
+                val mediaBadgeIconSize = when {
+                    tightMediaBadges -> 12.dp
+                    compact -> 13.dp
+                    else -> 14.dp
+                }
+                val mediaBadgeSize = when {
+                    tightMediaBadges -> 8.dp
+                    compact -> 9.dp
+                    else -> 10.dp
+                }
+                val mediaBadgeOffsetX = when {
+                    tightMediaBadges -> 1.dp
+                    compact -> 1.dp
+                    else -> 2.dp
+                }
+                val mediaBadgeOffsetY = when {
+                    tightMediaBadges -> (-1).dp
+                    compact -> (-1).dp
+                    else -> (-2).dp
+                }
+                fun mediaBadgeLeftPad(slot: Int) = when {
+                    tightMediaBadges -> (8 + slot * 18).dp
+                    compact -> (10 + slot * 20).dp
+                    else -> (14 + slot * 23).dp
+                }
+                val mediaBadgeBottomPad = when {
+                    tightMediaBadges -> 8.dp
+                    compact -> 9.dp
+                    else -> 11.dp
+                }
+                val mediaBadgeRingPadding = when {
+                    tightMediaBadges -> 0.75.dp
+                    compact -> 0.9.dp
+                    else -> 1.dp
+                }
+                val mediaBadgeTextSize = when {
+                    tightMediaBadges -> 6.sp
+                    compact -> 6.sp
+                    else -> 7.sp
+                }
+
                 if (imagesCount > 0) {
-                    val imgIconSize = when {
-                        dense -> 19.dp
-                        compact -> 23.dp
-                        else -> 27.dp
-                    }
-
-                    // 🔼 badge circle slightly bigger
-                    val badgeSize = when {
-                        dense -> 12.dp
-                        compact -> 14.dp
-                        else -> 15.dp
-                    }
-
-                    val badgeOffsetX = when {
-                        dense -> 2.dp
-                        compact -> 3.dp
-                        else -> 4.dp
-                    }
-                    val badgeOffsetY = when {
-                        dense -> (-2).dp
-                        compact -> (-3).dp
-                        else -> (-3).dp
-                    }
-
-                    val leftPad = when {
-                        dense -> 8.dp
-                        compact -> 10.dp
-                        else -> 14.dp
-                    }
-                    val bottomPad = when {
-                        dense -> 8.dp
-                        compact -> 9.dp
-                        else -> 12.dp
-                    }
 
                     val badgeText = if (imagesCount > 99) "99+" else imagesCount.toString()
                     val ringColor = if (isSystemInDarkTheme())
@@ -421,30 +433,26 @@ fun NoteItem(
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(start = leftPad, bottom = bottomPad)
+                            .padding(start = mediaBadgeLeftPad(0), bottom = mediaBadgeBottomPad)
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_oui_image),
+                            imageVector = Icons.Filled.Image,
                             contentDescription = null,
-                            modifier = Modifier.size(imgIconSize),
+                            modifier = Modifier.size(mediaBadgeIconSize),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .offset(x = badgeOffsetX, y = badgeOffsetY)
-                                .size(badgeSize)
+                                .offset(x = mediaBadgeOffsetX, y = mediaBadgeOffsetY)
+                                .size(mediaBadgeSize)
                                 .background(
                                     color = ringColor,   // 🤍 white ring in BOTH dark + light
                                     shape = CircleShape
                                 )
                                 .padding(
-                                    when {
-                                        dense -> 1.25.dp
-                                        compact -> 1.25.dp
-                                        else -> 1.5.dp   // 🔼 outline thicker
-                                    }
+                                    mediaBadgeRingPadding
                                 )
                                 .background(
                                     MaterialTheme.colorScheme.error,
@@ -456,17 +464,114 @@ fun NoteItem(
                                 text = badgeText,
                                 maxLines = 1,
                                 textAlign = TextAlign.Center,
-                                fontSize = when {
-                                    dense -> 8.sp
-                                    compact -> 9.sp
-                                    else -> 9.sp   // 🔼 text bigger
-                                },
-                                lineHeight = when {
-                                    dense -> 8.sp
-                                    compact -> 9.sp
-                                    else -> 9.sp
-                                },
+                                fontSize = mediaBadgeTextSize,
+                                lineHeight = mediaBadgeTextSize,
                                 color = MaterialTheme.colorScheme.onError
+                            )
+                        }
+                    }
+                }
+                val docSlot = if (imagesCount > 0) 1 else 0
+                val audioSlot = docSlot + if (attachmentsCount > 0) 1 else 0
+                val videoSlot = audioSlot + if (audioCount > 0) 1 else 0
+                if (attachmentsCount > 0) {
+                    val badgeText = if (attachmentsCount > 99) "99+" else attachmentsCount.toString()
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = mediaBadgeLeftPad(docSlot), bottom = mediaBadgeBottomPad)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Description,
+                            contentDescription = null,
+                            modifier = Modifier.size(mediaBadgeIconSize),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = mediaBadgeOffsetX, y = mediaBadgeOffsetY)
+                                .size(mediaBadgeSize)
+                                .background(Color.White.copy(alpha = 0.92f), CircleShape)
+                                .padding(mediaBadgeRingPadding)
+                                .background(MaterialTheme.colorScheme.secondary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = badgeText,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center,
+                                fontSize = mediaBadgeTextSize,
+                                lineHeight = mediaBadgeTextSize,
+                                color = MaterialTheme.colorScheme.onSecondary
+                            )
+                        }
+                    }
+                }
+                if (audioCount > 0) {
+                    val badgeText = if (audioCount > 99) "99+" else audioCount.toString()
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = mediaBadgeLeftPad(audioSlot), bottom = mediaBadgeBottomPad)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Audiotrack,
+                            contentDescription = null,
+                            modifier = Modifier.size(mediaBadgeIconSize),
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = mediaBadgeOffsetX, y = mediaBadgeOffsetY)
+                                .size(mediaBadgeSize)
+                                .background(Color.White.copy(alpha = 0.92f), CircleShape)
+                                .padding(mediaBadgeRingPadding)
+                                .background(MaterialTheme.colorScheme.tertiary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = badgeText,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center,
+                                fontSize = mediaBadgeTextSize,
+                                lineHeight = mediaBadgeTextSize,
+                                color = MaterialTheme.colorScheme.onTertiary
+                            )
+                        }
+                    }
+                }
+                if (videoCount > 0) {
+                    val badgeText = if (videoCount > 99) "99+" else videoCount.toString()
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = mediaBadgeLeftPad(videoSlot), bottom = mediaBadgeBottomPad)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Videocam,
+                            contentDescription = null,
+                            modifier = Modifier.size(mediaBadgeIconSize),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = mediaBadgeOffsetX, y = mediaBadgeOffsetY)
+                                .size(mediaBadgeSize)
+                                .background(Color.White.copy(alpha = 0.92f), CircleShape)
+                                .padding(mediaBadgeRingPadding)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = badgeText,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center,
+                                fontSize = mediaBadgeTextSize,
+                                lineHeight = mediaBadgeTextSize,
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -515,7 +620,7 @@ fun NoteItem(
                                         if (compact) ui.label * 0.92f else ui.label
                                     )
                                 ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = noteActionColor
                             )
                         }
                         Spacer(Modifier.height(afterTitleSpace))

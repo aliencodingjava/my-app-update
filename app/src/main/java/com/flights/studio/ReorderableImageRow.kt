@@ -42,6 +42,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -64,10 +65,10 @@ fun ReorderableImageRow(
     images: MutableList<Uri>,
     onRemove: (Uri) -> Unit,
     onOpenPreview: (Uri) -> Unit,
+    itemSize: Dp = 120.dp,
     ) {
     val haptics = LocalHapticFeedback.current
 
-    val itemSize = 120.dp
     val gap = 10.dp
     val shape = RoundedCornerShape(14.dp)
 

@@ -18,11 +18,26 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
@@ -53,16 +68,16 @@
         android:hardwareAccelerated="true"
         android:icon="@drawable/dicon"
         android:label="@string/app_name"
+        android:pageSizeCompat="enabled"
         android:roundIcon="@drawable/watchos"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_api_key" />
 
         <receiver android:name=".ReminderReceiver" android:enabled="true" android:exported="false" />
-
-
-
-
         <activity
 
             android:name=".ReminderActivity"
@@ -84,6 +99,11 @@
 
         <activity
             android:name=".LiveCamerasActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".LiveCameraArchiveActivity"
+            android:hardwareAccelerated="true"
             android:exported="false" />
 
         <activity
@@ -663,7 +683,7 @@
             tools:ignore="DiscouragedApi,LockedOrientationActivity" />
         <activity
             android:name=".MainActivity"
-            android:exported="false"
+            android:exported="true"
             android:screenOrientation="portrait"
             android:enableOnBackInvokedCallback="true"
             android:theme="@style/Base.Theme.Test"
@@ -677,17 +697,6 @@
             android:theme="@style/Theme.Test" />
 
 
-        <activity
-            android:name=".AllContactsActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:theme="@style/AllContactsActivity.Theme"
-            tools:ignore="DiscouragedApi,LockedOrientationActivity" >
-
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value=".MainActivity" />
-        </activity>
         <activity
             android:name=".AllNotesActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"

@@ -4,10 +4,14 @@ import android.os.Build
 import android.view.HapticFeedbackConstants
 import androidx.annotation.DrawableRes
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,12 +36,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -50,11 +56,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.shadow.Shadow
 
 data class GlassBtn(
     val id: String,
@@ -306,11 +307,18 @@ private fun HomeActionListItem(
 ) {
     val darkTheme = isSystemInDarkTheme()
     val shape = RoundedCornerShape(14.dp)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.975f else 1f,
+        animationSpec = tween(durationMillis = 120),
+        label = "home_action_press_scale"
+    )
 
-    val glassSurfaceColor = if (darkTheme) {
-        Color(0xFF1D1726).copy(alpha = 0.88f)
+    val rowSurfaceColor = if (darkTheme) {
+        Color(0xFF1B1B1F)
     } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
+        MaterialTheme.colorScheme.surface
     }
 
 //    val rowOverlayColor = if (darkTheme) {
@@ -341,41 +349,28 @@ private fun HomeActionListItem(
         modifier = Modifier
             .fillMaxWidth()
             .height(rowHeight)
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .shadow(
+                elevation = 0.02.dp,
+                shape = shape,
+                clip = false
+            )
             .border(
                 BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = if (darkTheme) 0.34f else 0.22f)
+                    0.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = if (darkTheme) 0.26f else 0.18f)
                 ),
                 shape
             )
             .clip(shape)
-            .clickable { onOpen(button.id) }
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { shape },
-                shadow = {
-                    Shadow.Default.copy(
-                        alpha = if (darkTheme) 0.35f else 0.28f,
-                    )
-                },
-                highlight = null,
-                effects = {
-                    vibrancy()
-                    blur(
-                        radius = if (darkTheme) 2.dp.toPx() else 3.dp.toPx(),
-                        edgeTreatment = TileMode.Clamp
-                    )
-                    lens(
-                        refractionHeight = 18.dp.toPx(),
-                        refractionAmount = 58.dp.toPx(),
-                        depthEffect = false,
-                        chromaticAberration = true
-                    )
-                },
-                onDrawSurface = {
-                    drawRect(glassSurfaceColor)
-
-                }
+            .background(rowSurfaceColor, shape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { onOpen(button.id) }
             )
             .padding(start = 10.dp, end = 10.dp),
         contentAlignment = Alignment.Center

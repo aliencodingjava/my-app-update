@@ -2,9 +2,9 @@
 accompanist = "0.36.0"
 activity = "1.13.0"
 android = "6.7.1"
-animation = "1.11.1"
+animation = "1.11.2"
 appcompat = "1.7.1"
-backdrop = "1.0.6"
+backdrop = "2.0.0"
 blurry = "4.0.1"
 blurview = "version-3.0.0"
 capsule = "2.1.3"
@@ -14,7 +14,6 @@ coil3 = "3.4.0"
 coilKt = "2.7.0"
 colorpicker = "0.0.15"
 commonsText = "1.15.0"
-compose = "1.0.0-beta09"
 composeShimmerSkeleton = "1.0.1"
 constraintlayout = "2.2.1"
 constraintlayoutCompose = "1.1.1"
@@ -23,15 +22,12 @@ core = "13.0.0"
 coreKtx = "1.18.0"
 coreSplashscreen = "1.2.0"
 datastorePreferences = "1.2.1"
-desugar_jdk_libs = "2.1.5"
+desugarJdkLibs = "2.1.5"
 dynamicanimation = "1.1.0"
 espressoCore = "3.7.0"
 expandablelayout = "2.9.2"
-firebase = "22.0.1"
-firebaseAnalytics = "23.2.0"
-firebaseBom = "34.13.0"
-firebaseMessaging = "25.0.2"
-foundationLayout = "1.11.1"
+firebaseBom = "34.14.0"
+foundationLayout = "1.11.2"
 glide = "5.0.7"
 gridlayout = "1.1.0"
 gson = "2.14.0"
@@ -40,15 +36,16 @@ junit = "1.3.0"
 junitVersion = "4.13.2"
 kotlinx = "1.11.0"
 kotlinxSerializationJsonJvm = "1.11.0"
-ktor = "3.4.3"
+ktor = "3.5.0"
 languageId = "17.0.6"
 lazycolumnscrollbar = "2.2.0"
-libphonenumber = "9.0.30"
+libphonenumber = "9.0.31"
 library = "1.4.0"
 lifecycle = "2.10.0"
 mail = "1.6.8"
-material = "1.13.0"
+material = "1.14.0"
 materialVersion = "1.7.8"
+material3 = "1.5.0-alpha20"
 materialdatetimepicker = "4.2.3"
 navigation = "2.9.8"
 okhttp = "5.3.2"
@@ -65,19 +62,21 @@ retrofit2 = "3.0.0"
 samsungoneui = "1.2.2"
 supabase = "3.6.0"
 touchimageview = "3.6"
-ui = "1.11.1"
+ui = "1.11.2"
 viewfinderCore = "1.6.1"
 webkit = "1.16.0"
 workRuntimeKtx = "2.11.2"
-zoomable = "2.11.1"
+zoomable = "2.12.0"
 zoomableImageGlide = "0.19.0"
 
 [libraries]
 accompanist-navigation-material = { group = "com.google.accompanist", name = "accompanist-navigation-material", version.ref = "accompanist" }
 accompanist-pager = { group = "com.google.accompanist", name = "accompanist-pager", version.ref = "accompanist" }
 accompanist-pager-indicators = { group = "com.google.accompanist", name = "accompanist-pager-indicators", version.ref = "accompanist" }
+
 activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+
 android-activation = { group = "com.sun.mail", name = "android-activation", version.ref = "mail" }
 android-mail = { group = "com.sun.mail", name = "android-mail", version.ref = "mail" }
 animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
@@ -94,12 +93,11 @@ chromecast-sender = { group = "com.pierfrancescosoffritti.androidyoutubeplayer",
 circleprogress = { group = "com.github.lzyzsd", name = "circleprogress", version.ref = "circleprogress" }
 coil = { group = "io.coil-kt", name = "coil", version.ref = "coilKt" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilKt" }
-coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil3" }
 coil-svg = { module = "io.coil-kt:coil-svg", version.ref = "coilKt" }
 coil3-coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil3" }
+coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil3" }
 colorpicker = { group = "com.github.QuadFlask", name = "colorpicker", version.ref = "colorpicker" }
 commons-text = { group = "org.apache.commons", name = "commons-text", version.ref = "commonsText" }
-compose = { group = "com.github.bumptech.glide", name = "compose", version.ref = "compose" }
 compose-shimmer-skeleton = { group = "dev.seyfarth", name = "compose-shimmer-skeleton", version.ref = "composeShimmerSkeleton" }
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 constraintlayout-compose = { group = "androidx.constraintlayout", name = "constraintlayout-compose", version.ref = "constraintlayoutCompose" }
@@ -109,18 +107,19 @@ core = { group = "com.pierfrancescosoffritti.androidyoutubeplayer", name = "core
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
-desugar_jdk_libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
+desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 dynamicanimation = { group = "androidx.dynamicanimation", name = "dynamicanimation", version.ref = "dynamicanimation" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 expandablelayout = { group = "com.github.cachapa", name = "ExpandableLayout", version.ref = "expandablelayout" }
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junit" }
-firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics", version.ref = "firebaseAnalytics" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
-firebase-database = { group = "com.google.firebase", name = "firebase-database", version.ref = "firebase" }
-firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
-firebase-storage = { group = "com.google.firebase", name = "firebase-storage", version.ref = "firebase" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-database = { group = "com.google.firebase", name = "firebase-database" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
+firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
 foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
 glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
+glide-ksp = { group = "com.github.bumptech.glide", name = "ksp", version.ref = "glide" }
 glideimageloader = { group = "com.github.piasy", name = "GlideImageLoader", version.ref = "piasy" }
 gridlayout = { group = "androidx.gridlayout", name = "gridlayout", version.ref = "gridlayout" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
@@ -130,7 +129,6 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinx" }
 kotlinx-serialization-json-jvm = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json-jvm", version.ref = "kotlinxSerializationJsonJvm" }
-ksp = { group = "com.github.bumptech.glide", name = "ksp", version.ref = "glide" }
 ktor-client-auth = { group = "io.ktor", name = "ktor-client-auth", version.ref = "ktor" }
 ktor-client-cio = { group = "io.ktor", name = "ktor-client-cio", version.ref = "ktor" }
 ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
@@ -150,8 +148,9 @@ lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", versio
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 material-icons-core = { group = "androidx.compose.material", name = "material-icons-core", version.ref = "materialVersion" }
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialVersion" }
+material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 materialdatetimepicker = { group = "com.wdullaer", name = "materialdatetimepicker", version.ref = "materialdatetimepicker" }
-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version = "2.9.8" }
+navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigation" }
 navigation-ui-ktx = { group = "androidx.navigation", name = "navigation-ui-ktx", version.ref = "navigation" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 openai-client = { group = "com.aallam.openai", name = "openai-client", version.ref = "openaiClient" }
@@ -164,11 +163,14 @@ recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version
 reorderable = { group = "sh.calvin.reorderable", name = "reorderable", version.ref = "reorderable" }
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit2" }
 samsungoneui = { group = "com.github.Yanndroid", name = "SamsungOneUi", version.ref = "samsungoneui" }
-storage-kt = { group = "io.github.jan-tennert.supabase", name = "storage-kt", version.ref = "supabase" }
+supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt", version.ref = "supabase" }
+supabase-kt = { group = "io.github.jan-tennert.supabase", name = "supabase-kt", version.ref = "supabase" }
+supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt", version.ref = "supabase" }
+supabase-storage = { group = "io.github.jan-tennert.supabase", name = "storage-kt", version.ref = "supabase" }
 touchimageview = { group = "com.github.MikeOrtiz", name = "TouchImageView", version.ref = "touchimageview" }
 ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
 ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "ui" }
-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version = "1.11.1" }
+ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "ui" }
 ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "ui" }
 ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview", version.ref = "ui" }
 viewfinder-core = { group = "androidx.camera.viewfinder", name = "viewfinder-core", version.ref = "viewfinderCore" }
@@ -176,17 +178,8 @@ webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 zoomable = { group = "net.engawapg.lib", name = "zoomable", version.ref = "zoomable" }
 zoomable-image-glide = { group = "me.saket.telephoto", name = "zoomable-image-glide", version.ref = "zoomableImageGlide" }
-material3 = { group = "androidx.compose.material3", name = "material3", version = "1.5.0-alpha19" }
-
-# Supabase libraries
-supabase-auth = { group = "io.github.jan-tennert.supabase", name = "auth-kt", version.ref = "supabase" }
-supabase-kt = { group = "io.github.jan-tennert.supabase", name = "supabase-kt", version.ref = "supabase" }
-supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt", version.ref = "supabase" }
-
-# Compose libraries
 compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "ui" }
 compose-material = { group = "androidx.compose.material", name = "material", version.ref = "ui" }
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "ui" }
 
 [plugins]
-# No plugins needed via alias for now

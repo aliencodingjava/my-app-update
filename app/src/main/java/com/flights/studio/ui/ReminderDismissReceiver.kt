@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.localbroadcastmanager.content.LocalBroadcastManager   // ← add
+import androidx.core.content.edit
 
 class ReminderDismissReceiver : BroadcastReceiver() {
     companion object {
@@ -16,9 +17,9 @@ class ReminderDismissReceiver : BroadcastReceiver() {
 
         // 1) turn the dot off in prefs
         context.getSharedPreferences("reminder_badges", Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(badgeKey, false)
-            .apply()
+            .edit {
+                putBoolean(badgeKey, false)
+            }
 
         // 2) notify _in-app_ listeners
         LocalBroadcastManager.getInstance(context)

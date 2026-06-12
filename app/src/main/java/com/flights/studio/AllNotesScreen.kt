@@ -4,25 +4,27 @@ package com.flights.studio
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -34,27 +36,18 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SplitButtonDefaults
-import androidx.compose.material3.SplitButtonLayout
-import androidx.compose.material3.SplitButtonShapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -72,25 +65,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
-import com.flights.studio.com.flights.studio.BadgePillTopBar
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.highlight.HighlightStyle
 
 data class NoteRow(
     val id: String,
     val text: String,
     val imagesCount: Int,
+    val attachmentsCount: Int = 0,
+    val audioCount: Int = 0,
+    val videoCount: Int = 0,
     val title: String,
     val hasReminder: Boolean,
     val hasBadge: Boolean
@@ -111,10 +100,10 @@ fun AllNotesScreen(
     onNavItemClick: (Int) -> Unit,
     onDeleteSelected: (Set<String>) -> Unit,
     onOpenNote: ((NoteRow, Int) -> Unit)? = null,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    onNotesSettingsChanged: () -> Unit = {}
 ) {
     var searchActive by remember { mutableStateOf(false) }
-    var menuOpen by remember { mutableStateOf(false) }
 
     var selectedIds by remember { mutableStateOf(setOf<String>()) }
     val selectionMode = selectedIds.isNotEmpty()
@@ -188,6 +177,8 @@ fun AllNotesScreen(
                         k == NotesPagePrefs.KEY_SHOW_REMINDER_BELL ||
                         k == NotesPagePrefs.KEY_TITLE_TOP_COMPACT ||
                         k == NotesPagePrefs.KEY_TITLE_TOP_NORMAL ||
+                        k == NotesPagePrefs.KEY_PALETTE_ENABLED ||
+                        k == NotesPagePrefs.KEY_PALETTE_ID ||
                         k == NotesPagePrefs.KEY_SORT
 
             if (affectsNotesUi) {
@@ -202,8 +193,7 @@ fun AllNotesScreen(
                     titleTopNormalDp = s.titleTopNormalDp,
                 )
 
-                // adapter still based on note text list
-                notesAdapter.updateList(notes.map { it.text })
+                onNotesSettingsChanged()
 
                 remindersTick++
             }
@@ -215,300 +205,100 @@ fun AllNotesScreen(
 
     Scaffold(
         topBar = {
-            val topBarShape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
+            val topBarShape = RoundedCornerShape(0.dp)
             val isDark = isSystemInDarkTheme()
-            val scheme = MaterialTheme.colorScheme
-            val isLightTheme = !isSystemInDarkTheme()
-
-            val containerColor = if (isLightTheme) Color.White else Color(0xFF1a1a1a).copy(0.80f)
-
-            // Glass fill for split buttons
-            val glassFill = scheme.surfaceVariant.copy(alpha = if (isDark) 0.35f else 0.25f)
-            val glassContent = scheme.onSurface
-
-            val btnColors = ButtonDefaults.buttonColors(
-                containerColor = Color.Transparent,
-                contentColor = glassContent,
-                disabledContainerColor = Color.Transparent,
-                disabledContentColor = glassContent.copy(alpha = 0.40f)
-            )
-
-            // --- pressed tracking (so clip follows pressed shape) ---
-            // --- pressed tracking (hoisted) ---
-            val leadIS = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            val trailIS = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-            val leadPressed by leadIS.collectIsPressedAsState()
-            val trailPressed by trailIS.collectIsPressedAsState()
-            val hlColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-
-            val leadPressT by animateFloatAsState(
-                targetValue = if (leadPressed) 1f else 0f,
-                animationSpec = androidx.compose.animation.core.tween(durationMillis = 90),
-                label = "leadPressT"
-            )
-            val trailPressT by animateFloatAsState(
-                targetValue = if (trailPressed) 1f else 0f,
-                animationSpec = androidx.compose.animation.core.tween(durationMillis = 90),
-                label = "trailPressT"
-            )
-
-            val shapeT by animateFloatAsState(
-                targetValue = if (menuOpen) 1f else 0f,
-                label = "splitShapeT"
-            )
-
-            fun lerpDp(a: Dp, b: Dp, t: Float): Dp = a + (b - a) * t
-
-            val outer = 50.dp
-            val innerClosed = 5.dp
-            val innerOpen = 24.dp
-            val pressedInner = 14.dp
-
-            val rightInnerBase = lerpDp(innerClosed, innerOpen, shapeT)
-
-            val leftInner = lerpDp(innerClosed, pressedInner, leadPressT)
-            val rightInner = lerpDp(rightInnerBase, pressedInner, trailPressT)
-
-            val leftEffectiveShape = RoundedCornerShape(
-                topStart = outer,
-                bottomStart = outer,
-                topEnd = leftInner,
-                bottomEnd = leftInner
-            )
-
-            val rightEffectiveShape = RoundedCornerShape(
-                topStart = rightInner,
-                bottomStart = rightInner,
-                topEnd = outer,
-                bottomEnd = outer
-            )
-
-            val leftShapes = SplitButtonShapes(
-                shape = leftEffectiveShape,
-                pressedShape = leftEffectiveShape,
-                checkedShape = leftEffectiveShape
-            )
-
-            val rightShapes = SplitButtonShapes(
-                shape = rightEffectiveShape,
-                pressedShape = rightEffectiveShape,
-                checkedShape = rightEffectiveShape
-            )
-
+            val topPalette = if (s.paletteEnabled) resolveNotesPalette(s.paletteId, isDark) else null
+            val barColor = topPalette?.actionBarTint ?: topActionBarTint()
+            val contentColor = if (isDark) Color.White else Color(0xFF111111)
 
             Surface(
                 shape = topBarShape,
                 color = Color.Transparent,
                 tonalElevation = 0.dp,
                 shadowElevation = 0.dp,
-                modifier = Modifier.drawBackdrop(
-                    backdrop = topBarBackdrop,
-                    shape = { topBarShape },
-                    highlight = {
-                        Highlight(
-                            width = 0.50.dp,
-                            blurRadius = 1.dp,
-                            alpha = 0.20f,
-                            style = HighlightStyle.Ambient,
-                        )
-                    },
-                    effects = {
-                        blur(
-                            radius = 1f.dp.toPx(),
-                            edgeTreatment = TileMode.Mirror
-                        )
-                        lens(
-                            refractionHeight = 60f,
-                            refractionAmount = 80f,
-                            depthEffect = false,
-                            chromaticAberration = false
-                        )
-                    },
-                    onDrawSurface = { drawRect(containerColor) }
-
-                )
+                modifier = Modifier
+                    .height(96.dp)
+                    .drawBackdrop(
+                        backdrop = topBarBackdrop,
+                        shape = { topBarShape },
+                        shadow = null,
+                        highlight = null,
+                        effects = {
+                            blur(
+                                radius = TopActionBarBlurDp.dp.toPx(),
+                                edgeTreatment = TileMode.Mirror
+                            )
+                        },
+                        onDrawSurface = { drawRect(barColor) }
+                    )
             ) {
-                androidx.compose.material3.CenterAlignedTopAppBar(
-                    navigationIcon = {
-                        if (onBack != null) {
-                            IconButton(onClick = onBack) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                                    contentDescription = "Back"
-                                )
-                            }
-                        }
-                    },
-                    title = {
-                        val titleText = when {
-                            selectionMode -> "selected"
-                            searchActive -> "Search"
-                            else -> "Notes"
-                        }
-                        val badgeText = when {
-                            selectionMode -> selectedIds.size.toString()
-                            searchActive -> "Filtering"
-                            else -> notesSize.toString()
-                        }
-
-                        Box(Modifier.wrapContentSize(), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = titleText,
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = scheme.onSurface,
-                                maxLines = 1
+                Row(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .padding(start = if (onBack != null) 4.dp else 20.dp, end = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                                contentDescription = "Back",
+                                tint = contentColor
                             )
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .offset(x = 23.dp, y = (-8).dp)
-                            ) {
-                                BadgePillTopBar(text = badgeText)
-                            }
                         }
-                    },
-                    actions = {
-                        val scale by animateFloatAsState(
-                            targetValue = if (menuOpen) 1.00f else 1f,
-                            label = "notesSplitScale"
-                        )
+                    }
 
-                        Box(
-                            Modifier
-                                .wrapContentSize(Alignment.TopEnd)
-                                .graphicsLayer { scaleX = scale; scaleY = scale }
+                    val titleText = when {
+                        selectionMode -> selectedIds.size.toString()
+                        searchActive -> "Search"
+                        else -> "Notes"
+                    }
+
+                    Text(
+                        text = titleText,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = contentColor,
+                        maxLines = 1
+                    )
+
+                    if (!selectionMode) {
+                        IconButton(
+                            onClick = {
+                                searchActive = true
+                                onOpenSearch { searchActive = false }
+                            }
                         ) {
-                            SplitButtonLayout(
-                                leadingButton = {
-                                    SplitButtonDefaults.LeadingButton(
-                                        enabled = true,
-                                        onClick = { onAddNote() },
-                                        colors = btnColors,
-                                        shapes = leftShapes,
-                                        interactionSource = leadIS,
-                                        modifier = Modifier
-                                            .zIndex(1f)
-                                            .clip(leftEffectiveShape)
-                                            .drawBackdrop(
-                                                backdrop = topBarBackdrop,
-                                                shape = { leftEffectiveShape },
-                                                shadow = null,
-                                                highlight = {
-                                                    Highlight(
-                                                        width = 0.50.dp,
-                                                        blurRadius = 1.dp,
-                                                        alpha = 0.96f,
-                                                        style = HighlightStyle.Plain(color = hlColor)
-                                                    )
-                                                },
-                                                effects = { blur(radius = 8f.dp.toPx(), edgeTreatment = TileMode.Clamp) },
-                                                onDrawSurface = { drawRect(glassFill) }
-                                            )
-                                    ) { Text("Add") }
-                                },
-                                trailingButton = {
-                                    val rotation by animateFloatAsState(
-                                        targetValue = if (menuOpen) 180f else 0f,
-                                        label = "splitArrow"
-                                    )
-
-                                    SplitButtonDefaults.TrailingButton(
-                                        checked = menuOpen,
-                                        onCheckedChange = { menuOpen = it },
-                                        enabled = true,
-                                        colors = btnColors,
-                                        shapes = rightShapes,
-                                        interactionSource = trailIS,
-                                        modifier = Modifier
-                                            .zIndex(0f)
-                                            .clip(rightEffectiveShape)
-                                            .drawBackdrop(
-                                                backdrop = topBarBackdrop,
-                                                shape = { rightEffectiveShape },
-                                                shadow = null,
-                                                highlight = {
-                                                    Highlight(
-                                                        width = 0.50.dp,
-                                                        blurRadius = 1.dp,
-                                                        alpha = 0.96f,
-                                                        style = HighlightStyle.Plain(color = hlColor)
-                                                    )
-                                                },
-                                                effects = { blur(radius = 8f.dp.toPx(), edgeTreatment = TileMode.Clamp) },
-                                                onDrawSurface = { drawRect(glassFill) }
-                                            )
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.KeyboardArrowDown,
-                                            contentDescription = "More",
-                                            modifier = Modifier
-                                                .size(SplitButtonDefaults.TrailingIconSize)
-                                                .graphicsLayer { rotationZ = rotation }
-                                        )
-                                    }
-                                }
-                            )
-
-
-                            DropdownMenuPopup(
-                                expanded = menuOpen,
-                                onDismissRequest = { menuOpen = false }
-                            ) {
-                                val showDeleteMenu = selectedIds.isNotEmpty()
-                                val itemCount = if (showDeleteMenu) 3 else 2
-
-                                DropdownMenuGroup(
-                                    shapes = MenuDefaults.groupShape(index = 0, count = 1),
-                                    containerColor = MenuDefaults.groupVibrantContainerColor
-                                ) {
-                                    DropdownMenuItem(
-                                        selected = false,
-                                        onClick = {
-                                            menuOpen = false
-                                            searchActive = true
-                                            onOpenSearch { searchActive = false }
-                                        },
-                                        text = { Text("Search") },
-                                        shapes = MenuDefaults.itemShape(index = 0, count = itemCount),
-                                        colors = MenuDefaults.itemColors(),
-                                        trailingIcon = { Icon(Icons.Filled.Search, null) }
-                                    )
-
-                                    DropdownMenuItem(
-                                        selected = false,
-                                        onClick = {
-                                            menuOpen = false
-                                            onNavItemClick(R.id.nav_settings)
-                                        },
-                                        text = { Text("Settings") },
-                                        shapes = MenuDefaults.itemShape(index = 1, count = itemCount),
-                                        colors = MenuDefaults.itemColors(),
-                                        trailingIcon = { Icon(Icons.Filled.Settings, null) }
-                                    )
-
-                                    if (showDeleteMenu) {
-                                        DropdownMenuItem(
-                                            selected = false,
-                                            onClick = {
-                                                menuOpen = false
-                                                onDeleteSelected(selectedIds)
-                                                selectedIds = emptySet()
-                                                notesAdapter.clearSelection()
-                                            },
-                                            text = { Text("Delete selected") },
-                                            shapes = MenuDefaults.itemShape(index = 2, count = itemCount),
-                                            colors = MenuDefaults.itemColors(),
-                                            trailingIcon = { Icon(Icons.Filled.Delete, null) }
-                                        )
-                                    }
-                                }
-                            }
+                            Icon(Icons.Filled.Search, contentDescription = "Search notes", tint = contentColor)
                         }
+                    }
 
-                        Spacer(Modifier.width(8.dp))
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                )
+                    IconButton(onClick = { onAddNote() }) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Add note",
+                            tint = contentColor
+                        )
+                    }
+
+                    if (selectionMode) {
+                        IconButton(
+                            onClick = {
+                                onDeleteSelected(selectedIds)
+                                selectedIds = emptySet()
+                                notesAdapter.clearSelection()
+                            }
+                        ) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete selected", tint = contentColor)
+                        }
+                    } else {
+                        IconButton(onClick = { onNavItemClick(R.id.nav_settings) }) {
+                            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = contentColor)
+                        }
+                    }
+                }
             }
         }
     )
@@ -520,13 +310,30 @@ fun AllNotesScreen(
                     .layerBackdrop(topBarBackdrop)
             ) {
                 val isDark = isSystemInDarkTheme()
+                val palette = if (s.paletteEnabled) {
+                    resolveNotesPalette(s.paletteId, isDark)
+                } else {
+                    null
+                }
+                if (palette != null) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(palette.screenBackground)
+                    )
+                }
                 ProfileBackdropImageLayer(
                     modifier = Modifier
                         .matchParentSize()
                         .layerBackdrop(itemBackdrop),
                     lightRes = R.drawable.light_grid_pattern,
                     darkRes = R.drawable.dark_grid_pattern,
-                    imageAlpha = if (isDark) 1f else 0.8f,
+                    imageAlpha = when {
+                        palette != null && isDark -> 0.30f
+                        palette != null -> 0.18f
+                        isDark -> 1f
+                        else -> 0.8f
+                    },
                     scrimDark = 0f,
                     scrimLight = 0f
                 )
@@ -571,6 +378,9 @@ fun AllNotesScreen(
                         showReminderBell = notesAdapter.bellOn(note),
                         showReminderBadge = notesAdapter.badgeOn(note),
                         imagesCount = notesAdapter.imagesCount(note),
+                        attachmentsCount = row.attachmentsCount,
+                        audioCount = row.audioCount,
+                        videoCount = row.videoCount,
 
                         onClick = {
                             if (selectionMode) {
@@ -594,6 +404,8 @@ fun AllNotesScreen(
                         backdrop = itemBackdrop,
                         titleTopCompactDp = s.titleTopCompactDp,
                         titleTopNormalDp = s.titleTopNormalDp,
+                        palette = palette,
+                        smallMediaBadges = twoCols,
 //                        isInteractive = !fastMode
                     )
                 }
@@ -666,8 +478,8 @@ fun AllNotesScreen(
 
                 NotesWelcomeOnboardingOverlay(
                     visible = isEmpty && showWelcome,
-                    onContinue = { onAddNote() },
-                    onSecondary = { showWelcome = false }
+                    backdrop = itemBackdrop,
+                    onContinue = { onAddNote() }
                 )
 
             }

@@ -201,11 +201,12 @@ fun FlightsMenuDropdown(
                     onClick = {
                         onDismiss()
                         context.startActivity(
-                            Intent(context, AllContactsActivity::class.java)
+                            Intent(context, MainActivity::class.java)
+                                .putExtra(MainActivity.EXTRA_START_PAGE, MainActivity.PAGE_BRIEFING)
                         )
                     },
                     shapes = MenuDefaults.itemShape(1, itemCount),
-                    text = { Text("Contacts") },
+                    text = { Text(BriefingLabels.AREA_NAME) },
                     leadingIcon = {
                         Icon(
                             painterResource(

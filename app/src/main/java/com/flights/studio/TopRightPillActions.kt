@@ -10,7 +10,6 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -31,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -41,14 +39,15 @@ import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sign
 import kotlin.math.tanh
 
 @Composable
@@ -59,27 +58,15 @@ fun TopRightPillActions(
     onSettings: () -> Unit,
     isInteractive: Boolean = true,
 ) {
-    val isDark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(999.dp)
-
-    val tint = if (isDark) {
-        Color.White.copy(alpha = 0.10f)
-    } else {
-        Color.White.copy(alpha = 0.34f)
-    }
-
-    val contrast = if (isDark) {
-        Color.White.copy(alpha = 0.03f)
-    } else {
-        Color.White.copy(alpha = 0.50f)
-    }
-
+    val adaptive = rememberAdaptiveLuminance(enabled = true)
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(
             animationScope = animationScope
         )
     }
+    val luminanceOffset = (adaptive.luminance * 2f - 1f).let { it.sign * it * it }
 
     Surface(
         modifier = modifier
@@ -87,32 +74,47 @@ fun TopRightPillActions(
                 backdrop = backdrop,
                 shape = { shape },
                 highlight = {
-                    if (isDark) {
-                        Highlight(
-                            width = 0.45.dp,
-                            blurRadius = 1.6.dp,
-                            alpha = 0.50f,
-                            style = HighlightStyle.Plain
-                        )
-                    } else {
-                        Highlight(
-                            width = 0.40.dp,
-                            blurRadius = 1.2.dp,
-                            alpha = 1.0f,
-                            style = HighlightStyle.Plain
-                        )
-                    }
+                    Highlight(
+                        width = 0.45.dp,
+                        blurRadius = 1.4.dp,
+                        alpha = 0.86f,
+                        style = HighlightStyle.Plain
+                    )
                 },
                 shadow = null,
                 effects = {
-                    vibrancy()
-                    blur(1.5.dp.toPx(), edgeTreatment = TileMode.Clamp)
+                    colorControls(
+                        brightness = if (luminanceOffset > 0f) {
+                            lerp(0.1f, 0.5f, luminanceOffset)
+                        } else {
+                            lerp(0.1f, -0.2f, -luminanceOffset)
+                        },
+                        contrast = if (luminanceOffset > 0f) {
+                            lerp(1f, 0f, luminanceOffset)
+                        } else {
+                            1f
+                        },
+                        saturation = 1.5f
+                    )
+                    blur(
+                        radius = if (luminanceOffset > 0f) {
+                            lerp(8.dp.toPx(), 16.dp.toPx(), luminanceOffset)
+                        } else {
+                            lerp(8.dp.toPx(), 2.dp.toPx(), -luminanceOffset)
+                        }
+                    )
                     lens(
-                        refractionHeight = 20.dp.toPx(),
-                        refractionAmount = 30.dp.toPx(),
-                        depthEffect = false,
+                        refractionHeight = 24.dp.toPx(),
+                        refractionAmount = size.minDimension / 2f,
+                        depthEffect = true,
                         chromaticAberration = false
                     )
+                },
+                onDrawBackdrop = { drawBackdrop ->
+                    drawBackdrop()
+                    adaptive.layer.record {
+                        drawBackdrop()
+                    }
                 },
                 layerBlock = if (isInteractive) {
                     {
@@ -142,10 +144,6 @@ fun TopRightPillActions(
                 } else {
                     null
                 },
-                onDrawSurface = {
-                    drawRect(tint)
-                    drawRect(contrast)
-                }
             )
             .clickable(
                 interactionSource = null,
@@ -176,10 +174,12 @@ fun TopRightPillActions(
         ) {
             PillIconButton(
                 iconRes = R.drawable.ic_oui_home,
+                contentColor = adaptive.contentColor,
                 onClick = onHome
             )
             PillIconButton(
                 iconRes = R.drawable.baseline_settings_24,
+                contentColor = adaptive.contentColor,
                 onClick = onSettings
             )
         }
@@ -189,9 +189,9 @@ fun TopRightPillActions(
 @Composable
 private fun RowScope.PillIconButton(
     iconRes: Int,
+    contentColor: Color,
     onClick: () -> Unit,
 ) {
-    val isDark = isSystemInDarkTheme()
     val interaction = remember { MutableInteractionSource() }
 
     val pressed by interaction.collectIsPressedAsState()
@@ -211,17 +211,8 @@ private fun RowScope.PillIconButton(
         label = "pressScale"
     )
 
-    val bubbleColor = if (isDark) {
-        Color.White.copy(alpha = 0.10f)
-    } else {
-        Color.White.copy(alpha = 0.28f)
-    }
-
-    val iconTint = if (isDark) {
-        Color.White.copy(alpha = 0.95f)
-    } else {
-        Color.Black.copy(alpha = 0.78f)
-    }
+    val bubbleColor = contentColor.copy(alpha = 0.12f)
+    val iconTint = contentColor.copy(alpha = 0.94f)
 
     Box(
         modifier = Modifier

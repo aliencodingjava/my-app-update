@@ -139,6 +139,36 @@ private object JhIcons {
     val MenuOpen = R.drawable.folder_open_24dp_ffffff_fill1_wght400_grad0_opsz24
 }
 
+private data class PlayerGlassProfile(
+    val blurDp: Float,
+    val lensHeightDp: Float,
+    val lensAmountDp: Float,
+    val surfaceAlphaScale: Float,
+    val saturation: Float
+)
+
+private fun playerGlassProfile(level: Int): PlayerGlassProfile {
+    return when (level.coerceIn(0, 4)) {
+        0 -> PlayerGlassProfile(blurDp = 0.5f, lensHeightDp = 3f, lensAmountDp = 5f, surfaceAlphaScale = 0.48f, saturation = 1.02f)
+        1 -> PlayerGlassProfile(blurDp = 1.4f, lensHeightDp = 6f, lensAmountDp = 10f, surfaceAlphaScale = 0.65f, saturation = 1.08f)
+        2 -> PlayerGlassProfile(blurDp = 3.0f, lensHeightDp = 10f, lensAmountDp = 18f, surfaceAlphaScale = 0.82f, saturation = 1.18f)
+        3 -> PlayerGlassProfile(blurDp = 6.0f, lensHeightDp = 16f, lensAmountDp = 30f, surfaceAlphaScale = 0.95f, saturation = 1.32f)
+        else -> PlayerGlassProfile(blurDp = 9.0f, lensHeightDp = 24f, lensAmountDp = 48f, surfaceAlphaScale = 1.08f, saturation = 1.45f)
+    }
+}
+
+private const val KyantMenuMaxDragHeight = 1000f
+private const val KyantMenuOvershootScale = 0.10f
+private val KyantMenuTopStretchMax = 96.dp
+
+private fun kyantElasticProgress(raw: Float): Float {
+    return when {
+        raw < 0f -> raw / (1f - raw)
+        raw <= 1f -> raw
+        else -> 1f + ((raw - 1f) / (1f + raw - 1f))
+    }
+}
+
 private val Context.favoritesDataStore by preferencesDataStore(name = "jh_favorites")
 private val KEY_FAVORITES = stringSetPreferencesKey("favorite_video_ids")
 
@@ -452,15 +482,22 @@ private fun IosPlayerScreen(
 
     LaunchedEffect(isMenuVisible) {
         val target = if (isMenuVisible) 1f else 0f
-        // keep it snappy when toggled by button
-        enterProgressAnimation.animateTo(
-            targetValue = target,
-            animationSpec = spring(dampingRatio = 0.82f, stiffness = 520f)
-        )
-        safeEnterProgressAnimation.animateTo(
-            targetValue = target,
-            animationSpec = spring(dampingRatio = 0.86f, stiffness = 420f)
-        )
+        launch {
+            enterProgressAnimation.animateTo(
+                targetValue = target,
+                animationSpec = if (target > 0.5f) {
+                    spring(0.5f, 300f, 0.5f / KyantMenuMaxDragHeight)
+                } else {
+                    spring(1f, 300f, 0.01f)
+                }
+            )
+        }
+        launch {
+            safeEnterProgressAnimation.animateTo(
+                targetValue = target,
+                animationSpec = spring(1f, 300f, 0.01f)
+            )
+        }
     }
     LaunchedEffect(progress01, isUserSeeking) {
         if (!isUserSeeking) sliderValue = progress01
@@ -582,8 +619,9 @@ private fun IosPlayerScreen(
         )
 
         val safeMenuFrac by remember { derivedStateOf { safeEnterProgressAnimation.value } }
-
-        val maxDragHeight = 900f // tweak: bigger = heavier, smaller = more elastic
+        val elasticMenuFrac by remember {
+            derivedStateOf { kyantElasticProgress(enterProgressAnimation.value) }
+        }
 
         val dimVisible = isMenuVisible || isSwitchingVideo
 
@@ -594,7 +632,11 @@ private fun IosPlayerScreen(
         }
 
         val animatedDimAlpha by animateFloatAsState(
-            targetValue = if (dimVisible) baseDimAlpha else 0f,
+            targetValue = when {
+                isSwitchingVideo -> baseDimAlpha
+                dimVisible -> baseDimAlpha * safeMenuFrac
+                else -> 0f
+            },
             animationSpec = tween(200),
             label = "dimAlpha"
         )
@@ -661,7 +703,7 @@ private fun IosPlayerScreen(
         val menuDrag = Modifier.draggable(
             state = rememberDraggableState { delta ->
                 // drag UP opens (delta negative), drag DOWN closes (delta positive)
-                val target = enterProgressAnimation.value - (delta / maxDragHeight)
+                val target = enterProgressAnimation.value - (delta / KyantMenuMaxDragHeight)
 
                 scope.launch {
                     launch { enterProgressAnimation.snapTo(target) }
@@ -683,14 +725,18 @@ private fun IosPlayerScreen(
                     launch {
                         enterProgressAnimation.animateTo(
                             targetValue = target,
-                            animationSpec = spring(dampingRatio = 0.78f, stiffness = 380f),
-                            initialVelocity = (-velocity / maxDragHeight)
+                            animationSpec = if (target > 0.5f) {
+                                spring(0.5f, 300f, 0.5f / KyantMenuMaxDragHeight)
+                            } else {
+                                spring(1f, 300f, 0.01f)
+                            },
+                            initialVelocity = (-velocity / KyantMenuMaxDragHeight)
                         )
                     }
                     launch {
                         safeEnterProgressAnimation.animateTo(
                             targetValue = target,
-                            animationSpec = spring(dampingRatio = 0.86f, stiffness = 360f)
+                            animationSpec = spring(1f, 300f, 0.01f)
                         )
                     }
                 }
@@ -707,8 +753,8 @@ private fun IosPlayerScreen(
                     .then(menuDrag),
                 backdrop = sceneBackdrop,
 
-                // ✅ use SAFE for alpha and internal visuals
-                menuFrac = safeMenuFrac,
+                menuProgress = elasticMenuFrac,
+                safeMenuProgress = safeMenuFrac,
 
                 rows = menuRows,
                 videoCount = videoRows.size,
@@ -793,6 +839,9 @@ private fun JhVideoControlsBar(
     onToggleMenu: () -> Unit,
 ) {
     val isDark = isSystemInDarkTheme()
+    val glassProfile = remember(settings.glassIntensity) {
+        playerGlassProfile(settings.glassIntensity)
+    }
 
     val (tint, contrast) = glassTint(isDark)
     val luminanceHint = estimateLuminanceFromTint(tint)
@@ -815,29 +864,22 @@ private fun JhVideoControlsBar(
                 highlight = null,
                 shadow = null,
                 effects = {
-                    colorControls(
-                        brightness = if (isDark) -0.04f else 0.02f,
-                        contrast = if (isDark) 1.08f else 1.04f,
-                        saturation = if (isDark) 1.45f else 1.40f
-                    )
-                    vibrancy()
-                    val blurAmount = when (settings.glassIntensity) {
-                        0 -> 2f      // Light
-                        1 -> 4f      // Medium
-                        2 -> 6f      // Strong
-                        3 -> 9f      // Full
-                        else -> 4f
-                    }
-                    blur(blurAmount.dp.toPx())
-                    lens(
-                        refractionHeight = 10f.dp.toPx(),
-                        refractionAmount = 18f.dp.toPx(),
-                        depthEffect = false
-                    )
-                },
-                onDrawSurface = {
-                    drawRect(tint)
-                    contrast?.let { drawRect(it) }
+                colorControls(
+                    brightness = if (isDark) -0.04f else 0.02f,
+                    contrast = if (isDark) 1.08f else 1.04f,
+                    saturation = glassProfile.saturation
+                )
+                vibrancy()
+                blur(glassProfile.blurDp.dp.toPx())
+                lens(
+                    refractionHeight = glassProfile.lensHeightDp.dp.toPx(),
+                    refractionAmount = glassProfile.lensAmountDp.dp.toPx(),
+                    depthEffect = false
+                )
+            },
+            onDrawSurface = {
+                    drawRect(tint.copy(alpha = tint.alpha * glassProfile.surfaceAlphaScale))
+                    contrast?.let { drawRect(it.copy(alpha = it.alpha * glassProfile.surfaceAlphaScale)) }
                 })
     ) {
         Row(
@@ -910,7 +952,8 @@ private fun JhVideoMenuExpressive(
     settings: PlayerSettings,
     modifier: Modifier = Modifier,
     backdrop: Backdrop,
-    menuFrac: Float,
+    menuProgress: Float,
+    safeMenuProgress: Float,
     rows: List<MenuRow>,
     videoCount: Int,
     selectedVideoId: String?,
@@ -926,6 +969,9 @@ private fun JhVideoMenuExpressive(
 ) {
     val isDark = isSystemInDarkTheme()
     val (tint, contrast) = glassTint(isDark)
+    val glassProfile = remember(settings.glassIntensity) {
+        playerGlassProfile(settings.glassIntensity)
+    }
 
     val outerShape = RoundedCornerShape(22.dp)
     val itemShape = RoundedCornerShape(16.dp)
@@ -935,10 +981,6 @@ private fun JhVideoMenuExpressive(
     val menuHeight = rowHeight * minOf(maxVisible, videoCount)
 
     val listState = rememberLazyListState()
-    val isScrollable by remember {
-        derivedStateOf { listState.canScrollBackward || listState.canScrollForward }
-    }
-
     // ✅ scroll to selected video row (skips headers)
     LaunchedEffect(selectedVideoId) {
         val idx = rows.indexOfFirst { it is MenuRow.Video && it.id == selectedVideoId }
@@ -956,84 +998,57 @@ private fun JhVideoMenuExpressive(
             )
     )
 
-    // ---------------- ✅ BOTTOM-ONLY elastic ----------------
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-
-    val maxStretchPx = with(density) { 220.dp.toPx() }
-    val resistance = when (settings.menuElasticity) {
-        0 -> 0f     // NONE (completely rigid)
-        1 -> 0.9f   // Soft (big stretch)
-        2 -> 0.5f   // Normal
-        3 -> 0.2f   // Heavy (hard to stretch)
-        else -> 0.5f
-    }
-
-    val stretch = remember { Animatable(0f) }
-
-    val hasScrolledDown by remember { derivedStateOf { listState.canScrollBackward } }
-    val isAtBottom by remember { derivedStateOf { isScrollable && hasScrolledDown && !listState.canScrollForward } }
-
-    val springSpec: androidx.compose.animation.core.SpringSpec<Float> =
-        when (settings.menuElasticity) {
-            1 -> spring(dampingRatio = 0.65f, stiffness = 250f)  // Soft
-            2 -> spring(dampingRatio = 0.72f, stiffness = 320f)  // Normal
-            3 -> spring(dampingRatio = 0.85f, stiffness = 420f)  // Heavy
-            else -> spring(dampingRatio = 1f, stiffness = 500f)  // None
-        }
-
-    val rubberBand = remember(listState) {
+    val topStretch = remember { Animatable(0f) }
+    val maxTopStretchPx = with(density) { KyantMenuTopStretchMax.toPx() }
+    val topRubberBand = remember(listState) {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val dy = available.y
-
-                if (settings.menuElasticity != 0 && dy < 0f && isAtBottom) {
-                    val newValue = (stretch.value + dy * resistance).coerceIn(-maxStretchPx, 0f)
-                    scope.launch { stretch.snapTo(newValue) }
+                if (dy > 0f && !listState.canScrollBackward) {
+                    val next = (topStretch.value + dy * 0.32f).coerceIn(0f, maxTopStretchPx)
+                    scope.launch { topStretch.snapTo(next) }
                     return Offset(0f, dy)
                 }
-
-                if (settings.menuElasticity != 0 && stretch.value < 0f && dy > 0f) {
-                    val newValue = (stretch.value + dy).coerceIn(-maxStretchPx, 0f)
-                    scope.launch { stretch.snapTo(newValue) }
+                if (topStretch.value > 0f && dy < 0f) {
+                    val next = (topStretch.value + dy).coerceIn(0f, maxTopStretchPx)
+                    scope.launch { topStretch.snapTo(next) }
                     return Offset(0f, dy)
                 }
-
                 return Offset.Zero
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (stretch.value != 0f) {
-                    stretch.animateTo(0f, springSpec)
+                if (topStretch.value != 0f) {
+                    topStretch.animateTo(0f, spring(1f, 300f, 0.01f))
                 }
                 return Velocity.Zero
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (stretch.value != 0f) {
-                    stretch.animateTo(0f, springSpec)
+                if (topStretch.value != 0f) {
+                    topStretch.animateTo(0f, spring(1f, 300f, 0.01f))
                 }
                 return super.onPostFling(consumed, available)
             }
         }
     }
-    // --------------------------------------------------------
-
-    val extraHeightDp = with(density) { kotlin.math.abs(stretch.value).toDp() }
+    val topStretchDp = with(density) { topStretch.value.toDp() }
 
     Box(
         modifier
             .padding(horizontal = 14.dp)
             .fillMaxWidth()
-            .height(menuHeight + extraHeightDp)
+            .height(menuHeight)
             .graphicsLayer {
-                translationY = stretch.value * 0.25f
-                alpha = menuFrac
-                val over = (menuFrac - 1f).coerceAtLeast(0f)
-                scaleX = 1f - 0.04f * over
-                scaleY = 1f + 0.04f * over
+                alpha = safeMenuProgress
+                val over = (menuProgress - 1f).coerceAtLeast(0f)
+                val under = (1f - safeMenuProgress).coerceIn(0f, 1f)
+                scaleX = 1f / (1f + KyantMenuOvershootScale * over)
+                scaleY = 1f + KyantMenuOvershootScale * over
 
-                translationY += (1f - menuFrac) * 6f.dp.toPx()
+                translationY += under * 14f.dp.toPx()
             }
             .drawBackdrop(backdrop = backdrop, shape = { outerShape }, shadow = null, highlight = {
                 if (isDark) {
@@ -1055,32 +1070,25 @@ private fun JhVideoMenuExpressive(
                 colorControls(
                     brightness = if (isDark) -0.03f else 0.02f,
                     contrast = if (isDark) 1.10f else 1.05f,
-                    saturation = if (isDark) 1.18f else 1.12f
+                    saturation = glassProfile.saturation
                 )
                 vibrancy()
-                val blurAmount = when (settings.glassIntensity) {
-                    0 -> 2f
-                    1 -> 4f
-                    2 -> 6f
-                    3 -> 9f
-                    else -> 4f
-                }
-                blur(blurAmount.dp.toPx())
+                blur((glassProfile.blurDp * safeMenuProgress).dp.toPx())
                 lens(
-                    refractionHeight = 10f.dp.toPx(),
-                    refractionAmount = 18f.dp.toPx(),
+                    refractionHeight = (glassProfile.lensHeightDp * safeMenuProgress).dp.toPx(),
+                    refractionAmount = (glassProfile.lensAmountDp * safeMenuProgress).dp.toPx(),
                     depthEffect = false
                 )
             }, onDrawSurface = {
-                drawRect(tint)
-                contrast?.let { drawRect(it) }
+                drawRect(tint.copy(alpha = tint.alpha * glassProfile.surfaceAlphaScale))
+                contrast?.let { drawRect(it.copy(alpha = it.alpha * glassProfile.surfaceAlphaScale)) }
             })
             .clip(outerShape)
     ) {
         LazyColumn(
-            modifier = Modifier.nestedScroll(rubberBand),
+            modifier = Modifier.nestedScroll(topRubberBand),
             state = listState,
-            contentPadding = PaddingValues(10.dp),
+            contentPadding = PaddingValues(start = 10.dp, top = 10.dp + topStretchDp, end = 10.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             itemsIndexed(
@@ -1265,17 +1273,12 @@ private fun JhVideoMenuExpressive(
                                             onClick = { if (!likeState.isLoading) onToggleLike(id) },
                                             modifier = Modifier.size(32.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = if (likeState.isLiked)
-                                                    Icons.Filled.Favorite
-                                                else
-                                                    Icons.Filled.FavoriteBorder,
-                                                contentDescription = null,
-                                                tint = if (likeState.isLiked)
-                                                    Color(0xFFD50000)
-                                                else
-                                                    menuTextColor.copy(alpha = 0.75f),
-                                                modifier = Modifier.size(20.dp)
+                                            AnimatedLikeIcon(
+                                                isLiked = likeState.isLiked,
+                                                isLoading = likeState.isLoading,
+                                                animate = settings.animateLikes,
+                                                activeColor = Color(0xFFD50000),
+                                                inactiveColor = menuTextColor.copy(alpha = 0.75f)
                                             )
                                         }
 
@@ -1346,6 +1349,51 @@ private fun JhVideoMenuExpressive(
             }
         }
     }
+}
+
+@Composable
+private fun AnimatedLikeIcon(
+    isLiked: Boolean,
+    isLoading: Boolean,
+    animate: Boolean,
+    activeColor: Color,
+    inactiveColor: Color
+) {
+    val scale = remember { Animatable(1f) }
+    var initialized by remember { mutableStateOf(false) }
+    val alpha by animateFloatAsState(
+        targetValue = if (isLoading) 0.55f else 1f,
+        animationSpec = tween(120),
+        label = "likeAlpha"
+    )
+
+    LaunchedEffect(isLiked, animate) {
+        if (!initialized) {
+            initialized = true
+            scale.snapTo(1f)
+            return@LaunchedEffect
+        }
+        if (!animate) {
+            scale.snapTo(1f)
+            return@LaunchedEffect
+        }
+        scale.snapTo(0.86f)
+        scale.animateTo(1.22f, spring(dampingRatio = 0.48f, stiffness = 520f))
+        scale.animateTo(1f, spring(dampingRatio = 0.68f, stiffness = 420f))
+    }
+
+    Icon(
+        imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+        contentDescription = null,
+        tint = if (isLiked) activeColor else inactiveColor,
+        modifier = Modifier
+            .size(20.dp)
+            .graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+                this.alpha = alpha
+            }
+    )
 }
 
 // -----------------------------

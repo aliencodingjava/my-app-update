@@ -10,6 +10,8 @@
     <external-path name="media" path="media/" />
     <external-path name="apk" path="Download/" />
     <files-path name="notes_photos" path="notes_photos/" />
+    <files-path name="notes_files" path="notes_files/" />
+    <files-path name="voice_notes" path="voice_notes/" />
 
 </paths>
 

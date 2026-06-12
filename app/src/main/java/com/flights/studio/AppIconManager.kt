@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 
 object AppIconManager {
+    private const val PREFS_NAME = "app_icon_manager"
+    private const val KEY_ACTIVE_ALIAS = "active_alias"
 
     const val DICON = "com.flights.studio.DiconAlias"
     const val WATCH_OS = "com.flights.studio.WatchOsAlias"
@@ -76,9 +78,15 @@ object AppIconManager {
 
     fun setActiveIcon(context: Context, aliasClassName: String) {
         val pm = context.packageManager
+        val activeAlias = aliasClassName.takeIf { it in aliases } ?: DICON
+
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_ACTIVE_ALIAS, activeAlias)
+            .apply()
 
         aliases.forEach { className ->
-            val newState = if (className == aliasClassName) {
+            val newState = if (className == activeAlias) {
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED
             } else {
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
@@ -91,8 +99,39 @@ object AppIconManager {
             )
         }
     }
+
+    fun repairLauncherAliases(context: Context) {
+        val pm = context.packageManager
+        val savedAlias = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_ACTIVE_ALIAS, null)
+            ?.takeIf { it in aliases }
+        val explicitlyEnabled = aliases.filter { alias ->
+            pm.getComponentEnabledSetting(ComponentName(context, alias)) ==
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        }
+        val activeAlias = when {
+            savedAlias != null -> savedAlias
+            explicitlyEnabled.size > 1 -> explicitlyEnabled.firstOrNull { it != DICON } ?: explicitlyEnabled.first()
+            explicitlyEnabled.size == 1 -> explicitlyEnabled.first()
+            else -> DICON
+        }
+
+        if (explicitlyEnabled.size != 1 || explicitlyEnabled.firstOrNull() != activeAlias) {
+            setActiveIcon(context, activeAlias)
+        }
+    }
+
     fun getActiveIcon(context: Context): String {
         val pm = context.packageManager
+        val savedAlias = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_ACTIVE_ALIAS, null)
+            ?.takeIf { it in aliases }
+        if (savedAlias != null) {
+            val state = pm.getComponentEnabledSetting(ComponentName(context, savedAlias))
+            if (state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                return savedAlias
+            }
+        }
 
         aliases.forEach { alias ->
             val state = pm.getComponentEnabledSetting(ComponentName(context, alias))

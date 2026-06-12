@@ -3,12 +3,14 @@
     android:layout_height="wrap_content"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_marginTop="4dp"
-    android:layout_marginBottom="4dp"
+    android:layout_marginTop="0dp"
+    android:layout_marginBottom="0dp"
     android:clipChildren="false"
     android:clipToPadding="false"
     android:layout_marginStart="0dp"
-    android:layout_marginEnd="0dp">
+    android:layout_marginEnd="0dp"
+    android:paddingStart="0dp"
+    android:paddingEnd="0dp">
 
     <!-- Background View for Deleting Animation -->
     <com.google.android.material.card.MaterialCardView
@@ -18,7 +20,7 @@
         android:layout_gravity="center_vertical"
         android:visibility="gone"
         app:cardBackgroundColor="@color/green"
-        app:cardCornerRadius="8dp"
+        app:cardCornerRadius="0dp"
         app:strokeColor="@color/transparent"
         app:strokeWidth="0dp">
 
@@ -49,7 +51,8 @@
         android:id="@+id/combined_card"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardCornerRadius="12dp"
+        app:cardBackgroundColor="@color/box_alert_update"
+        app:cardCornerRadius="0dp"
         app:cardElevation="0dp"
         app:strokeColor="@color/transparent"
         app:strokeWidth="0dp">
@@ -68,7 +71,10 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:background="@color/box_alert_update"
-                android:padding="8dp"
+                android:paddingStart="8dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="8dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
@@ -78,8 +84,8 @@
                 <!-- Icon Image (invisible by default) -->
                 <androidx.appcompat.widget.AppCompatImageView
                     android:id="@+id/iconImage"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
                     android:layout_marginStart="5dp"
                     android:layout_marginEnd="10dp"
                     android:contentDescription="@string/icon_image"
@@ -92,17 +98,33 @@
                 <!-- Initials -->
                 <TextView
                     android:id="@+id/iconInitials"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
                     android:layout_marginStart="5dp"
                     android:layout_marginEnd="10dp"
                     android:gravity="center"
                     android:text=""
                     android:textColor="@android:color/white"
-                    android:textSize="16sp"
+                    android:textSize="17sp"
                     app:layout_constraintBottom_toBottomOf="@id/iconImage"
                     app:layout_constraintStart_toEndOf="@id/iconImage"
                     app:layout_constraintTop_toTopOf="@id/iconImage" />
+
+                <TextView
+                    android:id="@+id/contactSelectionCheck"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:background="@drawable/circular_background"
+                    android:elevation="6dp"
+                    android:gravity="center"
+                    android:text="✓"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    app:layout_constraintEnd_toEndOf="@id/iconInitials"
+                    app:layout_constraintTop_toTopOf="@id/iconInitials"
+                    tools:visibility="visible" />
 
                 <!-- Name TextView -->
                 <TextView
@@ -115,7 +137,7 @@
                     android:gravity="start"
                     android:maxLines="1"
                     android:text=""
-                    android:textSize="11sp"
+                    android:textSize="14sp"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toStartOf="@id/expand_collapse_icon"
                     app:layout_constraintStart_toEndOf="@id/iconInitials"
@@ -205,6 +227,7 @@
                     android:layout_width="0dp"
                     android:layout_height="1dp"
                     android:layout_marginBottom="8dp"
+                    android:alpha="0.06"
                     android:background="?attr/colorControlActivated"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -231,6 +254,7 @@
                     android:layout_width="0dp"
                     android:layout_height="1dp"
                     android:layout_marginBottom="8dp"
+                    android:alpha="0.06"
                     android:background="?attr/colorControlActivated"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -261,6 +285,7 @@
                     android:layout_width="0dp"
                     android:layout_height="1dp"
                     android:layout_marginBottom="10dp"
+                    android:alpha="0.06"
                     android:background="?attr/colorControlActivated"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -300,6 +325,7 @@
                     android:layout_width="0dp"
                     android:layout_height="1dp"
                     android:layout_marginBottom="10dp"
+                    android:alpha="0.06"
                     android:background="?attr/colorControlActivated"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
@@ -316,14 +342,31 @@
                     android:clipToOutline="false"
                     android:clipToPadding="false"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/divider_birthday">
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toBottomOf="@id/divider_birthday">
+
+                    <!-- Chat Button -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/fab_chat"
+                        style="@style/Widget.Material3.Button.ElevatedButton"
+                        android:layout_width="56dp"
+                        android:layout_height="48dp"
+                        android:clipToOutline="false"
+                        android:contentDescription="@string/open_chat"
+                        app:icon="@drawable/ic_chat_emoji_24"
+                        app:iconGravity="textEnd"
+                        app:iconPadding="0dp"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/fab_call"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small" />
 
                     <!-- Call Button -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/fab_call"
                         style="@style/Widget.Material3.Button.ElevatedButton"
-                        android:layout_width="60dp"
+                        android:layout_width="56dp"
                         android:layout_height="48dp"
                         app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
                         android:contentDescription="@string/make_a_call"
@@ -333,14 +376,14 @@
                         android:clipToOutline="false"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/fab_chat"
                         app:layout_constraintEnd_toStartOf="@id/fab_update" />
 
                     <!-- Edit Button -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/fab_update"
                         style="@style/Widget.Material3.Button.ElevatedButton"
-                        android:layout_width="60dp"
+                        android:layout_width="56dp"
                         android:layout_height="48dp"
                         app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
                         android:contentDescription="@string/edit_contact"
@@ -358,7 +401,7 @@
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/fab_delete"
                         style="@style/Widget.Material3.Button.ElevatedButton"
-                        android:layout_width="60dp"
+                        android:layout_width="56dp"
                         android:layout_height="48dp"
                         app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
                         android:contentDescription="@string/delete_contact"
@@ -372,7 +415,7 @@
                         app:layout_constraintEnd_toStartOf="@id/bubble_container" />
                     <androidx.constraintlayout.widget.ConstraintLayout
                         android:id="@+id/bubble_container"
-                        android:layout_width="60dp"
+                        android:layout_width="56dp"
                         android:layout_height="48dp"
                         android:clipChildren="false"
                         android:clipToPadding="false"
@@ -414,5 +457,13 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </com.google.android.material.card.MaterialCardView>
+
+    <View
+        android:id="@+id/contact_item_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_gravity="bottom"
+        android:alpha="0.04"
+        android:background="?attr/colorControlNormal" />
 
 </FrameLayout>

@@ -112,7 +112,7 @@ object GeminiTitles {
 
 
 
-        val text = GeminiClient.generate(prompt)
+        val text = GeminiClient.generate(prompt, callTimeoutMillis = 12_000)
 
         fun cleanLine(s: String): String =
             s.trim()

@@ -19,7 +19,7 @@
       "software prototyping", "software patching", "open source contribution",
       "agile development", "git commits", "machine learning programming"
     ],
-    "title": "💻 Programming & Software Development",
+    "title": "ðŸ’» Programming & Software Development",
     "phrases": {
       "words": [
         "writing code", "fixing bugs", "solving errors", "debugging a problem",
@@ -45,7 +45,7 @@
         "software testing", "troubleshooting errors", "clean coding",
         "code reviews", "development pipeline"
       ],
-      "title": "🖥️ Software Engineering & Debugging"
+      "title": "ðŸ–¥ï¸ Software Engineering & Debugging"
     },
     "languages": {
       "words": [
@@ -60,7 +60,7 @@
         "full-stack languages", "cloud programming", "server-side scripting",
         "frontend frameworks", "modern programming languages"
       ],
-      "title": "💻 Programming Languages & Development"
+      "title": "ðŸ’» Programming Languages & Development"
     },
 
     "tools": {
@@ -77,7 +77,7 @@
         "container orchestration", "code repositories", "development platforms",
         "serverless functions", "testing automation", "mobile development tools"
       ],
-      "title": "🛠️ Dev Tools & Infrastructure"
+      "title": "ðŸ› ï¸ Dev Tools & Infrastructure"
     }
   },
   "work": {
@@ -262,7 +262,7 @@
   "social_networks": [
     "facebook", "instagram", "twitter", "snapchat", "linkedin", "tiktok", "youtube", "whatsapp",
     "social media", "post", "like", "share", "followers", "story", "feed", "hashtag", "pinterest",
-    "reddit", "tumblr", "flickr", "vimeo", "weibo", "douyin", "telegram", "discord", "skype",
+    "reddit", "tumblr", "flickr", "vimeo", "weibo", "douyin", "discord", "skype",
     "myspace", "foursquare", "quora", "xing", "periscope", "beacon", "medium", "clubhouse",
     "twitch", "vkontakte", "yelp", "yammer", "meetup", "badoo", "oklahoma", "ask.fm", "kaixin001",
     "line", "wechat", "taringa", "pocket", "mocospace", "ello", "plurk", "path", "viber", "kik",
@@ -300,3 +300,4 @@
     "wizz air"
   ]
 }
+
