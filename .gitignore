@@ -20,6 +20,8 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+keystore_b64.txt
+keystore_hex.txt
 .env
 .env.*
 *.pem
