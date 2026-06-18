@@ -27,8 +27,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
@@ -48,6 +47,9 @@
 
     <uses-feature
         android:name="android.hardware.telephony"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera"
         android:required="false" />
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -89,6 +91,20 @@
             android:hardwareAccelerated="true"
             android:exported="false"
             />
+
+        <service
+            android:name=".AppUpdateFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".LiquidGlassSettingsActivity"
+            android:hardwareAccelerated="true"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar"
+            android:exported="false" />
 
 
         <activity android:name=".WebviewflightActivity"
@@ -664,8 +680,7 @@
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.flights.studio.fileprovider"
             android:exported="false"
-            android:grantUriPermissions="true"
-            android:permission="android.permission.MANAGE_EXTERNAL_STORAGE">
+            android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />

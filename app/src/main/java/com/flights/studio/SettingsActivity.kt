@@ -22,14 +22,10 @@ import androidx.core.content.edit
 import androidx.core.graphics.toColorInt
 import androidx.core.view.WindowCompat
 import androidx.preference.PreferenceManager
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import com.flights.studio.databinding.ActivityScrollingSettingsBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.snackbar.Snackbar
-import java.util.concurrent.TimeUnit
 
 @Suppress("DEPRECATION")
 class SettingsActivity : LocaleActivity() {
@@ -117,6 +113,11 @@ class SettingsActivity : LocaleActivity() {
                             onOpenAppIcon = {
                                 startActivityWithTransition(
                                     Intent(this@SettingsActivity, AppIconPickerActivity::class.java)
+                                )
+                            },
+                            onOpenLiquidGlass = {
+                                startActivityWithTransition(
+                                    Intent(this@SettingsActivity, LiquidGlassSettingsActivity::class.java)
                                 )
                             },
                             onOpenNotifications = {
@@ -314,18 +315,11 @@ Version: $versionName
 
 
     private fun scheduleUpdateCheckWorker() {
-        val workRequest = PeriodicWorkRequestBuilder<CheckForUpdatesWorker>(1, TimeUnit.DAYS)
-            .build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            UPDATE_WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            workRequest
-        )
+        AppUpdateCheckWorker.schedule(this)
     }
 
     private companion object {
         const val PREF_INSTALLATION_DATE = "installation_date"
-        const val UPDATE_WORK_NAME = "checkForUpdates"
         const val KEYBOARD_VISIBLE_THRESHOLD_PX = 300
     }
 
