@@ -57,7 +57,6 @@ jobs:
       - name: Restore release keystore
         env:
           KEYSTORE_HEX: ${{ secrets.KEYSTORE_HEX }}
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -66,23 +65,17 @@ jobs:
           mkdir -p "$(dirname "$KEYSTORE_FILE")"
           export KEYSTORE_FILE
           python3 - <<'PY'
-          import base64
           import binascii
           import os
           import pathlib
           import re
 
           hex_raw = os.environ.get("KEYSTORE_HEX", "")
-          if hex_raw.strip():
-              clean_hex = re.sub(r"[^0-9A-Fa-f]", "", hex_raw)
-              decoded = binascii.unhexlify(clean_hex)
-              print(f"Clean hex chars: {len(clean_hex)}")
-          else:
-              raw = os.environ["KEYSTORE_B64"]
-              clean = re.sub(r"[^A-Za-z0-9+/=]", "", raw)
-              clean += "=" * (-len(clean) % 4)
-              decoded = base64.b64decode(clean, validate=False)
-              print(f"Clean base64 chars: {len(clean)}")
+          if not hex_raw.strip():
+              raise SystemExit("KEYSTORE_HEX secret is required")
+          clean_hex = re.sub(r"[^0-9A-Fa-f]", "", hex_raw)
+          decoded = binascii.unhexlify(clean_hex)
+          print(f"Clean hex chars: {len(clean_hex)}")
 
           pathlib.Path(os.environ["KEYSTORE_FILE"]).write_bytes(decoded)
           print(f"Decoded keystore bytes: {len(decoded)}")
