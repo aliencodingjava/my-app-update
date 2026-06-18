@@ -56,26 +56,34 @@ jobs:
 
       - name: Restore release keystore
         env:
+          KEYSTORE_HEX: ${{ secrets.KEYSTORE_HEX }}
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          test -n "$KEYSTORE_B64"
           mkdir -p app/ci-signing
           python3 - <<'PY'
           import base64
+          import binascii
           import os
           import pathlib
           import re
 
-          raw = os.environ["KEYSTORE_B64"]
-          clean = re.sub(r"[^A-Za-z0-9+/=]", "", raw)
-          clean += "=" * (-len(clean) % 4)
-          decoded = base64.b64decode(clean, validate=False)
+          hex_raw = os.environ.get("KEYSTORE_HEX", "")
+          if hex_raw.strip():
+              clean_hex = re.sub(r"[^0-9A-Fa-f]", "", hex_raw)
+              decoded = binascii.unhexlify(clean_hex)
+              print(f"Clean hex chars: {len(clean_hex)}")
+          else:
+              raw = os.environ["KEYSTORE_B64"]
+              clean = re.sub(r"[^A-Za-z0-9+/=]", "", raw)
+              clean += "=" * (-len(clean) % 4)
+              decoded = base64.b64decode(clean, validate=False)
+              print(f"Clean base64 chars: {len(clean)}")
+
           pathlib.Path("app/ci-signing/release-key.jks").write_bytes(decoded)
           print(f"Decoded keystore bytes: {len(decoded)}")
-          print(f"Clean base64 chars: {len(clean)}")
           PY
           {
             echo "storeFile=app/ci-signing/release-key.jks"
