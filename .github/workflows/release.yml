@@ -62,7 +62,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          mkdir -p ci-signing
+          KEYSTORE_FILE="$GITHUB_WORKSPACE/ci-signing/release-key.jks"
+          mkdir -p "$(dirname "$KEYSTORE_FILE")"
+          export KEYSTORE_FILE
           python3 - <<'PY'
           import base64
           import binascii
@@ -82,20 +84,20 @@ jobs:
               decoded = base64.b64decode(clean, validate=False)
               print(f"Clean base64 chars: {len(clean)}")
 
-          pathlib.Path("ci-signing/release-key.jks").write_bytes(decoded)
+          pathlib.Path(os.environ["KEYSTORE_FILE"]).write_bytes(decoded)
           print(f"Decoded keystore bytes: {len(decoded)}")
           PY
           STORE_PASSWORD="$(printf '%s' "$KEYSTORE_PASSWORD" | tr -d '\r\n')"
           RELEASE_KEY_ALIAS="$(printf '%s' "$KEY_ALIAS" | tr -d '\r\n')"
           RELEASE_KEY_PASSWORD="$(printf '%s' "$KEY_PASSWORD" | tr -d '\r\n')"
           {
-            echo "storeFile=ci-signing/release-key.jks"
+            echo "storeFile=$KEYSTORE_FILE"
             echo "storePassword=$STORE_PASSWORD"
             echo "keyAlias=$RELEASE_KEY_ALIAS"
             echo "keyPassword=$RELEASE_KEY_PASSWORD"
           } > keystore.properties
           keytool -list \
-            -keystore ci-signing/release-key.jks \
+            -keystore "$KEYSTORE_FILE" \
             -storepass "$STORE_PASSWORD" \
             -alias "$RELEASE_KEY_ALIAS"
 
