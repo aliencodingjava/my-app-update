@@ -63,7 +63,18 @@ jobs:
         run: |
           test -n "$KEYSTORE_B64"
           mkdir -p app/ci-signing
-          echo "$KEYSTORE_B64" | base64 --decode > app/ci-signing/release-key.jks
+          python3 - <<'PY'
+          import base64
+          import os
+          import pathlib
+          import re
+
+          raw = os.environ["KEYSTORE_B64"]
+          clean = re.sub(r"[^A-Za-z0-9+/=]", "", raw)
+          pathlib.Path("app/ci-signing/release-key.jks").write_bytes(
+              base64.b64decode(clean, validate=False)
+          )
+          PY
           {
             echo "storeFile=app/ci-signing/release-key.jks"
             echo "storePassword=$KEYSTORE_PASSWORD"

@@ -1,4 +1,4 @@
-﻿# GitHub Linguist: exclude generated stuff from language stats
+# Exclude generated files from GitHub language stats.
 build/** linguist-generated
 app/build/** linguist-generated
 **/reports/** linguist-generated
