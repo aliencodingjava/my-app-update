@@ -72,9 +72,10 @@ jobs:
           raw = os.environ["KEYSTORE_B64"]
           clean = re.sub(r"[^A-Za-z0-9+/=]", "", raw)
           clean += "=" * (-len(clean) % 4)
-          pathlib.Path("app/ci-signing/release-key.jks").write_bytes(
-              base64.b64decode(clean, validate=False)
-          )
+          decoded = base64.b64decode(clean, validate=False)
+          pathlib.Path("app/ci-signing/release-key.jks").write_bytes(decoded)
+          print(f"Decoded keystore bytes: {len(decoded)}")
+          print(f"Clean base64 chars: {len(clean)}")
           PY
           {
             echo "storeFile=app/ci-signing/release-key.jks"
@@ -85,7 +86,7 @@ jobs:
           keytool -list \
             -keystore app/ci-signing/release-key.jks \
             -storepass "$KEYSTORE_PASSWORD" \
-            -alias "$KEY_ALIAS" >/dev/null
+            -alias "$KEY_ALIAS"
 
       - name: Apply release version
         run: python3 .github/scripts/set_android_version.py
