@@ -1763,6 +1763,10 @@ Version: $versionName
                 startActivity(Intent(this, AppIconPickerActivity::class.java))
                 overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
             },
+            onOpenLiquidGlass = {
+                startActivity(Intent(this, LiquidGlassSettingsActivity::class.java))
+                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+            },
             onOpenNotifications = {
                 SignUpBottomSheetDialogFragment().show(supportFragmentManager, "SignUpBottomSheet")
             },

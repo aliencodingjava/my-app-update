@@ -2,18 +2,17 @@ package com.flights.studio
 
 
 import android.content.ClipData
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedInputStream
+import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -27,6 +26,9 @@ data class DownloadProgress(
 )
 
 object AppUpdater {
+    private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
+    private const val UPDATE_APK_DIR = "update_apks"
+    private const val UPDATE_APK_NAME = "jac_update.apk"
 
     suspend fun getCurrentVersionCode(context: Context): Long = withContext(Dispatchers.Default) {
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -61,18 +63,13 @@ object AppUpdater {
             throw IOException("Invalid file length")
         }
 
-        val uri = createDownloadUri(context) ?: run {
-            connection.disconnect()
-            throw IOException("Failed to create download URI")
-        }
+        val apkFile = createPrivateUpdateFile(context)
 
         val startTime = System.currentTimeMillis()
         var total: Long = 0
 
         BufferedInputStream(connection.inputStream).use { input ->
-            context.contentResolver.openOutputStream(uri)?.buffered().use { output ->
-                if (output == null) throw IOException("Failed to open output stream")
-
+            apkFile.outputStream().buffered().use { output ->
                 val data = ByteArray(8 * 1024)
                 while (true) {
                     val count = input.read(data)
@@ -100,28 +97,34 @@ object AppUpdater {
         }
 
         connection.disconnect()
-        uri
+        uriForPrivateUpdate(context, apkFile)
     }
 
-    private fun createDownloadUri(context: Context): Uri? {
-        val values = ContentValues().apply {
-            put(MediaStore.Downloads.DISPLAY_NAME, "update_${System.currentTimeMillis()}.apk")
-            put(MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-            }
-        }
+    fun cleanupUpdateApks(context: Context) {
+        updateApkDir(context).deleteRecursively()
+    }
 
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-        } else {
-            @Suppress("DEPRECATION")
-            context.contentResolver.insert(MediaStore.Files.getContentUri("external"), values)
-        }
+    private fun createPrivateUpdateFile(context: Context): File {
+        val dir = updateApkDir(context)
+        dir.deleteRecursively()
+        dir.mkdirs()
+        return File(dir, UPDATE_APK_NAME)
+    }
+
+    private fun updateApkDir(context: Context): File {
+        return File(context.cacheDir, UPDATE_APK_DIR)
+    }
+
+    private fun uriForPrivateUpdate(context: Context, file: File): Uri {
+        return FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
     }
 
     fun installApk(context: Context, fileUri: Uri) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA &&
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !context.packageManager.canRequestPackageInstalls()
         ) {
             val settingsIntent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
@@ -132,7 +135,7 @@ object AppUpdater {
         }
 
         val installIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(fileUri, "application/vnd.android.package-archive")
+            setDataAndType(fileUri, APK_MIME_TYPE)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             clipData = ClipData.newUri(context.contentResolver, "APK", fileUri)

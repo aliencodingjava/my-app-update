@@ -479,6 +479,12 @@ Track flights, save notes, manage contacts, and watch aviation videos — all in
     <string name="settings_changelog_title">Changelog</string>
     <string name="settings_app_icon_title">App Icon</string>
     <string name="settings_app_icon_summary">Choose the icon shown on your device.</string>
+    <string name="settings_liquid_glass_title">Liquid Glass</string>
+    <string name="settings_liquid_glass_summary">Adjust the bottom tabs from clear to tinted.</string>
+    <string name="liquid_glass_clear">Clear</string>
+    <string name="liquid_glass_tinted">Tinted</string>
+    <string name="liquid_glass_preview_title">Liquid Glass</string>
+    <string name="liquid_glass_preview_summary">Slide left for clearer glass, right for a richer tint.</string>
     <string name="settings_messages_storage_title">Briefing Storage</string>
     <string name="settings_messages_storage_summary">Open Briefing storage and cache tools.</string>
     <string name="settings_language_title">Language</string>

@@ -22,9 +22,13 @@ object SettingsStore {
     private const val KEY_BRIEFING_WEATHER_ENABLED = "briefing_weather_enabled"
     private const val KEY_MAIN_PAGE_KEEP_AWAKE = "main_page_keep_awake"
     private const val KEY_LIVE_CAMERAS_KEEP_AWAKE = "live_cameras_keep_awake"
+    const val KEY_LIQUID_GLASS_TINT = "liquid_glass_tint"
+    const val KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE = "liquid_glass_adaptive_luminance"
 
     const val DEFAULT_WEB_THEME = "auto"
     const val DEFAULT_TEXT_ZOOM = 90
+    const val DEFAULT_LIQUID_GLASS_TINT = 0.50f
+    const val DEFAULT_LIQUID_GLASS_ADAPTIVE_LUMINANCE = true
 
     fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
@@ -112,4 +116,19 @@ object SettingsStore {
 
     fun setLiveCamerasKeepAwake(context: Context, value: Boolean) =
         prefs(context).edit { putBoolean(KEY_LIVE_CAMERAS_KEEP_AWAKE, value) }
+
+    fun liquidGlassTint(context: Context) =
+        prefs(context).getFloat(KEY_LIQUID_GLASS_TINT, DEFAULT_LIQUID_GLASS_TINT).coerceIn(0f, 1f)
+
+    fun setLiquidGlassTint(context: Context, value: Float) =
+        prefs(context).edit { putFloat(KEY_LIQUID_GLASS_TINT, value.coerceIn(0f, 1f)) }
+
+    fun liquidGlassAdaptiveLuminance(context: Context) =
+        prefs(context).getBoolean(
+            KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE,
+            DEFAULT_LIQUID_GLASS_ADAPTIVE_LUMINANCE
+        )
+
+    fun setLiquidGlassAdaptiveLuminance(context: Context, value: Boolean) =
+        prefs(context).edit { putBoolean(KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE, value) }
 }

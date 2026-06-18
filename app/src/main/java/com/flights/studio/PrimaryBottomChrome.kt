@@ -59,6 +59,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -78,11 +79,13 @@ import coil.request.ImageRequest
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.util.lerp
 
 enum class PrimaryTabDestination {
     Home,
@@ -166,6 +169,39 @@ private fun PrimaryQuickTabBar(
 ) {
     val glassColor = bottomTabBarTint()
     val overlayTint = bottomTabBarOverlayTint()
+    val liquidGlassTintAmount = rememberLiquidGlassTintAmount()
+    val adaptiveEnabled = rememberLiquidGlassAdaptiveLuminanceEnabled()
+    val backdropBlurDp = bottomChromeBackdropBlurDp()
+    val nativeBlurPx = bottomChromeNativeBlurPx()
+    val adaptive = rememberAdaptiveLuminance(
+        enabled = adaptiveEnabled,
+        lightOnBright = Color(0xFF101318),
+        lightOnDark = Color.White,
+        animationMillis = 80,
+        sampleEveryMs = 45L
+    )
+    val adaptiveContentColor = adaptive.contentColor
+    val adaptiveOffset = adaptiveLuminanceOffset(adaptive.luminance)
+    val adaptiveEffectStrength = if (adaptiveEnabled) liquidGlassTintAmount else 0f
+    val adaptiveSurfaceStrength = if (adaptiveEnabled) {
+        lerp(0.45f, 1f, liquidGlassTintAmount)
+    } else {
+        0f
+    }
+    val adaptiveSurfaceTint = adaptiveSurfaceTint(
+        luminance = adaptive.luminance,
+        strength = adaptiveSurfaceStrength
+    )
+    val adaptiveContentBlend = if (adaptiveEnabled) {
+        lerp(0.18f, if (isSystemInDarkTheme()) 0.56f else 0.68f, liquidGlassTintAmount)
+    } else {
+        0f
+    }
+    val adaptiveSelectedContentColor = lerpColor(
+        bottomTabSelectedContentColor(),
+        adaptiveContentColor,
+        adaptiveContentBlend
+    )
     var draggedTabIndex by remember { mutableStateOf<Int?>(null) }
     val pageTabActions = remember(onOpenHome, onOpenContacts, onOpenNotes, onOpenSettings) {
         listOf(onOpenHome, onOpenContacts, onOpenNotes, onOpenSettings)
@@ -184,8 +220,30 @@ private fun PrimaryQuickTabBar(
                 shadow = { bottomChromeShadow() },
                 highlight = null,
                 effects = {
+                    if (adaptiveEffectStrength > 0.001f) {
+                        val adaptiveBrightness = adaptiveLuminanceBrightness(adaptiveOffset)
+                        val adaptiveContrast = adaptiveLuminanceContrast(adaptiveOffset)
+                        colorControls(
+                            brightness = adaptiveBrightness * adaptiveEffectStrength,
+                            contrast = lerp(1f, adaptiveContrast, adaptiveEffectStrength),
+                            saturation = lerp(1f, 1.5f, adaptiveEffectStrength)
+                        )
+                    }
                     vibrancy()
-                    blur(GlassChromeBackdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
+                    blur(
+                        radius = if (adaptiveEffectStrength > 0.001f) {
+                            val baseBlurPx = backdropBlurDp.dp.toPx()
+                            val adaptiveBlurPx = adaptiveLuminanceBlurPx(
+                                offset = adaptiveOffset,
+                                baseBlurPx = baseBlurPx,
+                                dpToPx = { it.dp.toPx() }
+                            )
+                            lerp(baseBlurPx, adaptiveBlurPx, adaptiveEffectStrength)
+                        } else {
+                            backdropBlurDp.dp.toPx()
+                        },
+                        edgeTreatment = TileMode.Mirror
+                    )
                     lens(
                         refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
                         refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
@@ -193,7 +251,18 @@ private fun PrimaryQuickTabBar(
                         chromaticAberration = false
                     )
                 },
-                onDrawSurface = { drawRect(glassColor) }
+                onDrawBackdrop = { drawBackdrop ->
+                    drawBackdrop()
+                    adaptive.layer.record {
+                        drawBackdrop()
+                    }
+                },
+                onDrawSurface = {
+                    drawRect(glassColor)
+                    if (adaptiveSurfaceStrength > 0f) {
+                        drawRect(adaptiveSurfaceTint)
+                    }
+                }
             )
             .background(
                 color = overlayTint,
@@ -208,11 +277,18 @@ private fun PrimaryQuickTabBar(
                 it.scrimColor = glassColor.toArgb()
                 it.cornerRadiusPx = it.resources.displayMetrics.density * 28f
                 it.useLiquidRefraction = true
-                it.blurRadiusPx = GlassChromeNativeBlurPx
+                it.blurRadiusPx = nativeBlurPx
                 it.saturation = 1.18f
                 it.refractIntensity = GlassChromeNativeRefractionIntensity
             }
         )
+        if (adaptiveSurfaceStrength > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(adaptiveSurfaceTint, GlassChromeShape)
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -241,33 +317,63 @@ private fun PrimaryQuickTabBar(
                 label = stringResource(R.string.Home),
                 icon = Icons.Filled.Home,
                 selected = draggedTabIndex == 0 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Home),
+                adaptiveContentColor = adaptiveContentColor,
+                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
+                adaptiveContentBlend = adaptiveContentBlend,
                 onClick = onOpenHome
             )
             PrimaryQuickTab(
                 label = stringResource(R.string.chat_bottom_tab),
                 icon = Icons.Filled.Info,
                 selected = selectedTab == PrimaryTabDestination.Briefing,
+                adaptiveContentColor = adaptiveContentColor,
+                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
+                adaptiveContentBlend = adaptiveContentBlend,
                 onClick = onOpenContacts
             )
             PrimaryQuickTab(
                 label = stringResource(R.string.contacts_bottom_notes),
                 icon = Icons.AutoMirrored.Filled.Article,
                 selected = draggedTabIndex == 2 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Notes),
+                adaptiveContentColor = adaptiveContentColor,
+                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
+                adaptiveContentBlend = adaptiveContentBlend,
                 onClick = onOpenNotes
             )
             PrimaryQuickTab(
                 label = stringResource(R.string.menu_settings),
                 icon = Icons.Filled.Settings,
                 selected = draggedTabIndex == 3 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Settings),
+                adaptiveContentColor = adaptiveContentColor,
+                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
+                adaptiveContentBlend = adaptiveContentBlend,
                 onClick = onOpenSettings
             )
             PrimaryQuickTab(
                 label = stringResource(R.string.settings_menu_tab),
                 icon = menuIcon,
                 selected = false,
+                adaptiveContentColor = adaptiveContentColor,
+                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
+                adaptiveContentBlend = adaptiveContentBlend,
                 onClick = onOpenMenu
             )
         }
+    }
+}
+
+private fun adaptiveSurfaceTint(
+    luminance: Float,
+    strength: Float
+): Color {
+    if (strength <= 0f) return Color.Transparent
+    val normalized = luminance.coerceIn(0f, 1f)
+    val contrastDistance = kotlin.math.abs(normalized - 0.5f) * 2f
+    val alpha = lerp(0.10f, 0.30f, contrastDistance) * strength.coerceIn(0f, 1f)
+    return if (normalized > 0.5f) {
+        Color.Black.copy(alpha = alpha)
+    } else {
+        Color.White.copy(alpha = alpha)
     }
 }
 
@@ -276,10 +382,13 @@ private fun RowScope.PrimaryQuickTab(
     label: String,
     icon: ImageVector,
     selected: Boolean,
+    adaptiveContentColor: Color,
+    adaptiveSelectedContentColor: Color,
+    adaptiveContentBlend: Float,
     onClick: () -> Unit
 ) {
-    val inactiveColor = bottomTabInactiveColor()
-    val selectedContentColor = primaryTabAccentColor()
+    val inactiveColor = lerpColor(bottomTabInactiveColor(), adaptiveContentColor, adaptiveContentBlend)
+    val selectedContentColor = adaptiveSelectedContentColor
     val selectedPillColor = bottomTabSelectedPillColor()
     val pressSource = remember { MutableInteractionSource() }
     val isPressed by pressSource.collectIsPressedAsState()
@@ -288,17 +397,16 @@ private fun RowScope.PrimaryQuickTab(
         animationSpec = tween(durationMillis = if (selected) 180 else 120, easing = FastOutSlowInEasing),
         label = "primaryTabPillAlpha"
     )
-    val pillScale by animateFloatAsState(
-        targetValue = if (selected) 1f else 0.84f,
-        animationSpec = spring(dampingRatio = 0.78f, stiffness = 520f),
-        label = "primaryTabPillScale"
+    val pressScaleX by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = 0.62f, stiffness = 720f),
+        label = "primaryTabPressScaleX"
     )
-    val contentScale by animateFloatAsState(
-        targetValue = if (selected) 1f else 0.94f,
-        animationSpec = spring(dampingRatio = 0.82f, stiffness = 620f),
-        label = "primaryTabContentScale"
+    val pressScaleY by animateFloatAsState(
+        targetValue = if (isPressed) 1.08f else 1f,
+        animationSpec = spring(dampingRatio = 0.62f, stiffness = 720f),
+        label = "primaryTabPressScaleY"
     )
-
     val pressAlpha by animateFloatAsState(
         targetValue = if (isPressed && !selected) 0.10f else 0f,
         animationSpec = tween(90),
@@ -309,6 +417,10 @@ private fun RowScope.PrimaryQuickTab(
         modifier = Modifier
             .weight(1f)
             .height(48.dp)
+            .graphicsLayer {
+                scaleX = pressScaleX
+                scaleY = pressScaleY
+            }
             .clip(GlassChromeInnerShape)
             .clickable(
                 interactionSource = pressSource,
@@ -322,8 +434,6 @@ private fun RowScope.PrimaryQuickTab(
                 .fillMaxSize()
                 .graphicsLayer {
                     alpha = pillAlpha
-                    scaleX = pillScale
-                    scaleY = pillScale
                 }
                 .background(selectedPillColor, GlassChromeInnerShape)
         )
@@ -340,11 +450,7 @@ private fun RowScope.PrimaryQuickTab(
         )
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = contentScale
-                    scaleY = contentScale
-                },
+                .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -382,6 +488,8 @@ private fun PrimaryMenuSheet(
     val isDark = isSystemInDarkTheme()
     val panelColor = bottomTabBarTint()
     val overlayTint = bottomTabBarOverlayTint()
+    val backdropBlurDp = bottomChromeBackdropBlurDp()
+    val nativeBlurPx = bottomChromeNativeBlurPx()
     val textColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
     val iconColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
     val buttonColor = bottomTabSelectedPillColor()
@@ -445,7 +553,7 @@ private fun PrimaryMenuSheet(
                     highlight = null,
                     effects = {
                         vibrancy()
-                        blur(GlassChromeBackdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
+                        blur(backdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
                         lens(
                             refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
                             refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
@@ -465,7 +573,7 @@ private fun PrimaryMenuSheet(
                     it.scrimColor = panelColor.toArgb()
                     it.cornerRadiusPx = it.resources.displayMetrics.density * 28f
                     it.useLiquidRefraction = true
-                    it.blurRadiusPx = GlassChromeNativeBlurPx
+                    it.blurRadiusPx = nativeBlurPx
                     it.saturation = 1.18f
                     it.refractIntensity = GlassChromeNativeRefractionIntensity
                 }

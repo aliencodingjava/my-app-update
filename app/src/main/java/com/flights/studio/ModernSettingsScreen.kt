@@ -165,6 +165,7 @@ fun ModernSettingsScreen(
     onOpenHome: () -> Unit,
     onOpenSoftwareUpdate: () -> Unit,
     onOpenAppIcon: () -> Unit,
+    onOpenLiquidGlass: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenRateUs: () -> Unit,
     onOpenCardDrawer: (String) -> Unit,
@@ -257,6 +258,12 @@ fun ModernSettingsScreen(
                     summary = stringResource(R.string.settings_app_icon_summary),
                     icon = Icons.Filled.Palette,
                     onClick = onOpenAppIcon
+                ),
+                SettingsEntry(
+                    title = stringResource(R.string.settings_liquid_glass_title),
+                    summary = stringResource(R.string.settings_liquid_glass_summary),
+                    icon = Icons.Filled.ColorLens,
+                    onClick = onOpenLiquidGlass
                 )
             )
         ),
@@ -596,6 +603,7 @@ private fun SettingsQuickTabBar(
 ) {
     val glassColor = bottomTabBarTint()
     val overlayTint = bottomTabBarOverlayTint()
+    val backdropBlurDp = bottomChromeBackdropBlurDp()
     Box(
         modifier = modifier
             .padding(horizontal = GlassChromeHorizontalPadding)
@@ -610,7 +618,7 @@ private fun SettingsQuickTabBar(
                 highlight = null,
                 effects = {
                     vibrancy()
-                    blur(GlassChromeBackdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
+                    blur(backdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
                     lens(
                         refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
                         refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
@@ -674,7 +682,7 @@ private fun RowScope.SettingsQuickTab(
     onClick: () -> Unit
 ) {
     val inactiveColor = bottomTabInactiveColor()
-    val selectedContentColor = primaryTabAccentColor()
+    val selectedContentColor = bottomTabSelectedContentColor()
     val selectedPillColor = bottomTabSelectedPillColor()
     val pillAlpha by animateFloatAsState(
         targetValue = if (selected) 1f else 0f,
