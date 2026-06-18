@@ -85,16 +85,19 @@ jobs:
           pathlib.Path("app/ci-signing/release-key.jks").write_bytes(decoded)
           print(f"Decoded keystore bytes: {len(decoded)}")
           PY
+          STORE_PASSWORD="$(printf '%s' "$KEYSTORE_PASSWORD" | tr -d '\r\n')"
+          RELEASE_KEY_ALIAS="$(printf '%s' "$KEY_ALIAS" | tr -d '\r\n')"
+          RELEASE_KEY_PASSWORD="$(printf '%s' "$KEY_PASSWORD" | tr -d '\r\n')"
           {
             echo "storeFile=app/ci-signing/release-key.jks"
-            echo "storePassword=$KEYSTORE_PASSWORD"
-            echo "keyAlias=$KEY_ALIAS"
-            echo "keyPassword=$KEY_PASSWORD"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$RELEASE_KEY_ALIAS"
+            echo "keyPassword=$RELEASE_KEY_PASSWORD"
           } > keystore.properties
           keytool -list \
             -keystore app/ci-signing/release-key.jks \
-            -storepass "$KEYSTORE_PASSWORD" \
-            -alias "$KEY_ALIAS"
+            -storepass "$STORE_PASSWORD" \
+            -alias "$RELEASE_KEY_ALIAS"
 
       - name: Apply release version
         run: python3 .github/scripts/set_android_version.py
