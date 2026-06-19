@@ -108,6 +108,20 @@ jobs:
             -storepass "$STORE_PASSWORD" \
             -alias "$RELEASE_KEY_ALIAS"
 
+      - name: Restore Supabase config
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL and SUPABASE_ANON_KEY repository secrets are required for release login/profile access."
+            exit 1
+          fi
+          {
+            printf 'SUPABASE_URL=%s\n' "$SUPABASE_URL"
+            printf 'SUPABASE_ANON_KEY=%s\n' "$SUPABASE_ANON_KEY"
+          } > local.properties
+
       - name: Apply release version
         run: python3 .github/scripts/set_android_version.py
 

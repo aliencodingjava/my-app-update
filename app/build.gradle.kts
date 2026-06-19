@@ -19,8 +19,20 @@ val props = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
-val supabaseUrl: String? = props.getProperty("SUPABASE_URL", "")
-val supabaseAnonKey: String? = props.getProperty("SUPABASE_ANON_KEY", "")
+fun buildConfigString(value: String): String {
+    return "\"" + value
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r") + "\""
+}
+
+val supabaseUrl: String = props.getProperty("SUPABASE_URL")
+    ?: System.getenv("SUPABASE_URL")
+    ?: ""
+val supabaseAnonKey: String = props.getProperty("SUPABASE_ANON_KEY")
+    ?: System.getenv("SUPABASE_ANON_KEY")
+    ?: ""
 
 
 
@@ -86,8 +98,8 @@ android {
         buildConfigField("String", "RELEASE_DATE", "\"Jun-17-2026\"")
 
         // ✅ from local.properties
-        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "SUPABASE_URL", buildConfigString(supabaseUrl))
+        buildConfigField("String", "SUPABASE_ANON_KEY", buildConfigString(supabaseAnonKey))
 
         signingConfig = signingConfigs.getByName("release")
     }
