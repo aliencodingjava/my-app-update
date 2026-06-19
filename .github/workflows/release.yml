@@ -54,6 +54,20 @@ jobs:
           java-version: "21"
           cache: gradle
 
+      - name: Check release version is unused
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${VERSION_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists. Use a higher versionCode/versionName."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists. Use a higher versionCode/versionName."
+            exit 1
+          fi
+
       - name: Restore release keystore
         env:
           KEYSTORE_HEX: ${{ secrets.KEYSTORE_HEX }}
@@ -111,14 +125,14 @@ jobs:
           echo "apk_url=https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION_NAME}/${APK_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: v${{ inputs.version_name }}
-          name: JAC Air Tracker ${{ inputs.version_name }}
-          body: ${{ inputs.update_body }}
-          files: ${{ steps.artifact.outputs.apk_name }}
-          draft: false
-          prerelease: false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${VERSION_NAME}" \
+            "${{ steps.artifact.outputs.apk_name }}" \
+            --target "$GITHUB_SHA" \
+            --title "JAC Air Tracker ${VERSION_NAME}" \
+            --notes "$UPDATE_BODY"
 
       - name: Update app update Gist
         env:
