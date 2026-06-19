@@ -230,7 +230,13 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
         }
     }
     val dropOvershoot = (enterProgress - 1f).coerceAtLeast(0f)
-    val buttonOffsetY = lerp(initialOffsetY.value, targetOffsetY.value, enterProgress).dp
+    val buttonDropProgress = safeEnterProgress +
+            (enterProgress - safeEnterProgress) * 0.42f
+    val buttonOffsetY = lerp(
+        initialOffsetY.value,
+        targetOffsetY.value,
+        buttonDropProgress
+    ).dp
     val heroManualProgress by remember {
         derivedStateOf {
             liquidProgress(heroDragAnimation.value)
@@ -238,8 +244,8 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
     }
     val heroGlassProgress =
         1f +
-                0.55f * sin((enterProgress.coerceIn(0f, 1f) * PI).toFloat()) +
-                dropOvershoot +
+                0.34f * sin((safeEnterProgress * PI).toFloat()) +
+                0.38f * dropOvershoot +
                 heroManualProgress
     val heroDragModifier = Modifier.draggable(
         orientation = Orientation.Vertical,
@@ -313,14 +319,14 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
         launch {
             safeEnterProgressAnimation.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 1280, easing = FastOutSlowInEasing)
             )
         }
         enterProgressAnimation.animateTo(
             targetValue = 1f,
             animationSpec = spring(
-                dampingRatio = 0.62f,
-                stiffness = 24f
+                dampingRatio = 0.86f,
+                stiffness = 18f
             )
         )
 
@@ -339,8 +345,8 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
                     .fillMaxWidth()
                     .graphicsLayer {
                         alpha = safeEnterProgress
-                        scaleX = buttonScale / (1f + 0.10f * dropOvershoot)
-                        scaleY = buttonScale * (1f + 0.10f * dropOvershoot)
+                        scaleX = buttonScale / (1f + 0.045f * dropOvershoot)
+                        scaleY = buttonScale * (1f + 0.045f * dropOvershoot)
                         transformOrigin = TransformOrigin(0.5f, 0.5f)
                     },
                 backdrop = backdrop,

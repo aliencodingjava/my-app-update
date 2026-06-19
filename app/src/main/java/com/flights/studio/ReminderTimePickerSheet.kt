@@ -178,28 +178,21 @@ fun ReminderTimePickerSheet(
                         indication = null,
                         onClick = {}
                     )
-                    .drawBackdrop(
+                    .adaptiveLiquidGlassBackdrop(
                         backdrop = backdrop,
-                        shape = { GlassChromeShape },
+                        shape = GlassChromeShape,
+                        surfaceColor = panelColor,
+                        blurDp = 4f,
                         shadow = null,
-                        highlight = null,
-                        effects = {
-                            vibrancy()
-                            blur(4.dp.toPx())
-                            lens(
-                                refractionHeight = 22.dp.toPx(),
-                                refractionAmount = 72.dp.toPx(),
-                                depthEffect = false,
-                                chromaticAberration = true
-                            )
-                        },
-                        onDrawSurface = {
+                        refractionHeightDp = 22f,
+                        refractionAmountDp = 72f,
+                        chromaticAberration = true,
+                        onDrawExtraSurface = {
                             val glowColor = when (status) {
                                 ReminderTimeStatus.Success -> successColor.copy(alpha = if (isDark) 0.22f else 0.16f)
                                 ReminderTimeStatus.Error -> errorColor.copy(alpha = if (isDark) 0.12f else 0.08f)
                                 ReminderTimeStatus.Idle -> Color.Transparent
                             }
-                            drawRect(panelColor)
                             drawRect(glowColor)
                         }
                     )
@@ -506,22 +499,15 @@ fun ReminderDetailsSheet(
                         indication = null,
                         onClick = {}
                     )
-                    .drawBackdrop(
+                    .adaptiveLiquidGlassBackdrop(
                         backdrop = backdrop,
-                        shape = { GlassChromeShape },
+                        shape = GlassChromeShape,
+                        surfaceColor = panelColor,
+                        blurDp = 4f,
                         shadow = null,
-                        highlight = null,
-                        effects = {
-                            vibrancy()
-                            blur(4.dp.toPx())
-                            lens(
-                                refractionHeight = 22.dp.toPx(),
-                                refractionAmount = 72.dp.toPx(),
-                                depthEffect = false,
-                                chromaticAberration = true
-                            )
-                        },
-                        onDrawSurface = { drawRect(panelColor) }
+                        refractionHeightDp = 22f,
+                        refractionAmountDp = 72f,
+                        chromaticAberration = true
                     )
             ) {
                 Column(

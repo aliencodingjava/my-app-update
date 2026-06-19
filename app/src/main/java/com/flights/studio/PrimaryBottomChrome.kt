@@ -176,15 +176,17 @@ private fun PrimaryQuickTabBar(
     val adaptive = rememberAdaptiveLuminance(
         enabled = adaptiveEnabled,
         lightOnBright = Color(0xFF101318),
-        lightOnDark = Color.White,
-        animationMillis = 80,
-        sampleEveryMs = 45L
+        lightOnDark = Color.White
     )
     val adaptiveContentColor = adaptive.contentColor
     val adaptiveOffset = adaptiveLuminanceOffset(adaptive.luminance)
-    val adaptiveEffectStrength = if (adaptiveEnabled) liquidGlassTintAmount else 0f
+    val adaptiveEffectStrength = if (adaptiveEnabled) {
+        adaptiveLuminanceEffectStrength(liquidGlassTintAmount)
+    } else {
+        0f
+    }
     val adaptiveSurfaceStrength = if (adaptiveEnabled) {
-        lerp(0.45f, 1f, liquidGlassTintAmount)
+        lerp(0.45f, 1f, adaptiveEffectStrength)
     } else {
         0f
     }
@@ -193,7 +195,7 @@ private fun PrimaryQuickTabBar(
         strength = adaptiveSurfaceStrength
     )
     val adaptiveContentBlend = if (adaptiveEnabled) {
-        lerp(0.18f, if (isSystemInDarkTheme()) 0.56f else 0.68f, liquidGlassTintAmount)
+        lerp(0.18f, if (isSystemInDarkTheme()) 0.56f else 0.68f, adaptiveEffectStrength)
     } else {
         0f
     }
@@ -359,21 +361,6 @@ private fun PrimaryQuickTabBar(
                 onClick = onOpenMenu
             )
         }
-    }
-}
-
-private fun adaptiveSurfaceTint(
-    luminance: Float,
-    strength: Float
-): Color {
-    if (strength <= 0f) return Color.Transparent
-    val normalized = luminance.coerceIn(0f, 1f)
-    val contrastDistance = kotlin.math.abs(normalized - 0.5f) * 2f
-    val alpha = lerp(0.10f, 0.30f, contrastDistance) * strength.coerceIn(0f, 1f)
-    return if (normalized > 0.5f) {
-        Color.Black.copy(alpha = alpha)
-    } else {
-        Color.White.copy(alpha = alpha)
     }
 }
 
@@ -546,22 +533,14 @@ private fun PrimaryMenuSheet(
                     indication = null,
                     onClick = {}
                 )
-                .drawBackdrop(
+                .adaptiveLiquidGlassBackdrop(
                     backdrop = backdrop,
-                    shape = { GlassChromeShape },
+                    shape = GlassChromeShape,
+                    surfaceColor = panelColor,
+                    blurDp = backdropBlurDp,
                     shadow = null,
-                    highlight = null,
-                    effects = {
-                        vibrancy()
-                        blur(backdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
-                        lens(
-                            refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
-                            refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
-                            depthEffect = false,
-                            chromaticAberration = false
-                        )
-                    },
-                    onDrawSurface = { drawRect(panelColor) }
+                    refractionHeightDp = GlassChromeRefractionHeightDp,
+                    refractionAmountDp = GlassChromeRefractionAmountDp
                 )
                 .background(overlayTint, GlassChromeShape)
         ) {

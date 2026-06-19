@@ -42,9 +42,9 @@ fun rememberAdaptiveLuminance(
     initialLuminance: Float = if (isSystemInDarkTheme()) 0f else 1f,
     lightOnBright: Color = Color.Black,
     lightOnDark: Color = Color.White,
-    animationMillis: Int = 90,
+    animationMillis: Int = 70,
     sampleSize: Int = 5,            // Kyant uses 5x5
-    sampleEveryMs: Long = 45L       // fast enough to follow swipes without hammering GPU
+    sampleEveryMs: Long = 32L       // follows tab/content changes without hammering GPU
 ): AdaptiveLuminanceState {
     val isLightTheme = !isSystemInDarkTheme()
 
@@ -114,7 +114,7 @@ fun rememberAdaptiveLuminance(
 
             // 3) Animate (Kyant animates luminance + content color)
             // Avoid restarting an expensive animation if basically unchanged.
-            if (abs(avg - luminanceAnim.value) > 0.01f) {
+            if (abs(avg - luminanceAnim.value) > 0.006f) {
                 // content color can animate in parallel like Kyant's demo
                 launch {
                     targetContentColor.value = if (avg > 0.5f) lightOnBright else lightOnDark

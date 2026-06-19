@@ -28,7 +28,7 @@ object SettingsStore {
     const val DEFAULT_WEB_THEME = "auto"
     const val DEFAULT_TEXT_ZOOM = 90
     const val DEFAULT_LIQUID_GLASS_TINT = 0.50f
-    const val DEFAULT_LIQUID_GLASS_ADAPTIVE_LUMINANCE = true
+    const val DEFAULT_LIQUID_GLASS_ADAPTIVE_LUMINANCE = false
 
     fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE)

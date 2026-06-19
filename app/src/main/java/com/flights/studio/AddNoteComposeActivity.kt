@@ -1047,22 +1047,14 @@ private fun AddNoteFloatingToolsBar(
             .height(56.dp)
             .shadow(GlassChromeShadowElevation, GlassChromeShape, clip = false)
             .clip(GlassChromeShape)
-            .drawBackdrop(
+            .adaptiveLiquidGlassBackdrop(
                 backdrop = backdrop,
-                shape = { GlassChromeShape },
+                shape = GlassChromeShape,
+                surfaceColor = glassColor,
+                blurDp = backdropBlurDp,
                 shadow = { bottomChromeShadow() },
-                highlight = null,
-                effects = {
-                    vibrancy()
-                    backdropBlur(backdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
-                    lens(
-                        refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
-                        refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
-                        depthEffect = false,
-                        chromaticAberration = false
-                    )
-                },
-                onDrawSurface = { drawRect(glassColor) }
+                refractionHeightDp = GlassChromeRefractionHeightDp,
+                refractionAmountDp = GlassChromeRefractionAmountDp
             )
             .background(overlayTint, GlassChromeShape)
     ) {
@@ -2386,27 +2378,19 @@ private fun AddNoteScreen(
 
                         Box(
                             modifier = Modifier
-                                .height(42.dp)
-                                .shadow(0.1.dp, saveShape, clip = false)
-                                .clip(saveShape)
-                                .drawBackdrop(
-                                    backdrop = pageBackdrop,
-                                    shape = { saveShape },
-                                    shadow = { bottomChromeShadow() },
-                                    highlight = null,
-                                    effects = {
-                                        vibrancy()
-                                        backdropBlur(backdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
-                                        lens(
-                                            refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
-                                            refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
-                                            depthEffect = false,
-                                            chromaticAberration = false
-                                        )
-                                    },
-                                    onDrawSurface = { drawRect(glassColor) }
-                                )
-                                .background(overlayTint, saveShape)
+            .height(42.dp)
+            .shadow(0.1.dp, saveShape, clip = false)
+            .clip(saveShape)
+            .adaptiveLiquidGlassBackdrop(
+                backdrop = pageBackdrop,
+                shape = saveShape,
+                surfaceColor = glassColor,
+                blurDp = backdropBlurDp,
+                shadow = { bottomChromeShadow() },
+                refractionHeightDp = GlassChromeRefractionHeightDp,
+                refractionAmountDp = GlassChromeRefractionAmountDp
+            )
+            .background(overlayTint, saveShape)
                                 .then(
                                     if (aiActive && canSave) {
                                         Modifier.background(
@@ -3820,25 +3804,14 @@ private fun AddNoteScreen(
                                     indication = null,
                                     onClick = {}
                                 )
-                                .drawBackdrop(
+                                .adaptiveLiquidGlassBackdrop(
                                     backdrop = noteToolsBackdrop,
-                                    shape = { sheetShape },
+                                    shape = sheetShape,
+                                    surfaceColor = panelColor,
+                                    blurDp = sheetBackdropBlurDp,
                                     shadow = null,
-                                    highlight = null,
-                                    effects = {
-                                        vibrancy()
-                                        backdropBlur(
-                                            sheetBackdropBlurDp.dp.toPx(),
-                                            edgeTreatment = TileMode.Mirror
-                                        )
-                                        lens(
-                                            refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
-                                            refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
-                                            depthEffect = false,
-                                            chromaticAberration = false
-                                        )
-                                    },
-                                    onDrawSurface = { drawRect(panelColor) }
+                                    refractionHeightDp = GlassChromeRefractionHeightDp,
+                                    refractionAmountDp = GlassChromeRefractionAmountDp
                                 )
                                 .background(overlayTint, sheetShape),
                             shape = sheetShape,
@@ -4141,25 +4114,14 @@ private fun AddNoteScreen(
                                         indication = null,
                                         onClick = {}
                                     )
-                                    .drawBackdrop(
+                                    .adaptiveLiquidGlassBackdrop(
                                         backdrop = noteToolsBackdrop,
-                                        shape = { sheetShape },
+                                        shape = sheetShape,
+                                        surfaceColor = panelColor,
+                                        blurDp = sheetBackdropBlurDp,
                                         shadow = null,
-                                        highlight = null,
-                                        effects = {
-                                            vibrancy()
-                                            backdropBlur(
-                                                sheetBackdropBlurDp.dp.toPx(),
-                                                edgeTreatment = TileMode.Mirror
-                                            )
-                                            lens(
-                                                refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
-                                                refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
-                                                depthEffect = false,
-                                                chromaticAberration = false
-                                            )
-                                        },
-                                        onDrawSurface = { drawRect(panelColor) }
+                                        refractionHeightDp = GlassChromeRefractionHeightDp,
+                                        refractionAmountDp = GlassChromeRefractionAmountDp
                                     )
                                     .background(overlayTint, sheetShape),
                                 shape = sheetShape,

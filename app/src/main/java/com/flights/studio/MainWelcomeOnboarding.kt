@@ -242,7 +242,10 @@ private fun MainWelcomeCard(
 @Composable
 private fun MainHighlightsGrid(modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(18.dp)
+    val surfaceColor = if (isDark) Color(0xFF232425) else Color(0xFFFEFEFE)
+    val borderColor = if (isDark) Color(0xFF333538) else Color(0xFFE3E3E4)
     val items = listOf(
         MainFeature("Live cams", R.drawable.fullscreen_24dp_46152f_fill1_wght400_grad0_opsz24),
         MainFeature("Play", R.drawable.play_arrow_24dp_ffffff_fill1_wght400_grad0_opsz24),
@@ -262,15 +265,8 @@ private fun MainHighlightsGrid(modifier: Modifier = Modifier) {
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        cs.surfaceVariant.copy(alpha = 0.46f),
-                        cs.surface.copy(alpha = 0.26f)
-                    )
-                )
-            )
-            .border(1.dp, cs.outline.copy(alpha = 0.11f), shape)
+            .background(surfaceColor)
+            .border(1.dp, borderColor, shape)
             .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -327,19 +323,16 @@ private fun MainFeatureChip(
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
+    val isDark = isSystemInDarkTheme()
     val chipShape = RoundedCornerShape(14.dp)
-    val chipBg = Brush.verticalGradient(
-        listOf(
-            cs.surface.copy(alpha = 0.46f),
-            cs.surface.copy(alpha = 0.26f)
-        )
-    )
+    val chipBg = if (isDark) Color(0xFF2A2B2D) else Color(0xFFF5F6F8)
+    val chipBorder = if (isDark) Color(0xFF3A3C3F) else Color(0xFFE3E3E4)
 
     Box(
         modifier
             .clip(chipShape)
             .background(chipBg)
-            .border(1.dp, cs.outline.copy(alpha = 0.10f), chipShape)
+            .border(1.dp, chipBorder, chipShape)
             .height(34.dp)
             .padding(horizontal = 9.dp),
         contentAlignment = Alignment.Center

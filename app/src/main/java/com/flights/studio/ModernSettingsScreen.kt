@@ -611,22 +611,14 @@ private fun SettingsQuickTabBar(
             .height(56.dp)
             .shadow(GlassChromeShadowElevation, GlassChromeShape, clip = false)
             .clip(GlassChromeShape)
-            .drawBackdrop(
+            .adaptiveLiquidGlassBackdrop(
                 backdrop = backdrop,
-                shape = { GlassChromeShape },
+                shape = GlassChromeShape,
+                surfaceColor = glassColor,
+                blurDp = backdropBlurDp,
                 shadow = { bottomChromeShadow() },
-                highlight = null,
-                effects = {
-                    vibrancy()
-                    blur(backdropBlurDp.dp.toPx(), edgeTreatment = TileMode.Mirror)
-                    lens(
-                        refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
-                        refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
-                        depthEffect = false,
-                        chromaticAberration = false
-                    )
-                },
-                onDrawSurface = { drawRect(glassColor) }
+                refractionHeightDp = GlassChromeRefractionHeightDp,
+                refractionAmountDp = GlassChromeRefractionAmountDp
             )
             .background(
                 color = overlayTint,
@@ -830,22 +822,15 @@ private fun SettingsMenuSheet(
                 indication = null,
                 onClick = {}
             )
-            .drawBackdrop(
+            .adaptiveLiquidGlassBackdrop(
                 backdrop = backdrop,
-                shape = { GlassChromeShape },
+                shape = GlassChromeShape,
+                surfaceColor = panelColor,
+                blurDp = 4f,
                 shadow = null,
-                highlight = null,
-                effects = {
-                    vibrancy()
-                    blur(4.dp.toPx())
-                    lens(
-                        refractionHeight = 22.dp.toPx(),
-                        refractionAmount = 72.dp.toPx(),
-                        depthEffect = false,
-                        chromaticAberration = true
-                    )
-                },
-                onDrawSurface = { drawRect(panelColor) }
+                refractionHeightDp = 22f,
+                refractionAmountDp = 72f,
+                chromaticAberration = true
             )
         ) {
             Column(
@@ -1306,22 +1291,15 @@ private fun LanguagePickerSheet(
                     indication = null,
                     onClick = {}
                 )
-                .drawBackdrop(
+                .adaptiveLiquidGlassBackdrop(
                     backdrop = backdrop,
-                    shape = { GlassChromeShape },
+                    shape = GlassChromeShape,
+                    surfaceColor = panelColor,
+                    blurDp = 4f,
                     shadow = null,
-                    highlight = null,
-                    effects = {
-                        vibrancy()
-                        blur(4.dp.toPx())
-                        lens(
-                            refractionHeight = 22.dp.toPx(),
-                            refractionAmount = 72.dp.toPx(),
-                            depthEffect = false,
-                            chromaticAberration = true
-                        )
-                    },
-                    onDrawSurface = { drawRect(panelColor) }
+                    refractionHeightDp = 22f,
+                    refractionAmountDp = 72f,
+                    chromaticAberration = true
                 )
         ) {
         Column(
@@ -1506,9 +1484,11 @@ private fun FeedbackGlassSheet(
                     indication = null,
                     onClick = {}
                 )
-                .drawBackdrop(
+                .adaptiveLiquidGlassBackdrop(
                     backdrop = backdrop,
-                    shape = { GlassChromeShape },
+                    shape = GlassChromeShape,
+                    surfaceColor = animatedPanel,
+                    blurDp = 4f,
                     shadow = null,
                     highlight = {
                         Highlight(
@@ -1518,17 +1498,9 @@ private fun FeedbackGlassSheet(
                             style = HighlightStyle.Plain
                         )
                     },
-                    effects = {
-                        vibrancy()
-                        blur(4.dp.toPx())
-                        lens(
-                            refractionHeight = 22.dp.toPx(),
-                            refractionAmount = 72.dp.toPx(),
-                            depthEffect = false,
-                            chromaticAberration = true
-                        )
-                    },
-                    onDrawSurface = { drawRect(animatedPanel) }
+                    refractionHeightDp = 22f,
+                    refractionAmountDp = 72f,
+                    chromaticAberration = true
                 )
         ) {
             Column(

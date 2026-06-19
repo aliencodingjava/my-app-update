@@ -72,22 +72,15 @@ fun ReminderOptionsSheetContent(
                 bottom = GlassChromeHorizontalPadding
             )
             .clip(GlassChromeShape)
-            .drawBackdrop(
+            .adaptiveLiquidGlassBackdrop(
                 backdrop = backdrop,
-                shape = { GlassChromeShape },
+                shape = GlassChromeShape,
+                surfaceColor = panelColor,
+                blurDp = 4f,
                 shadow = null,
-                highlight = null,
-                effects = {
-                    vibrancy()
-                    blur(4.dp.toPx())
-                    lens(
-                        refractionHeight = 22.dp.toPx(),
-                        refractionAmount = 72.dp.toPx(),
-                        depthEffect = false,
-                        chromaticAberration = true
-                    )
-                },
-                onDrawSurface = { drawRect(panelColor) }
+                refractionHeightDp = 22f,
+                refractionAmountDp = 72f,
+                chromaticAberration = true
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -114,24 +107,15 @@ fun ReminderOptionsSheetContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(GlassChromeInnerShape)
-                    .drawBackdrop(
+                    .adaptiveLiquidGlassBackdrop(
                         backdrop = backdrop,
-                        shape = { GlassChromeInnerShape },
+                        shape = GlassChromeInnerShape,
+                        surfaceColor = buttonColor,
+                        blurDp = 4f,
                         shadow = null,
-                        highlight = null,
-                        effects = {
-                            vibrancy()
-                            blur(4.dp.toPx())
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                lens(
-                                    refractionHeight = 8.dp.toPx(),
-                                    refractionAmount = 48.dp.toPx(),
-                                    depthEffect = false,
-                                    chromaticAberration = true
-                                )
-                            }
-                        },
-                        onDrawSurface = { drawRect(buttonColor) }
+                        refractionHeightDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 8f else 0f,
+                        refractionAmountDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 48f else 0f,
+                        chromaticAberration = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                     )
                     .padding(vertical = 15.dp, horizontal = 16.dp)
             ) {
@@ -316,25 +300,16 @@ private fun GlassOptionCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .drawBackdrop(
+            .adaptiveLiquidGlassBackdrop(
                 backdrop = backdrop,
-                shape = { GlassChromeInnerShape },
+                shape = GlassChromeInnerShape,
+                surfaceColor = buttonColor,
+                blurDp = 4f,
                 shadow = null,
-                highlight = null,
-                effects = {
-                    vibrancy()
-                    blur(4.dp.toPx())
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        lens(
-                            refractionHeight = 8.dp.toPx(),
-                            refractionAmount = 48.dp.toPx(),
-                            depthEffect = false,
-                            chromaticAberration = true
-                        )
-                    }
-                },
-                onDrawSurface = {
-                    drawRect(buttonColor)
+                refractionHeightDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 8f else 0f,
+                refractionAmountDp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) 48f else 0f,
+                chromaticAberration = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+                onDrawExtraSurface = {
                     drawRect(Color.White.copy(alpha = pressAlpha))
                 }
             )

@@ -59,14 +59,19 @@ fun TopRightPillActions(
     isInteractive: Boolean = true,
 ) {
     val shape = RoundedCornerShape(999.dp)
-    val adaptive = rememberAdaptiveLuminance(enabled = true)
+    val adaptiveEnabled = rememberLiquidGlassAdaptiveLuminanceEnabled()
+    val adaptive = rememberAdaptiveLuminance(enabled = adaptiveEnabled)
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(
             animationScope = animationScope
         )
     }
-    val luminanceOffset = (adaptive.luminance * 2f - 1f).let { it.sign * it * it }
+    val luminanceOffset = if (adaptiveEnabled) {
+        adaptiveLuminanceOffset(adaptive.luminance)
+    } else {
+        0f
+    }
 
     Surface(
         modifier = modifier
@@ -83,24 +88,22 @@ fun TopRightPillActions(
                 },
                 shadow = null,
                 effects = {
-                    colorControls(
-                        brightness = if (luminanceOffset > 0f) {
-                            lerp(0.1f, 0.5f, luminanceOffset)
-                        } else {
-                            lerp(0.1f, -0.2f, -luminanceOffset)
-                        },
-                        contrast = if (luminanceOffset > 0f) {
-                            lerp(1f, 0f, luminanceOffset)
-                        } else {
-                            1f
-                        },
-                        saturation = 1.5f
-                    )
+                    if (adaptiveEnabled) {
+                        colorControls(
+                            brightness = adaptiveLuminanceBrightness(luminanceOffset),
+                            contrast = adaptiveLuminanceContrast(luminanceOffset),
+                            saturation = 1.5f
+                        )
+                    }
                     blur(
-                        radius = if (luminanceOffset > 0f) {
-                            lerp(8.dp.toPx(), 16.dp.toPx(), luminanceOffset)
+                        radius = if (adaptiveEnabled) {
+                            adaptiveLuminanceBlurPx(
+                                offset = luminanceOffset,
+                                baseBlurPx = 8.dp.toPx(),
+                                dpToPx = { it.dp.toPx() }
+                            )
                         } else {
-                            lerp(8.dp.toPx(), 2.dp.toPx(), -luminanceOffset)
+                            8.dp.toPx()
                         }
                     )
                     lens(
@@ -112,8 +115,10 @@ fun TopRightPillActions(
                 },
                 onDrawBackdrop = { drawBackdrop ->
                     drawBackdrop()
-                    adaptive.layer.record {
-                        drawBackdrop()
+                    if (adaptiveEnabled) {
+                        adaptive.layer.record {
+                            drawBackdrop()
+                        }
                     }
                 },
                 layerBlock = if (isInteractive) {

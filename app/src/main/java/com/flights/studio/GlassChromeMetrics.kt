@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.shadow.Shadow
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 internal val GlassChromeHorizontalPadding = 18.dp
 internal val GlassChromeCornerRadius = 27.dp
@@ -103,11 +105,11 @@ internal fun bottomTabSelectedPillColorForAmount(
     primary: Color
 ): Color {
     return if (isDarkTheme) {
-        lerp(Color(0xFF101216), Color(0xFF2F343E), amount)
-            .copy(alpha = mix(0.72f, 0.88f, amount))
+        lerp(Color(0xFF242A33), Color(0xFF343B46), amount)
+            .copy(alpha = mix(0.80f, 0.90f, amount))
     } else {
         bottomTabBarTintForAmount(amount, isDarkTheme = true)
-            .copy(alpha = mix(0.46f, 0.82f, amount))
+            .copy(alpha = mix(0.58f, 0.84f, amount))
     }
 }
 
@@ -159,10 +161,27 @@ internal fun bottomChromeNativeBlurPxForAmount(amount: Float, isDarkTheme: Boole
 
 internal fun adaptiveLuminanceOffset(luminance: Float): Float {
     val centered = luminance.coerceIn(0f, 1f) * 2f - 1f
-    return if (centered < 0f) {
-        -centered * centered
+    val eased = sqrt(abs(centered))
+    return if (centered < 0f) -eased else eased
+}
+
+internal fun adaptiveLuminanceEffectStrength(tintAmount: Float): Float {
+    val amount = tintAmount.coerceIn(0f, 1f)
+    return sqrt(amount)
+}
+
+internal fun adaptiveSurfaceTint(
+    luminance: Float,
+    strength: Float
+): Color {
+    if (strength <= 0f) return Color.Transparent
+    val normalized = luminance.coerceIn(0f, 1f)
+    val contrastDistance = abs(normalized - 0.5f) * 2f
+    val alpha = mix(0.10f, 0.30f, contrastDistance) * strength.coerceIn(0f, 1f)
+    return if (normalized > 0.5f) {
+        Color.Black.copy(alpha = alpha)
     } else {
-        centered * centered
+        Color.White.copy(alpha = alpha)
     }
 }
 

@@ -134,9 +134,7 @@ private fun LiquidGlassSettingsScreen(onBack: () -> Unit) {
     val previewAdaptive = rememberAdaptiveLuminance(
         enabled = adaptiveEnabled,
         lightOnBright = Color(0xFF101318),
-        lightOnDark = Color.White,
-        animationMillis = 80,
-        sampleEveryMs = 45L
+        lightOnDark = Color.White
     )
 
     Scaffold(
@@ -474,9 +472,13 @@ private fun LiquidGlassPreviewTabs(
     val overlayTint = bottomTabBarOverlayTintForAmount(tintAmount, isDarkTheme)
     val backdropBlurDp = bottomChromeBackdropBlurDpForAmount(tintAmount, isDarkTheme)
     val adaptiveOffset = adaptiveLuminanceOffset(adaptive.luminance)
-    val adaptiveEffectStrength = if (adaptiveEnabled) tintAmount else 0f
+    val adaptiveEffectStrength = if (adaptiveEnabled) {
+        adaptiveLuminanceEffectStrength(tintAmount)
+    } else {
+        0f
+    }
     val adaptiveSurfaceStrength = if (adaptiveEnabled) {
-        lerp(0.45f, 1f, tintAmount)
+        lerp(0.45f, 1f, adaptiveEffectStrength)
     } else {
         0f
     }
@@ -485,7 +487,7 @@ private fun LiquidGlassPreviewTabs(
         strength = adaptiveSurfaceStrength
     )
     val adaptiveContentBlend = if (adaptiveEnabled) {
-        lerp(0.18f, if (isDarkTheme) 0.56f else 0.68f, tintAmount)
+        lerp(0.18f, if (isDarkTheme) 0.56f else 0.68f, adaptiveEffectStrength)
     } else {
         0f
     }
@@ -598,21 +600,6 @@ private fun LiquidGlassPreviewTabs(
                 onSelect(3)
             }
         }
-    }
-}
-
-private fun adaptiveSurfaceTint(
-    luminance: Float,
-    strength: Float
-): Color {
-    if (strength <= 0f) return Color.Transparent
-    val normalized = luminance.coerceIn(0f, 1f)
-    val contrastDistance = abs(normalized - 0.5f) * 2f
-    val alpha = lerp(0.055f, 0.18f, contrastDistance) * strength.coerceIn(0f, 1f)
-    return if (normalized > 0.5f) {
-        Color.Black.copy(alpha = alpha)
-    } else {
-        Color.White.copy(alpha = alpha)
     }
 }
 

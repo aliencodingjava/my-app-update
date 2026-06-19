@@ -26,6 +26,8 @@ keystore_hex.txt
 .env.*
 *.pem
 *.p12
+*firebase-adminsdk*.json
+*service-account*.json
 
 # ---- Logs ----
 *.log

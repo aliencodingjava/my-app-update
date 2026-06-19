@@ -264,11 +264,7 @@ private fun HomeActionSectionList(
 ) {
     val darkTheme = isSystemInDarkTheme()
 
-    val sectionTextColor = if (darkTheme) {
-        Color.White.copy(alpha = 0.90f)
-    } else {
-        Color.Black.copy(alpha = 0.82f)
-    }
+    val sectionTextColor = MaterialTheme.colorScheme.primary
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -306,7 +302,7 @@ private fun HomeActionListItem(
     onOpen: (String) -> Unit
 ) {
     val darkTheme = isSystemInDarkTheme()
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(18.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
@@ -316,33 +312,28 @@ private fun HomeActionListItem(
     )
 
     val rowSurfaceColor = if (darkTheme) {
-        Color(0xFF1B1B1F)
+        Color(0xFF232425)
     } else {
-        MaterialTheme.colorScheme.surface
+        Color(0xFFFEFEFE)
     }
-
-//    val rowOverlayColor = if (darkTheme) {
-//        Color.White.copy(alpha = 0.035f)
-//    } else {
-//        Color(0xFF4A90FF).copy(alpha = 0.045f)
-//    }
+    val rowBorderColor = if (darkTheme) Color(0xFF333538) else Color(0xFFE3E3E4)
 
     val titleColor = if (darkTheme) {
-        Color.White.copy(alpha = 0.94f)
+        MaterialTheme.colorScheme.onSurface
     } else {
-        Color.Black.copy(alpha = 0.88f)
+        MaterialTheme.colorScheme.onSurface
     }
 
     val descriptionColor = if (darkTheme) {
-        Color.White.copy(alpha = 0.66f)
+        MaterialTheme.colorScheme.onSurfaceVariant
     } else {
-        Color.Black.copy(alpha = 0.58f)
+        MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     val chevronColor = if (darkTheme) {
-        Color.White.copy(alpha = 0.72f)
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.66f)
     } else {
-        Color.Black.copy(alpha = 0.42f)
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.66f)
     }
 
     Box(
@@ -360,8 +351,8 @@ private fun HomeActionListItem(
             )
             .border(
                 BorderStroke(
-                    0.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = if (darkTheme) 0.26f else 0.18f)
+                    1.dp,
+                    rowBorderColor
                 ),
                 shape
             )
