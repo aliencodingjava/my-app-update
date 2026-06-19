@@ -22,6 +22,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,6 +32,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -48,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -58,14 +63,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -83,6 +87,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.util.lerp
+import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.edit
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -91,10 +96,13 @@ import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Calendar
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -184,7 +192,6 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
     var splashState by remember { mutableStateOf<SplashState>(SplashState.Hidden) }
 
     val isReady = splashState == SplashState.Ready
-    val dropToBottom = splashState == SplashState.Dropping || splashState == SplashState.Ready
 
     val windowInfo = LocalWindowInfo.current
     val density = LocalDensity.current
@@ -193,20 +200,69 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
     }
 
     val buttonDiameter = 64.dp
+    val heroTopPadding = 46.dp
+    val heroHeight = 166.dp
+    val glassEdgePadding = 14.dp
+    val splashCornerRadius = 32.dp
     val bottomMargin = 24.dp
-    val dropDurationMs = 560
 
     val centerScreenY = screenHeight / 2
+    val initialButtonCenterY = heroTopPadding + heroHeight + (buttonDiameter / 2)
     val finalButtonCenterY = screenHeight - bottomMargin - (buttonDiameter / 2)
+    val initialOffsetY = initialButtonCenterY - centerScreenY
     val targetOffsetY = finalButtonCenterY - centerScreenY
 
-    val buttonOffsetY by animateDpAsState(
-        targetValue = if (dropToBottom) targetOffsetY else 0.dp,
-        animationSpec = tween(
-            durationMillis = dropDurationMs,
-            easing = CubicBezierEasing(0.16f, 1.00f, 0.30f, 1.00f)
-        ),
-        label = "button_drop_offset"
+    val enterProgressAnimation = remember { Animatable(0f) }
+    val safeEnterProgressAnimation = remember { Animatable(0f) }
+    val heroDragAnimation = remember { Animatable(0f) }
+    val animationScope = rememberCoroutineScope()
+    val heroDragRangePx = remember(density) {
+        with(density) { 118.dp.toPx() }
+    }
+    val enterProgress by remember {
+        derivedStateOf {
+            liquidProgress(enterProgressAnimation.value)
+        }
+    }
+    val safeEnterProgress by remember {
+        derivedStateOf {
+            safeEnterProgressAnimation.value.coerceIn(0f, 1f)
+        }
+    }
+    val dropOvershoot = (enterProgress - 1f).coerceAtLeast(0f)
+    val buttonOffsetY = lerp(initialOffsetY.value, targetOffsetY.value, enterProgress).dp
+    val heroManualProgress by remember {
+        derivedStateOf {
+            liquidProgress(heroDragAnimation.value)
+        }
+    }
+    val heroGlassProgress =
+        1f +
+                0.55f * sin((enterProgress.coerceIn(0f, 1f) * PI).toFloat()) +
+                dropOvershoot +
+                heroManualProgress
+    val heroDragModifier = Modifier.draggable(
+        orientation = Orientation.Vertical,
+        state = rememberDraggableState { delta ->
+            val target = (heroDragAnimation.value + delta / heroDragRangePx)
+                .coerceIn(-0.45f, 1.85f)
+            animationScope.launch {
+                heroDragAnimation.snapTo(target)
+            }
+        },
+        enabled = splashState != SplashState.Hidden,
+        onDragStopped = { velocity ->
+            animationScope.launch {
+                heroDragAnimation.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = 0.46f,
+                        stiffness = 52f
+                    ),
+                    initialVelocity = velocity / heroDragRangePx
+                )
+            }
+        }
     )
 
     val breatheTransition = rememberInfiniteTransition(label = "button_breathe")
@@ -231,12 +287,12 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
         targetValue = when (splashState) {
             SplashState.Hidden -> 0.96f
             SplashState.Initial -> 1f
-            SplashState.Dropping -> 1.035f
+            SplashState.Dropping -> 1.015f
             SplashState.Ready -> 1f
         },
-        animationSpec = tween(
-            durationMillis = 360,
-            easing = CubicBezierEasing(0.18f, 0.92f, 0.20f, 1.00f)
+        animationSpec = spring(
+            dampingRatio = 0.74f,
+            stiffness = 120f
         ),
         label = "button_arrive_scale"
     )
@@ -245,60 +301,70 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
 
     LaunchedEffect(Unit) {
         splashState = SplashState.Hidden
+        enterProgressAnimation.snapTo(0f)
+        safeEnterProgressAnimation.snapTo(0f)
+        heroDragAnimation.snapTo(0f)
         delay(80L)
 
         splashState = SplashState.Initial
-        delay(1050L)
+        delay(120L)
 
         splashState = SplashState.Dropping
-        delay(dropDurationMs.toLong() + 70L)
+        launch {
+            safeEnterProgressAnimation.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing)
+            )
+        }
+        enterProgressAnimation.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = 0.62f,
+                stiffness = 24f
+            )
+        )
 
         splashState = SplashState.Ready
     }
 
     OpenSplashBackdropScaffold { backdrop ->
         Box(Modifier.fillMaxSize()) {
-            SplashHeroBar(
-                uiTight = uiTight,
-                backdrop = backdrop,
-                visible = splashState != SplashState.Hidden,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 46.dp, start = 20.dp, end = 20.dp)
-            )
-            AnimatedVisibility(
-                visible = isReady,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomMargin + buttonDiameter + 14.dp),
-                enter = fadeIn(tween(180)) + slideInVertically(
-                    animationSpec = tween(260, easing = FastOutSlowInEasing),
-                    initialOffsetY = { it / 3 }
-                ) + scaleIn(
-                    initialScale = 0.98f,
-                    animationSpec = tween(260, easing = FastOutSlowInEasing)
-                ),
-                exit = fadeOut(tween(120))
-            ) {
-                GreetingBlock(uiTight = uiTight)
-            }
-
             LiquidGlassRoundIconButton(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .offset {
                         IntOffset(0, buttonOffsetY.roundToPx())
                     }
-                    .padding(horizontal = 20.dp)
+                    .padding(horizontal = glassEdgePadding)
                     .fillMaxWidth()
-                    .scale(buttonScale),
+                    .graphicsLayer {
+                        alpha = safeEnterProgress
+                        scaleX = buttonScale / (1f + 0.10f * dropOvershoot)
+                        scaleY = buttonScale * (1f + 0.10f * dropOvershoot)
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                    },
                 backdrop = backdrop,
                 iconRes = R.drawable.newmainlogo,
                 diameter = buttonDiameter,
+                cornerRadius = splashCornerRadius,
                 isInteractive = isReady,
                 splashState = splashState,
                 uiTight = uiTight,
                 onClick = onNavigateToMain
+            )
+
+            SplashHeroBar(
+                uiTight = uiTight,
+                backdrop = backdrop,
+                visible = splashState != SplashState.Hidden,
+                glassProgress = heroGlassProgress,
+                safeProgress = safeEnterProgress,
+                cornerRadius = splashCornerRadius,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(3f)
+                    .then(heroDragModifier)
+                    .padding(top = heroTopPadding, start = glassEdgePadding, end = glassEdgePadding)
             )
         }
     }
@@ -395,6 +461,7 @@ private fun LiquidGlassRoundIconButton(
     uiTight: Float,
     modifier: Modifier = Modifier,
     diameter: Dp = 84.dp,
+    cornerRadius: Dp = 32.dp,
     isInteractive: Boolean = true,
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
@@ -408,21 +475,11 @@ private fun LiquidGlassRoundIconButton(
     }
     val labelColor = if (isDark) Color.White else Color(0xFF111111)
     val iconFilter = remember(labelColor) { ColorFilter.tint(labelColor) }
-    val enterSurfaceColor = if (isDark) {
-        Color(0xFF123B6D).copy(alpha = 0.36f)
-    } else {
-        Color(0xFFEAF4FF).copy(alpha = 0.72f)
-    }
-    val enterSheenColor = if (isDark) {
-        Color.White.copy(alpha = 0.05f)
-    } else {
-        Color.White.copy(alpha = 0.34f)
-    }
-    val edgeTintColor = if (isDark) {
-        Color.White.copy(alpha = 0.05f)
-    } else {
-        Color(0xFF59BFF4).copy(alpha = 0.16f)
-    }
+    val glassTintAmount = rememberLiquidGlassTintAmount()
+    val glassColor = bottomTabBarTintForAmount(glassTintAmount, isDark)
+    val overlayTint = bottomTabBarOverlayTintForAmount(glassTintAmount, isDark)
+    val backdropBlurDp = bottomChromeBackdropBlurDpForAmount(glassTintAmount, isDark)
+    val logoSize = diameter * 0.76f
 
 
     Box(
@@ -431,7 +488,7 @@ private fun LiquidGlassRoundIconButton(
             .fillMaxWidth()
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { RoundedCornerShape(50.dp) },
+                shape = { RoundedCornerShape(cornerRadius) },
                 shadow = null,
                 highlight = {
                     if (isDark) {
@@ -451,13 +508,14 @@ private fun LiquidGlassRoundIconButton(
                     }
                 },
                 effects = {
+                    vibrancy()
                     blur(
-                        radius = if (isDark) 1.dp.toPx() else 5.dp.toPx(),
+                        radius = backdropBlurDp.dp.toPx(),
                         edgeTreatment = TileMode.Mirror
                     )
                     lens(
-                        12.dp.toPx(),
-                        if (isDark) 60.dp.toPx() else 74.dp.toPx(),
+                        GlassChromeRefractionHeightDp.dp.toPx(),
+                        GlassChromeRefractionAmountDp.dp.toPx(),
                         depthEffect = false
                     )
                 },
@@ -497,9 +555,8 @@ private fun LiquidGlassRoundIconButton(
                     if (surfaceColor.isSpecified) {
                         drawRect(surfaceColor)
                     } else {
-                        drawRect(enterSurfaceColor)
-                        drawRect(enterSheenColor)
-                        drawRect(edgeTintColor)
+                        drawRect(glassColor)
+                        drawRect(overlayTint)
                     }
                 },
                 onDrawBackdrop = { drawBackdrop -> drawBackdrop() }
@@ -520,17 +577,6 @@ private fun LiquidGlassRoundIconButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        AnimatedVisibility(
-            visible = splashState == SplashState.Initial,
-            enter = fadeIn(tween(durationMillis = 450)) + scaleIn(
-                initialScale = 0.92f,
-                animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing)
-            ),
-            exit = fadeOut(tween(durationMillis = 200))
-        ) {
-            ScreenLabel(textRes = R.string.welcome_to_jac_airport, uiTight = uiTight)
-        }
-
         AnimatedVisibility(
             visible = splashState == SplashState.Ready,
             enter = fadeIn(tween(durationMillis = 400)) + scaleIn(
@@ -554,8 +600,8 @@ private fun LiquidGlassRoundIconButton(
             },
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 4.dp)
-                .size(99.dp)
+                .padding(start = 14.dp)
+                .size(logoSize)
         )
     }
 }
@@ -710,18 +756,90 @@ private fun SplashHeroBar(
     uiTight: Float,
     backdrop: LayerBackdrop,
     visible: Boolean,
+    glassProgress: Float,
+    safeProgress: Float,
+    cornerRadius: Dp,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
+    val context = LocalContext.current.applicationContext
+    val glassTintAmount = rememberLiquidGlassTintAmount()
+    val glassColor = bottomTabBarTintForAmount(glassTintAmount, isDark)
+    val overlayTint = bottomTabBarOverlayTintForAmount(glassTintAmount, isDark)
+    val backdropBlurDp = bottomChromeBackdropBlurDpForAmount(glassTintAmount, isDark)
 
-    val hour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-    val smartLine = remember(hour) {
-        when (hour) {
-            in 5..10 -> "Morning departures"
-            in 11..16 -> "Midday flow"
-            in 17..21 -> "Evening arrivals"
-            else -> "Quiet runway hours"
+    val calendar = remember { Calendar.getInstance() }
+    val hour = remember(calendar) { calendar.get(Calendar.HOUR_OF_DAY) }
+    val hasSeenHero = remember(context) {
+        context.getSharedPreferences("boot_prefs", Context.MODE_PRIVATE)
+            .getBoolean("splash_hero_seen", false)
+    }
+    val heroTitle = remember(hasSeenHero, hour) {
+        when {
+            hasSeenHero -> "Welcome back"
+            hour in 5..10 -> "Good morning"
+            hour in 11..16 -> "Good afternoon"
+            hour in 17..21 -> "Good evening"
+            else -> "Welcome"
         }
+    }
+    val smartLine = remember(hasSeenHero, hour) {
+        val messages = if (hasSeenHero) {
+            when (hour) {
+                in 5..10 -> listOf(
+                    "I’ve got your morning view ready.",
+                    "Let’s ease into the day together.",
+                    "A fresh check-in is ready when you are."
+                )
+                in 11..16 -> listOf(
+                    "Your afternoon snapshot is waiting.",
+                    "A quick look, then back to your day.",
+                    "I’ll keep things clear and easy to scan."
+                )
+                in 17..21 -> listOf(
+                    "Let’s catch up on what changed today.",
+                    "A calmer evening view is ready.",
+                    "I saved you a quiet place to check in."
+                )
+                else -> listOf(
+                    "Quiet mode is ready.",
+                    "I’ll keep the late check-in simple.",
+                    "A soft landing for a quick look."
+                )
+            }
+        } else {
+            when (hour) {
+                in 5..10 -> listOf(
+                    "Let’s start with a calm, clear view.",
+                    "I’ll help keep the morning easy to scan.",
+                    "Everything you need is just ahead."
+                )
+                in 11..16 -> listOf(
+                    "Let’s make the first look simple.",
+                    "A clear afternoon view is ready.",
+                    "I’ll keep the important things close."
+                )
+                in 17..21 -> listOf(
+                    "Settle in. I’ll keep the view clean.",
+                    "A softer way to check the day.",
+                    "Let’s make this first visit feel easy."
+                )
+                else -> listOf(
+                    "A quiet first look is ready.",
+                    "I’ll keep everything gentle and clear.",
+                    "No rush. Start wherever you like."
+                )
+            }
+        }
+        val dayIndex = calendar.get(Calendar.DAY_OF_YEAR).coerceAtLeast(0)
+        messages[dayIndex % messages.size]
+    }
+
+    LaunchedEffect(context) {
+        context.getSharedPreferences("boot_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("splash_hero_seen", true)
+            .apply()
     }
 
     val alpha by animateFloatAsState(
@@ -732,22 +850,33 @@ private fun SplashHeroBar(
 
     val lift by animateDpAsState(
         targetValue = if (visible) 0.dp else 10.dp,
-        animationSpec = tween(500, easing = FastOutSlowInEasing),
+        animationSpec = spring(
+            dampingRatio = 0.72f,
+            stiffness = 120f
+        ),
         label = "heroLift"
     )
-    val heroShape = RoundedCornerShape(28.dp)
+    val glassStretch = (glassProgress - 1f).coerceAtLeast(0f)
+    val heroShape = RoundedCornerShape(cornerRadius)
     Box(
         modifier = modifier
             .offset {
                 IntOffset(0, lift.roundToPx())
             }
             .fillMaxWidth()
-            .alpha(alpha)
-            .height(130.dp)
+            .graphicsLayer {
+                translationY = -48.dp.toPx() * (1f - glassProgress)
+                this.alpha = alpha * safeProgress
+                scaleX = 1f / (1f + 0.1f * glassStretch)
+                scaleY = 1f + 0.1f * glassStretch
+                transformOrigin = TransformOrigin(0.5f, 0.5f)
+                clip = false
+            }
+            .height(166.dp)
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { heroShape  },
-                shadow = null,
+                shape = { heroShape },
+                shadow = { bottomChromeShadow() },
                 highlight = {
                     if (isDark) {
                         Highlight(
@@ -761,68 +890,73 @@ private fun SplashHeroBar(
                             width = 0.30.dp,
                             blurRadius = 1.0.dp,
                             alpha = 0.35f,
-                            style = HighlightStyle.Plain // very subtle
+                            style = HighlightStyle.Plain
                         )
                     }
                 },
                 effects = {
-                    blur(if (isDark) 1.dp.toPx() else 2.dp.toPx())
-                    lens(12.dp.toPx(), 60.dp.toPx(), depthEffect = false)
+                    vibrancy()
+                    blur(
+                        radius = (backdropBlurDp * safeProgress).dp.toPx(),
+                        edgeTreatment = TileMode.Mirror
+                    )
+                    lens(
+                        (GlassChromeRefractionHeightDp * safeProgress).dp.toPx(),
+                        (GlassChromeRefractionAmountDp * safeProgress).dp.toPx(),
+                        depthEffect = false
+                    )
                 },
                 onDrawSurface = {
-                    drawRect(
-                        if (isDark) Color.White.copy(alpha = 0.05f)
-                        else Color.White.copy(alpha = 0.28f)
-                    )
-                }
+                    drawRect(glassColor)
+                    drawRect(overlayTint)
+                },
+                onDrawBackdrop = { drawBackdrop -> drawBackdrop() }
             )
-            .clip(heroShape)
-            .movingTripleBandPacket()
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
 
-            // MAIN TITLE
-            val title = MaterialTheme.typography.headlineMedium
-            Text(
-                text = "Flights Studio",
-                style = title,
-                fontSize = title.fontSize.us(uiTight),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-
-            // SUBTITLE
-            Text(
-                text = "Jackson Hole • JAC",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp)
-            )
-
-            // SMART LINE
-            @OptIn(ExperimentalAnimationApi::class)
-            AnimatedContent(
-                targetState = smartLine,
-                transitionSpec = {
-                    (fadeIn(tween(350)) + slideInVertically { it / 4 }) togetherWith
-                            (fadeOut(tween(250)) + slideOutVertically { -it / 4 })
-                },
-                label = "SmartLineTransition"
-            ) { targetText ->
+                // MAIN TITLE
+                val title = MaterialTheme.typography.headlineMedium
                 Text(
-                    text = targetText,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 12.dp)
+                    text = heroTitle,
+                    style = title,
+                    fontSize = title.fontSize.us(uiTight),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
                 )
+
+                // SUBTITLE
+                Text(
+                    text = if (hasSeenHero) "Good to see you again" else "Let’s get you settled",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+
+                // SMART LINE
+                @OptIn(ExperimentalAnimationApi::class)
+                AnimatedContent(
+                    targetState = smartLine,
+                    transitionSpec = {
+                        (fadeIn(tween(350)) + slideInVertically { it / 4 }) togetherWith
+                                (fadeOut(tween(250)) + slideOutVertically { -it / 4 })
+                    },
+                    label = "SmartLineTransition"
+                ) { targetText ->
+                    Text(
+                        text = targetText,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
             }
-        }
     }
 }
 
@@ -847,3 +981,15 @@ private fun navigateToMain(activity: Activity, openLogin: Boolean = false) {
     activity.finish()
 }
 
+private fun liquidProgress(value: Float): Float {
+    return when {
+        value < 0f -> -liquidProgressResistance(-value)
+        value <= 1f -> value
+        else -> 1f + liquidProgressResistance(value - 1f)
+    }
+}
+
+private fun liquidProgressResistance(value: Float): Float {
+    val v = value.coerceAtLeast(0f)
+    return v / (1f + v)
+}

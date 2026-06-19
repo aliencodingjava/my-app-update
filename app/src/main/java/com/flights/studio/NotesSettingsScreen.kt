@@ -112,6 +112,14 @@ fun NotesSettingsScreen(
             )
         )
     }
+    var syncOnline by remember {
+        mutableStateOf(
+            prefs.getBoolean(
+                NotesPagePrefs.KEY_SYNC_ONLINE,
+                NotesPagePrefs.DEFAULT_SYNC_ONLINE
+            )
+        )
+    }
     val scope = rememberCoroutineScope()
     var resetActionText by remember { mutableStateOf("Reset") }
 
@@ -281,6 +289,32 @@ fun NotesSettingsScreen(
                             valueRange = NotesPagePrefs.TITLE_TOP_MIN_DP.toFloat()..NotesPagePrefs.TITLE_TOP_MAX_DP.toFloat(),
                             steps = NotesPagePrefs.TITLE_TOP_MAX_DP - NotesPagePrefs.TITLE_TOP_MIN_DP - 1
                         )
+                    }
+                }
+
+                item {
+                    SettingsTintCard {
+                        Text("Sync", style = MaterialTheme.typography.titleMedium, color = primaryText)
+
+                        SettingsSwitchRow(
+                            title = "Sync online",
+                            checked = syncOnline,
+                            secondaryText = secondaryText,
+                            subtitle = if (syncOnline) {
+                                "Save and restore notes with your account."
+                            } else {
+                                "Sync deactivated. Turn on to activate online sync."
+                            },
+                            mutedText = mutedText
+                        ) { on ->
+                            syncOnline = on
+                            prefs.edit { putBoolean(NotesPagePrefs.KEY_SYNC_ONLINE, on) }
+                            if (on) {
+                                context.getSharedPreferences("notes_meta", Context.MODE_PRIVATE).edit {
+                                    remove("last_sync_at")
+                                }
+                            }
+                        }
                     }
                 }
 

@@ -11,8 +11,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,7 +53,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,6 +66,7 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.capsule.ContinuousRoundedRectangle
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -72,6 +74,7 @@ import kotlin.math.sin
 import kotlin.math.tanh
 
 private const val LIST_PREVIEW_CHARS = 50
+private const val NOTE_SELECT_HOLD_MS = 850L
 
 private fun notePreview(s: String): String {
     if (s.isBlank()) return ""
@@ -157,12 +160,6 @@ fun NoteItem(
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
-    //  ONE interaction source (don’t create inside modifier)
-    val interaction = remember { MutableInteractionSource() }
-
-
-
-
     //  OUTER ELEVATION WRAPPER (NO clickable here anymore)
     Box(
         modifier = Modifier
@@ -237,13 +234,37 @@ fun NoteItem(
             )
             .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
             .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
-            .combinedClickable(
-                interactionSource = interaction,
-                indication = null,
-                role = Role.Button,
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
+            .pointerInput(onClick, onLongClick) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val pointerId = down.id
+                    val downPosition = down.position
+                    val touchSlop = viewConfiguration.touchSlop
+
+                    val releasedBeforeLongPress = withTimeoutOrNull(NOTE_SELECT_HOLD_MS) {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == pointerId }
+                                ?: return@withTimeoutOrNull false
+
+                            if (change.isConsumed) return@withTimeoutOrNull false
+                            if (!change.pressed) return@withTimeoutOrNull true
+
+                            val drag = change.position - downPosition
+                            if (abs(drag.x) > touchSlop || abs(drag.y) > touchSlop) {
+                                return@withTimeoutOrNull false
+                            }
+                        }
+                    }
+
+                    if (releasedBeforeLongPress == true) {
+                        onClick()
+                    } else if (releasedBeforeLongPress == null) {
+                        onLongClick()
+                        waitForUpOrCancellation()?.consume()
+                    }
+                }
+            }
     ) {
             Box(Modifier.fillMaxSize()) {
 

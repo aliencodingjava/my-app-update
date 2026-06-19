@@ -1,11 +1,20 @@
 package com.flights.studio
 
+import android.Manifest
+import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -56,6 +65,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,9 +74,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -90,6 +101,8 @@ class SoftwareUpdateActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        maybeRequestUpdateNotificationPermission()
+        handleUpdateIntent(intent)
 
         setContent {
             val darkTheme = isSystemInDarkTheme()
@@ -117,6 +130,24 @@ class SoftwareUpdateActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUpdateIntent(intent)
+    }
+
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(AppUpdateNotificationManager.EXTRA_CHECK_FOR_UPDATES, false) == true) {
+            vm.checkForUpdates()
+        }
+    }
+
+    private fun maybeRequestUpdateNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (AppUpdateNotificationManager.canPostNotifications(this)) return
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4402)
     }
 }
 
@@ -239,7 +270,7 @@ class SoftwareUpdateViewModel(
                     } else {
                         UpdateScreenState.Home(
                             checking = false,
-                            statusMessage = "Up to date",
+                            statusMessage = "Your app is up to date",
                             hideCheckButton = true
                         )
                     }
@@ -474,6 +505,7 @@ private fun UpdateHomeScreen(
     val dark = isSystemInDarkTheme()
     val bg = if (dark) Color(0xFF120F20) else Color(0xFFF7F7FB)
     val accent = Color(0xFF77D4B2)
+    val buttonBg = if (dark) Color(0xFF16372F) else Color(0xFF155E4D)
 
     Box(
         modifier = Modifier
@@ -483,7 +515,6 @@ private fun UpdateHomeScreen(
         UpdateGlow(
             modifier = Modifier
                 .fillMaxSize()
-                .blur(30.dp)
         )
 
         TopBar(
@@ -508,7 +539,7 @@ private fun UpdateHomeScreen(
 
             Spacer(Modifier.height(10.dp))
 
-            val upToDate = state.statusMessage.equals("Up to date", ignoreCase = true)
+            val upToDate = state.statusMessage.equals("Your app is up to date", ignoreCase = true)
 
             Box(
                 modifier = Modifier
@@ -561,22 +592,27 @@ private fun UpdateHomeScreen(
                     .height(58.dp),
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = accent,
-                    disabledContainerColor = accent.copy(alpha = 0.92f),
-                    disabledContentColor = Color.Black.copy(alpha = 0.90f)
+                    containerColor = buttonBg,
+                    contentColor = Color.White,
+                    disabledContainerColor = buttonBg.copy(alpha = 0.78f),
+                    disabledContentColor = Color.White.copy(alpha = 0.78f)
                 )
             ) {
                 if (state.checking) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.2.dp,
-                        color = Color.Black
+                        color = Color.White
                     )
                     Spacer(Modifier.width(10.dp))
-                    Text("Checking...")
+                    Text(
+                        "Checking...",
+                        color = Color.White
+                    )
                 } else {
                     Text(
                         "Check for updates",
+                        color = Color.White,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -584,6 +620,7 @@ private fun UpdateHomeScreen(
             }
         }
     }
+
 }
 
 @Composable
@@ -1197,18 +1234,112 @@ private fun TopBar(
 
 @Composable
 private fun UpdateGlow(modifier: Modifier = Modifier) {
+    val zoom = remember { Animatable(0f) }
+    val dark = isSystemInDarkTheme()
+    val phase by rememberInfiniteTransition(label = "updateGlowMotion").animateFloat(
+        initialValue = 0f,
+        targetValue = 6.2831855f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 28_000, easing = LinearEasing)
+        ),
+        label = "updateGlowPhase"
+    )
+
+    LaunchedEffect(Unit) {
+        zoom.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(
+                durationMillis = 1_450,
+                easing = FastOutSlowInEasing
+            )
+        )
+    }
+
     Canvas(modifier = modifier) {
-        drawRect(
+        val easedZoom = zoom.value.coerceIn(0f, 1f)
+        if (easedZoom <= 0f) return@Canvas
+
+        val glowRadius = size.minDimension * 0.34f * easedZoom
+        val circleCenter = center.copy(y = center.y - 24.dp.toPx())
+
+        fun paletteColor(offset: Float): Color {
+            val palette = listOf(
+                Color(0xFF3AAEEB),
+                Color(0xFF77D4B2),
+                Color(0xFFF2C94C),
+                Color(0xFFD86AF7)
+            )
+            val progress = ((phase / 6.2831855f) + offset).let { it - it.toInt() }
+            val segment = progress * palette.size
+            val index = segment.toInt().coerceIn(0, palette.lastIndex)
+            val nextIndex = (index + 1) % palette.size
+            val rawT = segment - index
+            val smoothT = rawT * rawT * (3f - 2f * rawT)
+            return lerp(palette[index], palette[nextIndex], smoothT)
+        }
+
+        fun drawSoftLight(
+            color: Color,
+            offset: Offset,
+            radiusScale: Float,
+            alpha: Float
+        ) {
+            val lightCenter = Offset(
+                circleCenter.x + offset.x * easedZoom,
+                circleCenter.y + offset.y * easedZoom
+            )
+            val lightRadius = glowRadius * radiusScale
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        color.copy(alpha = alpha),
+                        color.copy(alpha = alpha * 0.42f),
+                        color.copy(alpha = alpha * 0.12f),
+                        Color.Transparent
+                    ),
+                    center = lightCenter,
+                    radius = lightRadius
+                ),
+                radius = lightRadius,
+                center = lightCenter
+            )
+        }
+
+        drawSoftLight(
+            color = paletteColor(0.00f),
+            offset = Offset(38.dp.toPx(), -22.dp.toPx()),
+            radiusScale = 0.92f,
+            alpha = 0.17f
+        )
+        drawSoftLight(
+            color = paletteColor(0.25f),
+            offset = Offset(-16.dp.toPx(), -18.dp.toPx()),
+            radiusScale = 0.82f,
+            alpha = 0.12f
+        )
+        drawSoftLight(
+            color = paletteColor(0.50f),
+            offset = Offset(-48.dp.toPx(), 56.dp.toPx()),
+            radiusScale = 0.94f,
+            alpha = 0.13f
+        )
+        drawSoftLight(
+            color = paletteColor(0.75f),
+            offset = Offset(4.dp.toPx(), 42.dp.toPx()),
+            radiusScale = 0.86f,
+            alpha = 0.12f
+        )
+        drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0x523AAEEB),
-                    Color(0x356FD3B1),
-                    Color(0x16D68A5A),
+                    Color.White.copy(alpha = if (dark) 0.018f else 0.030f),
                     Color.Transparent
                 ),
-                center = center.copy(y = center.y * 0.58f),
-                radius = size.maxDimension * 0.78f
-            )
+                center = circleCenter,
+                radius = glowRadius * 0.48f
+            ),
+            radius = glowRadius * 0.48f,
+            center = circleCenter
         )
     }
 }
@@ -1514,6 +1645,7 @@ private fun LastUpdateChangelogItem(item: UpdateBlock) {
             }
         }
     }
+
 }
 
 @Composable

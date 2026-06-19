@@ -229,6 +229,10 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                 suspend fun completeLogin(email: String) {
                     userPrefs.isLoggedIn = true
                     isLoggedIn = true
+                    getSharedPreferences("notes_meta", MODE_PRIVATE)
+                        .edit()
+                        .remove("last_sync_at")
+                        .apply()
 
                     profileThemeModeState.intValue = 3
                     userPrefs.profileThemeMode = 3
@@ -924,6 +928,10 @@ private fun ProfileDetailsRoute(
                     onClick = {
                         dismissLogoutDialog()
                         scope.launch { SupabaseAuthRepo.signOutLocal() }
+                        hostActivity.getSharedPreferences("notes_meta", android.content.Context.MODE_PRIVATE)
+                            .edit()
+                            .remove("last_sync_at")
+                            .apply()
                         userPrefs.clear()
                         setLoggedIn(false)
                         onThemeModeChange(6)

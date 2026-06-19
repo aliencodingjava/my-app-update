@@ -14,6 +14,7 @@ object NotesPagePrefs {
     const val KEY_TWO_COLUMNS = "two_columns_grid"
     const val KEY_PALETTE_ENABLED = "palette_enabled"
     const val KEY_PALETTE_ID = "palette_id"
+    const val KEY_SYNC_ONLINE = "sync_online"
 
     // ✅ NEW: title vertical offset (in dp)
     const val KEY_TITLE_TOP_COMPACT = "title_top_compact"
@@ -32,6 +33,7 @@ object NotesPagePrefs {
     // ✅ NEW: Add Note “AI title suggestions / info tip”
     const val KEY_ENABLE_TITLE_TIPS = "enable_title_tips"
     const val DEFAULT_ENABLE_TITLE_TIPS = true
+    const val DEFAULT_SYNC_ONLINE = true
     const val DEFAULT_PALETTE_ID = "orchid_mint"
 }
 
@@ -50,6 +52,7 @@ data class NotesPageSettings(
     val enableTitleTips: Boolean,
     val paletteEnabled: Boolean,
     val paletteId: String,
+    val syncOnline: Boolean,
 
     )
 
@@ -83,6 +86,10 @@ data class NotesPageSettings(
             paletteId = sp.getString(
                 NotesPagePrefs.KEY_PALETTE_ID,
                 NotesPagePrefs.DEFAULT_PALETTE_ID
-            ) ?: NotesPagePrefs.DEFAULT_PALETTE_ID
+            ) ?: NotesPagePrefs.DEFAULT_PALETTE_ID,
+            syncOnline = sp.getBoolean(
+                NotesPagePrefs.KEY_SYNC_ONLINE,
+                NotesPagePrefs.DEFAULT_SYNC_ONLINE
+            )
         )
     }

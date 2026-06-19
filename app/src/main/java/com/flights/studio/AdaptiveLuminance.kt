@@ -42,9 +42,9 @@ fun rememberAdaptiveLuminance(
     initialLuminance: Float = if (isSystemInDarkTheme()) 0f else 1f,
     lightOnBright: Color = Color.Black,
     lightOnDark: Color = Color.White,
-    animationMillis: Int = 1000,
+    animationMillis: Int = 90,
     sampleSize: Int = 5,            // Kyant uses 5x5
-    sampleEveryMs: Long = 120L      // don’t hammer GPU
+    sampleEveryMs: Long = 45L       // fast enough to follow swipes without hammering GPU
 ): AdaptiveLuminanceState {
     val isLightTheme = !isSystemInDarkTheme()
 

@@ -4,6 +4,7 @@ package com.flights.studio
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -38,8 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -66,12 +67,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
 
 data class NoteRow(
     val id: String,
@@ -84,6 +88,15 @@ data class NoteRow(
     val hasReminder: Boolean,
     val hasBadge: Boolean
 )
+
+enum class NotesSyncUiStatus {
+    Synced,
+    Uploading,
+    Deleting,
+    Downloading,
+    Syncing,
+    Error
+}
 
 @OptIn(
     ExperimentalMaterial3Api::class,
@@ -101,20 +114,27 @@ fun AllNotesScreen(
     onDeleteSelected: (Set<String>) -> Unit,
     onOpenNote: ((NoteRow, Int) -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    onOpenProfile: () -> Unit = {},
+    syncStatus: NotesSyncUiStatus = NotesSyncUiStatus.Synced,
     onNotesSettingsChanged: () -> Unit = {}
 ) {
     var searchActive by remember { mutableStateOf(false) }
 
     var selectedIds by remember { mutableStateOf(setOf<String>()) }
     val selectionMode = selectedIds.isNotEmpty()
+    val selectionHapticView = LocalView.current
 
 
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
 
     fun toggleSelected(key: String) {
+        val isSelecting = !selectedIds.contains(key)
         val next = if (selectedIds.contains(key)) selectedIds - key else selectedIds + key
         selectedIds = next
+        if (isSelecting) {
+            selectionHapticView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        }
         if (next.isEmpty()) notesAdapter.clearSelection()
     }
 
@@ -179,6 +199,7 @@ fun AllNotesScreen(
                         k == NotesPagePrefs.KEY_TITLE_TOP_NORMAL ||
                         k == NotesPagePrefs.KEY_PALETTE_ENABLED ||
                         k == NotesPagePrefs.KEY_PALETTE_ID ||
+                        k == NotesPagePrefs.KEY_SYNC_ONLINE ||
                         k == NotesPagePrefs.KEY_SORT
 
             if (affectsNotesUi) {
@@ -264,25 +285,6 @@ fun AllNotesScreen(
                         maxLines = 1
                     )
 
-                    if (!selectionMode) {
-                        IconButton(
-                            onClick = {
-                                searchActive = true
-                                onOpenSearch { searchActive = false }
-                            }
-                        ) {
-                            Icon(Icons.Filled.Search, contentDescription = "Search notes", tint = contentColor)
-                        }
-                    }
-
-                    IconButton(onClick = { onAddNote() }) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "Add note",
-                            tint = contentColor
-                        )
-                    }
-
                     if (selectionMode) {
                         IconButton(
                             onClick = {
@@ -294,9 +296,20 @@ fun AllNotesScreen(
                             Icon(Icons.Filled.Delete, contentDescription = "Delete selected", tint = contentColor)
                         }
                     } else {
-                        IconButton(onClick = { onNavItemClick(R.id.nav_settings) }) {
-                            Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = contentColor)
-                        }
+                        NotesSyncStatusPill(
+                            syncOnline = s.syncOnline,
+                            status = syncStatus,
+                            noteCount = notesSize,
+                            backdrop = topBarBackdrop,
+                            contentColor = contentColor
+                        )
+                        Spacer(Modifier.width(8.dp))
+
+                        NotesGlassAddButton(
+                            backdrop = topBarBackdrop,
+                            contentColor = contentColor,
+                            onClick = onAddNote
+                        )
                     }
                 }
             }
@@ -338,18 +351,6 @@ fun AllNotesScreen(
                     scrimLight = 0f
                 )
 
-                val headerText =
-                    when {
-                        selectionMode -> {
-                            val n = selectedIds.size
-                            if (n == 1) "1 note selected" else "$n notes selected"
-                        }
-
-                        searchActive -> "Filtering results"
-                        else -> "$notesSize notes"
-                    }
-
-
                 // ✅ shared row renderer (NO DUPLICATION)
                 @Composable
                 fun NoteRowItem(row: NoteRow) {
@@ -384,7 +385,6 @@ fun AllNotesScreen(
 
                         onClick = {
                             if (selectionMode) {
-                                notesAdapter.fireClick(note)
                                 toggleSelected(rowKey)
                             } else {
                                 val rowPosition = notes.indexOfFirst { it.id == rowKey }
@@ -396,7 +396,6 @@ fun AllNotesScreen(
                             }
                         },
                         onLongClick = {
-                            notesAdapter.fireLongClick(note)
                             toggleSelected(rowKey)
                         },
                         onEdit = { notesAdapter.fireEdit(note) },
@@ -423,15 +422,6 @@ fun AllNotesScreen(
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                         horizontalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Text(
-                                text = headerText,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
-                                modifier = Modifier.padding(start = 3.dp)
-                            )
-                        }
-
                         items(items = safeNotesSnapshot, key = { it.id }) { row ->
                             NoteRowItem(row)
                         }
@@ -453,15 +443,6 @@ fun AllNotesScreen(
                         ),
                         verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
-                        item {
-                            Text(
-                                text = headerText,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
-                                modifier = Modifier.padding(start = 3.dp)
-                            )
-                        }
-
                         items(items = safeNotesSnapshot, key = { it.id }) { row ->
                             NoteRowItem(row)
                         }
@@ -486,3 +467,103 @@ fun AllNotesScreen(
         }
     }
 }
+
+@Composable
+private fun NotesGlassAddButton(
+    backdrop: LayerBackdrop,
+    contentColor: Color,
+    onClick: () -> Unit
+) {
+    val shape = NotesActionShape
+    Box(
+        modifier = Modifier
+            .size(NotesActionHeight)
+            .notesActionGlass(backdrop, shape)
+            .clip(shape)
+    ) {
+        IconButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = "Add note",
+                tint = contentColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun NotesSyncStatusPill(
+    syncOnline: Boolean,
+    status: NotesSyncUiStatus,
+    noteCount: Int,
+    backdrop: LayerBackdrop,
+    contentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val active = syncOnline && (
+            status == NotesSyncUiStatus.Uploading ||
+                    status == NotesSyncUiStatus.Deleting ||
+                    status == NotesSyncUiStatus.Downloading ||
+                    status == NotesSyncUiStatus.Syncing
+            )
+    val label = when {
+        !syncOnline -> "Local · $noteCount"
+        status == NotesSyncUiStatus.Uploading -> "Uploading..."
+        status == NotesSyncUiStatus.Deleting -> "Deleting..."
+        status == NotesSyncUiStatus.Downloading -> "Downloading notes..."
+        status == NotesSyncUiStatus.Syncing -> "Syncing..."
+        status == NotesSyncUiStatus.Error -> "Sync issue"
+        else -> "Online · $noteCount"
+    }
+    val textColor = contentColor
+
+    Box(
+        modifier = modifier
+            .height(NotesActionHeight)
+            .widthIn(min = 104.dp, max = 172.dp)
+            .notesActionGlass(backdrop, NotesActionShape)
+            .clip(NotesActionShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            if (active) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 1.6.dp,
+                    color = textColor
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = textColor,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+private val NotesActionHeight = 42.dp
+private val NotesActionShape = RoundedCornerShape(18.dp)
+
+private fun Modifier.notesActionGlass(
+    backdrop: LayerBackdrop,
+    shape: RoundedCornerShape
+): Modifier = drawBackdrop(
+    backdrop = backdrop,
+    shape = { shape },
+    shadow = null,
+    highlight = null,
+    effects = {
+        blur(radius = 18.dp.toPx(), edgeTreatment = TileMode.Mirror)
+        lens(14.dp.toPx(), 24.dp.toPx())
+    },
+    onDrawSurface = {
+        drawRect(Color.White.copy(alpha = 0.16f))
+    }
+)

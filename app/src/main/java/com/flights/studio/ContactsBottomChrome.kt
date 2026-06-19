@@ -323,7 +323,7 @@ private fun RowScope.ContactsQuickTab(
 ) {
     val selectedColor = bottomTabSelectedPillColor()
     val inactiveColor = bottomTabInactiveColor()
-    val selectedContentColor = primaryTabAccentColor()
+    val selectedContentColor = bottomTabSelectedContentColor()
     val pillAlpha by animateFloatAsState(
         targetValue = if (selected) 1f else 0f,
         animationSpec = tween(durationMillis = if (selected) 180 else 120, easing = FastOutSlowInEasing),

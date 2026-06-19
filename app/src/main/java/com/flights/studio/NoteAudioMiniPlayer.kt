@@ -215,9 +215,9 @@ fun NoteThinWaveLine(
             modifier = modifier.height(3.dp),
             color = color,
             trackColor = trackColor,
-            amplitude = { (0.05f + level.coerceIn(0f, 1f) * 0.08f).coerceIn(0.05f, 0.13f) },
-            wavelength = 22.dp,
-            waveSpeed = 8.dp
+            amplitude = { (0.10f + level.coerceIn(0f, 1f) * 0.18f).coerceIn(0.10f, 0.28f) },
+            wavelength = 14.dp,
+            waveSpeed = 16.dp
         )
     } else {
         Box(

@@ -11,5 +11,7 @@ data class UserNoteAttachment(
     @SerialName("file_name") val fileName: String,
     @SerialName("mime_type") val mimeType: String? = null,
     @SerialName("size_bytes") val sizeBytes: Long = 0L,
-    @SerialName("kind") val kind: String
+    @SerialName("kind") val kind: String,
+    @SerialName("duration_ms") val durationMs: Long? = null,
+    @SerialName("created_at_ms") val createdAtMs: Long? = null
 )

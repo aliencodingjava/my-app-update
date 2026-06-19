@@ -145,6 +145,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.URLEncoder
+import java.util.Locale
 import java.util.Calendar
 import java.util.TimeZone
 import java.util.UUID
@@ -164,10 +172,12 @@ class MainActivity : FragmentActivity() {
     private val notesText = mutableStateListOf<String>()
     private val noteRows = mutableStateListOf<NoteRow>()
     private val notesCount = mutableIntStateOf(0)
+    private var notesSyncStatus by mutableStateOf(NotesSyncUiStatus.Synced)
     private val uidToContent = mutableMapOf<String, String>()
     private val contentToUid = mutableMapOf<String, String>()
     private val sharedPreferences by lazy { getSharedPreferences("notes_prefs", MODE_PRIVATE) }
     private val uidPrefs by lazy { getSharedPreferences("notes_uids", MODE_PRIVATE) }
+    private val notesHttpClient by lazy { OkHttpClient() }
     private var isMultiSelectMode = false
     private var pendingReminderNote: String? = null
     private var pendingReminderInfo: ReminderInfo? = null
@@ -276,7 +286,15 @@ class MainActivity : FragmentActivity() {
 
         refreshNotesDisplay()
         saveNotes()
-        syncNoteWithAttachmentsToSupabase(newNote)
+        queuePendingAdd(newNote)
+        syncNoteWithAttachmentsToSupabase(
+            content = newNote,
+            titleOverride = title,
+            imageUrisOverride = imageUris,
+            fileItemsOverride = fileItems,
+            voiceItemsOverride = voiceItems,
+            hasReminderOverride = wantsReminder
+        )
         if (wantsReminder) {
             openReminderSheet(newNote)
         }
@@ -692,6 +710,13 @@ class MainActivity : FragmentActivity() {
                                 } ?: run {
                                     when (selectedMainPage) {
                                         PAGE_NOTES -> listOf(
+                                            PrimaryMenuAction(
+                                                label = "Search",
+                                                iconRes = R.drawable.manage_search_24dp_ffffff_fill0_wght400_grad0_opsz24,
+                                                onClick = {
+                                                    openNotesSearchSheet {}
+                                                }
+                                            ),
                                             PrimaryMenuAction(
                                                 label = "Settings",
                                                 iconRes = R.drawable.ic_oui_settings,
@@ -1149,6 +1174,11 @@ class MainActivity : FragmentActivity() {
 
         if (toDelete.isEmpty()) return
 
+        toDelete.forEach { queuePendingDelete(it) }
+        if (SupabaseManager.client.auth.currentSessionOrNull()?.user?.id != null) {
+            syncPendingNotesToSupabase()
+        }
+
         toDelete.forEach { note ->
             NoteMediaStore.deleteAllForNote(this, note)
             NoteVoiceStore.deleteAllForNote(this, note)
@@ -1169,34 +1199,512 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    private fun syncNoteWithAttachmentsToSupabase(content: String) {
-        if (!UserPreferencesManager(this).isLoggedIn) return
-
-        val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return
-        val userId = session.user?.id ?: return
-
-        lifecycleScope.launch(Dispatchers.IO) {
+    private fun syncNoteWithAttachmentsToSupabase(
+        content: String,
+        titleOverride: String? = null,
+        imageUrisOverride: List<android.net.Uri>? = null,
+        fileItemsOverride: List<NoteAttachmentItem>? = null,
+        voiceItemsOverride: List<NoteVoiceItem>? = null,
+        hasReminderOverride: Boolean? = null
+    ) {
+        if (!notesOnlineSyncEnabled()) return
+        lifecycleScope.launch {
             try {
-                val inserted: List<UserNote> = SupabaseManager.client
-                    .postgrest
-                    .from("user_notes")
-                    .insert(listOf(UserNote(userId = userId, content = content))) { select() }
-                    .decodeList()
+                notesSyncStatus = NotesSyncUiStatus.Uploading
+                val session = SupabaseManager.client.auth.currentSessionOrNull()
+                    ?: throw IllegalStateException("No Supabase session")
+                val userId = session.user?.id ?: throw IllegalStateException("No Supabase user id")
 
-                removePendingAdd(content)
+                val inserted = insertNoteInSupabaseRest(
+                    authToken = session.accessToken,
+                    userId = userId,
+                    content = content,
+                    titleOverride = titleOverride,
+                    hasReminderOverride = hasReminderOverride
+                )
 
-                inserted.firstOrNull()?.id?.takeIf { it.isNotBlank() }?.let { noteId ->
+                inserted.optString("id").takeIf { it.isNotBlank() }?.let { noteId ->
                     saveRemoteNoteId(noteId, content)
+                    updateNoteMetadataInSupabase(
+                        authToken = session.accessToken,
+                        userId = userId,
+                        noteId = noteId,
+                        content = content,
+                        titleOverride = titleOverride,
+                        hasReminderOverride = hasReminderOverride
+                    )
                     uploadNoteAttachmentsToSupabase(
                         content = content,
                         noteId = noteId,
                         userId = userId,
-                        authToken = session.accessToken
+                        authToken = session.accessToken,
+                        imageUrisOverride = imageUrisOverride,
+                        fileItemsOverride = fileItemsOverride,
+                        voiceItemsOverride = voiceItemsOverride
                     )
                 }
+                removePendingAdd(content)
+                notesSyncStatus = NotesSyncUiStatus.Synced
             } catch (e: Exception) {
+                notesSyncStatus = NotesSyncUiStatus.Error
+                queuePendingAdd(content)
                 Log.e(TAG_MAIN, "Error syncing note attachments", e)
+                scheduleNotesSyncRetry()
             }
+        }
+    }
+
+    private fun notesOnlineSyncEnabled(): Boolean {
+        return getSharedPreferences(NotesPagePrefs.NAME, MODE_PRIVATE).getBoolean(
+            NotesPagePrefs.KEY_SYNC_ONLINE,
+            NotesPagePrefs.DEFAULT_SYNC_ONLINE
+        )
+    }
+
+    private fun queuePendingAdd(content: String) {
+        if (!notesOnlineSyncEnabled() || content.isBlank()) return
+        val pending = sharedPreferences
+            .getStringSet("pending_adds", emptySet())
+            .orEmpty()
+            .toMutableSet()
+        if (pending.add(content)) {
+            sharedPreferences.edit { putStringSet("pending_adds", pending) }
+        }
+    }
+
+    private fun queuePendingDelete(content: String) {
+        if (!notesOnlineSyncEnabled() || content.isBlank()) return
+        if (SupabaseManager.client.auth.currentSessionOrNull()?.user?.id == null) return
+        val pending = sharedPreferences
+            .getStringSet("pending_deletes", emptySet())
+            .orEmpty()
+            .toMutableSet()
+        if (pending.add(content)) {
+            sharedPreferences.edit { putStringSet("pending_deletes", pending) }
+        }
+    }
+
+    private fun scheduleNotesSyncRetry() {
+        lifecycleScope.launch {
+            delay(1200)
+            syncPendingNotesToSupabase()
+        }
+    }
+
+    private fun syncPendingNotesToSupabase() {
+        if (!notesOnlineSyncEnabled()) {
+            notesSyncStatus = NotesSyncUiStatus.Synced
+            return
+        }
+        val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return
+        val userId = session.user?.id ?: return
+
+        lifecycleScope.launch {
+            try {
+                val hasDeletes = sharedPreferences
+                    .getStringSet("pending_deletes", emptySet())
+                    .orEmpty()
+                    .isNotEmpty()
+                notesSyncStatus = if (hasDeletes) {
+                    NotesSyncUiStatus.Deleting
+                } else {
+                    NotesSyncUiStatus.Syncing
+                }
+                syncPendingDeletesToSupabase(session.accessToken, userId)
+                notesSyncStatus = NotesSyncUiStatus.Uploading
+                syncLocalNotesToSupabase(session.accessToken, userId)
+                notesSyncStatus = NotesSyncUiStatus.Downloading
+                pullNotesFromSupabase(userId, session.accessToken)
+                notesSyncStatus = NotesSyncUiStatus.Synced
+            } catch (e: Exception) {
+                notesSyncStatus = NotesSyncUiStatus.Error
+                Log.e(TAG_MAIN, "Notes sync retry failed", e)
+            }
+        }
+    }
+
+    private suspend fun syncPendingDeletesToSupabase(authToken: String, userId: String) {
+        val pending = sharedPreferences
+            .getStringSet("pending_deletes", emptySet())
+            .orEmpty()
+            .toMutableSet()
+        if (pending.isEmpty()) return
+
+        val stillPending = mutableSetOf<String>()
+        pending.forEach { content ->
+            try {
+                val deleted = hardDeleteNoteInSupabaseRest(
+                    authToken = authToken,
+                    userId = userId,
+                    id = remoteNoteIdFor(content),
+                    content = content
+                )
+                if (!deleted) Log.d(TAG_MAIN, "No Supabase note matched delete; clearing pending delete")
+                removeRemoteNoteId(content)
+            } catch (e: Exception) {
+                Log.e(TAG_MAIN, "Failed to delete note from Supabase", e)
+                stillPending.add(content)
+            }
+        }
+
+        sharedPreferences.edit {
+            if (stillPending.isEmpty()) remove("pending_deletes")
+            else putStringSet("pending_deletes", stillPending)
+        }
+    }
+
+    private suspend fun syncLocalNotesToSupabase(authToken: String, userId: String) {
+        val remoteRows = fetchActiveRemoteRows(userId)
+        val remoteContents = remoteRows.map { it.content }.toSet()
+        remoteRows.forEach { row ->
+            row.id?.let { saveRemoteNoteId(it, row.content) }
+        }
+
+        val pendingAdds = sharedPreferences
+            .getStringSet("pending_adds", emptySet())
+            .orEmpty()
+            .toMutableSet()
+        val pendingDeletes = sharedPreferences
+            .getStringSet("pending_deletes", emptySet())
+            .orEmpty()
+            .toSet()
+
+        val stillPending = mutableSetOf<String>()
+        (allNotes + pendingAdds)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .forEach { content ->
+                if (content in pendingDeletes || content in remoteContents) return@forEach
+                try {
+                    val inserted = insertNoteInSupabaseRest(authToken, userId, content)
+                    inserted.optString("id").takeIf { it.isNotBlank() }?.let { noteId ->
+                        saveRemoteNoteId(noteId, content)
+                        updateNoteMetadataInSupabase(authToken, userId, noteId, content)
+                        uploadNoteAttachmentsToSupabase(content, noteId, userId, authToken)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG_MAIN, "Failed to upload local note to Supabase", e)
+                    stillPending.add(content)
+                }
+            }
+
+        sharedPreferences.edit { putStringSet("pending_adds", stillPending) }
+    }
+
+    private suspend fun pullNotesFromSupabase(userId: String, authToken: String) {
+        val remoteRows = fetchActiveRemoteRows(userId)
+        val remoteExtras = fetchRemoteNoteExtras(remoteRows, authToken)
+        val localSet = allNotes.toSet()
+        var changed = false
+        remoteRows.forEach { row ->
+            row.id?.let { saveRemoteNoteId(it, row.content) }
+            if (row.content !in localSet) {
+                allNotes.add(row.content)
+                changed = true
+            }
+
+            row.title?.takeIf { it.isNotBlank() }?.let { title ->
+                notesAdapter.setUserTitle(row.content, title)
+            } ?: notesAdapter.removeUserTitle(row.content)
+
+            getSharedPreferences("reminder_flags", MODE_PRIVATE).edit {
+                if (row.hasReminder) putBoolean(row.content.hashCode().toString(), true)
+                else remove(row.content.hashCode().toString())
+            }
+            getSharedPreferences("reminder_badges", MODE_PRIVATE).edit {
+                if (row.hasReminderBadge) putBoolean(row.content.hashCode().toString(), true)
+                else remove(row.content.hashCode().toString())
+            }
+
+            remoteExtras.images[row.content]?.let { images ->
+                if (images.isEmpty()) NoteMediaStore.deleteAllForNote(this, row.content)
+                else NoteMediaStore.setUris(this, row.content, images)
+            }
+            remoteExtras.files[row.content]?.let { files ->
+                NoteAttachmentStore.setItems(this, row.content, files)
+            }
+            remoteExtras.voice[row.content]?.let { voice ->
+                NoteVoiceStore.setItems(this, row.content, voice)
+            }
+        }
+        notesAdapter.preloadReminderFlags(this)
+        notesAdapter.preloadBadgeStates(this)
+        refreshNotesDisplay()
+        if (changed) saveNotes()
+    }
+
+    private data class RemoteNoteExtras(
+        val images: Map<String, List<android.net.Uri>>,
+        val files: Map<String, List<NoteAttachmentItem>>,
+        val voice: Map<String, List<NoteVoiceItem>>
+    )
+
+    private suspend fun fetchRemoteNoteExtras(
+        rows: List<UserNote>,
+        authToken: String
+    ): RemoteNoteExtras = withContext(Dispatchers.IO) {
+        val imagesByContent = mutableMapOf<String, List<android.net.Uri>>()
+        val filesByContent = mutableMapOf<String, List<NoteAttachmentItem>>()
+        val voiceByContent = mutableMapOf<String, List<NoteVoiceItem>>()
+
+        rows.forEach { row ->
+            val noteId = row.id ?: return@forEach
+            imagesByContent[row.content] = fetchRemoteNoteImageUris(
+                noteId = noteId,
+                userId = row.userId,
+                authToken = authToken
+            )
+
+            val attachments = fetchRemoteNoteAttachments(
+                noteId = noteId,
+                userId = row.userId,
+                authToken = authToken
+            )
+            filesByContent[row.content] = attachments.first
+            voiceByContent[row.content] = attachments.second
+        }
+
+        RemoteNoteExtras(
+            images = imagesByContent,
+            files = filesByContent,
+            voice = voiceByContent
+        )
+    }
+
+    private suspend fun fetchRemoteNoteImageUris(
+        noteId: String,
+        userId: String,
+        authToken: String
+    ): List<android.net.Uri> = withContext(Dispatchers.IO) {
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val request = Request.Builder()
+            .url(
+                "$baseUrl/rest/v1/note_images" +
+                        "?select=path" +
+                        "&user_id=eq.${urlEncode(userId)}" +
+                        "&note_id=eq.${urlEncode(noteId)}" +
+                        "&order=created_at.asc"
+            )
+            .addHeader("apikey", BuildConfig.SUPABASE_ANON_KEY)
+            .addHeader("Authorization", "Bearer $authToken")
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val body = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                Log.e(TAG_MAIN, "Fetch note images failed: ${response.code} $body")
+                return@withContext emptyList()
+            }
+
+            val rowsJson = JSONArray(body.ifBlank { "[]" })
+            buildList {
+                for (index in 0 until rowsJson.length()) {
+                    val path = rowsJson.optJSONObject(index)?.optString("path").orEmpty()
+                    if (path.isBlank()) continue
+                    val signedUrl = SupabaseStorageUploader.createSignedUrl(
+                        objectPath = path,
+                        authToken = authToken,
+                        bucket = "note-attachments",
+                        expiresInSeconds = 60 * 60 * 24 * 7
+                    )
+                    if (!signedUrl.isNullOrBlank()) add(signedUrl.toUri())
+                }
+            }
+        }
+    }
+
+    private suspend fun fetchRemoteNoteAttachments(
+        noteId: String,
+        userId: String,
+        authToken: String
+    ): Pair<List<NoteAttachmentItem>, List<NoteVoiceItem>> = withContext(Dispatchers.IO) {
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val request = Request.Builder()
+            .url(
+                "$baseUrl/rest/v1/user_note_attachments" +
+                        "?select=*" +
+                        "&user_id=eq.${urlEncode(userId)}" +
+                        "&note_id=eq.${urlEncode(noteId)}"
+            )
+            .addHeader("apikey", BuildConfig.SUPABASE_ANON_KEY)
+            .addHeader("Authorization", "Bearer $authToken")
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val body = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                Log.e(TAG_MAIN, "Fetch note attachments failed: ${response.code} $body")
+                return@withContext emptyList<NoteAttachmentItem>() to emptyList()
+            }
+
+            val files = mutableListOf<NoteAttachmentItem>()
+            val voice = mutableListOf<NoteVoiceItem>()
+            val rowsJson = JSONArray(body.ifBlank { "[]" })
+            for (index in 0 until rowsJson.length()) {
+                val item = rowsJson.optJSONObject(index) ?: continue
+                val path = item.optString("storage_path").orEmpty()
+                if (path.isBlank()) continue
+                val signedUrl = SupabaseStorageUploader.createSignedUrl(
+                    objectPath = path,
+                    authToken = authToken,
+                    bucket = "note-attachments",
+                    expiresInSeconds = 60 * 60 * 24 * 7
+                ) ?: continue
+
+                val kind = item.optString("kind").lowercase(Locale.US)
+                if (kind == "voice") {
+                    voice += NoteVoiceItem(
+                        uri = signedUrl,
+                        durationMs = item.optLong("duration_ms", 0L),
+                        createdAtMs = item.optLong("created_at_ms", System.currentTimeMillis())
+                    )
+                } else {
+                    files += NoteAttachmentItem(
+                        uri = signedUrl,
+                        name = item.optString("file_name").ifBlank { "Attachment ${files.size + 1}" },
+                        mime = item.optString("mime_type").takeIf { it.isNotBlank() },
+                        sizeBytes = item.optLong("size_bytes", 0L),
+                        remotePath = path
+                    )
+                }
+            }
+
+            files to voice
+        }
+    }
+
+    private suspend fun fetchActiveRemoteRows(userId: String): List<UserNote> = withContext(Dispatchers.IO) {
+        val rows: List<UserNote> = SupabaseManager.client
+            .postgrest
+            .from("user_notes")
+            .select { filter { eq("user_id", userId) } }
+            .decodeList()
+        rows.filter { it.deletedAt == null }
+    }
+
+    private suspend fun insertNoteInSupabaseRest(
+        authToken: String,
+        userId: String,
+        content: String,
+        titleOverride: String? = null,
+        hasReminderOverride: Boolean? = null
+    ): JSONObject = withContext(Dispatchers.IO) {
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val noteTitle = titleOverride
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: notesAdapter.getUserTitle(content)?.takeIf { it.isNotBlank() }
+
+        val body = JSONObject()
+            .put("user_id", userId)
+            .put("content", content)
+            .put("title", noteTitle ?: JSONObject.NULL)
+            .put(
+                "has_reminder",
+                hasReminderOverride ?: getSharedPreferences("reminder_flags", MODE_PRIVATE)
+                    .getBoolean(content.hashCode().toString(), false)
+            )
+            .put(
+                "has_reminder_badge",
+                getSharedPreferences("reminder_badges", MODE_PRIVATE)
+                    .getBoolean(content.hashCode().toString(), false)
+            )
+            .toString()
+            .toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url("$baseUrl/rest/v1/user_notes")
+            .addHeader("apikey", BuildConfig.SUPABASE_ANON_KEY)
+            .addHeader("Authorization", "Bearer $authToken")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "return=representation")
+            .post(body)
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val responseBody = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Insert note failed: ${response.code} $responseBody")
+            }
+            val rows = JSONArray(responseBody.ifBlank { "[]" })
+            if (rows.length() == 0) throw IllegalStateException("Insert note returned no row")
+            rows.getJSONObject(0)
+        }
+    }
+
+    private suspend fun updateNoteMetadataInSupabase(
+        authToken: String,
+        userId: String,
+        noteId: String,
+        content: String,
+        titleOverride: String? = null,
+        hasReminderOverride: Boolean? = null
+    ) = withContext(Dispatchers.IO) {
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val noteTitle = titleOverride
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?: notesAdapter.getUserTitle(content)?.takeIf { it.isNotBlank() }
+
+        val body = JSONObject()
+            .put("title", noteTitle ?: JSONObject.NULL)
+            .put(
+                "has_reminder",
+                hasReminderOverride ?: getSharedPreferences("reminder_flags", MODE_PRIVATE)
+                    .getBoolean(content.hashCode().toString(), false)
+            )
+            .put(
+                "has_reminder_badge",
+                getSharedPreferences("reminder_badges", MODE_PRIVATE)
+                    .getBoolean(content.hashCode().toString(), false)
+            )
+            .toString()
+            .toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url("$baseUrl/rest/v1/user_notes?user_id=eq.${urlEncode(userId)}&id=eq.${urlEncode(noteId)}")
+            .addHeader("apikey", BuildConfig.SUPABASE_ANON_KEY)
+            .addHeader("Authorization", "Bearer $authToken")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "return=minimal")
+            .patch(body)
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val responseBody = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Update note metadata failed: ${response.code} $responseBody")
+            }
+        }
+    }
+
+    private suspend fun hardDeleteNoteInSupabaseRest(
+        authToken: String,
+        userId: String,
+        id: String?,
+        content: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val filters = buildList {
+            add("user_id=eq.${urlEncode(userId)}")
+            if (!id.isNullOrBlank()) add("id=eq.${urlEncode(id)}")
+            else add("content=eq.${urlEncode(content)}")
+        }.joinToString("&")
+
+        val request = Request.Builder()
+            .url("$baseUrl/rest/v1/user_notes?$filters")
+            .addHeader("apikey", BuildConfig.SUPABASE_ANON_KEY)
+            .addHeader("Authorization", "Bearer $authToken")
+            .addHeader("Prefer", "return=representation")
+            .delete()
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val responseBody = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Delete note failed: ${response.code} $responseBody")
+            }
+            JSONArray(responseBody.ifBlank { "[]" }).length() > 0
         }
     }
 
@@ -1222,15 +1730,52 @@ class MainActivity : FragmentActivity() {
         idPrefs.edit { putString("id_to_content", Gson().toJson(idToContent)) }
     }
 
+    private fun remoteNoteIdFor(content: String): String? {
+        val idPrefs = getSharedPreferences("notes_ids", MODE_PRIVATE)
+        val json = idPrefs.getString("id_to_content", "{}") ?: "{}"
+        val type = object : TypeToken<Map<String, String>>() {}.type
+        val idToContent: Map<String, String> = runCatching {
+            Gson().fromJson<Map<String, String>>(json, type)
+        }.getOrNull() ?: emptyMap()
+        return idToContent.entries.firstOrNull { it.value == content }?.key
+    }
+
+    private fun removeRemoteNoteId(content: String) {
+        val idPrefs = getSharedPreferences("notes_ids", MODE_PRIVATE)
+        val json = idPrefs.getString("id_to_content", "{}") ?: "{}"
+        val type = object : TypeToken<MutableMap<String, String>>() {}.type
+        val idToContent: MutableMap<String, String> = runCatching {
+            Gson().fromJson<MutableMap<String, String>>(json, type)
+        }.getOrNull() ?: mutableMapOf()
+        val removed = idToContent.entries.removeAll { it.value == content }
+        if (removed) {
+            idPrefs.edit { putString("id_to_content", Gson().toJson(idToContent)) }
+        }
+    }
+
+    private fun urlEncode(value: String): String =
+        URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
+
     private suspend fun uploadNoteAttachmentsToSupabase(
         content: String,
         noteId: String,
         userId: String,
-        authToken: String
+        authToken: String,
+        imageUrisOverride: List<android.net.Uri>? = null,
+        fileItemsOverride: List<NoteAttachmentItem>? = null,
+        voiceItemsOverride: List<NoteVoiceItem>? = null
     ) = withContext(Dispatchers.IO) {
+        val imageUris = imageUrisOverride ?: NoteMediaStore.getUris(this@MainActivity, content)
+        val fileItems = fileItemsOverride ?: NoteAttachmentStore.getItems(this@MainActivity, content)
+        val voiceItems = voiceItemsOverride ?: NoteVoiceStore.getItems(this@MainActivity, content)
+        val uploadedImages = mutableListOf<UserNoteImage>()
         val uploaded = mutableListOf<UserNoteAttachment>()
+        Log.d(
+            TAG_MAIN,
+            "Uploading main note extras noteId=$noteId title=${notesAdapter.getUserTitle(content).orEmpty()} images=${imageUris.size} files=${fileItems.size} voice=${voiceItems.size}"
+        )
 
-        NoteMediaStore.getUris(this@MainActivity, content).forEachIndexed { index, uri ->
+        imageUris.forEachIndexed { index, uri ->
             val fileName = noteImageFileName(uri, index)
             val mime = contentResolver.getType(uri) ?: "image/jpeg"
             val path = SupabaseStorageUploader.uploadNoteAttachmentAndReturnPath(
@@ -1241,19 +1786,16 @@ class MainActivity : FragmentActivity() {
                 sourceUri = uri,
                 fileName = fileName,
                 mimeHint = mime
-            ) ?: return@forEachIndexed
-            uploaded += UserNoteAttachment(
+            ) ?: throw IllegalStateException("Image upload failed: $fileName")
+            uploadedImages += UserNoteImage(
                 userId = userId,
                 noteId = noteId,
-                storagePath = path,
-                fileName = fileName,
-                mimeType = mime,
-                sizeBytes = noteUriSize(uri),
-                kind = "image"
+                path = path,
+                mimeType = mime
             )
         }
 
-        NoteAttachmentStore.getItems(this@MainActivity, content).forEach { item ->
+        fileItems.forEach { item ->
             if (!item.remotePath.isNullOrBlank()) return@forEach
             val path = SupabaseStorageUploader.uploadNoteAttachmentAndReturnPath(
                 context = this@MainActivity,
@@ -1263,7 +1805,7 @@ class MainActivity : FragmentActivity() {
                 sourceUri = item.asUri,
                 fileName = item.name,
                 mimeHint = item.mime
-            ) ?: return@forEach
+            ) ?: throw IllegalStateException("Attachment upload failed: ${item.name}")
             NoteAttachmentStore.updateRemotePath(this@MainActivity, content, item.uri, path)
             uploaded += UserNoteAttachment(
                 userId = userId,
@@ -1276,7 +1818,7 @@ class MainActivity : FragmentActivity() {
             )
         }
 
-        NoteVoiceStore.getItems(this@MainActivity, content).forEachIndexed { index, item ->
+        voiceItems.forEachIndexed { index, item ->
             val fileName = "voice_${index + 1}.m4a"
             val path = SupabaseStorageUploader.uploadNoteAttachmentAndReturnPath(
                 context = this@MainActivity,
@@ -1286,7 +1828,7 @@ class MainActivity : FragmentActivity() {
                 sourceUri = item.asUri,
                 fileName = fileName,
                 mimeHint = "audio/mp4"
-            ) ?: return@forEachIndexed
+            ) ?: throw IllegalStateException("Voice upload failed: $fileName")
             uploaded += UserNoteAttachment(
                 userId = userId,
                 noteId = noteId,
@@ -1298,13 +1840,74 @@ class MainActivity : FragmentActivity() {
             )
         }
 
-        if (uploaded.isNotEmpty()) {
-            runCatching {
-                SupabaseManager.client.postgrest
-                    .from("user_note_attachments")
-                    .insert(uploaded)
-            }.onFailure {
-                Log.e(TAG_MAIN, "Attachment metadata insert failed; storage upload may still be present", it)
+        if (uploadedImages.isNotEmpty()) insertNoteImageRowsInSupabase(authToken, uploadedImages)
+        if (uploaded.isNotEmpty()) insertNoteAttachmentRowsInSupabase(authToken, uploaded)
+    }
+
+    private suspend fun insertNoteImageRowsInSupabase(
+        authToken: String,
+        rows: List<UserNoteImage>
+    ) = withContext(Dispatchers.IO) {
+        if (rows.isEmpty()) return@withContext
+        val body = JSONArray().apply {
+            rows.forEach { image ->
+                put(
+                    JSONObject()
+                        .put("user_id", image.userId)
+                        .put("note_id", image.noteId)
+                        .put("path", image.path)
+                        .put("mime_type", image.mimeType ?: JSONObject.NULL)
+                        .put("width", image.width ?: JSONObject.NULL)
+                        .put("height", image.height ?: JSONObject.NULL)
+                )
+            }
+        }.toString()
+        insertRowsInSupabaseRest(authToken, "note_images", body)
+    }
+
+    private suspend fun insertNoteAttachmentRowsInSupabase(
+        authToken: String,
+        rows: List<UserNoteAttachment>
+    ) = withContext(Dispatchers.IO) {
+        if (rows.isEmpty()) return@withContext
+        val body = JSONArray().apply {
+            rows.forEach { attachment ->
+                put(
+                    JSONObject()
+                        .put("user_id", attachment.userId)
+                        .put("note_id", attachment.noteId)
+                        .put("storage_path", attachment.storagePath)
+                        .put("file_name", attachment.fileName)
+                        .put("mime_type", attachment.mimeType ?: JSONObject.NULL)
+                        .put("size_bytes", attachment.sizeBytes)
+                        .put("kind", attachment.kind)
+                        .put("duration_ms", attachment.durationMs ?: JSONObject.NULL)
+                        .put("created_at_ms", attachment.createdAtMs ?: JSONObject.NULL)
+                )
+            }
+        }.toString()
+        insertRowsInSupabaseRest(authToken, "user_note_attachments", body)
+    }
+
+    private suspend fun insertRowsInSupabaseRest(
+        authToken: String,
+        table: String,
+        body: String
+    ) = withContext(Dispatchers.IO) {
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val request = Request.Builder()
+            .url("$baseUrl/rest/v1/$table")
+            .addHeader("apikey", BuildConfig.SUPABASE_ANON_KEY)
+            .addHeader("Authorization", "Bearer $authToken")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "return=minimal")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val responseBody = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Insert $table failed: ${response.code} $responseBody")
             }
         }
     }
@@ -4657,6 +5260,7 @@ Version: $versionName
             notesAdapter.preloadBadgeStates(this@MainActivity)
             notesAdapter.preloadReminderFlags(this@MainActivity)
             refreshNotesDisplay()
+            syncPendingNotesToSupabase()
         }
 
         AllNotesScreen(
@@ -4683,7 +5287,8 @@ Version: $versionName
             },
             onDeleteSelected = ::deleteSelectedNotes,
             onOpenNote = { row, position -> onNoteClick(row.text, position) },
-            onBack = null
+            onBack = null,
+            syncStatus = notesSyncStatus
         )
     }
 }

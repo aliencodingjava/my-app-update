@@ -1,5 +1,6 @@
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.io.File
 import java.util.Properties
 
 
@@ -20,13 +21,6 @@ val props = Properties().apply {
 
 val supabaseUrl: String? = props.getProperty("SUPABASE_URL", "")
 val supabaseAnonKey: String? = props.getProperty("SUPABASE_ANON_KEY", "")
-val geminiApiKey: String = props.getProperty("GEMINI_API_KEY", "")
-
-fun buildConfigString(value: String): String {
-    return "\"" + value
-        .replace("\\", "\\\\")
-        .replace("\"", "\\\"") + "\""
-}
 
 
 
@@ -68,7 +62,9 @@ android {
         create("release") {
             // guard in case file missing
             if (keystoreProperties.isNotEmpty()) {
-                storeFile = file(keystoreProperties["storeFile"] as String)
+                val storePath = (keystoreProperties["storeFile"] as String).replace("\\:", ":")
+                val storePathFile = File(storePath)
+                storeFile = if (storePathFile.isAbsolute) storePathFile else rootProject.file(storePath)
                 storePassword = keystoreProperties["storePassword"] as String
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String
@@ -84,15 +80,14 @@ android {
             //noinspection ChromeOsAbiSupport,ChromeOsAbiSupport
             abiFilters += listOf("arm64-v8a")
         }
-        versionCode = 250
-        versionName = "0.2.246"
+        versionCode = 255
+        versionName = "0.2.251"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Jun-11-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Jun-17-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
-        buildConfigField("String", "GEMINI_API_KEY", buildConfigString(geminiApiKey))
 
         signingConfig = signingConfigs.getByName("release")
     }
@@ -159,10 +154,6 @@ android {
         noCompress += "tflite"
     }
 
-}
-
-configurations.matching { it.name == "releaseRuntimeClasspath" }.configureEach {
-    exclude(group = "androidx.recyclerview", module = "recyclerview")
 }
 
 dependencies {
