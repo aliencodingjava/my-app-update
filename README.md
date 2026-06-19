@@ -50,4 +50,15 @@ The app can check for new versions, show what changed, and install updates direc
 - clean light and dark mode use
 - people who want useful airport tools in one place
 
-## C<img width="769" height="1666" alt="liquidglass" src="https://github.com/user-attachments/assets/bef65c25-c2eb-4887-8bd8-684799f7fa22" />
+## Credits
+
+Glass effects are powered in part by [AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) by [@Kyant0](https://github.com/Kyant0).
+
+<p>
+  <a href="https://github.com/Kyant0/AndroidLiquidGlass" title="Star AndroidLiquidGlass">
+    <img alt="Star AndroidLiquidGlass" src="https://img.shields.io/github/stars/Kyant0/AndroidLiquidGlass?style=social">
+  </a>
+  <a href="https://github.com/Kyant0" title="Follow @Kyant0 on GitHub">
+    <img alt="Follow @Kyant0" src="https://img.shields.io/badge/Follow-@Kyant0-181717?logo=github&logoColor=white">
+  </a>
+</p>
