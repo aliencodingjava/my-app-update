@@ -56,7 +56,23 @@ if update_title or update_body:
             "body": update_body or f"Version {version_name} is ready to download.",
         },
     )
-payload["updates"] = updates
+
+deduped_updates = []
+seen_updates = set()
+for update in updates:
+    if not isinstance(update, dict):
+        continue
+    title = str(update.get("title", "")).strip()
+    body = str(update.get("body", "")).strip()
+    if not title and not body:
+        continue
+    key = (title, body)
+    if key in seen_updates:
+        continue
+    seen_updates.add(key)
+    deduped_updates.append({"title": title, "body": body})
+
+payload["updates"] = deduped_updates
 
 request(
     "PATCH",
