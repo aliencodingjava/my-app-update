@@ -1,6 +1,3 @@
-
-[![Release APK](https://github.com/aliencodingjava/my-app-update/actions/workflows/release.yml/badge.svg)](https://github.com/aliencodingjava/my-app-update/actions/workflows/release.yml)
-
 JH AirTracker brings Jackson Hole airport tools, flight information, personal notes, contacts, travel shortcuts, and app settings into one clean Android experience.
 
 It is made for quick checks, daily airport use, travel planning, and keeping useful information close without jumping between separate apps.
