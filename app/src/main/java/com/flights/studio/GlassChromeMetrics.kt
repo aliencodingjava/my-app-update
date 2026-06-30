@@ -133,8 +133,8 @@ internal fun bottomTabSelectedContentColorForAmount(
 
 @Composable
 internal fun bottomChromeBackdropBlurDp(): Float {
-    val amount = rememberLiquidGlassTintAmount()
-    return bottomChromeBackdropBlurDpForAmount(amount, isSystemInDarkTheme())
+    val blurAmount = rememberLiquidGlassBlurAmount()
+    return liquidGlassBlurRadiusDpForAmount(blurAmount)
 }
 
 internal fun bottomChromeBackdropBlurDpForAmount(amount: Float, isDarkTheme: Boolean): Float {
@@ -147,8 +147,8 @@ internal fun bottomChromeBackdropBlurDpForAmount(amount: Float, isDarkTheme: Boo
 
 @Composable
 internal fun bottomChromeNativeBlurPx(): Float {
-    val amount = rememberLiquidGlassTintAmount()
-    return bottomChromeNativeBlurPxForAmount(amount, isSystemInDarkTheme())
+    val blurAmount = rememberLiquidGlassBlurAmount()
+    return liquidGlassNativeBlurPxForAmount(blurAmount)
 }
 
 internal fun bottomChromeNativeBlurPxForAmount(amount: Float, isDarkTheme: Boolean): Float {
@@ -183,6 +183,14 @@ internal fun adaptiveSurfaceTint(
     } else {
         Color.White.copy(alpha = alpha)
     }
+}
+
+internal fun liquidGlassBlurRadiusDpForAmount(amount: Float): Float {
+    return mix(0f, 10f, amount)
+}
+
+internal fun liquidGlassNativeBlurPxForAmount(amount: Float): Float {
+    return mix(0f, 30f, amount)
 }
 
 internal fun adaptiveLuminanceBrightness(offset: Float): Float {
@@ -235,24 +243,29 @@ internal fun rememberLiquidGlassTintAmount(): Float {
 }
 
 @Composable
-internal fun rememberLiquidGlassAdaptiveLuminanceEnabled(): Boolean {
+internal fun rememberLiquidGlassBlurAmount(): Float {
     val context = LocalContext.current.applicationContext
-    var enabled by remember(context) {
-        mutableStateOf(SettingsStore.liquidGlassAdaptiveLuminance(context))
+    var amount by remember(context) {
+        mutableStateOf(SettingsStore.liquidGlassBlur(context))
     }
 
     DisposableEffect(context) {
         val prefs = SettingsStore.prefs(context)
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == SettingsStore.KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE) {
-                enabled = SettingsStore.liquidGlassAdaptiveLuminance(context)
+            if (key == SettingsStore.KEY_LIQUID_GLASS_BLUR) {
+                amount = SettingsStore.liquidGlassBlur(context)
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
 
-    return enabled
+    return amount
+}
+
+@Composable
+internal fun rememberLiquidGlassAdaptiveLuminanceEnabled(): Boolean {
+    return false
 }
 
 @Composable

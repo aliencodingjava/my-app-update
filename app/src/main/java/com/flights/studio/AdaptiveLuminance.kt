@@ -22,12 +22,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.nio.IntBuffer
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * State you can reuse for any liquid glass surface.
  *
  * - [layer]: record backdrop into this every frame (layer.record { drawBackdrop() }).
- * - [luminance]: 0f..1f average brightness of what’s behind.
+ * - [luminance]: 0f.1f average brightness of what’s behind.
  * - [contentColor]: animated text/icon color based on luminance.
  */
 data class AdaptiveLuminanceState(
@@ -125,7 +126,7 @@ fun rememberAdaptiveLuminance(
                 targetContentColor.value = if (avg > 0.5f) lightOnBright else lightOnDark
             }
 
-            delay(sampleEveryMs)
+            delay(sampleEveryMs.milliseconds)
         }
     }
 

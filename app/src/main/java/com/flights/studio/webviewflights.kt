@@ -8,6 +8,8 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.Handler
+import android.os.Looper
 import android.text.method.LinkMovementMethod
 import android.view.MotionEvent
 import android.view.View
@@ -21,7 +23,20 @@ import android.webkit.WebViewClient
 import android.webkit.JavascriptInterface
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -30,19 +45,30 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -57,6 +83,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PrivacyTip
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.DismissibleNavigationDrawer
@@ -71,6 +98,7 @@ import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -84,17 +112,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.net.toUri
@@ -103,14 +137,121 @@ import com.flights.studio.FlightsTabsInjector.injectHideTriggers
 import com.flights.studio.SettingsStore.prefs
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import kotlin.math.abs
+
+internal val FlightArrivalLantern = Color(0xFFF70D1A)
+internal val FlightDepartureLantern = Color(0xFF4D4DFF)
+internal val FlightAlertLantern = Color(0xFF2FEF73)
+
+internal fun flightLanternPanelColor(
+    accent: Color,
+    isDark: Boolean,
+    glassAmount: Float
+): Color {
+    val amount = glassAmount.coerceIn(0f, 1f)
+    return if (isDark) {
+        accent.copy(alpha = 0.36f + 0.24f * amount)
+            .compositeOver(Color(0xFF130004).copy(alpha = 0.34f))
+    } else {
+        accent.copy(alpha = 0.18f + 0.15f * amount)
+            .compositeOver(Color.White.copy(alpha = 0.68f))
+    }
+}
+
+internal fun flightLanternOverlayColor(
+    accent: Color,
+    isDark: Boolean,
+    glassAmount: Float
+): Color {
+    val amount = glassAmount.coerceIn(0f, 1f)
+    return if (isDark) {
+        accent.copy(alpha = 0.24f + 0.22f * amount)
+    } else {
+        accent.copy(alpha = 0.10f + 0.14f * amount)
+    }
+}
+
+internal fun flightLanternSheenBrush(
+    accent: Color,
+    isDark: Boolean,
+    glassAmount: Float
+): Brush {
+    val amount = glassAmount.coerceIn(0f, 1f)
+    val bright = if (isDark) 0.15f + 0.10f * amount else 0.20f + 0.08f * amount
+    val glow = if (isDark) 0.18f + 0.10f * amount else 0.08f + 0.06f * amount
+    return Brush.linearGradient(
+        0.00f to Color.White.copy(alpha = bright),
+        0.20f to accent.copy(alpha = glow),
+        0.54f to Color.Transparent,
+        0.82f to accent.copy(alpha = glow * 0.82f),
+        1.00f to Color.Black.copy(alpha = if (isDark) 0.10f else 0.00f),
+        start = Offset.Zero,
+        end = Offset.Infinite
+    )
+}
+
+internal fun flightLanternSheetPanelColor(
+    accent: Color,
+    isDark: Boolean,
+    glassAmount: Float,
+    intensity: Float = 1f
+): Color {
+    val amount = glassAmount.coerceIn(0f, 1f)
+    val strength = intensity.coerceIn(0f, 1f)
+    return if (isDark) {
+        accent.copy(alpha = (0.10f + 0.07f * amount) * strength)
+            .compositeOver(Color(0xFF090D14).copy(alpha = 0.62f + 0.18f * amount))
+    } else {
+        accent.copy(alpha = (0.06f + 0.06f * amount) * strength)
+            .compositeOver(Color.White.copy(alpha = 0.76f + 0.12f * amount))
+    }
+}
+
+internal fun flightLanternSheetOverlayColor(
+    accent: Color,
+    isDark: Boolean,
+    glassAmount: Float,
+    intensity: Float = 1f
+): Color {
+    val amount = glassAmount.coerceIn(0f, 1f)
+    val strength = intensity.coerceIn(0f, 1f)
+    return if (isDark) {
+        accent.copy(alpha = (0.06f + 0.07f * amount) * strength)
+    } else {
+        accent.copy(alpha = (0.035f + 0.055f * amount) * strength)
+    }
+}
+
+internal fun flightLanternSheetSheenBrush(
+    accent: Color,
+    isDark: Boolean,
+    glassAmount: Float,
+    intensity: Float = 1f
+): Brush {
+    val amount = glassAmount.coerceIn(0f, 1f)
+    val strength = intensity.coerceIn(0f, 1f)
+    return Brush.linearGradient(
+        0.00f to Color.White.copy(alpha = if (isDark) 0.10f + 0.05f * amount else 0.14f + 0.04f * amount),
+        0.24f to accent.copy(alpha = (if (isDark) 0.055f + 0.04f * amount else 0.035f + 0.03f * amount) * strength),
+        0.66f to Color.Transparent,
+        1.00f to Color.Black.copy(alpha = if (isDark) 0.06f else 0.00f),
+        start = Offset.Zero,
+        end = Offset.Infinite
+    )
+}
 
 @Composable
 private fun SystemBarsSync() {
@@ -146,6 +287,9 @@ fun WebviewFlights(
     ) {
     SystemBarsSync()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val flightPageBackdrop = rememberLayerBackdrop()
+    val flightMenuBackdrop = rememberLayerBackdrop()
     var screenVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -154,14 +298,62 @@ fun WebviewFlights(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var cardId by rememberSaveable { mutableStateOf(startCardId) }
     var activeWebCardId by rememberSaveable { mutableStateOf(webCardOrFlights(startCardId)) }
+    var flightMainTabsVisible by remember { mutableStateOf(false) }
+    var selectedFlightTab by rememberSaveable { mutableStateOf("arrivals") }
+    var flightWebView by remember { mutableStateOf<WebView?>(null) }
+    var showFlightAlertsSheet by remember { mutableStateOf(false) }
+    var showFlightMenuSheet by remember { mutableStateOf(false) }
+    var showFlightTableSheet by remember { mutableStateOf(false) }
+    var flightTableMode by rememberSaveable { mutableStateOf("arrival") }
+    var lastFlightContentTab by rememberSaveable { mutableStateOf("arrivals") }
+    var liveStatusJson by rememberSaveable { mutableStateOf(SettingsStore.flightLiveStatusSnapshot(context)) }
+    var flightBriefJson by rememberSaveable { mutableStateOf(SettingsStore.flightBriefSnapshot(context)) }
+    var flightTableJson by rememberSaveable { mutableStateOf(SettingsStore.flightTableSnapshot(context)) }
+    var weatherJson by rememberSaveable { mutableStateOf(SettingsStore.briefingWeatherSnapshot(context)) }
+    fun selectedFlightTableTab(): String =
+        if (flightTableMode == "departure") "departures" else "arrivals"
+    fun selectedFlightContentTab(): String =
+        if (cardId == "card3") lastFlightContentTab else selectedFlightTableTab()
+    val webPrefs = remember(context) { prefs(context) }
+    var nativeTableSettingsRevision by remember(webPrefs) { mutableIntStateOf(0) }
+    DisposableEffect(webPrefs) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            nativeTableSettingsRevision += 1
+        }
+        webPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            webPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+    val nativeTableTheme = remember(nativeTableSettingsRevision) { SettingsStore.webTheme(context) }
+    val nativeTableTextZoom = remember(nativeTableSettingsRevision) { SettingsStore.textZoom(context) }
+    val nativeTableGrouped = remember(nativeTableSettingsRevision) { SettingsStore.groupFlights(context) }
+    val nativeTableHighContrast = remember(nativeTableSettingsRevision) { SettingsStore.highContrastWeb(context) }
     val webBlurTint = if (isSystemInDarkTheme()) Color(0xFF2B2924) else Color(0xFFF4F1E9)
 
+    LaunchedEffect(cardId) {
+        if (cardId == "card3") {
+            nativeTableSettingsRevision += 1
+        }
+    }
 
     LaunchedEffect(cardId) {
         if (cardId == "card1") onOpenWelcome()
     }
-    val context = LocalContext.current
     val online = hasInternet(context)
+
+    LaunchedEffect(cardId, flightWebView, online) {
+        val webView = flightWebView ?: return@LaunchedEffect
+        if (cardId != "card3" || !online) return@LaunchedEffect
+        while (true) {
+            webView.evaluateJavascript(
+                "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
+                null
+            )
+            delay(60_000L)
+            webView.reload()
+        }
+    }
 
     val screenTitle = when (cardId) {
         "card1" -> "Welcome"
@@ -180,6 +372,18 @@ fun WebviewFlights(
     fun setCard(id: String) {
         previousCard = cardId
         cardId = id
+        if (id == "card3") {
+            nativeTableSettingsRevision += 1
+        }
+        showFlightAlertsSheet = false
+        showFlightTableSheet = false
+        showFlightMenuSheet = false
+        selectedFlightTab = if (id == "card3" && flightTableMode == "departure") {
+            "departures"
+        } else {
+            "arrivals"
+        }
+        lastFlightContentTab = selectedFlightTab
         if (isWebCard(id)) {
             activeWebCardId = id
         }
@@ -196,6 +400,13 @@ fun WebviewFlights(
         if (isWebCard(previousCard)) {
             activeWebCardId = previousCard
         }
+    }
+
+    BackHandler(enabled = showFlightAlertsSheet || showFlightMenuSheet || showFlightTableSheet) {
+        showFlightAlertsSheet = false
+        showFlightMenuSheet = false
+        showFlightTableSheet = false
+        selectedFlightTab = selectedFlightContentTab()
     }
 
 
@@ -351,20 +562,178 @@ fun WebviewFlights(
                     scaleY = scale
                 }
         ) {
+            val flightTableSnapshot = remember(flightTableJson) { parseFlightTableSnapshot(flightTableJson) }
+            val liveStatusSnapshot = remember(liveStatusJson) { parseFlightLiveStatusSnapshot(liveStatusJson) }
+            val flightSheetBrief = remember(flightBriefJson) { parseFlightBriefSnapshotForSheet(flightBriefJson) }
+            val flightSheetWeather = remember(weatherJson) { parseWeatherSnapshotForSheet(weatherJson) }
+            val activeFlightBackdrop = if (cardId == "card3") flightPageBackdrop else backdrop
+            val isDarkTheme = isSystemInDarkTheme()
+            val flightMenuPanelColor = if (isDarkTheme) {
+                Color(0xFF0B0F17).copy(alpha = 0.42f)
+            } else {
+                Color(0xFFFFF8F0).copy(alpha = 0.54f)
+            }
+            val flightMenuOverlayTint = if (isDarkTheme) {
+                Color(0xFF283141).copy(alpha = 0.035f)
+            } else {
+                Color(0xFFFFF4E8).copy(alpha = 0.045f)
+            }
+            val flightMenuButtonColor = if (isDarkTheme) {
+                Color(0xFF7FA9FF)
+            } else {
+                Color(0xFFC68D62)
+            }
+            val flightMenuButtonAlpha = if (isDarkTheme) 0.24f else 0.20f
+            val flightMenuBlurDp = if (isDarkTheme) 10f else 9f
 
-            WebCardContent(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .layerBackdrop(backdrop)
-                    .graphicsLayer {
-                        this.alpha = if (isWebCard(cardId)) 1f else 0f
-                    }
-                    .zIndex(0f),
-                cardId = activeWebCardId,
-            )
+                    .layerBackdrop(flightMenuBackdrop)
+            ) {
+                WebCardContent(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .layerBackdrop(backdrop)
+                        .graphicsLayer {
+                            this.alpha = if (isWebCard(cardId) && cardId != "card3") 1f else 0f
+                        }
+                        .zIndex(0f),
+                    cardId = activeWebCardId,
+                    onFlightMainPageChange = { flightMainTabsVisible = it },
+                    onFlightWebViewReady = { flightWebView = it },
+                    onFlightLiveStatusChange = { liveStatusJson = it },
+                    onFlightBriefChange = { flightBriefJson = it },
+                    onFlightTableChange = { flightTableJson = it },
+                    onWeatherChange = { weatherJson = it },
+                )
 
-            // ===== FULLSCREEN OVERLAYS =====
-            when (cardId) {
+                if (cardId == "card3") {
+                    NativeFlightTablePage(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .layerBackdrop(flightPageBackdrop)
+                            .zIndex(1f),
+                        backdrop = backdrop,
+                        snapshot = flightTableSnapshot,
+                        liveStatusSnapshot = liveStatusSnapshot,
+                        flightSnapshot = flightSheetBrief,
+                        weather = flightSheetWeather,
+                        mode = if (selectedFlightTab == "alerts") "alerts" else flightTableMode,
+                        webTheme = nativeTableTheme,
+                        textZoom = nativeTableTextZoom,
+                        groupedFlights = nativeTableGrouped,
+                        highContrast = nativeTableHighContrast,
+                        onRefreshAlerts = {
+                            flightWebView?.evaluateJavascript(
+                                "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
+                                null
+                            )
+                        }
+                    )
+                }
+
+                NativeFlightBottomTabs(
+                    selected = selectedFlightTab,
+                    backdrop = activeFlightBackdrop,
+                    contentView = null,
+                    onSelect = { next ->
+                    val sameTabSelected = selectedFlightTab == next
+                    when (next) {
+                        "alerts" -> {
+                            showFlightMenuSheet = false
+                            if (cardId == "card3") {
+                                showFlightTableSheet = false
+                                showFlightAlertsSheet = false
+                                selectedFlightTab = next
+                                lastFlightContentTab = next
+                                flightWebView?.evaluateJavascript(
+                                    "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
+                                    null
+                                )
+                            } else {
+                                val shouldClose = showFlightAlertsSheet && sameTabSelected
+                                showFlightTableSheet = false
+                                showFlightAlertsSheet = !shouldClose
+                                selectedFlightTab = if (shouldClose) selectedFlightTableTab() else next
+                                if (!shouldClose) {
+                                    flightWebView?.evaluateJavascript(
+                                        "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
+                                        null
+                                    )
+                                }
+                            }
+                        }
+                        "menu" -> {
+                            val shouldClose = showFlightMenuSheet
+                            showFlightAlertsSheet = false
+                            showFlightTableSheet = false
+                            showFlightMenuSheet = !shouldClose
+                            selectedFlightTab = if (cardId == "card3") {
+                                lastFlightContentTab
+                            } else {
+                                if (shouldClose) selectedFlightTableTab() else next
+                            }
+                        }
+                        "arrivals", "departures" -> {
+                            showFlightAlertsSheet = false
+                            showFlightMenuSheet = false
+                            if (cardId == "card3") {
+                                val nextMode = if (next == "departures") "departure" else "arrival"
+                                flightTableMode = nextMode
+                                selectedFlightTab = next
+                                lastFlightContentTab = next
+                                showFlightTableSheet = false
+                                flightWebView?.evaluateJavascript(
+                                    "try{window.fsNativeFlightTab&&window.fsNativeFlightTab('$next')}catch(e){}",
+                                    null
+                                )
+                            } else {
+                                val nextMode = if (next == "departures") "departure" else "arrival"
+                                val shouldClose = showFlightTableSheet && sameTabSelected && flightTableMode == nextMode
+                                flightTableMode = if (next == "departures") "departure" else "arrival"
+                                showFlightTableSheet = !shouldClose
+                                selectedFlightTab = if (shouldClose) selectedFlightTableTab() else next
+                            }
+                        }
+                    }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 4.dp)
+                        .navigationBarsPadding()
+                        .zIndex(30f)
+                )
+
+                FlightScheduleSheet(
+                    visible = showFlightAlertsSheet || showFlightTableSheet,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .zIndex(20f),
+                    backdrop = activeFlightBackdrop,
+                    tableSnapshot = flightTableSnapshot,
+                    liveStatusSnapshot = liveStatusSnapshot,
+                    flightSnapshot = flightSheetBrief,
+                    weather = flightSheetWeather,
+                    mode = if (showFlightAlertsSheet) "alerts" else flightTableMode,
+                    textZoom = nativeTableTextZoom,
+                    groupedFlights = nativeTableGrouped,
+                    highContrast = nativeTableHighContrast,
+                    onRefreshAlerts = {
+                        flightWebView?.evaluateJavascript(
+                            "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
+                            null
+                        )
+                    },
+                    onDismiss = {
+                        showFlightAlertsSheet = false
+                        showFlightTableSheet = false
+                        selectedFlightTab = selectedFlightTableTab()
+                    }
+                )
+
+                // ===== FULLSCREEN OVERLAYS =====
+                when (cardId) {
 
                 "settings" -> {
                     SettingsScreen(
@@ -395,36 +764,116 @@ fun WebviewFlights(
                 }
             }
 
-            if (cardId != "card3" && cardId != "privacy_policy" && cardId != "licenses") {
-                BackdropGradientLayer(
-                    backdrop = backdrop,
-                    height = 76.dp,
-                    blurDp = 4.dp,
-                    tintColor = webBlurTint,
-                    tintIntensity = 0.62f,
+                if (cardId != "card3" && cardId != "privacy_policy" && cardId != "licenses") {
+                    BackdropGradientLayer(
+                        backdrop = backdrop,
+                        height = 76.dp,
+                        blurDp = 4.dp,
+                        tintColor = webBlurTint,
+                        tintIntensity = 0.62f,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .zIndex(0.5f)
+                    )
+                }
+
+                WebViewSettingsStyleTopAppBar(
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .zIndex(0.5f)
+                        .align(Alignment.TopCenter)
+                        .zIndex(3f),
+                    backdrop = backdrop,
+                    title = screenTitle
                 )
             }
 
-            WebViewSettingsStyleTopAppBar(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .zIndex(3f),
-                backdrop = backdrop,
-                title = screenTitle,
-                onNavigationClick = { scope.launch { drawerState.open() } }
+            PrimaryBottomChrome(
+                selectedTab = PrimaryTabDestination.Home,
+                backdrop = flightMenuBackdrop,
+                menuVisible = showFlightMenuSheet,
+                menuActions = webViewMenuActions(
+                    onOpenWelcome = {
+                        showFlightMenuSheet = false
+                        setCard("card1")
+                    },
+                    onOpenNews = {
+                        showFlightMenuSheet = false
+                        setCard("card2")
+                    },
+                    onOpenFlights = {
+                        showFlightMenuSheet = false
+                        setCard("card3")
+                    },
+                    onOpenFbo = {
+                        showFlightMenuSheet = false
+                        setCard("card4")
+                    },
+                    onOpenAbout = {
+                        showFlightMenuSheet = false
+                        setCard("about_us")
+                    },
+                    onOpenContact = {
+                        showFlightMenuSheet = false
+                        setCard("contact_us")
+                    },
+                    onOpenWebSettings = {
+                        showFlightMenuSheet = false
+                        setCard("settings")
+                    },
+                    onOpenMainApp = {
+                        showFlightMenuSheet = false
+                        exitToMainApp()
+                    }
+                ),
+                onMenuDismiss = {
+                    showFlightMenuSheet = false
+                    selectedFlightTab = selectedFlightContentTab()
+                },
+                onOpenHome = {},
+                onOpenContacts = {},
+                onOpenNotes = {},
+                onOpenSettings = {},
+                onOpenMenu = { showFlightMenuSheet = true },
+                showTabs = false,
+                contentView = null,
+                menuPanelColor = flightMenuPanelColor,
+                menuOverlayTint = flightMenuOverlayTint,
+                menuButtonColor = flightMenuButtonColor,
+                menuButtonAlpha = flightMenuButtonAlpha,
+                menuBlurDp = flightMenuBlurDp
             )
         }
     }
 }
 
+private fun webViewMenuActions(
+    onOpenWelcome: () -> Unit,
+    onOpenNews: () -> Unit,
+    onOpenFlights: () -> Unit,
+    onOpenFbo: () -> Unit,
+    onOpenAbout: () -> Unit,
+    onOpenContact: () -> Unit,
+    onOpenWebSettings: () -> Unit,
+    onOpenMainApp: () -> Unit
+): List<PrimaryMenuAction> = listOf(
+    PrimaryMenuAction("Welcome", R.drawable.ic_oui_home, onOpenWelcome),
+    PrimaryMenuAction("News", R.drawable.ic_oui_news, onOpenNews),
+    PrimaryMenuAction("Flights", R.drawable.baseline_flight_24, onOpenFlights),
+    PrimaryMenuAction("FBO", R.drawable.airplane_svgrepo_com, onOpenFbo),
+    PrimaryMenuAction("About us", R.drawable.baseline_info_24, onOpenAbout),
+    PrimaryMenuAction("Contact", R.drawable.baseline_contact_mail_24, onOpenContact),
+    PrimaryMenuAction("Web Settings", R.drawable.ic_oui_settings, onOpenWebSettings),
+    PrimaryMenuAction(
+        label = "Main app",
+        iconRes = R.drawable.account_circle_24dp_ffffff_fill1_profile,
+        onClick = onOpenMainApp,
+        useProfileAvatar = true
+    )
+)
+
 @Composable
 private fun WebViewSettingsStyleTopAppBar(
     backdrop: LayerBackdrop,
     title: String,
-    onNavigationClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
@@ -459,22 +908,14 @@ private fun WebViewSettingsStyleTopAppBar(
                 .statusBarsPadding()
                 .fillMaxWidth()
                 .height(64.dp)
-                .padding(start = 8.dp, end = 6.dp),
+                .padding(start = 18.dp, end = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onNavigationClick) {
-                Icon(
-                    imageVector = Icons.Filled.Menu,
-                    contentDescription = "Open navigation drawer",
-                    tint = contentColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
             Text(
                 text = title,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 2.dp, end = 12.dp),
+                    .padding(end = 12.dp),
                 color = contentColor,
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
                 maxLines = 1
@@ -754,7 +1195,6 @@ private fun injectWebRuntimePreferences(
     view: WebView?,
     theme: String,
     textZoom: Int,
-    enhancedTable: Boolean,
     groupedFlights: Boolean,
     highContrast: Boolean,
     reduceMotion: Boolean
@@ -778,7 +1218,6 @@ private fun injectWebRuntimePreferences(
             body.classList.remove('fs-theme-light','fs-theme-mint','fs-theme-sky','fs-theme-ocean','fs-theme-violet','fs-theme-rose','fs-theme-amber','fs-theme-gray','fs-theme-dark','fs-theme-auto');
             body.classList.add('fs-theme-' + theme);
           }
-          root.classList.toggle('fs-enhanced-table', $enhancedTable);
           root.classList.toggle('fs-grouped-flights', $groupedFlights);
           root.classList.toggle('fs-web-high-contrast', $highContrast);
           root.classList.toggle('fs-web-reduce-motion', $reduceMotion);
@@ -1024,12 +1463,32 @@ private fun proxiedFlightApiResponse(path: String): WebResourceResponse? {
     )
 }
 
-private class FlightBriefBridge(context: Context) {
+private class FlightBriefBridge(
+    context: Context,
+    private val onLiveStatusSnapshot: (String) -> Unit,
+    private val onFlightBriefSnapshot: (String) -> Unit,
+    private val onFlightTableSnapshot: (String) -> Unit,
+    private val onWeatherSnapshot: (String) -> Unit
+) {
     private val appContext = context.applicationContext
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     @JavascriptInterface
     fun updateFlightBriefSnapshot(json: String) {
         SettingsStore.setFlightBriefSnapshot(appContext, json)
+        mainHandler.post { onFlightBriefSnapshot(json) }
+    }
+
+    @JavascriptInterface
+    fun updateFlightLiveStatusSnapshot(json: String) {
+        SettingsStore.setFlightLiveStatusSnapshot(appContext, json)
+        mainHandler.post { onLiveStatusSnapshot(json) }
+    }
+
+    @JavascriptInterface
+    fun updateFlightTableSnapshot(json: String) {
+        SettingsStore.setFlightTableSnapshot(appContext, json)
+        mainHandler.post { onFlightTableSnapshot(json) }
     }
 
     @JavascriptInterface
@@ -1041,6 +1500,7 @@ private class FlightBriefBridge(context: Context) {
             }.toString()
         }.getOrElse { json }
         SettingsStore.setBriefingWeatherSnapshot(appContext, taggedJson)
+        mainHandler.post { onWeatherSnapshot(taggedJson) }
     }
 }
 
@@ -1049,6 +1509,12 @@ private class FlightBriefBridge(context: Context) {
 private fun WebCardContent(
     modifier: Modifier,
     cardId: String,
+    onFlightMainPageChange: (Boolean) -> Unit,
+    onFlightWebViewReady: (WebView) -> Unit,
+    onFlightLiveStatusChange: (String) -> Unit,
+    onFlightBriefChange: (String) -> Unit,
+    onFlightTableChange: (String) -> Unit,
+    onWeatherChange: (String) -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -1066,7 +1532,6 @@ private fun WebCardContent(
         }
     }
 
-    val enhancedTable = remember(settingsRevision) { SettingsStore.enhancedTable(context) }
     val groupedFlights = remember(settingsRevision) { SettingsStore.groupFlights(context) }
     val highContrastWeb = remember(settingsRevision) { SettingsStore.highContrastWeb(context) }
     val reduceWebMotion = remember(settingsRevision) { SettingsStore.reduceWebMotion(context) }
@@ -1082,6 +1547,7 @@ private fun WebCardContent(
     var reloadTick by remember(url) { mutableIntStateOf(0) }
     var loadedRootUrl by remember { mutableStateOf<String?>(null) }
     var animatedRootUrl by remember { mutableStateOf<String?>(null) }
+    var currentPageUrl by remember(url) { mutableStateOf(url) }
 
     val adHosts = remember { listOf("doubleclick.net", "googlesyndication.com") }
 
@@ -1170,7 +1636,16 @@ private fun WebCardContent(
                 allowContentAccess = false
             }
 
-            addJavascriptInterface(FlightBriefBridge(context), "FlightsAndroidBridge")
+            addJavascriptInterface(
+                FlightBriefBridge(
+                    context = context,
+                    onLiveStatusSnapshot = onFlightLiveStatusChange,
+                    onFlightBriefSnapshot = onFlightBriefChange,
+                    onFlightTableSnapshot = onFlightTableChange,
+                    onWeatherSnapshot = onWeatherChange
+                ),
+                "FlightsAndroidBridge"
+            )
 
 
             webViewClient = object : WebViewClient() {
@@ -1187,6 +1662,10 @@ private fun WebCardContent(
                         )
                         return targetUrl != null && openExternalFlightTracker(context, targetUrl)
                     }
+                    if (!targetUrl.isNullOrBlank() && targetUrl != currentPageUrl) {
+                        view?.animate()?.cancel()
+                        view?.alpha = 0f
+                    }
                     return false
                 }
 
@@ -1199,10 +1678,15 @@ private fun WebCardContent(
                         )
                         return url != null && openExternalFlightTracker(context, url)
                     }
+                    if (!url.isNullOrBlank() && url != currentPageUrl) {
+                        view?.animate()?.cancel()
+                        view?.alpha = 0f
+                    }
                     return false
                 }
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                    currentPageUrl = url.orEmpty()
                     showError = false
                     progress = 0
                     val animationKey = webIntroAnimationKey(url)
@@ -1247,6 +1731,7 @@ private fun WebCardContent(
 
 
                 override fun onPageFinished(view: WebView?, url: String?) {
+                    currentPageUrl = url.orEmpty()
 
                     val isFlightsMain =
                         url?.startsWith("https://www.jacksonholeairport.com/flights/") == true &&
@@ -1256,7 +1741,6 @@ private fun WebCardContent(
                         view,
                         SettingsStore.webTheme(context),
                         SettingsStore.textZoom(context),
-                        SettingsStore.enhancedTable(context),
                         SettingsStore.groupFlights(context),
                         SettingsStore.highContrastWeb(context),
                         SettingsStore.reduceWebMotion(context)
@@ -1322,6 +1806,18 @@ private fun WebCardContent(
         }
     }
 
+    LaunchedEffect(webView) {
+        onFlightWebViewReady(webView)
+    }
+
+    LaunchedEffect(cardId, currentPageUrl, showError) {
+        val isFlightsMainPage = cardId == "card3" &&
+            currentPageUrl.startsWith("https://www.jacksonholeairport.com/flights/") &&
+            currentPageUrl.endsWith("/flights/") &&
+            !showError
+        onFlightMainPageChange(isFlightsMainPage)
+    }
+
     Box(modifier) {
 
         AndroidView(
@@ -1342,7 +1838,7 @@ private fun WebCardContent(
                 } else {
                     WebSettings.LOAD_DEFAULT
                 }
-                injectWebRuntimePreferences(wv, webTheme, textZoomPref, enhancedTable, groupedFlights, highContrastWeb, reduceWebMotion)
+                injectWebRuntimePreferences(wv, webTheme, textZoomPref, groupedFlights, highContrastWeb, reduceWebMotion)
 
                 if (loadedRootUrl != url) {
 
@@ -1351,6 +1847,11 @@ private fun WebCardContent(
                         return@AndroidView
                     }
 
+                    wv.animate().cancel()
+                    wv.alpha = 0f
+                    wv.translationX = 0f
+                    wv.scaleX = 1f
+                    wv.scaleY = 1f
                     progress = 0
                     showError = false
                     hasMainFrameError = false
@@ -1526,6 +2027,2274 @@ private fun WebCardContent(
             }
         }
     }}
+
+@Stable
+private data class FlightLiveStatusSnapshot(
+    val updatedLabel: String = "",
+    val items: List<FlightLiveStatusItem> = emptyList()
+)
+
+@Stable
+private data class FlightLiveStatusItem(
+    val flight: String,
+    val route: String,
+    val status: String,
+    val detail: String,
+    val tone: String,
+    val badge: String,
+    val pill: String,
+    val etaText: String,
+    val meta: String,
+    val delayLabel: String,
+    val progress: Float
+)
+
+@Stable
+private data class FlightSheetIssue(
+    val label: String,
+    val flight: String,
+    val route: String,
+    val time: String,
+    val tone: String
+)
+
+@Stable
+private data class FlightSheetBrief(
+    val summary: String = "",
+    val arrivalCount: Int = 0,
+    val departureCount: Int = 0,
+    val delayedCount: Int = 0,
+    val cancelledCount: Int = 0,
+    val divertedCount: Int = 0,
+    val issues: List<FlightSheetIssue> = emptyList()
+)
+
+@Stable
+private data class FlightSheetWeather(
+    val temp: String = "",
+    val summary: String = "",
+    val condition: String = ""
+)
+
+@Stable
+private data class FlightTableSnapshot(
+    val lastUpdated: String = "",
+    val days: List<FlightTableDay> = emptyList(),
+    val rows: List<FlightTableRow> = emptyList()
+)
+
+@Stable
+private data class FlightTableDay(
+    val label: String,
+    val arrivals: Int,
+    val departures: Int
+)
+
+@Stable
+private data class FlightTableRow(
+    val kind: String,
+    val day: String,
+    val airline: String,
+    val flight: String,
+    val place: String,
+    val sched: String,
+    val actual: String,
+    val status: String,
+    val tone: String,
+    val delay: Int
+)
+
+@Stable
+private data class NativeFlightTablePalette(
+    val page: Color,
+    val panel: Color,
+    val overlay: Color,
+    val surface: Color,
+    val arrivedSurface: Color,
+    val delayedSurface: Color,
+    val cancelledSurface: Color,
+    val divertedSurface: Color,
+    val rowBorder: Color,
+    val arrivedAccent: Color,
+    val departedAccent: Color,
+    val delayAccent: Color,
+    val cancelledAccent: Color,
+    val divertedAccent: Color,
+    val text: Color,
+    val muted: Color
+)
+
+private data class FlightTableAirlineGroup(
+    val airline: String,
+    val rows: List<FlightTableRow>,
+    val firstTime: Int
+)
+
+private fun parseFlightLiveStatusSnapshot(json: String): FlightLiveStatusSnapshot {
+    if (json.isBlank()) return FlightLiveStatusSnapshot()
+    return runCatching {
+        val root = JSONObject(json)
+        if (isPreviousLocalDaySnapshot(root.optLong("updatedAt", 0L))) {
+            return@runCatching FlightLiveStatusSnapshot()
+        }
+        val itemsJson = root.optJSONArray("items") ?: JSONArray()
+        val items = buildList {
+            for (index in 0 until itemsJson.length()) {
+                val item = itemsJson.optJSONObject(index) ?: continue
+                val rawStatus = item.optString("status").ifBlank { "Status pending" }
+                val isLive = item.optBoolean("live", false)
+                val wasCachedEnRoute = !isLive && rawStatus.equals("En route", ignoreCase = true)
+                val rawEtaText = item.optString("etaText")
+                add(
+                    FlightLiveStatusItem(
+                        flight = item.optString("flight").ifBlank { "Flight" },
+                        route = item.optString("route"),
+                        status = if (wasCachedEnRoute) "Scheduled" else rawStatus,
+                        detail = item.optString("detail"),
+                        tone = if (wasCachedEnRoute && item.optString("tone") == "active") "scheduled" else item.optString("tone"),
+                        badge = if (wasCachedEnRoute && item.optString("badge").equals("EN ROUTE", ignoreCase = true)) "UPCOMING" else item.optString("badge"),
+                        pill = if (wasCachedEnRoute && item.optString("pill").equals("Landing JAC", ignoreCase = true)) "Arrival" else item.optString("pill"),
+                        etaText = if (wasCachedEnRoute && rawEtaText.endsWith(" remaining", ignoreCase = true)) {
+                            "Scheduled in " + rawEtaText.removeSuffix(" remaining")
+                        } else {
+                            rawEtaText
+                        },
+                        meta = item.optString("meta"),
+                        delayLabel = item.optString("delayLabel"),
+                        progress = if (wasCachedEnRoute) 0f else item.optDouble("progress", 0.0).toFloat().coerceIn(0f, 100f)
+                    )
+                )
+            }
+        }
+        FlightLiveStatusSnapshot(
+            updatedLabel = root.optString("updatedLabel"),
+            items = items
+        )
+    }.getOrDefault(FlightLiveStatusSnapshot())
+}
+
+private fun parseFlightTableSnapshot(json: String): FlightTableSnapshot {
+    if (json.isBlank()) return FlightTableSnapshot()
+    return runCatching {
+        val root = JSONObject(json)
+        if (isPreviousLocalDaySnapshot(root.optLong("updatedAt", 0L))) {
+            return@runCatching FlightTableSnapshot()
+        }
+        val daysJson = root.optJSONArray("days") ?: JSONArray()
+        val rowsJson = root.optJSONArray("rows") ?: JSONArray()
+        val days = buildList {
+            for (index in 0 until daysJson.length()) {
+                val day = daysJson.optJSONObject(index) ?: continue
+                add(
+                    FlightTableDay(
+                        label = day.optString("label").ifBlank { "Today" },
+                        arrivals = day.optInt("arrivals", 0),
+                        departures = day.optInt("departures", 0)
+                    )
+                )
+            }
+        }
+        val rows = buildList {
+            for (index in 0 until rowsJson.length()) {
+                val row = rowsJson.optJSONObject(index) ?: continue
+                add(
+                    FlightTableRow(
+                        kind = row.optString("kind").ifBlank { "arrival" },
+                        day = row.optString("day").ifBlank { "Today" },
+                        airline = row.optString("airline"),
+                        flight = row.optString("flight"),
+                        place = row.optString("place"),
+                        sched = row.optString("sched"),
+                        actual = row.optString("actual"),
+                        status = row.optString("status").ifBlank { "Scheduled" },
+                        tone = row.optString("tone"),
+                        delay = row.optInt("delay", 0)
+                    )
+                )
+            }
+        }
+        FlightTableSnapshot(
+            lastUpdated = root.optString("lastUpdated"),
+            days = days,
+            rows = rows
+        )
+    }.getOrDefault(FlightTableSnapshot())
+}
+
+private fun parseFlightBriefSnapshotForSheet(json: String): FlightSheetBrief {
+    if (json.isBlank()) return FlightSheetBrief()
+    return runCatching {
+        val root = JSONObject(json)
+        if (isPreviousLocalDaySnapshot(root.optLong("updatedAt", 0L))) {
+            return@runCatching FlightSheetBrief()
+        }
+        val issuesJson = root.optJSONArray("issues") ?: JSONArray()
+        val issues = buildList {
+            for (index in 0 until issuesJson.length()) {
+                val item = issuesJson.optJSONObject(index) ?: continue
+                add(
+                    FlightSheetIssue(
+                        label = item.optString("label"),
+                        flight = item.optString("flight"),
+                        route = item.optString("route"),
+                        time = item.optString("time"),
+                        tone = item.optString("tone")
+                    )
+                )
+            }
+        }
+        FlightSheetBrief(
+            summary = root.optString("summary"),
+            arrivalCount = root.optInt("arrivalCount", 0),
+            departureCount = root.optInt("departureCount", 0),
+            delayedCount = root.optInt("delayedCount", 0),
+            cancelledCount = root.optInt("cancelledCount", 0),
+            divertedCount = root.optInt("divertedCount", 0),
+            issues = issues
+        )
+    }.getOrDefault(FlightSheetBrief())
+}
+
+private fun currentFlightRows(snapshot: FlightTableSnapshot): List<FlightTableRow> {
+    if (snapshot.rows.isEmpty()) return emptyList()
+    val todayRows = snapshot.rows.filter { isTodayFlightDayLabel(it.day) }
+    if (todayRows.isNotEmpty()) return todayRows
+    val todayDay = snapshot.days.firstOrNull { isTodayFlightDayLabel(it.label) }
+    if (todayDay != null) {
+        snapshot.rows.filter { it.day == todayDay.label }.ifEmpty { snapshot.rows }.let { return it }
+    }
+    val firstDay = snapshot.rows.firstOrNull { it.day.isNotBlank() }?.day
+        ?: snapshot.days.firstOrNull { it.arrivals > 0 || it.departures > 0 }?.label
+        ?: return snapshot.rows
+    return snapshot.rows.filter { it.day == firstDay }.ifEmpty { snapshot.rows }
+}
+
+private fun isTodayFlightDayLabel(label: String): Boolean {
+    if (label.isBlank()) return false
+    val now = Calendar.getInstance().time
+    val normalized = label.lowercase(Locale.US)
+        .replace(Regex("[^a-z0-9 ]"), " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+    val day = Calendar.getInstance().get(Calendar.DAY_OF_MONTH).toString()
+    val monthShort = SimpleDateFormat("MMM", Locale.US).format(now).lowercase(Locale.US)
+    val monthLong = SimpleDateFormat("MMMM", Locale.US).format(now).lowercase(Locale.US)
+    val weekday = SimpleDateFormat("EEEE", Locale.US).format(now).lowercase(Locale.US)
+    return normalized.contains(Regex("\\b$day(st|nd|rd|th)?\\b")) &&
+        (normalized.contains(monthShort) || normalized.contains(monthLong)) &&
+        (normalized.contains(weekday) || normalized.length < 18)
+}
+
+private fun FlightSheetBrief.withCurrentTableCounts(snapshot: FlightTableSnapshot): FlightSheetBrief {
+    val rows = currentFlightRows(snapshot)
+    if (rows.isEmpty()) return this
+    val issues = rows
+        .filter { row ->
+            row.delay > 0 ||
+                row.tone.contains("cancel", ignoreCase = true) ||
+                row.tone.contains("divert", ignoreCase = true)
+        }
+        .sortedWith(
+            compareByDescending<FlightTableRow> {
+                when {
+                    it.tone.contains("cancel", ignoreCase = true) -> 3
+                    it.tone.contains("divert", ignoreCase = true) -> 2
+                    else -> 1
+                }
+            }.thenByDescending { it.delay }
+        )
+        .take(4)
+        .map { row ->
+            val label = when {
+                row.tone.contains("cancel", ignoreCase = true) -> "Cancelled"
+                row.tone.contains("divert", ignoreCase = true) -> "Diverted"
+                row.delay > 0 -> "+${row.delay} min"
+                else -> row.status.ifBlank { "Alert" }
+            }
+            FlightSheetIssue(
+                label = label,
+                flight = "${row.airline} ${row.flight}".trim(),
+                route = row.place,
+                time = if (row.actual.isNotBlank() && row.actual != row.sched) {
+                    "${row.sched} -> ${row.actual}"
+                } else {
+                    row.sched.ifBlank { "time pending" }
+                },
+                tone = row.tone
+            )
+        }
+    val arrivalCount = rows.count { it.kind != "departure" }
+    val departureCount = rows.count { it.kind == "departure" }
+    val delayedCount = rows.count { it.delay > 0 }
+    val cancelledCount = rows.count { it.tone.contains("cancel", ignoreCase = true) }
+    val divertedCount = rows.count { it.tone.contains("divert", ignoreCase = true) }
+    val day = rows.firstOrNull()?.day.orEmpty()
+    val summary = buildString {
+        if (day.isNotBlank()) append(day).append(": ")
+        append(arrivalCount).append(" arrival")
+        if (arrivalCount != 1) append("s")
+        append(", ")
+        append(departureCount).append(" departure")
+        if (departureCount != 1) append("s")
+        append(".")
+        if (delayedCount == 0 && cancelledCount == 0 && divertedCount == 0) {
+            append(" No delays, cancellations, or diversions visible right now.")
+        }
+    }
+    return copy(
+        summary = summary,
+        arrivalCount = arrivalCount,
+        departureCount = departureCount,
+        delayedCount = delayedCount,
+        cancelledCount = cancelledCount,
+        divertedCount = divertedCount,
+        issues = issues
+    )
+}
+
+private fun isPreviousLocalDaySnapshot(updatedAt: Long): Boolean {
+    if (updatedAt <= 0L) return false
+    val startOfToday = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+    return updatedAt < startOfToday
+}
+
+private fun parseWeatherSnapshotForSheet(json: String): FlightSheetWeather {
+    if (json.isBlank()) return FlightSheetWeather()
+    return runCatching {
+        val root = JSONObject(json)
+        FlightSheetWeather(
+            temp = root.optString("temp"),
+            summary = root.optString("summary"),
+            condition = root.optString("condition")
+        )
+    }.getOrDefault(FlightSheetWeather())
+}
+
+private fun nativeFlightTablePalette(
+    webTheme: String,
+    isDark: Boolean,
+    glassAmount: Float
+): NativeFlightTablePalette {
+    val effectiveTheme = when (webTheme.lowercase()) {
+        "auto" -> if (isDark) "dark" else "light"
+        "dark", "ocean", "mint", "sky", "violet", "rose", "amber", "gray", "light" -> webTheme.lowercase()
+        else -> if (isDark) "dark" else "light"
+    }
+    val accent = when (effectiveTheme) {
+        "mint" -> Color(0xFF22B981)
+        "sky" -> Color(0xFF3B82F6)
+        "ocean" -> Color(0xFF7DD3FC)
+        "violet" -> Color(0xFF8B5CF6)
+        "rose" -> Color(0xFFEC4899)
+        "amber" -> Color(0xFFF59E0B)
+        "gray" -> Color(0xFF64748B)
+        "dark" -> Color(0xFF7DD3FC)
+        else -> Color(0xFF5AC8FA)
+    }
+    return if (effectiveTheme == "dark" || effectiveTheme == "ocean") {
+        val baseSurface = accent.copy(alpha = 0.08f).compositeOver(Color(0xFF101B27).copy(alpha = 0.66f))
+        val panel = accent.copy(alpha = 0.025f + 0.05f * glassAmount)
+            .compositeOver(Color(0xFF10151D).copy(alpha = 0.58f + 0.32f * glassAmount))
+        NativeFlightTablePalette(
+            page = if (effectiveTheme == "ocean") Color(0xFF071820) else Color(0xFF07111C),
+            panel = panel,
+            overlay = accent.copy(alpha = 0.03f + 0.04f * glassAmount)
+                .compositeOver(Color.Black.copy(alpha = 0.16f + 0.18f * glassAmount)),
+            surface = baseSurface,
+            arrivedSurface = accent.copy(alpha = 0.18f).compositeOver(baseSurface),
+            delayedSurface = Color(0xFFFFB020).copy(alpha = 0.18f).compositeOver(baseSurface),
+            cancelledSurface = Color(0xFFFF453A).copy(alpha = 0.18f).compositeOver(baseSurface),
+            divertedSurface = Color(0xFFFF9F0A).copy(alpha = 0.18f).compositeOver(baseSurface),
+            rowBorder = accent.copy(alpha = 0.28f),
+            arrivedAccent = accent,
+            departedAccent = if (effectiveTheme == "ocean") Color(0xFF38E8C8) else Color(0xFF34C759),
+            delayAccent = Color(0xFFFFB020),
+            cancelledAccent = Color(0xFFFF453A),
+            divertedAccent = Color(0xFFFF9F0A),
+            text = Color.White.copy(alpha = 0.94f),
+            muted = Color.White.copy(alpha = 0.62f)
+        )
+    } else {
+        val page = when (effectiveTheme) {
+            "mint" -> Color(0xFFF2FBF8)
+            "sky" -> Color(0xFFF0F7FF)
+            "violet" -> Color(0xFFF7F3FF)
+            "rose" -> Color(0xFFFFF5FA)
+            "amber" -> Color(0xFFFFFAEC)
+            "gray" -> Color(0xFFF4F6F8)
+            else -> Color(0xFFF8FAFF)
+        }
+        val panel = accent.copy(alpha = 0.025f + 0.035f * glassAmount)
+            .compositeOver(page.copy(alpha = 0.66f + 0.26f * glassAmount))
+        val surface = accent.copy(alpha = 0.035f + 0.045f * glassAmount)
+            .compositeOver(Color.White.copy(alpha = 0.56f + 0.22f * glassAmount))
+        val text = when (effectiveTheme) {
+            "mint" -> Color(0xFF10201C)
+            "sky" -> Color(0xFF10243F)
+            "violet" -> Color(0xFF261B3F)
+            "rose" -> Color(0xFF3E122A)
+            "amber" -> Color(0xFF34230C)
+            "gray" -> Color(0xFF1F2937)
+            else -> Color(0xFF1E1F24)
+        }
+        NativeFlightTablePalette(
+            page = page,
+            panel = panel,
+            overlay = accent.copy(alpha = 0.035f + 0.065f * glassAmount)
+                .compositeOver(Color.White.copy(alpha = 0.10f + 0.20f * glassAmount)),
+            surface = surface,
+            arrivedSurface = accent.copy(alpha = 0.18f).compositeOver(surface),
+            delayedSurface = Color(0xFFF59E0B).copy(alpha = 0.18f).compositeOver(surface),
+            cancelledSurface = Color(0xFFFF453A).copy(alpha = 0.14f).compositeOver(surface),
+            divertedSurface = Color(0xFFFF9F0A).copy(alpha = 0.16f).compositeOver(surface),
+            rowBorder = accent.copy(alpha = 0.34f),
+            arrivedAccent = accent,
+            departedAccent = accent.copy(alpha = 0.92f),
+            delayAccent = Color(0xFFB7791F),
+            cancelledAccent = Color(0xFFD93025),
+            divertedAccent = Color(0xFFC46A00),
+            text = text,
+            muted = text.copy(alpha = 0.66f)
+        )
+    }
+}
+
+private fun nativeFlightHighContrastPalette(isDark: Boolean): NativeFlightTablePalette {
+    return if (isDark) {
+        NativeFlightTablePalette(
+            page = Color.Black,
+            panel = Color.Black.copy(alpha = 0.82f),
+            overlay = Color.White.copy(alpha = 0.04f),
+            surface = Color.Black.copy(alpha = 0.72f),
+            arrivedSurface = Color.Black.copy(alpha = 0.72f),
+            delayedSurface = Color.Black.copy(alpha = 0.72f),
+            cancelledSurface = Color.Black.copy(alpha = 0.72f),
+            divertedSurface = Color.Black.copy(alpha = 0.72f),
+            rowBorder = Color.White.copy(alpha = 0.36f),
+            arrivedAccent = Color.White,
+            departedAccent = Color.White,
+            delayAccent = Color.White,
+            cancelledAccent = Color.White,
+            divertedAccent = Color.White,
+            text = Color.White,
+            muted = Color.White.copy(alpha = 0.70f)
+        )
+    } else {
+        NativeFlightTablePalette(
+            page = Color.White,
+            panel = Color.White.copy(alpha = 0.92f),
+            overlay = Color.Black.copy(alpha = 0.03f),
+            surface = Color.White.copy(alpha = 0.94f),
+            arrivedSurface = Color.White.copy(alpha = 0.94f),
+            delayedSurface = Color.White.copy(alpha = 0.94f),
+            cancelledSurface = Color.White.copy(alpha = 0.94f),
+            divertedSurface = Color.White.copy(alpha = 0.94f),
+            rowBorder = Color.Black.copy(alpha = 0.36f),
+            arrivedAccent = Color.Black,
+            departedAccent = Color.Black,
+            delayAccent = Color.Black,
+            cancelledAccent = Color.Black,
+            divertedAccent = Color.Black,
+            text = Color.Black,
+            muted = Color.Black.copy(alpha = 0.64f)
+        )
+    }
+}
+
+@Composable
+private fun NativeFlightTablePage(
+    modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop,
+    snapshot: FlightTableSnapshot,
+    liveStatusSnapshot: FlightLiveStatusSnapshot,
+    flightSnapshot: FlightSheetBrief,
+    weather: FlightSheetWeather,
+    mode: String,
+    webTheme: String,
+    textZoom: Int,
+    groupedFlights: Boolean,
+    highContrast: Boolean,
+    onRefreshAlerts: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val glassAmount = rememberLiquidGlassTintAmount()
+    val palette = remember(webTheme, isDark, glassAmount) {
+        nativeFlightTablePalette(webTheme, isDark, glassAmount)
+    }.let { if (highContrast) nativeFlightHighContrastPalette(isDark) else it }
+    val pageShape = RoundedCornerShape(26.dp)
+    val textScale = flightTableTextScale(textZoom)
+    val modeAccent = when (mode) {
+        "departure" -> FlightDepartureLantern
+        "alerts" -> FlightAlertLantern
+        else -> FlightArrivalLantern
+    }
+    val modePanel = flightLanternSheetPanelColor(modeAccent, isDark, glassAmount)
+    val modeOverlay = flightLanternSheetOverlayColor(modeAccent, isDark, glassAmount)
+    val modeSheen = flightLanternSheetSheenBrush(modeAccent, isDark, glassAmount)
+    val alertSurface = if (highContrast) {
+        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.92f)
+    } else if (isDark) {
+        Color.White.copy(alpha = 0.10f + 0.08f * glassAmount)
+    } else {
+        Color.White.copy(alpha = 0.50f + 0.20f * glassAmount)
+    }
+    val effectiveFlightSnapshot = remember(flightSnapshot, snapshot) {
+        flightSnapshot.withCurrentTableCounts(snapshot)
+    }
+
+    Box(
+        modifier = modifier
+            .background(palette.page)
+    ) {
+        ProfileBackdropImageLayer(
+            modifier = Modifier.matchParentSize(),
+            lightRes = R.drawable.light_grid_pattern,
+            darkRes = R.drawable.dark_grid_pattern,
+            imageAlpha = if (isDark) 1f else 0.72f,
+            scrimDark = 0f,
+            scrimLight = 0f
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 2.dp, end = 2.dp, top = 106.dp, bottom = 92.dp)
+                .clip(pageShape)
+                .adaptiveLiquidGlassBackdrop(
+                    backdrop = backdrop,
+                    shape = pageShape,
+                    surfaceColor = modePanel,
+                    blurDp = if (isDark) 13f + 11f * glassAmount else 12f + 10f * glassAmount,
+                    shadow = null,
+                    highlight = null,
+                    refractionHeightDp = GlassChromeRefractionHeightDp,
+                    refractionAmountDp = GlassChromeRefractionAmountDp
+                )
+                .background(modeOverlay, pageShape)
+                .background(modeSheen, pageShape)
+        ) {
+            AnimatedContent(
+                targetState = mode,
+                modifier = Modifier.fillMaxSize(),
+                transitionSpec = {
+                    fun tabOrder(value: String): Int = when (value) {
+                        "departure" -> 1
+                        "alerts" -> 2
+                        else -> 0
+                    }
+                    val forward = tabOrder(targetState) >= tabOrder(initialState)
+                    val enterOffset: (Int) -> Int = { width -> if (forward) width / 4 else -width / 4 }
+                    val exitOffset: (Int) -> Int = { width -> if (forward) -width / 5 else width / 5 }
+                    (
+                        slideInHorizontally(
+                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                            initialOffsetX = enterOffset
+                        ) + fadeIn(animationSpec = tween(durationMillis = 160))
+                        ).togetherWith(
+                        slideOutHorizontally(
+                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                            targetOffsetX = exitOffset
+                        ) + fadeOut(animationSpec = tween(durationMillis = 130))
+                    ).using(SizeTransform(clip = false))
+                },
+                label = "flightTableModeContent"
+            ) { targetMode ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    if (targetMode == "alerts") {
+                        FlightLiveStatusContent(
+                            snapshot = liveStatusSnapshot,
+                            flightSnapshot = effectiveFlightSnapshot,
+                            weather = weather,
+                            textColor = palette.text,
+                            mutedColor = palette.muted,
+                            surface = alertSurface,
+                            lightLift = !isDark,
+                            textScale = textScale.coerceIn(0.82f, 1.12f),
+                            highContrast = highContrast,
+                            showHandle = false,
+                            showRefresh = true,
+                            title = "Alerts",
+                            onRefresh = onRefreshAlerts
+                        )
+                    } else {
+                        FlightTableContent(
+                            snapshot = snapshot,
+                            mode = targetMode,
+                            textColor = palette.text,
+                            mutedColor = palette.muted,
+                            surface = palette.surface,
+                            tablePalette = palette,
+                            textScale = textScale,
+                            groupedFlights = groupedFlights,
+                            highContrast = highContrast,
+                            loadingText = "Loading live airport schedule..."
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FlightScheduleSheet(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop,
+    tableSnapshot: FlightTableSnapshot,
+    liveStatusSnapshot: FlightLiveStatusSnapshot,
+    flightSnapshot: FlightSheetBrief,
+    weather: FlightSheetWeather,
+    mode: String,
+    textZoom: Int,
+    groupedFlights: Boolean,
+    highContrast: Boolean,
+    onRefreshAlerts: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val glassAmount = rememberLiquidGlassTintAmount()
+    val modeAccent = when (mode) {
+        "departure" -> FlightDepartureLantern
+        "alerts" -> FlightAlertLantern
+        else -> FlightArrivalLantern
+    }
+    val panelColor = flightLanternSheetPanelColor(modeAccent, isDark, glassAmount)
+    val overlayTint = flightLanternSheetOverlayColor(modeAccent, isDark, glassAmount)
+    val sheenBrush = flightLanternSheetSheenBrush(modeAccent, isDark, glassAmount)
+    val sheetBlurDp = if (isDark) 18f + 14f * glassAmount else 17f + 13f * glassAmount
+    val textColor = if (highContrast) {
+        if (isDark) Color.White else Color.Black
+    } else if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
+    val mutedColor = textColor.copy(alpha = 0.62f)
+    val innerSurface = if (highContrast) {
+        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.92f)
+    } else if (isDark) Color.White.copy(alpha = 0.10f + 0.08f * glassAmount)
+    else Color.White.copy(alpha = 0.50f + 0.20f * glassAmount)
+    val sheetShape = RoundedCornerShape(26.dp)
+    val tableTextScale = flightTableTextScale(textZoom)
+    val statusTextScale = (textZoom.coerceIn(60, 100) / SettingsStore.DEFAULT_TEXT_ZOOM.toFloat())
+        .coerceIn(0.82f, 1.12f)
+    val effectiveFlightSnapshot = remember(flightSnapshot, tableSnapshot) {
+        flightSnapshot.withCurrentTableCounts(tableSnapshot)
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 130)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 160))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = if (isDark) 0.34f else 0.16f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+        )
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = slideInVertically(
+            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
+            initialOffsetY = { it / 2 }
+        ) + fadeIn(animationSpec = tween(durationMillis = 170)) +
+            scaleIn(animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing), initialScale = 0.94f),
+        exit = slideOutVertically(
+            animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
+            targetOffsetY = { it / 3 }
+        ) + fadeOut(animationSpec = tween(durationMillis = 150)) +
+            scaleOut(animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing), targetScale = 0.98f)
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(start = 6.dp, end = 6.dp, bottom = 68.dp)
+                .navigationBarsPadding()
+                .fillMaxWidth()
+                .heightIn(max = 650.dp)
+                .clip(sheetShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .adaptiveLiquidGlassBackdrop(
+                    backdrop = backdrop,
+                    shape = sheetShape,
+                    surfaceColor = panelColor,
+                    blurDp = sheetBlurDp,
+                    shadow = null,
+                    highlight = null,
+                    refractionHeightDp = GlassChromeRefractionHeightDp,
+                    refractionAmountDp = GlassChromeRefractionAmountDp
+                )
+                .background(overlayTint, sheetShape)
+                .background(sheenBrush, sheetShape)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 86.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                if (mode == "alerts") {
+                    FlightLiveStatusContent(
+                        snapshot = liveStatusSnapshot,
+                        flightSnapshot = effectiveFlightSnapshot,
+                        weather = weather,
+                        textColor = textColor,
+                        mutedColor = mutedColor,
+                        surface = innerSurface,
+                        lightLift = !isDark,
+                        textScale = statusTextScale,
+                        highContrast = highContrast,
+                        showHandle = true,
+                        showRefresh = true,
+                        title = "Alerts",
+                        onRefresh = onRefreshAlerts
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .width(42.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(mutedColor.copy(alpha = 0.34f))
+                    )
+                    FlightTableContent(
+                        snapshot = tableSnapshot,
+                        mode = mode,
+                        textColor = textColor,
+                        mutedColor = mutedColor,
+                        surface = innerSurface,
+                        tablePalette = null,
+                        textScale = tableTextScale,
+                        groupedFlights = groupedFlights,
+                        highContrast = highContrast,
+                        loadingText = "Flight table is loading. Open Flights once to refresh the table snapshot."
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FlightTableSheet(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop,
+    snapshot: FlightTableSnapshot,
+    mode: String,
+    textZoom: Int,
+    groupedFlights: Boolean,
+    highContrast: Boolean,
+    onDismiss: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val glassAmount = rememberLiquidGlassTintAmount()
+    val modeAccent = if (mode == "departure") FlightDepartureLantern else FlightArrivalLantern
+    val panelColor = flightLanternSheetPanelColor(modeAccent, isDark, glassAmount)
+    val overlayTint = flightLanternSheetOverlayColor(modeAccent, isDark, glassAmount)
+    val sheenBrush = flightLanternSheetSheenBrush(modeAccent, isDark, glassAmount)
+    val sheetBlurDp = if (isDark) 18f + 14f * glassAmount else 17f + 13f * glassAmount
+    val textColor = if (highContrast) {
+        if (isDark) Color.White else Color.Black
+    } else if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
+    val mutedColor = textColor.copy(alpha = 0.62f)
+    val innerSurface = if (highContrast) {
+        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.92f)
+    } else if (isDark) Color.White.copy(alpha = 0.10f + 0.08f * glassAmount)
+    else Color.White.copy(alpha = 0.50f + 0.20f * glassAmount)
+    val sheetShape = RoundedCornerShape(26.dp)
+    val textScale = flightTableTextScale(textZoom)
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 130)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 160))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = if (isDark) 0.34f else 0.16f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+        )
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = slideInVertically(
+            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
+            initialOffsetY = { it / 2 }
+        ) + fadeIn(animationSpec = tween(durationMillis = 170)) +
+            scaleIn(animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing), initialScale = 0.94f),
+        exit = slideOutVertically(
+            animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
+            targetOffsetY = { it / 3 }
+        ) + fadeOut(animationSpec = tween(durationMillis = 150)) +
+            scaleOut(animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing), targetScale = 0.98f)
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(start = 6.dp, end = 6.dp, bottom = 68.dp)
+                .navigationBarsPadding()
+                .fillMaxWidth()
+                .heightIn(max = 650.dp)
+                .clip(sheetShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .adaptiveLiquidGlassBackdrop(
+                    backdrop = backdrop,
+                    shape = sheetShape,
+                    surfaceColor = panelColor,
+                    blurDp = sheetBlurDp,
+                    shadow = null,
+                    highlight = null,
+                    refractionHeightDp = GlassChromeRefractionHeightDp,
+                    refractionAmountDp = GlassChromeRefractionAmountDp
+                )
+                .background(overlayTint, sheetShape)
+                .background(sheenBrush, sheetShape)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 86.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(42.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(mutedColor.copy(alpha = 0.34f))
+                )
+                FlightTableContent(
+                    snapshot = snapshot,
+                    mode = mode,
+                    textColor = textColor,
+                    mutedColor = mutedColor,
+                    surface = innerSurface,
+                    tablePalette = null,
+                    textScale = textScale,
+                    groupedFlights = groupedFlights,
+                    highContrast = highContrast,
+                    loadingText = "Flight table is loading. Open Flights once to refresh the table snapshot."
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FlightTableContent(
+    snapshot: FlightTableSnapshot,
+    mode: String,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    tablePalette: NativeFlightTablePalette?,
+    textScale: Float,
+    groupedFlights: Boolean,
+    highContrast: Boolean,
+    loadingText: String
+) {
+    val isDeparture = mode == "departure"
+    val rows = remember(snapshot, mode) {
+        snapshot.rows.filter { row ->
+            if (isDeparture) row.kind == "departure" else row.kind != "departure"
+        }
+    }
+    val rowsByDay = remember(rows) {
+        rows
+            .groupBy { row -> row.day.ifBlank { "Flight schedule" } }
+            .mapValues { (_, dayRows) -> flightTableSortedRows(dayRows) }
+    }
+    val title = if (isDeparture) "Departures" else "Arrivals"
+    Text(
+        text = title.uppercase(),
+        color = textColor,
+        style = MaterialTheme.typography.headlineSmall.copy(
+            fontSize = 23.sp,
+            lineHeight = 27.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 0.sp,
+            textAlign = TextAlign.Center
+        ),
+        modifier = Modifier.fillMaxWidth(),
+        maxLines = 1
+    )
+
+    if (rows.isEmpty()) {
+        val firstDay = snapshot.days.firstOrNull()?.label.orEmpty()
+        FlightTableDayHeader(
+            day = firstDay.ifBlank { "Flight schedule" },
+            total = 0,
+            lastUpdated = snapshot.lastUpdated,
+            textColor = textColor,
+            mutedColor = mutedColor,
+            surface = surface
+        )
+        Text(
+            text = loadingText,
+            color = mutedColor,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(12.dp)
+        )
+    } else {
+        rowsByDay.entries.forEachIndexed { index, entry ->
+            if (index > 0) {
+                Spacer(Modifier.height(4.dp))
+            }
+            FlightTableDayHeader(
+                day = entry.key,
+                total = entry.value.size,
+                lastUpdated = snapshot.lastUpdated,
+                textColor = textColor,
+                mutedColor = mutedColor,
+                surface = surface
+            )
+            FlightTableColumnHeader(
+                placeLabel = if (isDeparture) "To" else "From",
+                textColor = mutedColor,
+                textScale = textScale
+            )
+            entry.value.forEach { row ->
+                if (!groupedFlights) {
+                    FlightTableRowCard(
+                        row = row,
+                        placeLabel = if (isDeparture) "To" else "From",
+                        textColor = textColor,
+                        mutedColor = mutedColor,
+                        surface = surface,
+                        tablePalette = tablePalette,
+                        textScale = textScale,
+                        highContrast = highContrast
+                    )
+                }
+            }
+            if (groupedFlights) {
+                flightTableSortedAirlineGroups(entry.value).forEach { group ->
+                    FlightTableAirlineGroupHeader(
+                        airline = group.airline,
+                        count = group.rows.size,
+                        firstTime = group.rows.firstOrNull()?.sched.orEmpty(),
+                        textColor = textColor,
+                        mutedColor = mutedColor,
+                        surface = surface,
+                        textScale = textScale,
+                        highContrast = highContrast
+                    )
+                    group.rows.forEach { row ->
+                        FlightTableRowCard(
+                            row = row,
+                            placeLabel = if (isDeparture) "To" else "From",
+                            textColor = textColor,
+                            mutedColor = mutedColor,
+                            surface = surface,
+                            tablePalette = tablePalette,
+                            textScale = textScale,
+                            highContrast = highContrast
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun flightTableTextScale(textZoom: Int): Float {
+    return (textZoom.coerceIn(60, 100) / 100f).coerceIn(0.60f, 1f)
+}
+
+private fun flightTableScaledSp(minSp: Float, maxSp: Float, textScale: Float): androidx.compose.ui.unit.TextUnit {
+    return (minSp + ((maxSp - minSp) * textScale.coerceIn(0.60f, 1f))).sp
+}
+
+private fun flightTableSortedRows(rows: List<FlightTableRow>): List<FlightTableRow> {
+    return rows
+        .mapIndexed { index, row -> index to row }
+        .sortedWith(
+            compareBy<Pair<Int, FlightTableRow>>(
+                { flightTableRowSortMinutes(it.second) },
+                { it.first }
+            )
+        )
+        .map { it.second }
+}
+
+private fun flightTableSortedAirlineGroups(rows: List<FlightTableRow>): List<FlightTableAirlineGroup> {
+    return rows
+        .mapIndexed { index, row -> index to row }
+        .groupBy { (_, row) -> row.airline.ifBlank { "Other" } }
+        .map { (airline, indexedRows) ->
+            val sortedRows = indexedRows
+                .sortedWith(
+                    compareBy<Pair<Int, FlightTableRow>>(
+                        { flightTableRowSortMinutes(it.second) },
+                        { it.first }
+                    )
+                )
+                .map { it.second }
+            FlightTableAirlineGroup(
+                airline = airline,
+                rows = sortedRows,
+                firstTime = sortedRows.firstOrNull()?.let(::flightTableRowSortMinutes) ?: Int.MAX_VALUE
+            )
+        }
+        .sortedWith(compareBy<FlightTableAirlineGroup> { it.firstTime }.thenBy { it.airline.lowercase() })
+}
+
+private fun flightTableRowSortMinutes(row: FlightTableRow): Int {
+    val scheduled = parseFlightTableMinutes(row.sched)
+    if (scheduled != Int.MAX_VALUE) return scheduled
+    return parseFlightTableMinutes(row.actual)
+}
+
+private fun parseFlightTableMinutes(value: String): Int {
+    if (value.isBlank()) return Int.MAX_VALUE
+    val match = Regex("""(?i)(\d{1,2})(?:\s*:\s*(\d{2}))?\s*([ap])\.?\s*m?\.?""").find(value)
+        ?: return Int.MAX_VALUE
+    var hour = match.groupValues.getOrNull(1)?.toIntOrNull() ?: return Int.MAX_VALUE
+    val minute = match.groupValues.getOrNull(2)?.takeIf { it.isNotBlank() }?.toIntOrNull() ?: 0
+    val marker = match.groupValues.getOrNull(3)?.lowercase().orEmpty()
+    if (hour !in 1..12 || minute !in 0..59 || marker.isBlank()) return Int.MAX_VALUE
+    if (marker == "p" && hour != 12) hour += 12
+    if (marker == "a" && hour == 12) hour = 0
+    return hour * 60 + minute
+}
+
+private const val FlightTableAirlineStart = 0.00f
+private const val FlightTableFlightStart = 0.280f
+private const val FlightTablePlaceStart = 0.395f
+private const val FlightTableSchedStart = 0.600f
+private const val FlightTableActualStart = 0.735f
+private const val FlightTableStatusStart = 0.855f
+private const val FlightTableEnd = 1.00f
+
+@Composable
+private fun FlightTableDayHeader(
+    day: String,
+    total: Int,
+    lastUpdated: String,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color
+) {
+    val headerShape = RoundedCornerShape(999.dp)
+    val isDark = isSystemInDarkTheme()
+    val updated = lastUpdated
+        .replace("last updated", "updated", ignoreCase = true)
+        .ifBlank { "updating" }
+    val summary = "$day • $total flights • $updated"
+    val headerSurface = if (isDark) {
+        Color(0xFF111111).copy(alpha = 0.88f)
+    } else {
+        Color.White.copy(alpha = 0.78f)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(headerShape)
+            .background(headerSurface)
+            .border(1.dp, flightItemBorderColor(isDark), headerShape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = summary,
+            color = textColor.copy(alpha = 0.82f),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = 10.8.sp,
+                lineHeight = 12.2.sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun FlightTableColumnHeader(
+    placeLabel: String,
+    textColor: Color,
+    textScale: Float
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(31.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.105f) else Color.Black.copy(alpha = 0.075f))
+            .padding(horizontal = 10.dp, vertical = 7.dp)
+    ) {
+        val width = maxWidth
+        FlightTablePositionedColumn(width, FlightTableAirlineStart, FlightTableFlightStart) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 48.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                FlightTableCell("Airline", textColor, header = true, textScale = textScale)
+            }
+        }
+        FlightTablePositionedColumn(width, FlightTableFlightStart, FlightTablePlaceStart) {
+            FlightTableCell("Flight", textColor, header = true, textScale = textScale)
+        }
+        FlightTablePositionedColumn(width, FlightTablePlaceStart, FlightTableSchedStart) {
+            FlightTableCell(placeLabel, textColor, header = true, textScale = textScale)
+        }
+        FlightTablePositionedColumn(width, FlightTableSchedStart, FlightTableActualStart) {
+            FlightTableCell("Sched", textColor, header = true, textScale = textScale)
+        }
+        FlightTablePositionedColumn(width, FlightTableActualStart, FlightTableStatusStart) {
+            FlightTableCell("Actual", textColor, header = true, textScale = textScale)
+        }
+        FlightTablePositionedColumn(
+            width = width,
+            start = FlightTableStatusStart,
+            end = FlightTableEnd,
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            FlightTableCell("Status", textColor, header = true, textScale = textScale, textAlign = TextAlign.End)
+        }
+    }
+}
+
+@Composable
+private fun FlightTableAirlineGroupHeader(
+    airline: String,
+    count: Int,
+    firstTime: String,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    textScale: Float,
+    highContrast: Boolean
+) {
+    val shape = RoundedCornerShape(13.dp)
+    val isDark = isSystemInDarkTheme()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(if (highContrast) surface else surface.copy(alpha = 0.76f))
+            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.34f) else flightItemBorderColor(isDark), shape)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = airline,
+            color = textColor,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontSize = flightTableScaledSp(10.2f, 11.3f, textScale),
+                lineHeight = flightTableScaledSp(11.8f, 13f, textScale),
+                fontWeight = FontWeight.Medium
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = "$count flights" + firstTime.takeIf { it.isNotBlank() }?.let { " • first $it" }.orEmpty(),
+            color = mutedColor,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = flightTableScaledSp(9.2f, 10.2f, textScale),
+                lineHeight = flightTableScaledSp(10.5f, 11.8f, textScale),
+                fontWeight = FontWeight.Medium
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun FlightTableRowCard(
+    row: FlightTableRow,
+    placeLabel: String,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    tablePalette: NativeFlightTablePalette?,
+    textScale: Float,
+    highContrast: Boolean
+) {
+    val rowShape = RoundedCornerShape(18.dp)
+    val isDark = isSystemInDarkTheme()
+    val rowBorder = flightRowBorderColor(row, isDark, tablePalette)
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .clip(rowShape)
+            .background(if (highContrast) surface else tableRowSurface(row, surface, isDark, tablePalette))
+            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.36f) else rowBorder, rowShape)
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            AirlineBadge(airline = row.airline.ifBlank { "--" })
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = listOf(row.airline, row.flight).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "--" },
+                        color = textColor,
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = flightTableScaledSp(10.8f, 12f, textScale),
+                            lineHeight = flightTableScaledSp(12f, 13.4f, textScale)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FlightTableStatusPill(row = row, palette = tablePalette)
+                }
+                Spacer(Modifier.height(3.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = row.place.ifBlank { placeLabel },
+                        color = textColor.copy(alpha = 0.88f),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = flightTableScaledSp(9.2f, 10.4f, textScale),
+                            lineHeight = flightTableScaledSp(10.4f, 11.7f, textScale)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "Sched ${row.sched.ifBlank { "--" }}",
+                        color = mutedColor.copy(alpha = 0.88f),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = flightTableScaledSp(8.4f, 9.4f, textScale),
+                            lineHeight = flightTableScaledSp(9.5f, 10.6f, textScale)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Actual ${row.actual.ifBlank { "--" }}",
+                        color = mutedColor.copy(alpha = 0.88f),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = flightTableScaledSp(8.4f, 9.4f, textScale),
+                            lineHeight = flightTableScaledSp(9.5f, 10.6f, textScale)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FlightTablePositionedColumn(
+    width: androidx.compose.ui.unit.Dp,
+    start: Float,
+    end: Float,
+    contentAlignment: Alignment = Alignment.CenterStart,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .offset(x = width * start)
+            .width(width * (end - start).coerceAtLeast(0.01f))
+            .fillMaxHeight(),
+        contentAlignment = contentAlignment
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun FlightTableAirlineCell(
+    airline: String,
+    color: Color,
+    mutedColor: Color,
+    textScale: Float,
+    highContrast: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        AirlineBadge(airline = airline)
+        Text(
+            text = airline,
+            color = color,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = flightTableScaledSp(10.2f, 11.3f, textScale),
+                lineHeight = flightTableScaledSp(11.5f, 12.8f, textScale)
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun AirlineBadge(
+    airline: String
+) {
+    val normalized = airline.lowercase()
+    val isDark = isSystemInDarkTheme()
+    val (code, accent) = when {
+        normalized.contains("american") -> "AA" to Color(0xFF2F6FEA)
+        normalized.contains("delta") -> "DL" to Color(0xFFD73737)
+        normalized.contains("united") -> "UA" to Color(0xFF1FA9D8)
+        normalized.contains("alaska") -> "AS" to Color(0xFF228E7F)
+        normalized.contains("southwest") -> "WN" to Color(0xFFF3A11A)
+        normalized.contains("jetblue") -> "B6" to Color(0xFF1F55C7)
+        else -> airline
+            .split(" ", "-", "/", ignoreCase = false)
+            .mapNotNull { it.firstOrNull()?.uppercaseChar()?.toString() }
+            .take(2)
+            .joinToString("")
+            .ifBlank { "--" } to if (isDark) Color(0xFF6D827C) else Color(0xFF8EA59D)
+    }
+    Box(
+        modifier = Modifier
+            .size(38.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(accent.copy(alpha = if (isDark) 0.92f else 0.86f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = code,
+            color = Color.White,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Black,
+                fontSize = 10.5.sp,
+                lineHeight = 11.5.sp,
+                textAlign = TextAlign.Center
+            ),
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun FlightTableCell(
+    text: String,
+    color: Color,
+    mutedColor: Color = color,
+    header: Boolean = false,
+    textScale: Float = 1f,
+    textAlign: TextAlign = TextAlign.Start,
+    highContrast: Boolean = false
+) {
+    Text(
+        text = text,
+        color = color,
+        style = if (header) {
+            MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = flightTableScaledSp(8.5f, 9.4f, textScale),
+                lineHeight = flightTableScaledSp(9.6f, 10.7f, textScale)
+            )
+        } else {
+            MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = flightTableScaledSp(10.1f, 11.3f, textScale),
+                lineHeight = flightTableScaledSp(11.4f, 12.8f, textScale)
+            )
+        },
+        textAlign = textAlign,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun FlightTableStatusPill(row: FlightTableRow, palette: NativeFlightTablePalette?) {
+    val isDark = isSystemInDarkTheme()
+    val arrivedAccent = palette?.arrivedAccent ?: if (isDark) Color(0xFF34C759) else Color(0xFF8A5A3C)
+    val departedAccent = palette?.departedAccent ?: arrivedAccent
+    val scheduleAccent = palette?.delayAccent ?: if (isDark) Color(0xFFFFB020) else Color(0xFF8A5A3C)
+    val onTimeAccent = palette?.arrivedAccent ?: if (isDark) Color(0xFF34C759) else Color(0xFF8A5A3C)
+    val (label, accent) = when {
+        row.tone.contains("cancel", ignoreCase = true) -> "Cancelled" to (palette?.cancelledAccent ?: Color(0xFFFF453A))
+        row.tone.contains("divert", ignoreCase = true) -> "Diverted" to (palette?.divertedAccent ?: Color(0xFFFF9F0A))
+        row.delay > 0 -> "+${row.delay}" to scheduleAccent
+        row.status.contains("arriv", ignoreCase = true) -> "Arrived" to arrivedAccent
+        row.status.contains("depart", ignoreCase = true) -> "Departed" to departedAccent
+        else -> row.status.ifBlank { "On time" } to onTimeAccent
+    }
+    Text(
+        text = label,
+        color = accent,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.Medium,
+            fontSize = 10.4.sp,
+            lineHeight = 11.5.sp
+        ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(accent.copy(alpha = if (isDark) 0.20f else 0.16f))
+            .padding(horizontal = 7.dp, vertical = 6.dp)
+    )
+}
+
+private fun tableRowSurface(
+    row: FlightTableRow,
+    fallback: Color,
+    isDark: Boolean,
+    palette: NativeFlightTablePalette?
+): Color {
+    return when {
+        row.tone.contains("cancel", ignoreCase = true) -> palette?.cancelledSurface ?: if (isDark) {
+            Color(0xFF351216).copy(alpha = 0.74f)
+        } else {
+            Color(0xFFFFE8EA).copy(alpha = 0.82f)
+        }
+        row.tone.contains("divert", ignoreCase = true) -> palette?.divertedSurface ?: if (isDark) {
+            Color(0xFF352407).copy(alpha = 0.74f)
+        } else {
+            Color(0xFFFFF0D6).copy(alpha = 0.84f)
+        }
+        row.delay > 0 -> palette?.delayedSurface ?: if (isDark) {
+            Color(0xFF30250A).copy(alpha = 0.74f)
+        } else {
+            Color(0xFFFFF7DA).copy(alpha = 0.88f)
+        }
+        row.status.contains("arriv", ignoreCase = true) ||
+            row.status.contains("depart", ignoreCase = true) -> palette?.arrivedSurface ?: if (isDark) {
+            Color(0xFF063B2F).copy(alpha = 0.84f)
+        } else {
+            Color(0xFFE8D6C6).copy(alpha = 0.96f)
+        }
+        else -> fallback
+    }
+}
+
+private fun flightItemBorderColor(isDark: Boolean): Color {
+    return if (isDark) {
+        Color.White.copy(alpha = 0.10f)
+    } else {
+        Color(0xFF6B7280).copy(alpha = 0.18f)
+    }
+}
+
+private fun flightRowBorderColor(
+    row: FlightTableRow,
+    isDark: Boolean,
+    palette: NativeFlightTablePalette?
+): Color {
+    return when {
+        row.tone.contains("cancel", ignoreCase = true) -> (palette?.cancelledAccent ?: Color(0xFFFF453A)).copy(alpha = if (isDark) 0.34f else 0.26f)
+        row.tone.contains("divert", ignoreCase = true) -> (palette?.divertedAccent ?: Color(0xFFFF9F0A)).copy(alpha = if (isDark) 0.34f else 0.28f)
+        row.delay > 0 -> (palette?.delayAccent ?: Color(0xFFFFB020)).copy(alpha = if (isDark) 0.30f else 0.26f)
+        row.status.contains("arriv", ignoreCase = true) ||
+            row.status.contains("depart", ignoreCase = true) -> palette?.rowBorder ?: if (isDark) {
+            Color(0xFF34C759).copy(alpha = 0.28f)
+        } else {
+            Color(0xFF8A5A3C).copy(alpha = 0.32f)
+        }
+        else -> flightItemBorderColor(isDark)
+    }
+}
+
+@Composable
+private fun ColumnScope.FlightLiveStatusContent(
+    snapshot: FlightLiveStatusSnapshot,
+    flightSnapshot: FlightSheetBrief,
+    weather: FlightSheetWeather,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    lightLift: Boolean,
+    textScale: Float,
+    highContrast: Boolean,
+    showHandle: Boolean,
+    showRefresh: Boolean,
+    title: String,
+    onRefresh: () -> Unit
+) {
+    if (showHandle) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .width(42.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(mutedColor.copy(alpha = 0.34f))
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (title == "Alerts") title.uppercase() else title,
+                color = textColor,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Black,
+                    fontSize = 23.sp,
+                    lineHeight = 27.sp,
+                    letterSpacing = 0.sp,
+                    textAlign = TextAlign.Center
+                ),
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (snapshot.updatedLabel.isNotBlank()) {
+                Text(
+                    text = snapshot.updatedLabel,
+                    color = mutedColor,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = (12f * textScale).sp,
+                        lineHeight = (14f * textScale).sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        if (showRefresh) {
+            var refreshSpinKey by remember { mutableIntStateOf(0) }
+            val refreshRotation by animateFloatAsState(
+                targetValue = refreshSpinKey * 360f,
+                animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing),
+                label = "flightAlertsRefreshRotation"
+            )
+            IconButton(
+                onClick = {
+                    refreshSpinKey += 1
+                    onRefresh()
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "Refresh alerts",
+                    tint = textColor,
+                    modifier = Modifier.graphicsLayer {
+                        rotationZ = refreshRotation
+                    }
+                )
+            }
+        }
+    }
+
+    FlightWeatherBanner(
+        weather = weather,
+        textColor = textColor,
+        mutedColor = mutedColor,
+        surface = surface,
+        lightLift = lightLift,
+        textScale = textScale
+    )
+    FlightIssueSummaryRow(
+        brief = flightSnapshot,
+        textColor = textColor,
+        mutedColor = mutedColor,
+        lightLift = lightLift,
+        textScale = textScale
+    )
+
+    if (snapshot.items.isNotEmpty()) {
+        snapshot.items.forEach { item ->
+            FlightLiveStatusCard(
+                item = item,
+                textColor = textColor,
+                mutedColor = mutedColor,
+                surface = surface,
+                lightLift = lightLift,
+                textScale = textScale,
+                highContrast = highContrast
+            )
+        }
+    } else {
+        FlightNoLiveStatusCard(
+            textColor = textColor,
+            mutedColor = mutedColor,
+            surface = surface,
+            lightLift = lightLift,
+            textScale = textScale
+        )
+    }
+}
+
+@Composable
+private fun FlightLiveStatusSheet(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop,
+    snapshot: FlightLiveStatusSnapshot,
+    flightSnapshot: FlightSheetBrief,
+    tableSnapshot: FlightTableSnapshot,
+    weather: FlightSheetWeather,
+    textZoom: Int,
+    highContrast: Boolean,
+    onRefresh: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val glassAmount = rememberLiquidGlassTintAmount()
+    val panelColor = flightLanternSheetPanelColor(FlightAlertLantern, isDark, glassAmount, intensity = 0.52f)
+    val overlayTint = flightLanternSheetOverlayColor(FlightAlertLantern, isDark, glassAmount, intensity = 0.48f)
+    val sheenBrush = flightLanternSheetSheenBrush(FlightAlertLantern, isDark, glassAmount, intensity = 0.45f)
+    val sheetBlurDp = if (isDark) 14f + 12f * glassAmount else 13f + 11f * glassAmount
+    val textColor = if (highContrast) {
+        if (isDark) Color.White else Color.Black
+    } else if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
+    val mutedColor = textColor.copy(alpha = 0.64f)
+    val innerSurface = if (highContrast) {
+        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.92f)
+    } else if (isDark) {
+        Color.White.copy(alpha = 0.10f + 0.08f * glassAmount)
+    } else {
+        Color.White.copy(alpha = 0.50f + 0.20f * glassAmount)
+    }
+    val sheetShape = RoundedCornerShape(26.dp)
+    val lightLift = !isDark
+    val textScale = (textZoom.coerceIn(60, 100) / SettingsStore.DEFAULT_TEXT_ZOOM.toFloat())
+        .coerceIn(0.82f, 1.12f)
+    val effectiveFlightSnapshot = remember(flightSnapshot, tableSnapshot) {
+        flightSnapshot.withCurrentTableCounts(tableSnapshot)
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 130)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 160))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = if (isDark) 0.34f else 0.16f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+        )
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = slideInVertically(
+            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
+            initialOffsetY = { it / 2 }
+        ) + fadeIn(animationSpec = tween(durationMillis = 170)) +
+            scaleIn(
+                animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
+                initialScale = 0.94f
+            ),
+        exit = slideOutVertically(
+            animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
+            targetOffsetY = { it / 3 }
+        ) + fadeOut(animationSpec = tween(durationMillis = 150)) +
+            scaleOut(
+                animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
+                targetScale = 0.98f
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(
+                    start = 6.dp,
+                    end = 6.dp,
+                    bottom = 68.dp
+                )
+                .navigationBarsPadding()
+                .fillMaxWidth()
+                .heightIn(max = 620.dp)
+                .clip(sheetShape)
+                .border(
+                    1.dp,
+                    if (isDark) Color(0xFF7DD3FC).copy(alpha = 0.20f)
+                    else Color(0xFF2C8AA0).copy(alpha = 0.18f),
+                    sheetShape
+                )
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .adaptiveLiquidGlassBackdrop(
+                    backdrop = backdrop,
+                    shape = sheetShape,
+                    surfaceColor = panelColor,
+                    blurDp = sheetBlurDp,
+                    shadow = null,
+                    highlight = null,
+                    refractionHeightDp = GlassChromeRefractionHeightDp,
+                    refractionAmountDp = GlassChromeRefractionAmountDp
+                )
+                .background(overlayTint, sheetShape)
+                .background(sheenBrush, sheetShape)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 86.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FlightLiveStatusContent(
+                    snapshot = snapshot,
+                    flightSnapshot = effectiveFlightSnapshot,
+                    weather = weather,
+                    textColor = textColor,
+                    mutedColor = mutedColor,
+                    surface = innerSurface,
+                    lightLift = lightLift,
+                    textScale = textScale,
+                    highContrast = highContrast,
+                    showHandle = true,
+                    showRefresh = true,
+                    title = "Live arrival status",
+                    onRefresh = onRefresh
+                )
+            }
+        }
+    }
+}
+
+private fun Modifier.lightThemeSurfaceLift(enabled: Boolean, shape: Shape): Modifier {
+    return this
+}
+
+@Composable
+private fun FlightWeatherBanner(
+    weather: FlightSheetWeather,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    lightLift: Boolean,
+    textScale: Float
+) {
+    if (weather.temp.isBlank() && weather.summary.isBlank()) return
+    val conditionLabel = when (weather.condition.lowercase()) {
+        "sunny" -> "Sunny"
+        "partly" -> "Partly cloudy"
+        "cloudy" -> "Cloudy"
+        "rain" -> "Rain"
+        "thunder" -> "Storms"
+        "night" -> "Night"
+        else -> "Airport weather"
+    }
+    val conditionAccent = when (weather.condition.lowercase()) {
+        "sunny" -> Color(0xFFFFB020)
+        "partly" -> Color(0xFF5AC8FA)
+        "cloudy" -> Color(0xFF9BA7B7)
+        "rain" -> Color(0xFF4DA3FF)
+        "thunder" -> Color(0xFFFF9F0A)
+        else -> Color(0xFF5AC8FA)
+    }
+    val cardShape = RoundedCornerShape(18.dp)
+    val isDark = isSystemInDarkTheme()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .lightThemeSurfaceLift(lightLift, cardShape)
+            .clip(cardShape)
+            .background(surface)
+            .border(1.dp, flightItemBorderColor(isDark), cardShape)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Text(
+                text = weather.temp.ifBlank { "--" },
+                color = textColor,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    fontSize = (16f * textScale).sp,
+                    lineHeight = (18f * textScale).sp
+                ),
+                maxLines = 1,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(conditionAccent.copy(alpha = 0.18f))
+                    .padding(horizontal = 9.dp, vertical = 6.dp)
+            )
+            Text(
+                text = conditionLabel,
+                color = textColor,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    fontSize = (14f * textScale).sp,
+                    lineHeight = (17f * textScale).sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (weather.summary.isNotBlank()) {
+            Text(
+                text = weather.summary,
+                color = mutedColor,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = (12f * textScale).sp,
+                    lineHeight = (14f * textScale).sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlightIssueSummaryRow(
+    brief: FlightSheetBrief,
+    textColor: Color,
+    mutedColor: Color,
+    lightLift: Boolean,
+    textScale: Float
+) {
+    val hasIssues = brief.delayedCount > 0 || brief.cancelledCount > 0 || brief.divertedCount > 0
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FlightCountPill("${brief.arrivalCount}", "Arrivals", Color(0xFF5AC8FA), textColor, Modifier.weight(1f), lightLift, textScale)
+            FlightCountPill("${brief.departureCount}", "Departures", Color(0xFF7C8CFF), textColor, Modifier.weight(1f), lightLift, textScale)
+            FlightCountPill(
+                "${brief.delayedCount + brief.cancelledCount + brief.divertedCount}",
+                "Alerts",
+                if (hasIssues) Color(0xFFFFB020) else Color(0xFF34C759),
+                textColor,
+                Modifier.weight(1f),
+                lightLift,
+                textScale
+            )
+        }
+        if (brief.issues.isNotEmpty()) {
+            brief.issues.take(4).forEach { issue ->
+                FlightIssuePill(issue = issue, textColor = textColor, mutedColor = mutedColor, lightLift = lightLift, textScale = textScale)
+            }
+        } else if (brief.summary.isNotBlank()) {
+            Text(
+                text = brief.summary,
+                color = mutedColor,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlightNoLiveStatusCard(
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    lightLift: Boolean,
+    textScale: Float
+) {
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(20.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .lightThemeSurfaceLift(lightLift, cardShape)
+            .clip(cardShape)
+            .background(surface)
+            .border(1.dp, flightItemBorderColor(isDark), cardShape)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Text(
+            text = "No active arrival cards",
+            color = textColor,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = FontWeight.Black,
+                fontSize = (14f * textScale).sp,
+                lineHeight = (16f * textScale).sp
+            )
+        )
+        Text(
+            text = "Current schedule counts are still shown above.",
+            color = mutedColor,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontSize = (12f * textScale).sp,
+                lineHeight = (14f * textScale).sp
+            )
+        )
+    }
+}
+
+@Composable
+private fun FlightCountPill(
+    value: String,
+    label: String,
+    accent: Color,
+    textColor: Color,
+    modifier: Modifier = Modifier,
+    lightLift: Boolean,
+    textScale: Float
+) {
+    val pillShape = RoundedCornerShape(999.dp)
+    val isDark = isSystemInDarkTheme()
+    Row(
+        modifier = modifier
+            .lightThemeSurfaceLift(lightLift, pillShape)
+            .clip(pillShape)
+            .background(accent.copy(alpha = 0.16f))
+            .border(1.dp, accent.copy(alpha = if (isDark) 0.28f else 0.24f), pillShape)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = value,
+            color = accent,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Black,
+                fontSize = (14f * textScale).sp,
+                lineHeight = (16f * textScale).sp
+            )
+        )
+        Spacer(Modifier.width(5.dp))
+        Text(
+            text = label,
+            color = textColor.copy(alpha = 0.76f),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = (10f * textScale).sp,
+                lineHeight = (11f * textScale).sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun FlightIssuePill(
+    issue: FlightSheetIssue,
+    textColor: Color,
+    mutedColor: Color,
+    lightLift: Boolean,
+    textScale: Float
+) {
+    val accent = when {
+        issue.tone.contains("cancel", ignoreCase = true) -> Color(0xFFFF453A)
+        issue.tone.contains("divert", ignoreCase = true) -> Color(0xFFFF9F0A)
+        issue.label.contains("+") || issue.tone.contains("delay", ignoreCase = true) -> Color(0xFFFFB020)
+        else -> Color(0xFF5AC8FA)
+    }
+    val pillShape = RoundedCornerShape(16.dp)
+    val isDark = isSystemInDarkTheme()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .lightThemeSurfaceLift(lightLift, pillShape)
+            .clip(pillShape)
+            .background(accent.copy(alpha = 0.13f))
+            .border(1.dp, accent.copy(alpha = if (isDark) 0.30f else 0.24f), pillShape)
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = issue.label.ifBlank { "Alert" },
+            color = accent,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Black,
+                fontSize = (12f * textScale).sp,
+                lineHeight = (14f * textScale).sp
+            ),
+            maxLines = 1,
+            modifier = Modifier.widthIn(min = 58.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = issue.flight.ifBlank { "Flight update" },
+                color = textColor,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Black,
+                    fontSize = (13f * textScale).sp,
+                    lineHeight = (15f * textScale).sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = listOf(issue.route, issue.time).filter { it.isNotBlank() }.joinToString(" • "),
+                color = mutedColor,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = (10f * textScale).sp,
+                    lineHeight = (11f * textScale).sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlightLiveStatusCard(
+    item: FlightLiveStatusItem,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    lightLift: Boolean,
+    textScale: Float,
+    highContrast: Boolean
+) {
+    val isDark = isSystemInDarkTheme()
+    val arrivedAccent = if (isDark) Color(0xFF34C759) else Color(0xFF8A5A3C)
+    val scheduleAccent = if (isDark) Color(0xFFFFB020) else arrivedAccent
+    val upcomingAccent = if (isDark) Color(0xFF5AC8FA) else arrivedAccent
+    val accent = when (item.tone) {
+        "arrived" -> arrivedAccent
+        "delayed" -> scheduleAccent
+        else -> upcomingAccent
+    }
+    val cardSurface = if (!isDark && item.tone == "arrived") {
+        Color(0xFFEBDCCC).copy(alpha = 0.94f)
+    } else if (highContrast) {
+        surface
+    } else {
+        surface
+    }
+    val cardShape = RoundedCornerShape(20.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .lightThemeSurfaceLift(lightLift, cardShape)
+            .clip(cardShape)
+            .background(cardSurface)
+            .border(1.dp, accent.copy(alpha = if (isDark) 0.28f else 0.24f), cardShape)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.flight,
+                    color = textColor,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        fontSize = (14f * textScale).sp,
+                        lineHeight = (16f * textScale).sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (item.meta.isNotBlank()) {
+                    Text(
+                        text = item.meta,
+                        color = mutedColor,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = (10f * textScale).sp,
+                            lineHeight = (11f * textScale).sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                FlightTinyPill(text = item.badge.ifBlank { item.status }, accent = accent)
+                if (item.delayLabel.isNotBlank()) {
+                    FlightTinyPill(text = item.delayLabel, accent = scheduleAccent)
+                }
+            }
+        }
+        if (item.route.isNotBlank()) {
+            Text(
+                text = "${item.status} • ${item.route}",
+                color = textColor.copy(alpha = 0.82f),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = (12f * textScale).sp,
+                    lineHeight = (14f * textScale).sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (item.pill.isNotBlank()) {
+                FlightTinyPill(text = item.pill, accent = arrivedAccent, filled = false)
+            }
+            if (item.etaText.isNotBlank()) {
+                Text(
+                    text = item.etaText,
+                    color = accent,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = (12f * textScale).sp,
+                        lineHeight = (14f * textScale).sp
+                    ),
+                    maxLines = 1
+                )
+            }
+        }
+        if (item.detail.isNotBlank()) {
+            Text(
+                text = item.detail,
+                color = mutedColor,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = (12f * textScale).sp,
+                    lineHeight = (14f * textScale).sp
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(5.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(accent.copy(alpha = 0.14f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth((item.progress / 100f).coerceIn(0.03f, 1f))
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(accent.copy(alpha = 0.72f))
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlightTinyPill(
+    text: String,
+    accent: Color,
+    filled: Boolean = true
+) {
+    val pillShape = RoundedCornerShape(999.dp)
+    Text(
+        text = text,
+        color = if (filled) Color.White else accent,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.Black,
+            fontSize = 10.sp,
+            lineHeight = 11.sp
+        ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier
+            .clip(pillShape)
+            .background(accent.copy(alpha = if (filled) 0.86f else 0.16f))
+            .border(1.dp, accent.copy(alpha = if (filled) 0.22f else 0.30f), pillShape)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    )
+}
+
+@Composable
+private fun NativeFlightBottomTabs(
+    selected: String,
+    backdrop: LayerBackdrop,
+    contentView: android.view.View?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    GlassBottomTabBar(
+        modifier = modifier,
+        backdrop = backdrop,
+        contentView = contentView,
+        tabs = listOf(
+            GlassBottomTabItem(
+                label = "Arrivals",
+                icon = Icons.Filled.Flight,
+                selected = selected == "arrivals",
+                onClick = { onSelect("arrivals") },
+                lanternColor = FlightArrivalLantern
+            ),
+            GlassBottomTabItem(
+                label = "Departures",
+                icon = Icons.Filled.Flight,
+                selected = selected == "departures",
+                onClick = { onSelect("departures") },
+                lanternColor = FlightDepartureLantern
+            ),
+            GlassBottomTabItem(
+                label = "Alerts",
+                icon = Icons.Filled.Info,
+                selected = selected == "alerts",
+                onClick = { onSelect("alerts") },
+                lanternColor = FlightAlertLantern
+            ),
+            GlassBottomTabItem(
+                label = "Menu",
+                icon = Icons.Filled.Menu,
+                selected = selected == "menu",
+                onClick = { onSelect("menu") }
+            )
+        )
+    )
+}
 
 private fun urlForCard(cardId: String): String =
     when (cardId) {

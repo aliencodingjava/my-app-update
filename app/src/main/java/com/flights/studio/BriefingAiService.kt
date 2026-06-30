@@ -59,7 +59,6 @@ object BriefingAiService {
         appendLine("contacts_sort=${appContext.contactsSort}")
         appendLine("web_table_theme=${appContext.webTheme}")
         appendLine("web_text_zoom=${appContext.webTextZoom}")
-        appendLine("web_table_enhanced=${appContext.enhancedTable}")
         appendLine("web_table_grouped=${appContext.groupFlights}")
         appendLine("web_high_contrast=${appContext.highContrastWeb}")
         appendLine("web_cache_pages=${appContext.cachePages}")
@@ -108,7 +107,6 @@ data class BriefingAppContext(
     val contactsSort: String,
     val webTheme: String,
     val webTextZoom: Int,
-    val enhancedTable: Boolean,
     val groupFlights: Boolean,
     val highContrastWeb: Boolean,
     val cachePages: Boolean,
@@ -130,7 +128,6 @@ data class BriefingAppContext(
             contactsSort,
             webTheme,
             webTextZoom,
-            enhancedTable,
             groupFlights,
             highContrastWeb,
             cachePages,

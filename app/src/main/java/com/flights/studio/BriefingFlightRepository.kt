@@ -145,7 +145,7 @@ object BriefingFlightRepository {
                 val actual = cellText(rowHtml, "actual")
                 val status = cellText(rowHtml, "status").ifBlank { "Scheduled" }
                 val tone = statusTone(status)
-                val delay = if (tone == "cancelled" || tone == "diverted") 0 else delayMins(sched, actual)
+                val delay = if (tone == "delayed") delayMins(sched, actual) else 0
                 rows += FlightBriefRow(
                     kind = kind,
                     day = day,
@@ -169,7 +169,7 @@ object BriefingFlightRepository {
     private fun buildSnapshot(rows: List<FlightBriefRow>): BriefingFlightSnapshot {
         val briefingRows = rows.todayOnly()
         val issues = briefingRows
-            .filter { it.tone == "cancelled" || it.tone == "diverted" || it.tone == "delayed" || it.delay > 0 }
+            .filter { it.tone == "cancelled" || it.tone == "diverted" || it.delay > 0 }
             .sortedWith(
                 compareByDescending<FlightBriefRow> { issueRank(it) }
                     .thenByDescending { it.delay }
@@ -197,7 +197,7 @@ object BriefingFlightRepository {
             },
             arrivalCount = briefingRows.count { it.kind != "departure" },
             departureCount = briefingRows.count { it.kind == "departure" },
-            delayedCount = briefingRows.count { it.tone == "delayed" || it.delay > 0 },
+            delayedCount = briefingRows.count { it.delay > 0 },
             cancelledCount = briefingRows.count { it.tone == "cancelled" },
             divertedCount = briefingRows.count { it.tone == "diverted" },
             source = "native_table",
@@ -212,7 +212,7 @@ object BriefingFlightRepository {
 
     private fun summaryLine(rows: List<FlightBriefRow>): String {
         if (rows.isEmpty()) return "Flight table is still loading."
-        val delayedRows = rows.filter { it.tone == "delayed" || it.delay > 0 }
+        val delayedRows = rows.filter { it.delay > 0 }
         val cancelled = rows.count { it.tone == "cancelled" }
         val diverted = rows.count { it.tone == "diverted" }
         val dayText = rows

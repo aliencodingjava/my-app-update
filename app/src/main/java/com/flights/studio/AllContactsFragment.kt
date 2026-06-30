@@ -46,7 +46,6 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -564,14 +563,18 @@ class AllContactsFragment : Fragment() {
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 if (!isAdded) return
                 val glide = Glide.with(this@AllContactsFragment)
-                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                    glide.resumeRequests()
-                    val first = layoutManager.findFirstVisibleItemPosition().coerceAtLeast(0)
-                    contactsAdapter.preloadAvatarsAround(first, 24)
-                } else if (newState == RecyclerView.SCROLL_STATE_SETTLING) {
-                    glide.pauseRequests()
-                } else {
-                    glide.resumeRequests()
+                when (newState) {
+                    RecyclerView.SCROLL_STATE_IDLE -> {
+                        glide.resumeRequests()
+                        val first = layoutManager.findFirstVisibleItemPosition().coerceAtLeast(0)
+                        contactsAdapter.preloadAvatarsAround(first, 24)
+                    }
+                    RecyclerView.SCROLL_STATE_SETTLING -> {
+                        glide.pauseRequests()
+                    }
+                    else -> {
+                        glide.resumeRequests()
+                    }
                 }
             }
 

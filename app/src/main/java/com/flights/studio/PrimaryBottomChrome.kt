@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Home
@@ -51,11 +52,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
@@ -74,6 +79,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.util.fastCoerceAtMost
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -82,10 +89,16 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.capsule.ContinuousCapsule
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.util.lerp
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tanh
 
 enum class PrimaryTabDestination {
     Home,
@@ -99,6 +112,14 @@ data class PrimaryMenuAction(
     @param:DrawableRes @field:DrawableRes val iconRes: Int,
     val onClick: () -> Unit,
     val useProfileAvatar: Boolean = false
+)
+
+data class GlassBottomTabItem(
+    val label: String,
+    val icon: ImageVector,
+    val selected: Boolean,
+    val onClick: () -> Unit,
+    val lanternColor: Color? = null
 )
 
 @Composable
@@ -116,7 +137,12 @@ fun PrimaryBottomChrome(
     showTabs: Boolean = true,
     showMenu: Boolean = true,
     contentView: android.view.View? = null,
-    menuIcon: ImageVector = Icons.Filled.Menu
+    menuIcon: ImageVector = Icons.Filled.Menu,
+    menuPanelColor: Color? = null,
+    menuOverlayTint: Color? = null,
+    menuButtonColor: Color? = null,
+    menuButtonAlpha: Float? = null,
+    menuBlurDp: Float? = null
 ) {
     Box(
         modifier = Modifier
@@ -148,6 +174,11 @@ fun PrimaryBottomChrome(
                 backdrop = backdrop,
                 contentView = contentView,
                 actions = menuActions,
+                panelColorOverride = menuPanelColor,
+                overlayTintOverride = menuOverlayTint,
+                buttonColorOverride = menuButtonColor,
+                buttonAlphaOverride = menuButtonAlpha,
+                blurDpOverride = menuBlurDp,
                 onDismiss = onMenuDismiss
             )
         }
@@ -166,6 +197,57 @@ private fun PrimaryQuickTabBar(
     onOpenMenu: () -> Unit,
     contentView: android.view.View?,
     menuIcon: ImageVector
+) {
+    val tabs = listOf(
+        GlassBottomTabItem(
+            label = stringResource(R.string.Home),
+            icon = Icons.Filled.Home,
+            selected = selectedTab == PrimaryTabDestination.Home,
+            onClick = onOpenHome
+        ),
+        GlassBottomTabItem(
+            label = stringResource(R.string.chat_bottom_tab),
+            icon = Icons.Filled.Info,
+            selected = selectedTab == PrimaryTabDestination.Briefing,
+            onClick = onOpenContacts
+        ),
+        GlassBottomTabItem(
+            label = stringResource(R.string.contacts_bottom_notes),
+            icon = Icons.AutoMirrored.Filled.Article,
+            selected = selectedTab == PrimaryTabDestination.Notes,
+            onClick = onOpenNotes
+        ),
+        GlassBottomTabItem(
+            label = stringResource(R.string.menu_settings),
+            icon = Icons.Filled.Settings,
+            selected = selectedTab == PrimaryTabDestination.Settings,
+            onClick = onOpenSettings
+        ),
+        GlassBottomTabItem(
+            label = stringResource(R.string.settings_menu_tab),
+            icon = menuIcon,
+            selected = false,
+            onClick = onOpenMenu
+        )
+    )
+    GlassBottomTabBar(
+        modifier = modifier,
+        backdrop = backdrop,
+        tabs = tabs,
+        contentView = contentView,
+        dragActions = remember(onOpenHome, onOpenContacts, onOpenNotes, onOpenSettings) {
+            listOf(onOpenHome, onOpenContacts, onOpenNotes, onOpenSettings)
+        }
+    )
+}
+
+@Composable
+internal fun GlassBottomTabBar(
+    modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop,
+    tabs: List<GlassBottomTabItem>,
+    contentView: android.view.View?,
+    dragActions: List<() -> Unit> = emptyList()
 ) {
     val glassColor = bottomTabBarTint()
     val overlayTint = bottomTabBarOverlayTint()
@@ -204,10 +286,14 @@ private fun PrimaryQuickTabBar(
         adaptiveContentColor,
         adaptiveContentBlend
     )
+    val selectedIndex = tabs.indexOfFirst { it.selected }.takeIf { it >= 0 } ?: 0
+    val selectedLanternColor = tabs.getOrNull(selectedIndex)?.lanternColor
+    val lanternAlpha by animateFloatAsState(
+        targetValue = if (selectedLanternColor != null) 1f else 0f,
+        animationSpec = tween(durationMillis = 240, easing = FastOutSlowInEasing),
+        label = "bottomTabLanternAlpha"
+    )
     var draggedTabIndex by remember { mutableStateOf<Int?>(null) }
-    val pageTabActions = remember(onOpenHome, onOpenContacts, onOpenNotes, onOpenSettings) {
-        listOf(onOpenHome, onOpenContacts, onOpenNotes, onOpenSettings)
-    }
 
     Box(
         modifier = modifier
@@ -291,17 +377,57 @@ private fun PrimaryQuickTabBar(
                     .background(adaptiveSurfaceTint, GlassChromeShape)
             )
         }
+        if (selectedLanternColor != null) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(GlassChromeShape)
+                    .drawBehind {
+                        if (lanternAlpha <= 0.001f || tabs.isEmpty()) return@drawBehind
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                0.00f to selectedLanternColor.copy(alpha = 0.96f * lanternAlpha),
+                                0.18f to selectedLanternColor.copy(alpha = 0.68f * lanternAlpha),
+                                0.52f to selectedLanternColor.copy(alpha = 0.24f * lanternAlpha),
+                                1.00f to selectedLanternColor.copy(alpha = 0f),
+                                center = Offset(0f, size.height * 0.34f),
+                                radius = size.width * 0.92f
+                            )
+                        )
+                        drawRect(
+                            brush = Brush.linearGradient(
+                                0.00f to selectedLanternColor.copy(alpha = 0.72f * lanternAlpha),
+                                0.16f to Color.White.copy(alpha = 0.22f * lanternAlpha),
+                                0.36f to selectedLanternColor.copy(alpha = 0.34f * lanternAlpha),
+                                0.72f to selectedLanternColor.copy(alpha = 0.10f * lanternAlpha),
+                                1.00f to Color.White.copy(alpha = 0.00f),
+                                start = Offset.Zero,
+                                end = Offset(size.width, size.height * 0.78f)
+                            )
+                        )
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                0.00f to Color.White.copy(alpha = 0.22f * lanternAlpha),
+                                0.18f to Color.White.copy(alpha = 0.07f * lanternAlpha),
+                                0.56f to selectedLanternColor.copy(alpha = 0.13f * lanternAlpha),
+                                1.00f to Color.Black.copy(alpha = 0.06f * lanternAlpha)
+                            )
+                        )
+                    }
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(3.dp)
-                .pointerInput(pageTabActions) {
+                .padding(4.dp)
+                .pointerInput(dragActions, tabs.size) {
                     fun moveSelection(x: Float) {
-                        val tabWidth = size.width / 5f
-                        val index = (x / tabWidth).toInt().coerceIn(0, 4)
-                        if (index in pageTabActions.indices && draggedTabIndex != index) {
+                        if (dragActions.isEmpty() || tabs.isEmpty()) return
+                        val tabWidth = size.width / tabs.size.toFloat()
+                        val index = (x / tabWidth).toInt().coerceIn(0, tabs.lastIndex)
+                        if (index in dragActions.indices && draggedTabIndex != index) {
                             draggedTabIndex = index
-                            pageTabActions[index]()
+                            dragActions[index]()
                         }
                     }
 
@@ -315,51 +441,17 @@ private fun PrimaryQuickTabBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            PrimaryQuickTab(
-                label = stringResource(R.string.Home),
-                icon = Icons.Filled.Home,
-                selected = draggedTabIndex == 0 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Home),
-                adaptiveContentColor = adaptiveContentColor,
-                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
-                adaptiveContentBlend = adaptiveContentBlend,
-                onClick = onOpenHome
-            )
-            PrimaryQuickTab(
-                label = stringResource(R.string.chat_bottom_tab),
-                icon = Icons.Filled.Info,
-                selected = selectedTab == PrimaryTabDestination.Briefing,
-                adaptiveContentColor = adaptiveContentColor,
-                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
-                adaptiveContentBlend = adaptiveContentBlend,
-                onClick = onOpenContacts
-            )
-            PrimaryQuickTab(
-                label = stringResource(R.string.contacts_bottom_notes),
-                icon = Icons.AutoMirrored.Filled.Article,
-                selected = draggedTabIndex == 2 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Notes),
-                adaptiveContentColor = adaptiveContentColor,
-                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
-                adaptiveContentBlend = adaptiveContentBlend,
-                onClick = onOpenNotes
-            )
-            PrimaryQuickTab(
-                label = stringResource(R.string.menu_settings),
-                icon = Icons.Filled.Settings,
-                selected = draggedTabIndex == 3 || (draggedTabIndex == null && selectedTab == PrimaryTabDestination.Settings),
-                adaptiveContentColor = adaptiveContentColor,
-                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
-                adaptiveContentBlend = adaptiveContentBlend,
-                onClick = onOpenSettings
-            )
-            PrimaryQuickTab(
-                label = stringResource(R.string.settings_menu_tab),
-                icon = menuIcon,
-                selected = false,
-                adaptiveContentColor = adaptiveContentColor,
-                adaptiveSelectedContentColor = adaptiveSelectedContentColor,
-                adaptiveContentBlend = adaptiveContentBlend,
-                onClick = onOpenMenu
-            )
+            tabs.forEachIndexed { index, tab ->
+                PrimaryQuickTab(
+                    label = tab.label,
+                    icon = tab.icon,
+                    selected = draggedTabIndex == index || (draggedTabIndex == null && tab.selected),
+                    adaptiveContentColor = adaptiveContentColor,
+                    adaptiveSelectedContentColor = adaptiveSelectedContentColor,
+                    adaptiveContentBlend = adaptiveContentBlend,
+                    onClick = tab.onClick
+                )
+            }
         }
     }
 }
@@ -384,15 +476,10 @@ private fun RowScope.PrimaryQuickTab(
         animationSpec = tween(durationMillis = if (selected) 180 else 120, easing = FastOutSlowInEasing),
         label = "primaryTabPillAlpha"
     )
-    val pressScaleX by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = spring(dampingRatio = 0.62f, stiffness = 720f),
-        label = "primaryTabPressScaleX"
-    )
-    val pressScaleY by animateFloatAsState(
-        targetValue = if (isPressed) 1.08f else 1f,
-        animationSpec = spring(dampingRatio = 0.62f, stiffness = 720f),
-        label = "primaryTabPressScaleY"
+        label = "primaryTabPressScale"
     )
     val pressAlpha by animateFloatAsState(
         targetValue = if (isPressed && !selected) 0.10f else 0f,
@@ -405,8 +492,8 @@ private fun RowScope.PrimaryQuickTab(
             .weight(1f)
             .height(48.dp)
             .graphicsLayer {
-                scaleX = pressScaleX
-                scaleY = pressScaleY
+                scaleX = pressScale
+                scaleY = pressScale
             }
             .clip(GlassChromeInnerShape)
             .clickable(
@@ -470,16 +557,21 @@ private fun PrimaryMenuSheet(
     backdrop: LayerBackdrop,
     contentView: android.view.View?,
     actions: List<PrimaryMenuAction>,
+    panelColorOverride: Color?,
+    overlayTintOverride: Color?,
+    buttonColorOverride: Color?,
+    buttonAlphaOverride: Float?,
+    blurDpOverride: Float?,
     onDismiss: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val panelColor = bottomTabBarTint()
-    val overlayTint = bottomTabBarOverlayTint()
-    val backdropBlurDp = bottomChromeBackdropBlurDp()
+    val panelColor = panelColorOverride ?: bottomTabBarTint()
+    val overlayTint = overlayTintOverride ?: bottomTabBarOverlayTint()
+    val backdropBlurDp = blurDpOverride ?: (bottomChromeBackdropBlurDp() + (rememberLiquidGlassBlurAmount() * 8f))
     val nativeBlurPx = bottomChromeNativeBlurPx()
     val textColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
     val iconColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
-    val buttonColor = bottomTabSelectedPillColor()
+    val buttonColor = buttonColorOverride ?: if (isDark) Color.White else Color.Black
 
     AnimatedVisibility(
         visible = visible,
@@ -526,7 +618,6 @@ private fun PrimaryMenuSheet(
                     bottom = GlassChromeHorizontalPadding
                 )
                 .fillMaxWidth()
-                .shadow(GlassChromeShadowElevation, GlassChromeShape, clip = false)
                 .clip(GlassChromeShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -538,7 +629,7 @@ private fun PrimaryMenuSheet(
                     shape = GlassChromeShape,
                     surfaceColor = panelColor,
                     blurDp = backdropBlurDp,
-                    shadow = null,
+                    shadow = { bottomChromeShadow() },
                     refractionHeightDp = GlassChromeRefractionHeightDp,
                     refractionAmountDp = GlassChromeRefractionAmountDp
                 )
@@ -552,7 +643,8 @@ private fun PrimaryMenuSheet(
                     it.scrimColor = panelColor.toArgb()
                     it.cornerRadiusPx = it.resources.displayMetrics.density * 28f
                     it.useLiquidRefraction = true
-                    it.blurRadiusPx = nativeBlurPx
+                    it.blurRadiusPx = blurDpOverride?.let { blurDp -> it.resources.displayMetrics.density * blurDp }
+                        ?: nativeBlurPx
                     it.saturation = 1.18f
                     it.refractIntensity = GlassChromeNativeRefractionIntensity
                 }
@@ -572,7 +664,9 @@ private fun PrimaryMenuSheet(
                         rowActions.forEach { action ->
                             PrimaryMenuButton(
                                 action = action,
+                                backdrop = backdrop,
                                 buttonColor = buttonColor,
+                                buttonAlphaOverride = buttonAlphaOverride,
                                 iconColor = iconColor,
                                 textColor = textColor,
                                 onDismiss = onDismiss
@@ -588,44 +682,93 @@ private fun PrimaryMenuSheet(
 @Composable
 private fun RowScope.PrimaryMenuButton(
     action: PrimaryMenuAction,
+    backdrop: LayerBackdrop,
     buttonColor: Color,
+    buttonAlphaOverride: Float?,
     iconColor: Color,
     textColor: Color,
     onDismiss: () -> Unit
 ) {
+    val animationScope = rememberCoroutineScope()
+    val isDark = isSystemInDarkTheme()
+    val interactiveHighlight = remember(animationScope, isDark) {
+        InteractiveHighlight(
+            animationScope = animationScope,
+            highlightColor = if (isDark) Color.White else Color.Black
+        )
+    }
     Column(
         modifier = Modifier
-            .weight(1f)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {
-                    onDismiss()
-                    action.onClick()
-                }
-            ),
+            .weight(1f),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Surface(
-            shape = CircleShape,
-            color = buttonColor,
-            contentColor = iconColor,
-            shadowElevation = 0.dp,
-            tonalElevation = 0.dp
+        Row(
+            modifier = Modifier
+                .size(60.dp)
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { ContinuousCapsule },
+                    highlight = null,
+                    effects = {
+                        vibrancy()
+                        blur(2f.dp.toPx())
+                        lens(12f.dp.toPx(), 24f.dp.toPx())
+                    },
+                    layerBlock = {
+                        val width = size.width
+                        val height = size.height
+
+                        val progress = interactiveHighlight.pressProgress
+                        val scale = lerp(1f, 1f + 6f.dp.toPx() / size.height, progress)
+
+                        val maxOffset = size.minDimension
+                        val initialDerivative = 0.05f
+                        val offset = interactiveHighlight.offset
+                        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+                        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+
+                        val maxDragScale = 6f.dp.toPx() / size.height
+                        val offsetAngle = atan2(offset.y, offset.x)
+                        scaleX =
+                            scale +
+                                maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                                (width / height).fastCoerceAtMost(1f)
+                        scaleY =
+                            scale +
+                                maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                                (height / width).fastCoerceAtMost(1f)
+                    },
+                    onDrawSurface = {
+                        val baseAlpha = buttonAlphaOverride ?: if (isDark) 0.20f else 0.075f
+                        drawRect(buttonColor.copy(alpha = baseAlpha))
+                        drawRect(buttonColor.copy(alpha = baseAlpha * 0.72f * interactiveHighlight.pressProgress))
+                    }
+                )
+                .clickable(
+                    interactionSource = null,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = {
+                        onDismiss()
+                        action.onClick()
+                    }
+                )
+                .then(interactiveHighlight.modifier)
+                .then(interactiveHighlight.gestureModifier),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             if (action.useProfileAvatar) {
                 PrimaryMenuProfileAvatar(
                     modifier = Modifier
-                        .padding(8.dp)
-                        .size(36.dp)
+                        .size(34.dp)
                 )
             } else {
                 Icon(
                     painter = painterResource(action.iconRes),
                     contentDescription = action.label,
                     modifier = Modifier
-                        .padding(14.dp)
                         .size(24.dp),
                     tint = iconColor
                 )
@@ -635,8 +778,8 @@ private fun RowScope.PrimaryMenuButton(
             text = action.label,
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.labelMedium.copy(
-                fontSize = 11.sp,
-                lineHeight = 12.sp,
+                fontSize = 10.5.sp,
+                lineHeight = 11.5.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center
             ),
@@ -650,6 +793,8 @@ private fun RowScope.PrimaryMenuButton(
 @Composable
 private fun PrimaryMenuProfileAvatar(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
+    val contentColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
     val appContext = context.applicationContext
     val userPrefs = remember(appContext) { UserPreferencesManager(appContext) }
     val rawPhoto = userPrefs.userPhotoUriString?.trim().orEmpty()
@@ -667,8 +812,8 @@ private fun PrimaryMenuProfileAvatar(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.clip(CircleShape),
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-        contentColor = MaterialTheme.colorScheme.primary,
+        color = if (isDark) Color.White.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.075f),
+        contentColor = contentColor,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f))
     ) {
         when (val state = avatarState) {
@@ -685,33 +830,33 @@ private fun PrimaryMenuProfileAvatar(modifier: Modifier = Modifier) {
                         onError = { avatarFailed = true }
                     )
                 } else {
-                    PrimaryMenuInitials(initials)
+                    PrimaryMenuInitials(initials, contentColor)
                 }
             }
             PrimaryMenuAvatarState.Empty,
-            PrimaryMenuAvatarState.Loading -> PrimaryMenuInitials(initials)
+            PrimaryMenuAvatarState.Loading -> PrimaryMenuInitials(initials, contentColor)
         }
     }
 }
 
 @Composable
-private fun PrimaryMenuInitials(initials: String) {
+private fun PrimaryMenuInitials(initials: String, contentColor: Color) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         if (initials.isBlank() || initials == "?") {
-            Image(
-                painter = painterResource(R.drawable.contact_logo_topbar),
+            Icon(
+                painter = painterResource(R.drawable.account_circle_24dp_ffffff_fill1_profile),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                modifier = Modifier.fillMaxSize(0.78f),
+                tint = contentColor
             )
         } else {
             Text(
                 text = initials,
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary
+                color = contentColor
             )
         }
     }

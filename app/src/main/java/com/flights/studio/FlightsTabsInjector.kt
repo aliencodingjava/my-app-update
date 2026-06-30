@@ -75,7 +75,7 @@ object FlightsTabsInjector {
           const defaults = {
             liveArrivals: true,
             weather: true,
-            inbound: true,
+            inbound: false,
             confidence: true,
             colors: true,
             distance: 80
@@ -449,7 +449,6 @@ object FlightsTabsInjector {
               const d = k.replace(/[A-Z]/g,'');
               if (d) acIndex[d] = s;
             }
-            renderInbound(detectInbound(acCache));
             } catch {
               acOk = false;
             } finally { acFetching = false; }
@@ -688,62 +687,7 @@ object FlightsTabsInjector {
 
         function renderInbound(list) {
           let el = document.getElementById('fs-inbound-aircraft');
-          const cfg = getSettings();
-          if (!list?.length || cfg.inbound === false) { if (el) el.innerHTML = ''; return; }
-          if (!el) {
-            el = document.createElement('div'); el.id = 'fs-inbound-aircraft';
-            const sc = document.getElementById('fs-alerts-content');
-            if (sc) {
-              const a = sc.querySelector('#fs-live-arrivals-panel') || sc.querySelector('.fs-weather-banner');
-              if (a) a.insertAdjacentElement('afterend', el);
-              else sc.querySelector('.fs-sheet-header-wrap')?.insertAdjacentElement('afterend', el) || sc.appendChild(el);
-            } else document.body.appendChild(el);
-          }
-          const showConf  = cfg.confidence !== false;
-          const showColor = cfg.colors !== false;
-          const maxD = cfg.distance || 80;
-          el.innerHTML = `<div class="fs-inbound-panel">
-            <div class="fs-inbound-header">
-              <span class="fs-inbound-title">Inbound traffic</span>
-              <span class="fs-inbound-subtitle">${list.length} aircraft within ${maxD} mi</span>
-            </div>
-            <div class="fs-inbound-list">
-              ${list.slice(0,6).map(ac => {
-                const eta  = etaMins(ac.dist, ac.spd);
-                const cf   = confLevel(ac.dist, ac.alt, ac.vr, ac.spd);
-                const route= routeForCallsign(ac.callsign);
-                const intent = landingIntent(ac.dist, ac.alt, ac.vr, ac.spd, ac.heading, route, ac.lat, ac.lon);
-                const airline = route?.airline || ac.airline || 'Unknown airline';
-                const flight = route?.flight || ac.flight || ac.callsign || '';
-                const routeText = route?.confirmed ? `${route.from} → ${route.to || 'JAC'}` : `${intent.label}${ac.heading != null ? ` • ${ac.heading}°` : ''}`;
-                const operator = route?.operator || operatorFromCallsign(ac.callsign);
-                const aC   = showColor ? altClass(ac.alt) : '';
-                const sC   = showColor ? spdClass(ac.spd) : '';
-                return `<div class="fs-inbound-card${ac.dist<10?' final':''}">
-                  <div class="fs-inbound-main">
-                    <div class="fs-inbound-line1">
-                      <span class="fs-inbound-icon">✈</span>
-                      <span class="fs-inbound-callsign">${escHtml(airline)}${flight ? ` ${escHtml(flight)}` : ''}</span>
-                      <span class="fs-inbound-route">${escHtml(routeText)}</span>
-                      <span class="fs-landing-pill ${intent.cls}">${escHtml(intent.label)}</span>
-                      ${eta?`<span class="fs-inbound-eta">ETA ${eta} min</span>`:''}
-                    </div>
-                    <div class="fs-inbound-line2">
-                      <span>${escHtml(ac.callsign||'No callsign')}</span>
-                      ${operator?`<span>• ${escHtml(operator)}</span>`:''}
-                      <span class="fs-inbound-dist">${ac.dist} mi</span>
-                      <span class="fs-inbound-alt ${aC}">${ac.alt.toLocaleString()} ft</span>
-                      <span class="fs-inbound-spd ${sC}">${ac.spd} kt</span>
-                      ${showConf?`<span class="fs-inbound-conf">
-                        Approach: <span class="fs-conf-word ${cf.c}">${cf.l}</span>
-                        ${confHtml(cf.p,cf.l,cf.c,false)}
-                      </span>`:''}
-                    </div>
-                  </div>
-                </div>`;
-              }).join('')}
-            </div>
-          </div>`;
+          if (el) el.remove();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -791,6 +735,7 @@ object FlightsTabsInjector {
               rows.push({
                 airline: airline, airlineIcon: icon,
                 flight:  flight,
+                day:     curDate || todayLabel || 'Today',
                 sched:   txt(row, '.sched', 3),
                 actual:  txt(row, '.actual', 4),
                 from:    txt(row, '.from', 2),
@@ -1241,7 +1186,7 @@ object FlightsTabsInjector {
             const data = rowFlightData(row);
             if (!data) return;
             const tone = statusTone(data.status);
-            const delay = tone === 'cancelled' || tone === 'diverted' ? 0 : delayMins(data.sched, data.actual);
+            const delay = tone === 'delayed' ? delayMins(data.sched, data.actual) : 0;
             rows.push({
               kind: data.kind,
               day: data.day,
@@ -1260,7 +1205,7 @@ object FlightsTabsInjector {
         }
 
         function aiSummaryLine(rows) {
-          const delayedRows = rows.filter(f => f.tone === 'delayed' || f.delay > 0);
+          const delayedRows = rows.filter(f => (f.delay || 0) > 0);
           const delayed = delayedRows.length;
           const cancelled = rows.filter(f => f.tone === 'cancelled').length;
           const diverted = rows.filter(f => f.tone === 'diverted').length;
@@ -1292,12 +1237,12 @@ object FlightsTabsInjector {
           const briefingRows = rows.filter(f => (f.day || 'Today') === firstDay);
           const sourceRows = briefingRows.length ? briefingRows : rows;
           const issues = sourceRows
-            .filter(f => f.tone === 'cancelled' || f.tone === 'diverted' || f.tone === 'delayed' || f.delay > 0)
+            .filter(f => f.tone === 'cancelled' || f.tone === 'diverted' || (f.delay || 0) > 0)
             .sort((a, b) => {
               const rank = f => f.tone === 'cancelled' ? 3 : f.tone === 'diverted' ? 2 : 1;
               return rank(b) - rank(a) || (b.delay || 0) - (a.delay || 0);
             });
-          const delayedRows = sourceRows.filter(f => f.tone === 'delayed' || f.delay > 0);
+          const delayedRows = sourceRows.filter(f => (f.delay || 0) > 0);
           return {
             summary: aiSummaryLine(sourceRows),
             issueCount: issues.length,
@@ -1325,12 +1270,144 @@ object FlightsTabsInjector {
           };
         }
 
+        function nativeFlightTableSnapshot(rows) {
+          const data = scrapeAll();
+          const days = [];
+          rows.forEach(f => {
+            const key = f.day || 'Today';
+            let day = days.find(item => item.label === key);
+            if (!day) {
+              day = { label: key, arrivals: 0, departures: 0 };
+              days.push(day);
+            }
+            if (f.kind === 'departure') day.departures += 1;
+            else day.arrivals += 1;
+          });
+          return {
+            lastUpdated: data?.lastUpdate || '',
+            days,
+            rows: rows.map(f => ({
+              kind: f.kind || 'arrival',
+              day: f.day || 'Today',
+              airline: f.airline || '',
+              flight: f.flight || '',
+              place: f.place || '',
+              route: f.route || '',
+              sched: f.sched || '',
+              actual: f.actual || '',
+              status: f.status || 'Scheduled',
+              tone: f.tone || '',
+              delay: f.delay || 0
+            })),
+            source: 'webview_table',
+            updatedAt: Date.now()
+          };
+        }
+
+        function syncNativeFlightTableSnapshot(rows) {
+          try {
+            if (!window.FlightsAndroidBridge?.updateFlightTableSnapshot || !rows?.length) return;
+            window.FlightsAndroidBridge.updateFlightTableSnapshot(JSON.stringify(nativeFlightTableSnapshot(rows)));
+          } catch (e) {}
+        }
+
+        function nativeLiveStatusSnapshot() {
+          const allRows = arrivalRows();
+          const primaryDay = allRows.find(f => (f.day || '').trim())?.day || '';
+          const rows = primaryDay ? allRows.filter(f => (f.day || '') === primaryDay) : allRows;
+          const now = new Date();
+          const nowMins = now.getHours() * 60 + now.getMinutes();
+          const arrivals = [];
+          const landed = [];
+          rows.forEach(f => {
+            const sl = (f.status || '').toLowerCase();
+            if (sl.includes('cancel') || sl.includes('divert')) return;
+            if (sl.includes('arrived')) {
+              if (recentLanding(f)) landed.push(f);
+              return;
+            }
+            const sm = clockToMins(f.actual || f.sched);
+            let mins = sm != null ? sm - nowMins : null;
+            if (mins != null && mins < -30) mins += 1440;
+            if (sm == null || (mins != null && mins <= 720)) arrivals.push({ f, mins: mins == null ? 9999 : mins });
+          });
+          const upcoming = arrivals
+            .sort((a, b) => a.mins - b.mins)
+            .slice(0, 6)
+            .map(x => {
+              const f = x.f;
+              const from = airportCode(f.from) || f.from || '';
+              const delay = delayMins(f.sched, f.actual);
+              const eta = x.mins < 9999 ? x.mins : null;
+              const sev = delaySeverity(delay);
+              const statusText = (f.status || '').toLowerCase();
+              const hasLiveAirborneStatus = /\b(en\s*route|airborne|in\s*air|departed|final|approach|landing)\b/.test(statusText);
+              const progress = hasLiveAirborneStatus && eta != null && eta > 0 ? Math.max(3, Math.min(95, ((120 - eta) / 120) * 100)) : 0;
+              const status = hasLiveAirborneStatus
+                ? (eta != null && eta <= 5 ? 'Arriving now' : 'En route')
+                : (eta != null && eta <= 5 ? 'Due now' : 'Scheduled');
+              const badge = hasLiveAirborneStatus
+                ? (eta != null && eta <= 5 ? 'FINAL' : eta != null && eta <= 15 ? 'APPROACH' : 'EN ROUTE')
+                : (eta != null && eta <= 15 ? 'DUE SOON' : 'UPCOMING');
+              return {
+                flight: `${f.airline || ''} ${f.flight || ''}`.trim(),
+                route: `${from || 'Origin'} → JAC`,
+                status,
+                detail: `Sched ${f.sched || 'pending'}${f.actual ? ` • Est ${f.actual}` : ''}${delay > 0 ? ` • +${delay} min` : ''}`,
+                tone: delay > 0 ? 'delayed' : hasLiveAirborneStatus ? 'active' : 'scheduled',
+                badge,
+                pill: hasLiveAirborneStatus ? 'Landing JAC' : 'Arrival',
+                etaText: eta != null && eta > 0 ? `${hasLiveAirborneStatus ? fmtMin(eta) + ' remaining' : 'Scheduled in ' + fmtMin(eta)}` : '',
+                meta: `${f.airline || 'Unknown airline'}`,
+                delayLabel: sev ? sev.text : '',
+                live: hasLiveAirborneStatus,
+                progress
+              };
+            });
+          const recent = landed
+            .sort((a, b) => (minsAgo(a.actual || a.sched || '') || 9999) - (minsAgo(b.actual || b.sched || '') || 9999))
+            .slice(0, 3)
+            .map(f => {
+              const from = airportCode(f.from) || f.from || '';
+              const ago = minsAgo(f.actual || f.sched || '');
+              return {
+                flight: `${f.airline || ''} ${f.flight || ''}`.trim(),
+                route: `${from || 'Origin'} → JAC`,
+                status: 'Arrived',
+                detail: `${ago != null && ago < 1 ? 'Just landed' : `Landed ${ago || 0} min ago`}${f.actual ? `, ${f.actual}` : ''}`,
+                tone: 'arrived',
+                badge: 'ARRIVED',
+                pill: 'Arrived',
+                etaText: '',
+                meta: `${f.airline || 'Unknown airline'}`,
+                delayLabel: '',
+                progress: 100
+              };
+            });
+          return {
+            updatedLabel: formatUpdatedLabel(false).replace(/<[^>]+>/g, ''),
+            items: [...upcoming, ...recent],
+            day: primaryDay,
+            source: 'webview_live_arrivals',
+            updatedAt: Date.now()
+          };
+        }
+
+        function syncNativeLiveStatusSnapshot() {
+          try {
+            if (!window.FlightsAndroidBridge?.updateFlightLiveStatusSnapshot) return;
+            window.FlightsAndroidBridge.updateFlightLiveStatusSnapshot(JSON.stringify(nativeLiveStatusSnapshot()));
+          } catch (e) {}
+        }
+
         function syncAiBriefSnapshot() {
           try {
             if (!window.FlightsAndroidBridge?.updateFlightBriefSnapshot) return;
             const rows = collectAiFlightRows();
             if (!rows.length) return;
+            syncNativeFlightTableSnapshot(rows);
             window.FlightsAndroidBridge.updateFlightBriefSnapshot(JSON.stringify(aiFlightSnapshot(rows)));
+            syncNativeLiveStatusSnapshot();
             syncWeatherSnapshot();
           } catch (e) {}
         }
@@ -2331,7 +2408,6 @@ object FlightsTabsInjector {
           if (page === 'radar') {
             p.innerHTML = `
               ${settingsTitle('Radar live traffic', 'main')}
-              <label class="fs-setting"><span>Inbound aircraft panel</span><input type="checkbox" id="s-inbound"></label>
               <label class="fs-setting"><span>Approach confidence</span><input type="checkbox" id="s-conf"></label>
               <label class="fs-setting"><span>Color-coded alt/speed</span><input type="checkbox" id="s-colors"></label>
               ${navRow('s-range-nav', `Radar range <em>${parseInt(s.distance)||80} mi</em>`, 'range')}`;
@@ -2351,8 +2427,7 @@ object FlightsTabsInjector {
               ${settingsTitle('Settings', '')}
               <label class="fs-setting"><span>Live status <em>Beta</em></span><input type="checkbox" id="s-live"></label>
               <label class="fs-setting"><span>Weather warnings</span><input type="checkbox" id="s-wx"></label>
-              <label class="fs-setting"><span>Keep alerts docked</span><input type="checkbox" id="s-dock"></label>
-              ${navRow('s-radar-nav', 'Radar & live traffic', 'radar')}`;
+              <label class="fs-setting"><span>Keep alerts docked</span><input type="checkbox" id="s-dock"></label>`;
           }
           p.querySelectorAll('[data-page]').forEach(el => {
             el.addEventListener('click', e => {
@@ -2385,7 +2460,6 @@ object FlightsTabsInjector {
           const set = (id, v) => { const el=get(id); if(el) el.checked=v; };
           set('s-live',    s.liveArrivals!==false);
           set('s-dock',    dk);
-          set('s-inbound', s.inbound!==false);
           set('s-conf',    s.confidence!==false);
           set('s-colors',  s.colors!==false);
           set('s-wx',      s.weather!==false);
@@ -2409,7 +2483,7 @@ object FlightsTabsInjector {
               liveArrivals: liveTgl ? liveTgl.checked : cur.liveArrivals!==false,
               dock:         dk,
               weather:      wxTgl ? wxTgl.checked : cur.weather!==false,
-              inbound:      inbTgl ? inbTgl.checked : cur.inbound!==false,
+              inbound:      false,
               confidence:   confTgl ? confTgl.checked : cur.confidence!==false,
               colors:       colorTgl ? colorTgl.checked : cur.colors!==false,
               distance:     range ? (parseInt(range.value)||80) : (parseInt(cur.distance)||80)
@@ -2426,9 +2500,7 @@ object FlightsTabsInjector {
           function applyLive(opts) {
             save();
             const s = getSettings();
-            // Apply inbound panel visibility
-            if (window._fsAcStates?.length) renderInbound(detectInbound(window._fsAcStates));
-            else { const el=document.getElementById('fs-inbound-aircraft'); if(el) el.style.display=s.inbound===false?'none':''; }
+            renderInbound([]);
             // Apply color/conf patches without full re-render
             document.querySelectorAll('.fs-live-card[data-state="inbound"]').forEach(card => {
               ['fs-live-alt','fs-live-spd'].forEach(cls => {
@@ -2469,7 +2541,7 @@ object FlightsTabsInjector {
             range.addEventListener('change', () => {
               updateDist(range.value); save();
               acAt=0; refreshAcCache().then(() => {
-                if (window._fsAcStates?.length) renderInbound(detectInbound(window._fsAcStates));
+                renderInbound([]);
               });
             });
           }
@@ -2477,7 +2549,7 @@ object FlightsTabsInjector {
             sp.addEventListener('click', () => {
               updateDist(sp.dataset.d); save();
               acAt=0; refreshAcCache().then(() => {
-                if (window._fsAcStates?.length) renderInbound(detectInbound(window._fsAcStates));
+                renderInbound([]);
               });
             });
           });
@@ -2533,12 +2605,42 @@ object FlightsTabsInjector {
         // Inject CSS
         let styleEl = document.getElementById('fs_custom_style');
         if (!styleEl) { styleEl=document.createElement('style'); styleEl.id='fs_custom_style'; document.head.appendChild(styleEl); }
-        styleEl.innerHTML = `__FS_CSS__`;
+        styleEl.innerHTML = `__FS_CSS__` + `
+          html.fs-native-flight-tabs #fs-bottom-tabs,
+          html.fs-native-flight-tabs #fs-progressive-bottom-blur {
+            display:none!important;
+            opacity:0!important;
+            pointer-events:none!important;
+          }
+          html.fs-native-flight-tabs #flight-container,
+          html.fs-native-flight-tabs #flight-container > *:first-child,
+          html.fs-native-flight-tabs .flight-table-wrap,
+          html.fs-native-flight-tabs .table-scroll {
+            border-top:0!important;
+            box-shadow:none!important;
+          }
+          html.fs-native-flight-tabs #flight-container hr,
+          html.fs-native-flight-tabs #flight-container .vc_separator,
+          html.fs-native-flight-tabs #flight-container .wpb_separator {
+            display:none!important;
+          }
+        `;
+        document.documentElement.classList.toggle('fs-native-flight-tabs', SHOW_TABS);
         applyFlightRowStatusClasses();
         applyFlightDateCounts();
         applyEnhancedTableCells();
         bindFlightRowDetails();
         syncWeatherSnapshot();
+        window.fsRefreshNativeLiveStatus = function() {
+          scrapeDirty = true;
+          scrapeCache = null;
+          const rows = collectAiFlightRows();
+          syncNativeFlightTableSnapshot(rows);
+          if (window.FlightsAndroidBridge?.updateFlightBriefSnapshot && rows?.length) {
+            window.FlightsAndroidBridge.updateFlightBriefSnapshot(JSON.stringify(aiFlightSnapshot(rows)));
+          }
+          syncNativeLiveStatusSnapshot();
+        };
         setTimeout(syncAiBriefSnapshot, 900);
 
         // Main observer (tab bar guard)
@@ -2577,6 +2679,35 @@ object FlightsTabsInjector {
           document.getElementById('fs-progressive-bottom-blur')?.remove();
           return;
         }
+
+        window.fsNativeFlightTab = function(type) {
+          const run = () => {
+            const tabBar = document.getElementById('fs-bottom-tabs');
+            const target = tabBar?.querySelector(`.fs-tab[data-type="${type}"]`);
+            if (target) {
+              target.click();
+              return true;
+            }
+            if (type === 'arrivals') {
+              document.querySelector('li[data-target="hide-departures"]')?.click();
+              return true;
+            }
+            if (type === 'departures') {
+              document.querySelector('li[data-target="hide-arrivals"]')?.click();
+              return true;
+            }
+            if (type === 'alerts') {
+              openAlertsSheet();
+              return true;
+            }
+            if (type === 'menu') {
+              toggleSheetMenu();
+              return true;
+            }
+            return false;
+          };
+          if (!run()) setTimeout(run, 120);
+        };
         if (document.getElementById('fs-bottom-tabs')) return;
 
         let progressiveBlur = document.getElementById('fs-progressive-bottom-blur');

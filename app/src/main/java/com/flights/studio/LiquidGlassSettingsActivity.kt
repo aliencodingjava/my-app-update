@@ -47,7 +47,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -68,7 +67,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -89,7 +87,6 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import kotlinx.coroutines.delay
@@ -128,14 +125,9 @@ private fun LiquidGlassSettingsScreen(onBack: () -> Unit) {
     var glassTint by remember(context) {
         mutableStateOf(SettingsStore.liquidGlassTint(context))
     }
-    var adaptiveEnabled by remember(context) {
-        mutableStateOf(SettingsStore.liquidGlassAdaptiveLuminance(context))
+    var glassBlur by remember(context) {
+        mutableStateOf(SettingsStore.liquidGlassBlur(context))
     }
-    val previewAdaptive = rememberAdaptiveLuminance(
-        enabled = adaptiveEnabled,
-        lightOnBright = Color(0xFF101318),
-        lightOnDark = Color.White
-    )
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -186,22 +178,20 @@ private fun LiquidGlassSettingsScreen(onBack: () -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(390.dp),
-                    adaptive = previewAdaptive,
                     glassTint = glassTint,
-                    adaptiveEnabled = adaptiveEnabled
+                    glassBlur = glassBlur
                 )
 
                 LiquidGlassSliderPanel(
-                    value = glassTint,
-                    adaptive = previewAdaptive,
-                    adaptiveEnabled = adaptiveEnabled,
-                    onValueChange = { value ->
+                    tintValue = glassTint,
+                    blurValue = glassBlur,
+                    onTintChange = { value ->
                         glassTint = value.coerceIn(0f, 1f)
                         SettingsStore.setLiquidGlassTint(context, glassTint)
                     },
-                    onAdaptiveEnabledChange = { enabled ->
-                        adaptiveEnabled = enabled
-                        SettingsStore.setLiquidGlassAdaptiveLuminance(context, enabled)
+                    onBlurChange = { value ->
+                        glassBlur = value.coerceIn(0f, 1f)
+                        SettingsStore.setLiquidGlassBlur(context, glassBlur)
                     }
                 )
             }
@@ -212,9 +202,8 @@ private fun LiquidGlassSettingsScreen(onBack: () -> Unit) {
 @Composable
 private fun LiquidGlassPreviewCard(
     modifier: Modifier = Modifier,
-    adaptive: AdaptiveLuminanceState,
     glassTint: Float,
-    adaptiveEnabled: Boolean
+    glassBlur: Float
 ) {
     val isDark = isSystemInDarkTheme()
     val previewBackdrop = rememberLayerBackdrop()
@@ -245,9 +234,8 @@ private fun LiquidGlassPreviewCard(
 
         LiquidGlassPreviewTabs(
             backdrop = previewBackdrop,
-            adaptive = adaptive,
             glassTint = glassTint,
-            adaptiveEnabled = adaptiveEnabled,
+            glassBlur = glassBlur,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(22.dp)
@@ -458,49 +446,21 @@ private fun TetonMountainPreviewImage(
 @Composable
 private fun LiquidGlassPreviewTabs(
     backdrop: Backdrop,
-    adaptive: AdaptiveLuminanceState,
     glassTint: Float,
-    adaptiveEnabled: Boolean,
+    glassBlur: Float,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDarkTheme = isSystemInDarkTheme()
     val tintAmount = glassTint.coerceIn(0f, 1f)
+    val blurAmount = glassBlur.coerceIn(0f, 1f)
     val primary = primaryTabAccentColor()
     val glassColor = bottomTabBarTintForAmount(tintAmount, isDarkTheme)
     val overlayTint = bottomTabBarOverlayTintForAmount(tintAmount, isDarkTheme)
-    val backdropBlurDp = bottomChromeBackdropBlurDpForAmount(tintAmount, isDarkTheme)
-    val adaptiveOffset = adaptiveLuminanceOffset(adaptive.luminance)
-    val adaptiveEffectStrength = if (adaptiveEnabled) {
-        adaptiveLuminanceEffectStrength(tintAmount)
-    } else {
-        0f
-    }
-    val adaptiveSurfaceStrength = if (adaptiveEnabled) {
-        lerp(0.45f, 1f, adaptiveEffectStrength)
-    } else {
-        0f
-    }
-    val adaptiveSurfaceTint = adaptiveSurfaceTint(
-        luminance = adaptive.luminance,
-        strength = adaptiveSurfaceStrength
-    )
-    val adaptiveContentBlend = if (adaptiveEnabled) {
-        lerp(0.18f, if (isDarkTheme) 0.56f else 0.68f, adaptiveEffectStrength)
-    } else {
-        0f
-    }
-    val selectedContentColor = lerpColor(
-        bottomTabSelectedContentColorForAmount(tintAmount, isDarkTheme, primary),
-        adaptive.contentColor,
-        adaptiveContentBlend
-    )
-    val inactiveContentColor = lerpColor(
-        bottomTabInactiveColorForAmount(tintAmount, isDarkTheme),
-        adaptive.contentColor,
-        adaptiveContentBlend
-    )
+    val backdropBlurDp = liquidGlassBlurRadiusDpForAmount(blurAmount)
+    val selectedContentColor = bottomTabSelectedContentColorForAmount(tintAmount, isDarkTheme, primary)
+    val inactiveContentColor = bottomTabInactiveColorForAmount(tintAmount, isDarkTheme)
     val selectedPillColor = bottomTabSelectedPillColorForAmount(tintAmount, isDarkTheme, primary)
     var pulse by remember { mutableIntStateOf(0) }
     var barPressed by remember { mutableStateOf(false) }
@@ -531,28 +491,9 @@ private fun LiquidGlassPreviewTabs(
                 shadow = { bottomChromeShadow() },
                 highlight = null,
                 effects = {
-                    if (adaptiveEffectStrength > 0.001f) {
-                        val adaptiveBrightness = adaptiveLuminanceBrightness(adaptiveOffset)
-                        val adaptiveContrast = adaptiveLuminanceContrast(adaptiveOffset)
-                        colorControls(
-                            brightness = adaptiveBrightness * adaptiveEffectStrength,
-                            contrast = lerp(1f, adaptiveContrast, adaptiveEffectStrength),
-                            saturation = lerp(1f, 1.5f, adaptiveEffectStrength)
-                        )
-                    }
                     vibrancy()
                     blur(
-                        radius = if (adaptiveEffectStrength > 0.001f) {
-                            val baseBlurPx = backdropBlurDp.dp.toPx()
-                            val adaptiveBlurPx = adaptiveLuminanceBlurPx(
-                                offset = adaptiveOffset,
-                                baseBlurPx = baseBlurPx,
-                                dpToPx = { it.dp.toPx() }
-                            )
-                            lerp(baseBlurPx, adaptiveBlurPx, adaptiveEffectStrength)
-                        } else {
-                            backdropBlurDp.dp.toPx()
-                        },
+                        radius = backdropBlurDp.dp.toPx(),
                         edgeTreatment = TileMode.Mirror
                     )
                     lens(
@@ -564,15 +505,9 @@ private fun LiquidGlassPreviewTabs(
                 },
                 onDrawBackdrop = { drawBackdrop ->
                     drawBackdrop()
-                    adaptive.layer.record {
-                        drawBackdrop()
-                    }
                 },
                 onDrawSurface = {
                     drawRect(glassColor)
-                    if (adaptiveSurfaceStrength > 0f) {
-                        drawRect(adaptiveSurfaceTint)
-                    }
                 }
             )
             .background(overlayTint, GlassChromeShape)
@@ -677,18 +612,19 @@ private fun RowScope.LiquidGlassPreviewTab(
 
 @Composable
 private fun LiquidGlassSliderPanel(
-    value: Float,
-    adaptive: AdaptiveLuminanceState,
-    adaptiveEnabled: Boolean,
-    onValueChange: (Float) -> Unit,
-    onAdaptiveEnabledChange: (Boolean) -> Unit
+    tintValue: Float,
+    blurValue: Float,
+    onTintChange: (Float) -> Unit,
+    onBlurChange: (Float) -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val view = LocalView.current
     val cardColor = if (isDark) Color(0xFF232425) else Color(0xFFFEFEFE)
     val borderColor = if (isDark) Color(0xFF333538) else Color(0xFFE3E3E4)
-    val sliderValue = (value.coerceIn(0f, 1f) * 100f).roundToInt().coerceIn(0, 100).toFloat()
-    var lastStep by remember { mutableIntStateOf(sliderValue.roundToInt()) }
+    val tintStep = (tintValue.coerceIn(0f, 1f) * 100f).roundToInt().coerceIn(0, 100)
+    val blurStep = (blurValue.coerceIn(0f, 1f) * 20f).roundToInt().coerceIn(0, 20)
+    var lastTintStep by remember { mutableIntStateOf(tintStep) }
+    var lastBlurStep by remember { mutableIntStateOf(blurStep) }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -700,36 +636,40 @@ private fun LiquidGlassSliderPanel(
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                LiquidGlassTintIcon(
-                    filled = false,
-                    modifier = Modifier.size(28.dp)
-                )
-                LiquidGlassPercentSlider(
-                    value = value,
-                    modifier = Modifier.weight(1f),
-                    onValueChange = { nextValue ->
-                        val step = (nextValue.coerceIn(0f, 1f) * 100f).roundToInt().coerceIn(0, 100)
-                        if (step != lastStep) {
-                            view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                            lastStep = step
-                        }
-                        onValueChange(step / 100f)
+            LiquidGlassSliderRow(
+                label = "Tint",
+                value = tintValue,
+                startIcon = { LiquidGlassTintIcon(filled = false, modifier = Modifier.size(28.dp)) },
+                endIcon = { LiquidGlassTintIcon(filled = true, modifier = Modifier.size(28.dp)) },
+                onValueChange = { nextValue ->
+                    val step = (nextValue.coerceIn(0f, 1f) * 100f).roundToInt().coerceIn(0, 100)
+                    if (step != lastTintStep) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        lastTintStep = step
                     }
-                )
-                LiquidGlassTintIcon(
-                    filled = true,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+                    onTintChange(step / 100f)
+                }
+            )
+            LiquidGlassSliderRow(
+                label = "Blur",
+                value = blurValue,
+                startIcon = { LiquidGlassBlurIcon(soft = false, modifier = Modifier.size(28.dp)) },
+                endIcon = { LiquidGlassBlurIcon(soft = true, modifier = Modifier.size(28.dp)) },
+                steps = 20,
+                valueText = { value -> formatLiquidGlassBlurValue(value) },
+                onValueChange = { nextValue ->
+                    val step = (nextValue.coerceIn(0f, 1f) * 20f).roundToInt().coerceIn(0, 20)
+                    if (step != lastBlurStep) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        lastBlurStep = step
+                    }
+                    onBlurChange(step / 20f)
+                }
+            )
             Text(
-                text = stringResource(R.string.liquid_glass_preview_summary),
+                text = "Tint adds contrast. Blur softens the page behind glass.",
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 6.dp),
@@ -742,12 +682,53 @@ private fun LiquidGlassSliderPanel(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            AdaptiveLuminanceReadout(
-                adaptive = adaptive,
-                enabled = adaptiveEnabled,
-                onEnabledChange = onAdaptiveEnabledChange
-            )
         }
+    }
+}
+
+@Composable
+private fun LiquidGlassSliderRow(
+    label: String,
+    value: Float,
+    startIcon: @Composable () -> Unit,
+    endIcon: @Composable () -> Unit,
+    steps: Int = 100,
+    valueText: (Float) -> String = { value ->
+        "${(value.coerceIn(0f, 1f) * 100f).roundToInt()}%"
+    },
+    onValueChange: (Float) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 6.dp),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            startIcon()
+            LiquidGlassPercentSlider(
+                value = value,
+                steps = steps,
+                valueText = valueText,
+                modifier = Modifier.weight(1f),
+                onValueChange = onValueChange
+            )
+            endIcon()
+        }
+    }
+}
+
+private fun formatLiquidGlassBlurValue(value: Float): String {
+    val blur = (value.coerceIn(0f, 1f) * 20f).roundToInt() / 2f
+    return if (blur % 1f == 0f) {
+        "${blur.roundToInt()}"
+    } else {
+        "%.1f".format(java.util.Locale.US, blur)
     }
 }
 
@@ -801,54 +782,49 @@ private fun LiquidGlassTintIcon(
 }
 
 @Composable
-private fun AdaptiveLuminanceReadout(
-    adaptive: AdaptiveLuminanceState,
-    enabled: Boolean,
-    onEnabledChange: (Boolean) -> Unit
+private fun LiquidGlassBlurIcon(
+    soft: Boolean,
+    modifier: Modifier = Modifier
 ) {
-    val percent = (adaptive.luminance.coerceIn(0f, 1f) * 100f).roundToInt()
-    val sampleIsBright = adaptive.luminance > 0.5f
-    val swatchColor = if (sampleIsBright) Color(0xFFF4F6FA) else Color(0xFF111318)
-    val swatchBorder = if (sampleIsBright) Color(0xFFCBD2DC) else Color.White.copy(alpha = 0.28f)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 1.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Adaptive luminance",
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = if (enabled) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
-            }
+    val color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (soft) 0.74f else 0.48f)
+    Canvas(modifier = modifier) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val baseRadius = size.minDimension * if (soft) 0.30f else 0.22f
+        val stroke = 1.4.dp.toPx()
+        drawCircle(
+            color = color.copy(alpha = if (soft) 0.18f else 0.08f),
+            radius = baseRadius * if (soft) 1.34f else 1.08f,
+            center = center
         )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = if (enabled) swatchColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.46f),
-                contentColor = if (enabled) adaptive.contentColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                tonalElevation = 0.dp,
-                shadowElevation = 0.dp,
-                border = BorderStroke(1.dp, if (enabled) swatchBorder else swatchBorder.copy(alpha = 0.48f))
-            ) {
-                Text(
-                    text = if (enabled) "$percent%" else "Off",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 1
-                )
-            }
-            Switch(
-                checked = enabled,
-                onCheckedChange = onEnabledChange
+        drawCircle(
+            color = color,
+            radius = baseRadius,
+            center = center,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
+        )
+        if (soft) {
+            drawCircle(
+                color = color.copy(alpha = 0.32f),
+                radius = baseRadius * 0.54f,
+                center = Offset(center.x - size.width * 0.16f, center.y - size.height * 0.05f)
+            )
+            drawCircle(
+                color = color.copy(alpha = 0.24f),
+                radius = baseRadius * 0.44f,
+                center = Offset(center.x + size.width * 0.18f, center.y + size.height * 0.10f)
+            )
+        } else {
+            drawLine(
+                color = color,
+                start = Offset(center.x - baseRadius, center.y),
+                end = Offset(center.x + baseRadius, center.y),
+                strokeWidth = stroke
+            )
+            drawLine(
+                color = color,
+                start = Offset(center.x, center.y - baseRadius),
+                end = Offset(center.x, center.y + baseRadius),
+                strokeWidth = stroke
             )
         }
     }
@@ -857,12 +833,17 @@ private fun AdaptiveLuminanceReadout(
 @Composable
 private fun LiquidGlassPercentSlider(
     value: Float,
+    steps: Int = 100,
+    valueText: (Float) -> String = { value ->
+        "${(value.coerceIn(0f, 1f) * 100f).roundToInt()}%"
+    },
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    val step = (value.coerceIn(0f, 1f) * 100f).roundToInt().coerceIn(0, 100)
-    val fraction = step / 100f
+    val maxStep = steps.coerceAtLeast(1)
+    val step = (value.coerceIn(0f, 1f) * maxStep).roundToInt().coerceIn(0, maxStep)
+    val fraction = step / maxStep.toFloat()
     val trackPadding = 6.dp
     val indicatorWidth = 58.dp
     val indicatorHeight = 34.dp
@@ -878,10 +859,10 @@ private fun LiquidGlassPercentSlider(
         if (widthPx <= 0) return
         val trackPaddingPx = with(density) { trackPadding.toPx() }
         val trackWidthPx = (widthPx - trackPaddingPx * 2f).coerceAtLeast(1f)
-        val nextStep = (((x - trackPaddingPx) / trackWidthPx).coerceIn(0f, 1f) * 100f)
+        val nextStep = (((x - trackPaddingPx) / trackWidthPx).coerceIn(0f, 1f) * maxStep)
             .roundToInt()
-            .coerceIn(0, 100)
-        onValueChange(nextStep / 100f)
+            .coerceIn(0, maxStep)
+        onValueChange(nextStep / maxStep.toFloat())
     }
 
     Box(
@@ -935,7 +916,7 @@ private fun LiquidGlassPercentSlider(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "$step%",
+                        text = valueText(fraction),
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1
                     )

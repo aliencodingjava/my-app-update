@@ -2446,7 +2446,6 @@ Version: $versionName
             val currentNoteCount = notesCount.intValue
             val webTheme = SettingsStore.webTheme(context)
             val webTextZoom = SettingsStore.textZoom(context)
-            val enhancedTable = SettingsStore.enhancedTable(context)
             val groupFlights = SettingsStore.groupFlights(context)
             val highContrastWeb = SettingsStore.highContrastWeb(context)
             val cachePages = SettingsStore.cachePages(context)
@@ -2502,6 +2501,18 @@ Version: $versionName
                 val snapshot = parseBriefingWeatherSnapshot(briefingWeatherJson)
                 if (briefingWeatherEnabled && isLiveBriefingWeatherSnapshot(snapshot)) snapshot else BriefingWeatherSnapshot()
             }
+            val briefingWeatherConditionForBrief = remember(
+                briefingWeatherEnabled,
+                briefingWeather.temp,
+                briefingWeather.condition,
+                briefingWeather.summary
+            ) {
+                if (briefingWeatherEnabled && briefingWeather.temp.isNotBlank()) {
+                    resolvedBriefingWeatherCondition(briefingWeather)
+                } else {
+                    ""
+                }
+            }
             val noteSignal = noteRows.joinToString("|") {
                 "${it.title}:${it.text.take(90)}:${it.imagesCount}:${it.attachmentsCount}:${it.audioCount}:${it.videoCount}:${it.hasReminder}:${it.hasBadge}"
             }
@@ -2520,7 +2531,6 @@ Version: $versionName
                 contactsAlphabeticalMode.value,
                 webTheme,
                 webTextZoom,
-                enhancedTable,
                 groupFlights,
                 highContrastWeb,
                 cachePages,
@@ -2531,7 +2541,7 @@ Version: $versionName
                 flightBriefSnapshot.issueCount,
                 flightBriefSnapshot.issues.joinToString("|") { it.label + it.flight },
                 briefingWeather.temp,
-                briefingWeather.condition,
+                briefingWeatherConditionForBrief,
                 briefingWeather.summary,
                 briefingGreeting,
                 briefingDayPart
@@ -2546,7 +2556,6 @@ Version: $versionName
                     contactsSort = if (contactsAlphabeticalMode.value) "alphabetical" else "recent",
                     webTheme = webTheme,
                     webTextZoom = webTextZoom,
-                    enhancedTable = enhancedTable,
                     groupFlights = groupFlights,
                     highContrastWeb = highContrastWeb,
                     cachePages = cachePages,
@@ -2557,7 +2566,10 @@ Version: $versionName
                     flightIssueCards = flightBriefSnapshot.issues,
                     weatherSummary = listOf(
                         briefingWeather.temp,
-                        briefingWeather.condition,
+                        briefingWeatherConditionForBrief
+                            .takeIf { it.isNotBlank() }
+                            ?.let { briefingWeatherConditionLabel(it) }
+                            .orEmpty(),
                         briefingWeather.summary
                     ).filter { it.isNotBlank() }.joinToString(" • ")
                 )
@@ -3080,8 +3092,7 @@ Version: $versionName
             ?: countFromSummary(flightSnapshot.summary, "arrival")
         val departureCount = flightSnapshot.departureCount.takeIf { it > 0 }
             ?: countFromSummary(flightSnapshot.summary, "departure")
-        val delayedCount = flightSnapshot.delayedCount.takeIf { it > 0 }
-            ?: countFromSummary(flightSnapshot.summary, "delayed")
+        val delayedCount = flightSnapshot.delayedCount
         val criticalCount = flightSnapshot.cancelledCount + flightSnapshot.divertedCount
         val condition = if (weatherEnabled && weather.temp.isNotBlank()) {
             resolvedBriefingWeatherCondition(weather)
@@ -3218,21 +3229,30 @@ Version: $versionName
     }
 
     private fun resolvedBriefingWeatherCondition(weather: BriefingWeatherSnapshot): String {
-        val raw = weather.condition.trim().lowercase()
+        val raw = when (weather.condition.trim().lowercase()) {
+            "clear" -> "sunny"
+            "storm" -> "thunder"
+            else -> weather.condition.trim().lowercase()
+        }
         val cloudPercent = Regex("""Cloud\s+(\d+)%""", RegexOption.IGNORE_CASE)
             .find(weather.summary)
             ?.groupValues
             ?.getOrNull(1)
             ?.toIntOrNull()
 
-        if (raw == "rain" || raw == "thunder" || raw == "storm" || raw == "fog") {
+        if (raw == "rain" || raw == "thunder" || raw == "fog") {
             return raw
         }
-        if (cloudPercent != null) {
-            if (cloudPercent >= 70) return "cloudy"
-            if (cloudPercent >= 30) return "partly"
+        val resolved = if (cloudPercent != null) {
+            when {
+                cloudPercent >= 70 -> "cloudy"
+                cloudPercent >= 30 -> "partly"
+                else -> raw.ifBlank { "sunny" }
+            }
+        } else {
+            raw.ifBlank { "sunny" }
         }
-        return raw.ifBlank { "sunny" }
+        return briefingWeatherVisualCondition(resolved)
     }
 
     private fun countFromSummary(summary: String, word: String): Int {
@@ -3277,7 +3297,7 @@ Version: $versionName
 
     private fun briefingWeatherVisualCondition(condition: String): String {
         val normalized = condition.ifBlank { "sunny" }.lowercase()
-        return if (isJacksonHoleNight() && (normalized == "sunny" || normalized == "partly")) {
+        return if (isJacksonHoleNight() && (normalized == "sunny" || normalized == "clear" || normalized == "partly")) {
             "night"
         } else {
             normalized
@@ -3433,7 +3453,7 @@ Version: $versionName
         onInsightAction: (BriefingInsightAction) -> Unit,
         onEffectsStarted: () -> Unit
     ) {
-        val shape = RoundedCornerShape(20.dp)
+        val shape = RoundedCornerShape(18.dp)
         val playEffects = remember(animationKey) { animateEffects }
         LaunchedEffect(animationKey, playEffects) {
             if (playEffects) onEffectsStarted()
@@ -3451,8 +3471,7 @@ Version: $versionName
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(shape)
-                .background(cardColor)
-                .border(BorderStroke(1.dp, borderColor), shape)
+                .background(cardColor.copy(alpha = 0.96f))
         ) {
             BriefingSmartCardBaseGlow(
                 accentColor = accentColor,
@@ -3483,16 +3502,16 @@ Version: $versionName
             }
 
             Column(
-                modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
                             .background(accentColor.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center
@@ -3501,42 +3520,51 @@ Version: $versionName
                             imageVector = Icons.Rounded.AutoAwesome,
                             contentDescription = null,
                             tint = accentColor,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
                         Text(
-                            text = title,
+                            text = greetingTitle,
                             color = textColor,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.sp
+                            ),
+                            maxLines = 1
                         )
                         Text(
-                            text = caption,
+                            text = friendlyMessage,
                             color = subTextColor,
-                            style = MaterialTheme.typography.labelSmall
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 17.sp,
+                                letterSpacing = 0.sp
+                            ),
+                            maxLines = 2
                         )
+                    }
+                    if (weatherEnabled) {
+                        BriefingWeatherPill(
+                            weather = weather,
+                            accentColor = accentColor,
+                            textColor = textColor,
+                            subTextColor = subTextColor
+                        )
+                    } else if (playEffects) {
+                        BriefingAiWave(accentColor = accentColor)
                     }
                 }
-                BriefingWeatherPanel(
-                    weather = weather,
-                    weatherEnabled = weatherEnabled,
-                    fallbackCondition = fallbackCondition,
+                BriefingInsightPanel(
+                    insight = insight,
                     accentColor = accentColor,
                     textColor = textColor,
-                    subTextColor = subTextColor
+                    subTextColor = subTextColor,
+                    onAction = onInsightAction
                 )
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    BriefingInsightPanel(
-                        insight = insight,
-                        accentColor = accentColor,
-                        textColor = textColor,
-                        subTextColor = subTextColor,
-                        onAction = onInsightAction
-                    )
-                }
                 if (flightIssueCards.isNotEmpty()) {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -3588,23 +3616,26 @@ Version: $versionName
             label = "briefingInsightPanel"
         ) { state ->
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(accentColor.copy(alpha = 0.075f))
-                    .border(BorderStroke(1.dp, accentColor.copy(alpha = 0.13f)), RoundedCornerShape(16.dp))
-                    .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = state.title,
-                    color = textColor,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.sp
-                    ),
-                    maxLines = 1
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    BriefingAiWave(accentColor = accentColor)
+                    Text(
+                        text = state.title,
+                        color = textColor,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.sp
+                        ),
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 Text(
                     text = state.body,
                     color = subTextColor,
@@ -3613,12 +3644,12 @@ Version: $versionName
                         lineHeight = 19.sp,
                         letterSpacing = 0.sp
                     ),
-                    maxLines = 3
+                    maxLines = 2
                 )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(38.dp)
+                        .height(40.dp)
                         .clip(RoundedCornerShape(999.dp))
                         .background(accentColor.copy(alpha = 0.18f))
                         .clickable { onAction(state.action) }
@@ -3716,9 +3747,9 @@ Version: $versionName
         val departureCount = todayCounts?.departures
             ?: snapshot.departureCount.takeIf { it > 0 }
             ?: countFromSummary(snapshot.summary, "departure")
-        val delayedCount = snapshot.delayedCount.takeIf { it > 0 } ?: countFromSummary(snapshot.summary, "delayed")
-        val cancelledCount = snapshot.cancelledCount.takeIf { it > 0 } ?: countFromSummary(snapshot.summary, "cancelled")
-        val divertedCount = snapshot.divertedCount.takeIf { it > 0 } ?: countFromSummary(snapshot.summary, "diverted")
+        val delayedCount = snapshot.delayedCount
+        val cancelledCount = snapshot.cancelledCount
+        val divertedCount = snapshot.divertedCount
         val isUnavailable = snapshot.source == "native_unavailable" ||
             snapshot.summary.contains("unavailable", ignoreCase = true)
         val dateLabel = when {
@@ -3900,7 +3931,7 @@ Version: $versionName
             else -> fallbackCondition
         }
         val visualCondition = briefingWeatherVisualCondition(condition)
-        val conditionLabel = briefingWeatherConditionLabel(condition)
+        val conditionLabel = briefingWeatherConditionLabel(visualCondition)
         val tempParts = if (hasRealAirportWeather) {
             briefingWeatherTempParts(weather.temp, conditionLabel)
         } else {
@@ -3920,7 +3951,7 @@ Version: $versionName
             "Airport weather --"
         }
         val weatherUiState = BriefingWeatherPanelState(
-            condition = condition,
+            condition = visualCondition,
             visualCondition = visualCondition,
             conditionLabel = conditionLabel,
             mainTemp = tempParts.main,
@@ -4079,23 +4110,16 @@ Version: $versionName
             DEBUG_FORCE_BRIEFING_RAIN -> "rain"
             else -> resolvedBriefingWeatherCondition(weather)
         }
+        val visualCondition = briefingWeatherVisualCondition(condition)
         val displayTemp = when {
             DEBUG_FORCE_BRIEFING_SUN && weather.temp.isBlank() -> "Sun"
             DEBUG_FORCE_BRIEFING_THUNDER && weather.temp.isBlank() -> "Storm"
             DEBUG_FORCE_BRIEFING_RAIN && weather.temp.isBlank() -> "Rain"
             else -> weather.temp
         }
-        val conditionLabel = when (condition) {
-            "thunder" -> "Storm"
-            "rain" -> "Rain"
-            "fog" -> "Fog"
-            "night" -> "Night"
-            "cloudy" -> "Cloudy"
-            "partly" -> "Partly"
-            else -> "Sunny"
-        }
+        val conditionLabel = briefingWeatherConditionLabel(visualCondition)
         val isDark = isSystemInDarkTheme()
-        val conditionColor = when (condition) {
+        val conditionColor = when (visualCondition) {
             "sunny", "partly" -> Color(0xFFFACC15)
             "thunder" -> Color(0xFFFFE066)
             "rain" -> Color(0xFF38BDF8)
@@ -4104,7 +4128,7 @@ Version: $versionName
             else -> accentColor
         }
         AnimatedContent(
-            targetState = Triple(condition, displayTemp, conditionLabel),
+            targetState = Triple(visualCondition, displayTemp, conditionLabel),
             transitionSpec = {
                 fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
                     scaleIn(initialScale = 0.94f, animationSpec = spring(dampingRatio = 0.72f, stiffness = 460f)) togetherWith

@@ -14,20 +14,23 @@ object SettingsStore {
     private const val KEY_CACHE_PAGES = "cache_pages"
     private const val KEY_HIGH_CONTRAST_WEB = "high_contrast_web"
     private const val KEY_REDUCE_WEB_MOTION = "reduce_web_motion"
-    private const val KEY_ENHANCED_TABLE = "enhanced_table"
     private const val KEY_GROUP_FLIGHTS = "group_flights"
     private const val KEY_WEB_THEME = "web_theme"
     private const val KEY_FLIGHT_BRIEF_SNAPSHOT = "flight_brief_snapshot"
+    private const val KEY_FLIGHT_LIVE_STATUS_SNAPSHOT = "flight_live_status_snapshot"
+    private const val KEY_FLIGHT_TABLE_SNAPSHOT = "flight_table_snapshot"
     private const val KEY_BRIEFING_WEATHER_SNAPSHOT = "briefing_weather_snapshot"
     private const val KEY_BRIEFING_WEATHER_ENABLED = "briefing_weather_enabled"
     private const val KEY_MAIN_PAGE_KEEP_AWAKE = "main_page_keep_awake"
     private const val KEY_LIVE_CAMERAS_KEEP_AWAKE = "live_cameras_keep_awake"
     const val KEY_LIQUID_GLASS_TINT = "liquid_glass_tint"
+    const val KEY_LIQUID_GLASS_BLUR = "liquid_glass_blur"
     const val KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE = "liquid_glass_adaptive_luminance"
 
     const val DEFAULT_WEB_THEME = "auto"
     const val DEFAULT_TEXT_ZOOM = 90
     const val DEFAULT_LIQUID_GLASS_TINT = 0.50f
+    const val DEFAULT_LIQUID_GLASS_BLUR = 0.00f
     const val DEFAULT_LIQUID_GLASS_ADAPTIVE_LUMINANCE = false
 
     fun prefs(context: Context): SharedPreferences =
@@ -75,12 +78,6 @@ object SettingsStore {
     fun setReduceWebMotion(context: Context, value: Boolean) =
         prefs(context).edit { putBoolean(KEY_REDUCE_WEB_MOTION, value) }
 
-    fun enhancedTable(context: Context) =
-        prefs(context).getBoolean(KEY_ENHANCED_TABLE, true)
-
-    fun setEnhancedTable(context: Context, value: Boolean) =
-        prefs(context).edit { putBoolean(KEY_ENHANCED_TABLE, value) }
-
     fun groupFlights(context: Context) =
         prefs(context).getBoolean(KEY_GROUP_FLIGHTS, false)
 
@@ -92,6 +89,18 @@ object SettingsStore {
 
     fun setFlightBriefSnapshot(context: Context, value: String) =
         prefs(context).edit { putString(KEY_FLIGHT_BRIEF_SNAPSHOT, value.take(4_000)) }
+
+    fun flightLiveStatusSnapshot(context: Context) =
+        prefs(context).getString(KEY_FLIGHT_LIVE_STATUS_SNAPSHOT, "") ?: ""
+
+    fun setFlightLiveStatusSnapshot(context: Context, value: String) =
+        prefs(context).edit { putString(KEY_FLIGHT_LIVE_STATUS_SNAPSHOT, value.take(6_000)) }
+
+    fun flightTableSnapshot(context: Context) =
+        prefs(context).getString(KEY_FLIGHT_TABLE_SNAPSHOT, "") ?: ""
+
+    fun setFlightTableSnapshot(context: Context, value: String) =
+        prefs(context).edit { putString(KEY_FLIGHT_TABLE_SNAPSHOT, value.take(20_000)) }
 
     fun briefingWeatherSnapshot(context: Context) =
         prefs(context).getString(KEY_BRIEFING_WEATHER_SNAPSHOT, "") ?: ""
@@ -123,12 +132,14 @@ object SettingsStore {
     fun setLiquidGlassTint(context: Context, value: Float) =
         prefs(context).edit { putFloat(KEY_LIQUID_GLASS_TINT, value.coerceIn(0f, 1f)) }
 
-    fun liquidGlassAdaptiveLuminance(context: Context) =
-        prefs(context).getBoolean(
-            KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE,
-            DEFAULT_LIQUID_GLASS_ADAPTIVE_LUMINANCE
-        )
+    fun liquidGlassBlur(context: Context) =
+        prefs(context).getFloat(KEY_LIQUID_GLASS_BLUR, DEFAULT_LIQUID_GLASS_BLUR).coerceIn(0f, 1f)
+
+    fun setLiquidGlassBlur(context: Context, value: Float) =
+        prefs(context).edit { putFloat(KEY_LIQUID_GLASS_BLUR, value.coerceIn(0f, 1f)) }
+
+    fun liquidGlassAdaptiveLuminance(context: Context) = false
 
     fun setLiquidGlassAdaptiveLuminance(context: Context, value: Boolean) =
-        prefs(context).edit { putBoolean(KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE, value) }
+        prefs(context).edit { putBoolean(KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE, false) }
 }

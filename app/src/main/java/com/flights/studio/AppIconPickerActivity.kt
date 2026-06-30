@@ -83,6 +83,7 @@ import com.kyant.backdrop.highlight.HighlightStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class AppIconPickerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -225,9 +226,9 @@ private fun AppIconPickerScreen(
     LaunchedEffect(toastLabel) {
         if (toastLabel != null) {
             toastVisible = true
-            delay(1000)
+            delay(1000.milliseconds)
             toastVisible = false
-            delay(500)
+            delay(500.milliseconds)
             toastLabel = null
         }
     }

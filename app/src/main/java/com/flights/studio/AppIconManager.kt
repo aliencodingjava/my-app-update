@@ -3,6 +3,7 @@ package com.flights.studio
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import androidx.core.content.edit
 
 object AppIconManager {
     private const val PREFS_NAME = "app_icon_manager"
@@ -81,9 +82,9 @@ object AppIconManager {
         val activeAlias = aliasClassName.takeIf { it in aliases } ?: DICON
 
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_ACTIVE_ALIAS, activeAlias)
-            .apply()
+            .edit {
+                putString(KEY_ACTIVE_ALIAS, activeAlias)
+            }
 
         aliases.forEach { className ->
             val newState = if (className == activeAlias) {

@@ -1,5 +1,6 @@
 package com.flights.studio
 
+import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
@@ -9,6 +10,11 @@ import kotlinx.coroutines.launch
 
 class AppUpdateFirebaseMessagingService : FirebaseMessagingService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        Log.d(TAG, "FCM registration token refreshed")
+    }
 
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
@@ -38,6 +44,7 @@ class AppUpdateFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
+        private const val TAG = "AppUpdateFcm"
         private const val UPDATE_TYPE = "app_update"
     }
 }

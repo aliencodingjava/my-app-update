@@ -21,7 +21,8 @@ import kotlinx.coroutines.launch
 
 class InteractiveHighlight(
     val animationScope: CoroutineScope,
-    val position: (size: Size, offset: Offset) -> Offset = { _, offset -> offset }
+    val position: (size: Size, offset: Offset) -> Offset = { _, offset -> offset },
+    val highlightColor: Color = Color.White
 ) {
 
     private val pressInSpec =
@@ -81,7 +82,7 @@ class InteractiveHighlight(
                     val p = position(size, positionAnimation.value)
                     shader.apply {
                         setFloatUniform("size", size.width, size.height)
-                        setColorUniform("color", Color.Blue.copy(alpha = 0.15f * progress).toArgb())
+                        setColorUniform("color", highlightColor.copy(alpha = 0.15f * progress).toArgb())
                         setFloatUniform("radius", size.minDimension * 1.3f)
                         setFloatUniform(
                             "position",

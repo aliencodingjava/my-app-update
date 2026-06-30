@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -515,7 +514,6 @@ private fun NotesSyncStatusPill(
         status == NotesSyncUiStatus.Error -> "Sync issue"
         else -> "Online · $noteCount"
     }
-    val textColor = contentColor
 
     Box(
         modifier = modifier
@@ -534,14 +532,14 @@ private fun NotesSyncStatusPill(
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 1.6.dp,
-                    color = textColor
+                    color = contentColor
                 )
                 Spacer(Modifier.width(6.dp))
             }
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = textColor,
+                color = contentColor,
                 maxLines = 1
             )
         }

@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,9 +57,10 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,6 +80,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
@@ -92,6 +95,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Dp
@@ -112,7 +116,6 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.kyant.capsule.ContinuousCapsule
@@ -146,9 +149,30 @@ private data class FlightThemeSpec(
     val glow: Color
 )
 
+private data class PreviewNativeFlightPalette(
+    val page: Color,
+    val panel: Color,
+    val surface: Color,
+    val datePill: Color,
+    val headerPill: Color,
+    val arrivedSurface: Color,
+    val departedSurface: Color,
+    val delayedSurface: Color,
+    val cancelledSurface: Color,
+    val rowBorder: Color,
+    val accent: Color,
+    val arrivedAccent: Color,
+    val departedAccent: Color,
+    val delayAccent: Color,
+    val cancelledAccent: Color,
+    val text: Color,
+    val muted: Color
+)
+
 private val LightFlightTheme = FlightThemeSpec(
     id = "light",
     title = "Light",
+    previewName = "Clear Apron",
     accent = Color(0xFF2D7DF6),
     page = Color(0xFFF8FAFF),
     card = Color.White,
@@ -164,6 +188,7 @@ private val LightFlightTheme = FlightThemeSpec(
 private val MintFlightTheme = FlightThemeSpec(
     id = "mint",
     title = "Mint",
+    previewName = "Teton Mint",
     accent = Color(0xFF22B981),
     page = Color(0xFFF2FBF8),
     card = Color(0xFFFFFFFF),
@@ -179,6 +204,7 @@ private val MintFlightTheme = FlightThemeSpec(
 private val SkyFlightTheme = FlightThemeSpec(
     id = "sky",
     title = "Sky",
+    previewName = "Runway Sky",
     accent = Color(0xFF3B82F6),
     page = Color(0xFFF0F7FF),
     card = Color(0xFFFFFFFF),
@@ -194,6 +220,7 @@ private val SkyFlightTheme = FlightThemeSpec(
 private val OceanFlightTheme = FlightThemeSpec(
     id = "ocean",
     title = "Ocean",
+    previewName = "Night Ocean",
     accent = Color(0xFF22D3EE),
     page = Color(0xFF071820),
     card = Color(0xFF0D2430),
@@ -209,6 +236,7 @@ private val OceanFlightTheme = FlightThemeSpec(
 private val VioletFlightTheme = FlightThemeSpec(
     id = "violet",
     title = "Violet",
+    previewName = "Violet Gate",
     accent = Color(0xFF8B5CF6),
     page = Color(0xFFF7F3FF),
     card = Color(0xFFFFFFFF),
@@ -224,6 +252,7 @@ private val VioletFlightTheme = FlightThemeSpec(
 private val RoseFlightTheme = FlightThemeSpec(
     id = "rose",
     title = "Rose",
+    previewName = "Rose Quartz",
     accent = Color(0xFFEC4899),
     page = Color(0xFFFFF5FA),
     card = Color(0xFFFFFFFF),
@@ -239,6 +268,7 @@ private val RoseFlightTheme = FlightThemeSpec(
 private val AmberFlightTheme = FlightThemeSpec(
     id = "amber",
     title = "Amber",
+    previewName = "Amber Ramp",
     accent = Color(0xFFF59E0B),
     page = Color(0xFFFFFAEC),
     card = Color(0xFFFFFFFF),
@@ -254,6 +284,7 @@ private val AmberFlightTheme = FlightThemeSpec(
 private val GrayFlightTheme = FlightThemeSpec(
     id = "gray",
     title = "Gray",
+    previewName = "Graphite",
     accent = Color(0xFF64748B),
     page = Color(0xFFF4F6F8),
     card = Color(0xFFFFFFFF),
@@ -269,6 +300,7 @@ private val GrayFlightTheme = FlightThemeSpec(
 private val DarkFlightTheme = FlightThemeSpec(
     id = "dark",
     title = "Dark",
+    previewName = "Night Ops",
     accent = Color(0xFF38BDF8),
     page = Color(0xFF07111C),
     card = Color(0xFF111C28),
@@ -284,7 +316,7 @@ private val DarkFlightTheme = FlightThemeSpec(
 private val AutoFlightTheme = LightFlightTheme.copy(
     id = "auto",
     title = "Auto",
-    previewName = "Auto (System)"
+    previewName = "Auto Flight"
 )
 
 private val FlightThemeChoices = listOf(
@@ -310,7 +342,6 @@ fun SettingsScreen(
 
     var selectedTheme by remember { mutableStateOf(SettingsStore.webTheme(context)) }
     var hwAccel by remember { mutableStateOf(SettingsStore.hardwareAccel(context)) }
-    var enhancedTable by remember { mutableStateOf(SettingsStore.enhancedTable(context)) }
     var groupFlights by remember { mutableStateOf(SettingsStore.groupFlights(context)) }
     var textZoom by remember { mutableIntStateOf(SettingsStore.textZoom(context).coerceIn(60, 100)) }
     var highContrastWeb by remember { mutableStateOf(SettingsStore.highContrastWeb(context)) }
@@ -388,8 +419,8 @@ fun SettingsScreen(
                     .widthIn(max = contentWidth)
             ) {
                 SectionCard(
-                    title = "Appearance",
-                    subtitle = "Theme, text size, and row style.",
+                    title = "Themed Appearance",
+                    subtitle = "Light, Mint, Sky, Ocean, Violet, Rose, Amber, Gray, Dark, Auto System.",
                     icon = Icons.Default.Palette,
                     theme = resolvedTheme,
                     backdrop = settingsBackdrop,
@@ -403,7 +434,6 @@ fun SettingsScreen(
                             onClick = {
                                 selectedTheme = SettingsStore.DEFAULT_WEB_THEME
                                 textZoom = SettingsStore.DEFAULT_TEXT_ZOOM
-                                enhancedTable = true
                                 groupFlights = false
                                 highContrastWeb = false
                                 hwAccel = true
@@ -412,7 +442,6 @@ fun SettingsScreen(
                                 reduceWebMotion = false
                                 SettingsStore.setWebTheme(context, selectedTheme)
                                 SettingsStore.setTextZoom(context, textZoom)
-                                SettingsStore.setEnhancedTable(context, enhancedTable)
                                 SettingsStore.setGroupFlights(context, groupFlights)
                                 SettingsStore.setHighContrastWeb(context, highContrastWeb)
                                 SettingsStore.setHardwareAccel(context, hwAccel)
@@ -435,7 +464,7 @@ fun SettingsScreen(
                         }
                     )
 
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(10.dp))
 
                     OneUiTextSizePanel(
                         value = textZoom,
@@ -450,27 +479,17 @@ fun SettingsScreen(
                         }
                     )
 
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(10.dp))
 
-                    FlightPreviewHeader(theme = resolvedTheme)
-                    Spacer(Modifier.height(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .border(1.dp, resolvedTheme.border.copy(alpha = 0.42f), RoundedCornerShape(14.dp))
-                    ) {
-                        FlightRowsPreview(
-                            theme = resolvedTheme,
-                            groupedFlights = groupFlights,
-                            textScale = textZoom,
-                            enhancedTable = enhancedTable,
-                            highContrast = highContrastWeb
-                        )
-                    }
+                    FlightRowsPreview(
+                        theme = resolvedTheme,
+                        groupedFlights = groupFlights,
+                        textScale = textZoom,
+                        highContrast = highContrastWeb
+                    )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
 
                 SectionCard(
                     title = "Table & Display",
@@ -482,21 +501,7 @@ fun SettingsScreen(
                 ) {
                     val tableItems: @Composable ColumnScope.() -> Unit = {
                         SettingToggleCard(
-                            title = "Enhanced table cells",
-                            subtitle = "Adds squared cell blocks for faster scanning.",
-                            icon = Icons.Default.GridView,
-                            checked = enhancedTable,
-                            theme = uiTheme,
-                            backdrop = settingsBackdrop,
-                            onChange = {
-                                enhancedTable = it
-                                SettingsStore.setEnhancedTable(context, it)
-                                markSaved()
-                            }
-                        )
-                        if (!tablet) Spacer(Modifier.height(10.dp))
-                        SettingToggleCard(
-                            title = "Grouped flights table",
+                            title = "Grouped flights table beta",
                             subtitle = "Groups Delta, United, American, Alaska, and each airline by time.",
                             icon = Icons.Default.ViewAgenda,
                             checked = groupFlights,
@@ -508,9 +513,9 @@ fun SettingsScreen(
                                 markSaved()
                             }
                         )
-                        if (!tablet) Spacer(Modifier.height(10.dp))
+                        if (!tablet) Spacer(Modifier.height(6.dp))
                         SettingToggleCard(
-                            title = "High contrast table",
+                            title = "High contrast table beta",
                             subtitle = "Black, white, and grayscale flight rows.",
                             icon = Icons.Default.Contrast,
                             checked = highContrastWeb,
@@ -524,26 +529,11 @@ fun SettingsScreen(
                         )
                     }
                     if (tablet) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Box(Modifier.weight(1f)) {
                                     SettingToggleCard(
-                                        title = "Enhanced table cells",
-                                        subtitle = "Adds squared cell blocks for faster scanning.",
-                                        icon = Icons.Default.GridView,
-                                        checked = enhancedTable,
-                                        theme = uiTheme,
-                                        backdrop = settingsBackdrop,
-                                        onChange = {
-                                            enhancedTable = it
-                                            SettingsStore.setEnhancedTable(context, it)
-                                            markSaved()
-                                        }
-                                    )
-                                }
-                                Box(Modifier.weight(1f)) {
-                                    SettingToggleCard(
-                                        title = "Grouped flights table",
+                                        title = "Grouped flights table beta",
                                         subtitle = "Groups airlines together and sorts each group by time.",
                                         icon = Icons.Default.ViewAgenda,
                                         checked = groupFlights,
@@ -556,11 +546,9 @@ fun SettingsScreen(
                                         }
                                     )
                                 }
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                 Box(Modifier.weight(1f)) {
                                     SettingToggleCard(
-                                        title = "High contrast table",
+                                        title = "High contrast table beta",
                                         subtitle = "Black, white, and grayscale flight rows.",
                                         icon = Icons.Default.Contrast,
                                         checked = highContrastWeb,
@@ -573,7 +561,6 @@ fun SettingsScreen(
                                         }
                                     )
                                 }
-                                Spacer(Modifier.weight(1f))
                             }
                         }
                     } else {
@@ -581,7 +568,7 @@ fun SettingsScreen(
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
 
                 SectionCard(
                     title = "Performance",
@@ -654,9 +641,9 @@ fun SettingsScreen(
                         }
                     )
                     if (tablet) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             performanceCards.chunked(2).forEach { rowItems ->
-                                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     rowItems.forEach { item ->
                                         Box(Modifier.weight(1f)) { item() }
                                     }
@@ -664,13 +651,13 @@ fun SettingsScreen(
                             }
                         }
                     } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             performanceCards.forEach { it() }
                         }
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
 
                 SectionCard(
                     title = "WebView Storage",
@@ -713,7 +700,7 @@ fun SettingsScreen(
                     )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
 
                 SaveConfirmation(
                     visible = showSaved,
@@ -735,8 +722,150 @@ private fun resolveFlightTheme(themeId: String, systemDark: Boolean): FlightThem
         "amber" -> AmberFlightTheme
         "gray" -> GrayFlightTheme
         "dark" -> DarkFlightTheme
-        "auto" -> if (systemDark) DarkFlightTheme.copy(id = "auto", title = "Auto", previewName = "Auto (System)") else AutoFlightTheme
+        "auto" -> if (systemDark) DarkFlightTheme.copy(id = "auto", title = "Auto", previewName = "Auto Flight") else AutoFlightTheme
         else -> MintFlightTheme
+    }
+}
+
+private fun previewFlightEffectiveTheme(webTheme: String, isDark: Boolean): String {
+    return when (webTheme.lowercase()) {
+        "auto" -> if (isDark) "dark" else "light"
+        "dark", "ocean", "mint", "sky", "violet", "rose", "amber", "gray", "light" -> webTheme.lowercase()
+        else -> if (isDark) "dark" else "light"
+    }
+}
+
+private fun previewFlightThemeAccent(effectiveTheme: String): Color {
+    return when (effectiveTheme) {
+        "mint" -> Color(0xFF22B981)
+        "sky" -> Color(0xFF3B82F6)
+        "ocean" -> Color(0xFF7DD3FC)
+        "violet" -> Color(0xFF8B5CF6)
+        "rose" -> Color(0xFFEC4899)
+        "amber" -> Color(0xFFF59E0B)
+        "gray" -> Color(0xFF64748B)
+        "dark" -> Color(0xFF7DD3FC)
+        else -> Color(0xFF5AC8FA)
+    }
+}
+
+private fun previewNativeFlightPalette(
+    webTheme: String,
+    isDark: Boolean,
+    glassAmount: Float,
+    highContrast: Boolean
+): PreviewNativeFlightPalette {
+    if (highContrast) {
+        return if (isDark) {
+            PreviewNativeFlightPalette(
+                page = Color.Black,
+                panel = Color.Black.copy(alpha = 0.82f),
+                surface = Color.Black.copy(alpha = 0.72f),
+                datePill = Color.Black,
+                headerPill = Color(0xFF181818),
+                arrivedSurface = Color.Black.copy(alpha = 0.72f),
+                departedSurface = Color.Black.copy(alpha = 0.72f),
+                delayedSurface = Color.Black.copy(alpha = 0.72f),
+                cancelledSurface = Color.Black.copy(alpha = 0.72f),
+                rowBorder = Color.White.copy(alpha = 0.36f),
+                accent = Color.White,
+                arrivedAccent = Color.White,
+                departedAccent = Color.White,
+                delayAccent = Color.White,
+                cancelledAccent = Color.White,
+                text = Color.White,
+                muted = Color.White.copy(alpha = 0.70f)
+            )
+        } else {
+            PreviewNativeFlightPalette(
+                page = Color.White,
+                panel = Color.White.copy(alpha = 0.92f),
+                surface = Color.White.copy(alpha = 0.94f),
+                datePill = Color.White.copy(alpha = 0.92f),
+                headerPill = Color.Black.copy(alpha = 0.08f),
+                arrivedSurface = Color.White.copy(alpha = 0.94f),
+                departedSurface = Color.White.copy(alpha = 0.94f),
+                delayedSurface = Color.White.copy(alpha = 0.94f),
+                cancelledSurface = Color.White.copy(alpha = 0.94f),
+                rowBorder = Color.Black.copy(alpha = 0.36f),
+                accent = Color.Black,
+                arrivedAccent = Color.Black,
+                departedAccent = Color.Black,
+                delayAccent = Color.Black,
+                cancelledAccent = Color.Black,
+                text = Color.Black,
+                muted = Color.Black.copy(alpha = 0.64f)
+            )
+        }
+    }
+
+    val effectiveTheme = previewFlightEffectiveTheme(webTheme, isDark)
+    val accent = previewFlightThemeAccent(effectiveTheme)
+    return if (effectiveTheme == "dark" || effectiveTheme == "ocean") {
+        val surface = accent.copy(alpha = 0.08f).compositeOver(Color(0xFF101B27).copy(alpha = 0.66f))
+        val panel = accent.copy(alpha = 0.025f + 0.05f * glassAmount)
+            .compositeOver(Color(0xFF10151D).copy(alpha = 0.58f + 0.32f * glassAmount))
+        PreviewNativeFlightPalette(
+            page = if (effectiveTheme == "ocean") Color(0xFF071820) else Color(0xFF07111C),
+            panel = panel,
+            surface = surface,
+            datePill = Color(0xFF111111).copy(alpha = 0.88f),
+            headerPill = Color.White.copy(alpha = 0.105f),
+            arrivedSurface = accent.copy(alpha = 0.18f).compositeOver(surface),
+            departedSurface = Color(0xFF38E8C8).copy(alpha = 0.16f).compositeOver(surface),
+            delayedSurface = Color(0xFFFFB020).copy(alpha = 0.18f).compositeOver(surface),
+            cancelledSurface = Color(0xFFFF453A).copy(alpha = 0.18f).compositeOver(surface),
+            rowBorder = accent.copy(alpha = 0.28f),
+            accent = accent,
+            arrivedAccent = accent,
+            departedAccent = if (effectiveTheme == "ocean") Color(0xFF38E8C8) else Color(0xFF34C759),
+            delayAccent = Color(0xFFFFB020),
+            cancelledAccent = Color(0xFFFF453A),
+            text = Color.White.copy(alpha = 0.94f),
+            muted = Color.White.copy(alpha = 0.62f)
+        )
+    } else {
+        val page = when (effectiveTheme) {
+            "mint" -> Color(0xFFF2FBF8)
+            "sky" -> Color(0xFFF0F7FF)
+            "violet" -> Color(0xFFF7F3FF)
+            "rose" -> Color(0xFFFFF5FA)
+            "amber" -> Color(0xFFFFFAEC)
+            "gray" -> Color(0xFFF4F6F8)
+            else -> Color(0xFFF8FAFF)
+        }
+        val panel = accent.copy(alpha = 0.025f + 0.035f * glassAmount)
+            .compositeOver(page.copy(alpha = 0.66f + 0.26f * glassAmount))
+        val surface = accent.copy(alpha = 0.035f + 0.045f * glassAmount)
+            .compositeOver(Color.White.copy(alpha = 0.56f + 0.22f * glassAmount))
+        val text = when (effectiveTheme) {
+            "mint" -> Color(0xFF10201C)
+            "sky" -> Color(0xFF10243F)
+            "violet" -> Color(0xFF261B3F)
+            "rose" -> Color(0xFF3E122A)
+            "amber" -> Color(0xFF34230C)
+            "gray" -> Color(0xFF1F2937)
+            else -> Color(0xFF1E1F24)
+        }
+        PreviewNativeFlightPalette(
+            page = page,
+            panel = panel,
+            surface = surface,
+            datePill = Color.White.copy(alpha = 0.78f),
+            headerPill = accent.copy(alpha = 0.12f).compositeOver(Color.Black.copy(alpha = 0.055f)),
+            arrivedSurface = accent.copy(alpha = 0.18f).compositeOver(surface),
+            departedSurface = accent.copy(alpha = 0.13f).compositeOver(surface),
+            delayedSurface = Color(0xFFF59E0B).copy(alpha = 0.18f).compositeOver(surface),
+            cancelledSurface = Color(0xFFFF453A).copy(alpha = 0.14f).compositeOver(surface),
+            rowBorder = accent.copy(alpha = 0.34f),
+            accent = accent,
+            arrivedAccent = accent,
+            departedAccent = accent.copy(alpha = 0.92f),
+            delayAccent = Color(0xFFB7791F),
+            cancelledAccent = Color(0xFFD93025),
+            text = text,
+            muted = text.copy(alpha = 0.66f)
+        )
     }
 }
 
@@ -787,15 +916,8 @@ private fun Modifier.webSettingsGlass(
         drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
-            highlight = {
-                Highlight(
-                    width = 0.45.dp,
-                    blurRadius = 1.4.dp,
-                    alpha = 0.78f,
-                    style = HighlightStyle.Plain
-                )
-            },
             shadow = null,
+            highlight = null,
             effects = {
                 vibrancy()
                 blur(1.7.dp.toPx(), edgeTreatment = TileMode.Clamp)
@@ -851,14 +973,14 @@ private fun OneUiTextSizePanel(
     mutedColor: Color,
     onValueChange: (Int) -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(12.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(theme.muted.copy(alpha = 0.07f), shape)
+            .background(theme.card.copy(alpha = 0.66f), shape)
             .border(1.dp, theme.border.copy(alpha = 0.34f), shape)
-            .padding(horizontal = 14.dp, vertical = 13.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -877,39 +999,39 @@ private fun OneUiTextSizePanel(
             Spacer(Modifier.width(10.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text("Text size", color = theme.text, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                Text("Flight table scale", color = theme.muted, fontSize = 12.sp, lineHeight = 16.sp)
+                Text("Text size", color = theme.text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text("Flight table scale", color = theme.muted, fontSize = 11.sp, lineHeight = 14.sp)
             }
 
             AnimatedContent(value, label = "textZoomValue") { current ->
                 Text(
                     text = "$current%",
                     color = theme.accent,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 24.sp
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
                 )
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(6.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("60", color = mutedColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            GlassTextSizeSlider(
-                value = value,
-                onValueChange = onValueChange,
-                backdrop = backdrop,
-                theme = theme,
+            Text("60", color = mutedColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Slider(
+                value = value.toFloat(),
+                onValueChange = { onValueChange(it.roundToInt().coerceIn(60, 100)) },
+                valueRange = 60f..100f,
+                steps = 39,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = 8.dp)
             )
             Column(horizontalAlignment = Alignment.End) {
-                Text("100", color = mutedColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text("Max", color = mutedColor.copy(alpha = 0.72f), fontSize = 10.sp)
+                Text("100", color = mutedColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("Max", color = mutedColor.copy(alpha = 0.72f), fontSize = 9.sp)
             }
         }
     }
@@ -1134,41 +1256,6 @@ private fun GlassTextSizeSlider(
 }
 
 @Composable
-private fun FlightPreviewHeader(theme: FlightThemeSpec) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(theme.accent.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.Visibility, contentDescription = null, tint = theme.accent, modifier = Modifier.size(18.dp))
-        }
-
-        Spacer(Modifier.width(10.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text("Flight row appearance", color = theme.text, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-            Text("Current table style", color = theme.muted, fontSize = 12.sp, lineHeight = 16.sp)
-        }
-
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(theme.accent.copy(alpha = 0.11f))
-                .border(1.dp, theme.accent.copy(alpha = 0.20f), RoundedCornerShape(999.dp))
-                .padding(horizontal = 11.dp, vertical = 6.dp)
-        ) {
-            Text("Live", color = theme.accent, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-        }
-    }
-}
-
-@Composable
 private fun SectionCard(
     title: String,
     subtitle: String?,
@@ -1182,8 +1269,8 @@ private fun SectionCard(
     trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val cardShape = RoundedCornerShape(cornerRadius ?: 0.dp)
-    val contentPadding = if (tablet) 20.dp else 16.dp
+    val cardShape = RoundedCornerShape(cornerRadius ?: 20.dp)
+    val contentPadding = if (tablet) 14.dp else 12.dp
     val isDark = isSystemInDarkTheme()
     val surfaceColor = if (isDark) {
         Color(0xFF17191D).copy(alpha = 0.88f)
@@ -1195,6 +1282,7 @@ private fun SectionCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .padding(horizontal = if (tablet) 0.dp else 8.dp)
             .clip(cardShape)
             .background(surfaceColor, cardShape)
             .border(1.dp, borderColor, cardShape)
@@ -1202,40 +1290,40 @@ private fun SectionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = contentPadding, top = 12.dp, end = contentPadding),
+                .padding(start = contentPadding, top = 8.dp, end = contentPadding),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
-                    .background(theme.accent.copy(alpha = 0.16f)),
+                    .background(theme.accent.copy(alpha = 0.13f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = theme.accent, modifier = Modifier.size(19.dp))
+                Icon(icon, contentDescription = null, tint = theme.accent, modifier = Modifier.size(16.dp))
             }
 
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(9.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     title,
                     color = theme.text,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    lineHeight = 19.sp,
+                    fontSize = 14.sp,
+                    lineHeight = 17.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
                 if (subtitle != null) {
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(1.dp))
                     Text(
                         subtitle,
                         color = theme.muted,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        maxLines = 2,
+                        fontSize = 11.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -1247,7 +1335,7 @@ private fun SectionCard(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         if (contentEdgeToEdge) {
             content()
         } else {
@@ -1270,6 +1358,7 @@ private fun ThemeChooser(
     tablet: Boolean,
     onSelect: (String) -> Unit
 ) {
+    val glassAmount = rememberLiquidGlassTintAmount()
     val cardWidth = if (tablet) 118.dp else 98.dp
     Row(
         modifier = Modifier
@@ -1282,6 +1371,8 @@ private fun ThemeChooser(
             ThemePreviewCard(
                 theme = theme,
                 actualTheme = resolveFlightTheme(theme.id, systemDark),
+                systemDark = systemDark,
+                glassAmount = glassAmount,
                 selected = selectedTheme == theme.id,
                 modifier = Modifier.width(cardWidth),
                 onClick = { onSelect(theme.id) }
@@ -1294,12 +1385,24 @@ private fun ThemeChooser(
 private fun ThemePreviewCard(
     theme: FlightThemeSpec,
     actualTheme: FlightThemeSpec,
+    systemDark: Boolean,
+    glassAmount: Float,
     selected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val effectiveTheme = previewFlightEffectiveTheme(theme.id, systemDark)
+    val previewDark = effectiveTheme == "dark" || effectiveTheme == "ocean"
+    val nativePalette = remember(theme.id, systemDark, glassAmount) {
+        previewNativeFlightPalette(
+            webTheme = theme.id,
+            isDark = systemDark,
+            glassAmount = glassAmount,
+            highContrast = false
+        )
+    }
     val borderColor by animateColorAsState(
-        if (selected) theme.accent else actualTheme.border,
+        if (selected) nativePalette.accent else nativePalette.muted.copy(alpha = 0.34f),
         label = "themeBorder"
     )
     val selectedScale by animateFloatAsState(
@@ -1311,7 +1414,7 @@ private fun ThemePreviewCard(
     Column(
         modifier = modifier
             .clip(shape)
-            .background(actualTheme.card)
+            .background(nativePalette.panel)
             .border(BorderStroke(if (selected) 2.dp else 1.dp, borderColor), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 9.dp),
@@ -1322,20 +1425,27 @@ private fun ThemePreviewCard(
                 .fillMaxWidth()
                 .height(28.dp)
                 .clip(RoundedCornerShape(9.dp))
-                .background(actualTheme.page)
-                .border(1.dp, actualTheme.border.copy(alpha = 0.72f), RoundedCornerShape(9.dp))
+                .background(nativePalette.page)
+                .border(1.dp, nativePalette.muted.copy(alpha = 0.22f), RoundedCornerShape(9.dp))
                 .padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(actualTheme.header))
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(actualTheme.row))
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(actualTheme.arrivedRow))
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(nativePalette.datePill))
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(nativePalette.arrivedSurface)
+                    .border(1.dp, nativePalette.rowBorder, RoundedCornerShape(5.dp))
+            )
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(nativePalette.delayAccent.copy(alpha = 0.28f)))
         }
         Spacer(Modifier.height(8.dp))
         Text(
             text = if (selected) "${theme.previewName} (Current)" else theme.previewName,
-            color = if (selected) theme.accent else actualTheme.text,
+            color = if (selected) nativePalette.accent else nativePalette.text,
             fontWeight = FontWeight.ExtraBold,
             fontSize = 12.sp,
             maxLines = 1,
@@ -1346,8 +1456,8 @@ private fun ThemePreviewCard(
             modifier = Modifier
                 .size(22.dp)
                 .clip(CircleShape)
-                .background(if (selected) theme.accent else Color.Transparent)
-                .border(1.5.dp, if (selected) theme.accent else actualTheme.muted.copy(alpha = 0.45f), CircleShape),
+                .background(if (selected) nativePalette.accent else Color.Transparent)
+                .border(1.5.dp, if (selected) nativePalette.accent else nativePalette.muted.copy(alpha = 0.45f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             if (selected) {
@@ -1367,554 +1477,398 @@ private fun FlightRowsPreview(
     theme: FlightThemeSpec,
     groupedFlights: Boolean,
     textScale: Int,
-    enhancedTable: Boolean,
     highContrast: Boolean
 ) {
-    val previewTheme = if (highContrast) highContrastTheme(theme) else theme
-    val previewShape = RoundedCornerShape(14.dp)
-    val previewHeight by animateDpAsState(
-        targetValue = flightPreviewHeight(groupedFlights, textScale),
-        animationSpec = tween(180),
-        label = "flightPreviewHeight"
-    )
-    val previewHtml = remember(theme.id, groupedFlights, textScale, enhancedTable, highContrast) {
-        flightRowsPreviewHtml(
-            themeId = theme.id,
-            groupedFlights = groupedFlights,
-            textScale = textScale,
-            enhancedTable = enhancedTable,
+    val isDark = isSystemInDarkTheme()
+    val glassAmount = rememberLiquidGlassTintAmount()
+    val nativePalette = remember(theme.id, isDark, glassAmount, highContrast) {
+        previewNativeFlightPalette(
+            webTheme = theme.id,
+            isDark = isDark,
+            glassAmount = glassAmount,
             highContrast = highContrast
         )
     }
+    val previewShape = RoundedCornerShape(14.dp)
+    val previewPanel = flightLanternSheetPanelColor(FlightArrivalLantern, isDark, glassAmount)
+    val previewOverlay = flightLanternSheetOverlayColor(FlightArrivalLantern, isDark, glassAmount)
+    val previewSheen = flightLanternSheetSheenBrush(FlightArrivalLantern, isDark, glassAmount)
+    val previewHeight by animateDpAsState(
+        targetValue = flightPreviewHeight(textScale),
+        animationSpec = tween(180),
+        label = "flightPreviewHeight"
+    )
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(previewHeight)
             .clip(previewShape)
-            .background(previewTheme.page)
+            .background(previewPanel)
+            .background(previewOverlay)
+            .background(previewSheen)
+            .border(1.dp, nativePalette.rowBorder.copy(alpha = 0.42f), previewShape)
+            .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 10.dp)
     ) {
-        AndroidView(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(),
-            factory = { context ->
-                WebView(context).apply {
-                    tag = previewHtml
-                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                    isHorizontalScrollBarEnabled = false
-                    isVerticalScrollBarEnabled = false
-                    overScrollMode = WebView.OVER_SCROLL_NEVER
-                    settings.javaScriptEnabled = false
-                    settings.domStorageEnabled = false
-                    settings.textZoom = 100
-                    settings.loadWithOverviewMode = true
-                    settings.useWideViewPort = true
-                    loadDataWithBaseURL(
-                        "file:///android_asset/",
-                        previewHtml,
-                        "text/html",
-                        "UTF-8",
-                        null
-                    )
-                }
-            },
-            update = { webView ->
-                if (webView.tag != previewHtml) {
-                    webView.tag = previewHtml
-                    webView.settings.textZoom = 100
-                    webView.loadDataWithBaseURL(
-                        "file:///android_asset/",
-                        previewHtml,
-                        "text/html",
-                        "UTF-8",
-                        null
-                    )
-                }
-            }
+        MiniFlightTable(
+            palette = nativePalette,
+            textScale = textScale,
+            highContrast = highContrast,
+            isDark = isDark,
+            compact = false
         )
     }
 }
 
-private fun flightPreviewHeight(groupedFlights: Boolean, textScale: Int): Dp {
-    val scale = textScale.coerceIn(60, 100) / 100f
-    val baseHeight = if (groupedFlights) {
-        36f + 38f + 42f + 40f + 40f + 38f + 42f + 40f + 40f
-    } else {
-        36f + 38f + 40f + 40f
-    }
-    return (baseHeight * scale + 2f).dp
-}
-
-private fun flightRowsPreviewHtml(
-    themeId: String,
-    groupedFlights: Boolean,
-    textScale: Int,
-    enhancedTable: Boolean,
-    highContrast: Boolean
-): String {
-    val classes = mutableListOf("fs-theme-$themeId", "fs-settings-preview").apply {
-        if (enhancedTable) add("fs-enhanced-table")
-        if (groupedFlights) add("fs-grouped-flights")
-        if (highContrast) add("fs-web-high-contrast")
-    }.joinToString(" ")
-
-    val rows = if (groupedFlights) groupedPreviewRowsHtml() else standardPreviewRowsHtml()
-    val runtimeCss = flightTableRuntimeCss(
-        theme = themeId,
-        textZoom = textScale,
-        previewFrame = true
-    )
-
-    return """
-        <!doctype html>
-        <html class="$classes">
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-          <link rel="stylesheet" href="fs_flights_style.css">
-          <style>
-            $runtimeCss
-          </style>
-        </head>
-
-        <body>
-          <div id="flight-container">
-            <div class="flight-table-wrap">
-              <div class="table-scroll">
-                <table class="jha-flights">
-                  <thead>
-                    <tr>
-                      <th>AIRLINE</th>
-                      <th>FLIGHT</th>
-                      <th>FROM</th>
-                      <th>SCHED</th>
-                      <th>ACTUAL</th>
-                      <th>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    $rows
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </body>
-        </html>
-    """.trimIndent()
-}
-
-
-private fun groupedPreviewRowsHtml(): String {
-    return """
-        <tr>
-          <td class="day" colspan="6">
-            <span class="fs-day-label">Today</span>
-            <span class="fs-day-count">2 flights total</span>
-            <span class="fs-day-updated">last updated 11:50pm MST</span>
-          </td>
-        </tr>
-        ${airlineGroupRowHtml("United", "first 9:46am")}
-        ${flightRowHtml("United", "5730", "Denver", "9:46am", "9:34am", "Arrived", "-green", arrived = true)}
-        ${flightRowHtml("United", "1306", "Denver", "8:58pm", "8:44pm", "Arrived", "-green", arrived = true)}
-        <tr>
-          <td class="day" colspan="6">
-            <span class="fs-day-label">Tomorrow</span>
-            <span class="fs-day-count">2 flights total</span>
-            <span class="fs-day-updated">last updated 11:50pm MST</span>
-          </td>
-        </tr>
-        ${airlineGroupRowHtml("Alaska", "first 2:47pm")}
-        ${flightRowHtml("Alaska", "3468", "San Francisco", "2:47pm", "2:48pm", "On Time", "")}
-        ${flightRowHtml("Alaska", "3469", "San Francisco", "6:15pm", "6:11pm", "On Time", "")}
-    """.trimIndent()
-}
-
-private fun standardPreviewRowsHtml(): String {
-    return """
-        <tr>
-          <td class="day" colspan="6">
-            <span class="fs-day-label">Today</span>
-            <span class="fs-day-count">2 flights total</span>
-            <span class="fs-day-updated">last updated 11:50pm MST</span>
-          </td>
-        </tr>
-        ${flightRowHtml("United", "5730", "Denver", "9:46am", "9:34am", "Arrived", "-green", arrived = true)}
-        ${flightRowHtml("Alaska", "3468", "San Francisco", "2:47pm", "2:48pm", "On Time", "")}
-    """.trimIndent()
-}
-
-private fun airlineGroupRowHtml(airline: String, firstTime: String): String {
-    return """
-        <tr class="fs-airline-group-row">
-          <td colspan="6">
-            <div class="fs-airline-group-label">
-              <span>$airline</span>
-              <span class="fs-airline-group-meta">2 flights • $firstTime</span>
-            </div>
-          </td>
-        </tr>
-    """.trimIndent()
-}
-
-private fun flightRowHtml(
-    airline: String,
-    flight: String,
-    from: String,
-    sched: String,
-    actual: String,
-    status: String,
-    statusClass: String,
-    arrived: Boolean = false
-): String {
-    val rowClass = if (arrived) " class=\"fs-flight-detail-ready fs-row-arrived\"" else " class=\"fs-flight-detail-ready\""
-
-    return """
-        <tr$rowClass>
-          <td class="airline"><span class="fs-cell-chip fs-cell-airline">$airline</span></td>
-          <td class="flight"><span class="fs-cell-chip fs-cell-flight">$flight</span></td>
-          <td class="from"><span class="fs-cell-chip fs-cell-from">$from</span></td>
-
-          <td class="sched">
-            <span class="fs-cell-chip fs-cell-sched">$sched</span>
-          </td>
-
-          <td class="actual">
-            <span class="fs-cell-chip fs-cell-actual">$actual</span>
-          </td>
-
-          <td class="status">
-            <span class="$statusClass">$status</span>
-          </td>
-        </tr>
-    """.trimIndent()
+private fun flightPreviewHeight(textScale: Int): Dp {
+    return 292.dp
 }
 
 @Composable
 private fun MiniFlightTable(
-    theme: FlightThemeSpec,
+    palette: PreviewNativeFlightPalette,
     textScale: Int,
-    enhancedTable: Boolean,
-    groupedFlights: Boolean = false,
     highContrast: Boolean,
+    isDark: Boolean,
     compact: Boolean
 ) {
-    val scale = (textScale / 100f).coerceIn(0.6f, 1f)
-    val headerSize = ((if (compact) 6.2f else 10f) * scale).sp
-    val rowSize = ((if (compact) 7.3f else 13f) * scale).sp
-    val rowHeight = if (compact) 20.dp else 50.dp
-    val previewTheme = if (highContrast) highContrastTheme(theme) else theme
-    val tableWidth = if (compact) 104.dp else 860.dp
+    val scale = previewFlightTextScale(textScale)
+    val rowHeight = 58.dp
 
     Column(
         modifier = Modifier
-            .then(if (compact) Modifier.fillMaxWidth() else Modifier.horizontalScroll(rememberScrollState()))
-            .clip(RoundedCornerShape(if (compact) 8.dp else 13.dp))
-            .background(previewTheme.card)
-    ) {
-        Column(modifier = Modifier.width(tableWidth)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (compact) 18.dp else 36.dp)
-                    .background(previewTheme.header)
-                    .padding(horizontal = if (compact) 3.dp else 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TableHeader("AIRLINE", 1.2f, previewTheme, headerSize)
-                TableHeader("FLIGHT", 1f, previewTheme, headerSize)
-                TableHeader("FROM", 1.55f, previewTheme, headerSize)
-                if (!compact) TableHeader("SCHED", 1f, previewTheme, headerSize, alignEnd = true)
-                TableHeader("ACTUAL", 1f, previewTheme, headerSize, alignEnd = true)
-                TableHeader("STATUS", 1.15f, previewTheme, headerSize, alignEnd = true)
-            }
-            if (groupedFlights && !compact) {
-                FlightDayHeader("Today", previewTheme)
-                FlightGroupHeader("United", "first 9:46am", previewTheme)
-            }
-            FlightPreviewRow(
-                airline = if (compact) "UAL" else "United",
-                flight = "5730",
-                from = if (compact) "DEN" else "Denver",
-                sched = "9:46am",
-                actual = "9:34am",
-                status = "Arrived",
-                rowBg = previewTheme.arrivedRow,
-                theme = previewTheme,
-                textSize = rowSize,
-                height = rowHeight,
-                enhancedTable = enhancedTable,
-                compact = compact
-            )
-            if (groupedFlights && !compact) {
-                FlightPreviewRow(
-                    airline = "United",
-                    flight = "1306",
-                    from = "Denver",
-                    sched = "8:58pm",
-                    actual = "8:44pm",
-                    status = "Arrived",
-                    rowBg = previewTheme.arrivedRow,
-                    theme = previewTheme,
-                    textSize = rowSize,
-                    height = rowHeight,
-                    enhancedTable = enhancedTable,
-                    compact = false
-                )
-                FlightDayHeader("Tomorrow", previewTheme)
-                FlightGroupHeader("Alaska", "first 2:47pm", previewTheme)
-            }
-            FlightPreviewRow(
-                airline = if (compact) "ASA" else "Alaska",
-                flight = "3468",
-                from = if (compact) "SFO" else "San Francisco",
-                sched = "2:47pm",
-                actual = "2:48pm",
-                status = "On Time",
-                rowBg = previewTheme.row,
-                theme = previewTheme,
-                textSize = rowSize,
-                height = rowHeight,
-                enhancedTable = enhancedTable,
-                compact = compact
-            )
-            if (groupedFlights && !compact) {
-                FlightPreviewRow(
-                    airline = "Alaska",
-                    flight = "3469",
-                    from = "San Francisco",
-                    sched = "6:15pm",
-                    actual = "6:11pm",
-                    status = "On Time",
-                    rowBg = previewTheme.row,
-                    theme = previewTheme,
-                    textSize = rowSize,
-                    height = rowHeight,
-                    enhancedTable = enhancedTable,
-                    compact = false
-                )
-            }
-            if (compact) {
-                FlightPreviewRow(
-                    airline = "DAL",
-                    flight = "4048",
-                    from = "SLC",
-                    sched = "4:06pm",
-                    actual = "Delayed",
-                    status = "Delayed",
-                    rowBg = previewTheme.row,
-                    theme = previewTheme,
-                    textSize = rowSize,
-                    height = rowHeight,
-                    enhancedTable = enhancedTable,
-                    compact = true
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FlightDayHeader(
-    label: String,
-    theme: FlightThemeSpec
-) {
-    Row(
-        modifier = Modifier
             .fillMaxWidth()
-            .height(42.dp)
-            .background(theme.header.copy(alpha = 0.98f))
-            .border(0.5.dp, theme.border.copy(alpha = 0.72f))
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .fillMaxHeight(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(
-            text = label,
-            color = theme.text,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1,
-            modifier = Modifier.weight(1f)
+        FlightPreviewRow(
+            airline = "American",
+            flight = "1883",
+            place = "Dallas/Fort Worth",
+            sched = "3:08pm",
+            actual = "6:45pm",
+            status = "Arrived",
+            rowBg = palette.arrivedSurface,
+            rowBorder = palette.rowBorder,
+            statusAccent = palette.arrivedAccent,
+            textColor = palette.text,
+            mutedColor = palette.muted,
+            textScale = scale,
+            height = rowHeight
         )
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .background(theme.accent.copy(alpha = 0.14f))
-                .border(0.5.dp, theme.accent.copy(alpha = 0.45f), RoundedCornerShape(999.dp))
-                .padding(horizontal = 12.dp, vertical = 5.dp)
-        ) {
-            Text(
-                text = "2 flights total",
-                color = theme.accent,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1
-            )
-        }
+        FlightPreviewRow(
+            airline = "United",
+            flight = "1537",
+            place = "Denver",
+            sched = "3:25pm",
+            actual = "3:15pm",
+            status = "Arrived",
+            rowBg = palette.arrivedSurface,
+            rowBorder = palette.rowBorder,
+            statusAccent = palette.arrivedAccent,
+            textColor = palette.text,
+            mutedColor = palette.muted,
+            textScale = scale,
+            height = rowHeight
+        )
+        FlightPreviewRow(
+            airline = "Delta",
+            flight = "417",
+            place = "Salt Lake City",
+            sched = "5:00pm",
+            actual = "5:27pm",
+            status = "Arrived",
+            rowBg = palette.arrivedSurface,
+            rowBorder = palette.rowBorder,
+            statusAccent = palette.arrivedAccent,
+            textColor = palette.text,
+            mutedColor = palette.muted,
+            textScale = scale,
+            height = rowHeight
+        )
+        FlightPreviewRow(
+            airline = "Alaska",
+            flight = "3475",
+            place = "San Diego",
+            sched = "3:07pm",
+            actual = "2:55pm",
+            status = "Arrived",
+            rowBg = palette.arrivedSurface,
+            rowBorder = palette.rowBorder,
+            statusAccent = palette.arrivedAccent,
+            textColor = palette.text,
+            mutedColor = palette.muted,
+            textScale = scale,
+            height = rowHeight
+        )
     }
 }
 
+private fun previewFlightTextScale(textZoom: Int): Float {
+    return (textZoom.coerceIn(60, 100) / 100f).coerceIn(0.60f, 1f)
+}
+
+private fun previewFlightScaledSp(minSp: Float, maxSp: Float, textScale: Float): androidx.compose.ui.unit.TextUnit {
+    return (minSp + ((maxSp - minSp) * textScale.coerceIn(0.60f, 1f))).sp
+}
+
+private fun previewFlightArrivedSurface(
+    isDark: Boolean,
+    highContrast: Boolean,
+    fallback: Color
+): Color {
+    return if (highContrast) {
+        fallback
+    } else if (isDark) {
+        Color(0xFF073D2E).copy(alpha = 0.62f)
+    } else {
+        Color(0xFFE8D6C6).copy(alpha = 0.96f)
+    }
+}
+
+private fun previewFlightArrivedBorder(
+    isDark: Boolean,
+    highContrast: Boolean,
+    textColor: Color
+): Color {
+    return if (highContrast) {
+        textColor.copy(alpha = 0.36f)
+    } else if (isDark) {
+        Color(0xFF34C759).copy(alpha = 0.28f)
+    } else {
+        Color(0xFF8A5A3C).copy(alpha = 0.32f)
+    }
+}
+
+private const val PreviewFlightAirlineStart = 0.00f
+private const val PreviewFlightFlightStart = 0.245f
+private const val PreviewFlightPlaceStart = 0.360f
+private const val PreviewFlightSchedStart = 0.590f
+private const val PreviewFlightActualStart = 0.725f
+private const val PreviewFlightStatusStart = 0.845f
+private const val PreviewFlightEnd = 1.00f
+
 @Composable
-private fun FlightGroupHeader(
-    airline: String,
-    firstTime: String,
-    theme: FlightThemeSpec
+private fun PreviewPositionedColumn(
+    width: Dp,
+    start: Float,
+    end: Float,
+    contentAlignment: Alignment = Alignment.CenterStart,
+    content: @Composable () -> Unit
 ) {
-    Row(
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(42.dp)
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        theme.header.copy(alpha = 0.95f),
-                        theme.card.copy(alpha = 0.98f)
-                    )
-                )
-            )
-            .border(0.5.dp, theme.border.copy(alpha = 0.78f))
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .offset(x = width * start)
+            .width(width * (end - start).coerceAtLeast(0.01f))
+            .fillMaxHeight(),
+        contentAlignment = contentAlignment
     ) {
-        Text(
-            text = airline,
-            color = theme.text,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = "2 flights  •  $firstTime",
-            color = theme.muted,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.ExtraBold,
-            maxLines = 1
-        )
+        content()
     }
-}
-
-@Composable
-private fun RowScope.TableHeader(
-    label: String,
-    weight: Float,
-    theme: FlightThemeSpec,
-    size: androidx.compose.ui.unit.TextUnit,
-    alignEnd: Boolean = false
-) {
-    Text(
-        text = label,
-        color = theme.muted,
-        fontSize = size,
-        fontWeight = FontWeight.Black,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.weight(weight),
-        textAlign = if (alignEnd) androidx.compose.ui.text.style.TextAlign.End else androidx.compose.ui.text.style.TextAlign.Start
-    )
 }
 
 @Composable
 private fun FlightPreviewRow(
     airline: String,
     flight: String,
-    from: String,
+    place: String,
     sched: String,
     actual: String,
     status: String,
     rowBg: Color,
-    theme: FlightThemeSpec,
-    textSize: androidx.compose.ui.unit.TextUnit,
-    height: Dp,
-    enhancedTable: Boolean,
-    compact: Boolean
+    rowBorder: Color,
+    statusAccent: Color,
+    textColor: Color,
+    mutedColor: Color,
+    textScale: Float,
+    height: Dp
 ) {
+    val rowShape = RoundedCornerShape(18.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
+            .clip(rowShape)
             .background(rowBg)
-            .border(0.5.dp, theme.border.copy(alpha = 0.65f))
-            .padding(horizontal = if (compact) 3.dp else 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .border(1.dp, rowBorder, rowShape)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        FlightCell(airline, 1.2f, theme, textSize, enhancedTable)
-        FlightCell(flight, 1f, theme, textSize, enhancedTable)
-        FlightCell(from, 1.55f, theme, textSize, enhancedTable)
-        if (!compact) FlightCell(sched, 1f, theme, textSize, enhancedTable, alignEnd = true)
-        FlightCell(actual, 1f, theme, textSize, enhancedTable, alignEnd = true)
-        StatusCell(status, 1.15f, textSize, alignEnd = true)
-    }
-}
-
-@Composable
-private fun RowScope.FlightCell(
-    value: String,
-    weight: Float,
-    theme: FlightThemeSpec,
-    textSize: androidx.compose.ui.unit.TextUnit,
-    enhanced: Boolean,
-    alignEnd: Boolean = false
-) {
-    Box(
-        modifier = Modifier.weight(weight),
-        contentAlignment = if (alignEnd) Alignment.CenterEnd else Alignment.CenterStart
-    ) {
-        Box(
-            modifier = if (enhanced) {
-                Modifier
-                    .clip(RoundedCornerShape(7.dp))
-                    .background(theme.muted.copy(alpha = 0.10f))
-                    .border(1.dp, theme.border, RoundedCornerShape(7.dp))
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
-            } else {
-                Modifier.padding(horizontal = 2.dp)
-            }
-        ) {
-            Text(
-                value,
-                color = theme.text,
-                fontSize = textSize,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun RowScope.StatusCell(
-    value: String,
-    weight: Float,
-    textSize: androidx.compose.ui.unit.TextUnit,
-    alignEnd: Boolean
-) {
-    Box(
-        modifier = Modifier.weight(weight),
-        contentAlignment = if (alignEnd) Alignment.CenterEnd else Alignment.CenterStart
-    ) {
-        val good = value == "Arrived"
-        val chipWidth = 46.dp
-        val chipHeight = 20.dp
-        Box(
+        PreviewAirlineBadge(airline, textScale, large = true)
+        Column(
             modifier = Modifier
-                .width(chipWidth)
-                .height(chipHeight)
-                .clip(RoundedCornerShape(999.dp))
-                .background(if (good) Color(0xFFC6F3D4) else Color(0xFFD8ECFF))
-                .border(1.dp, if (good) Color(0xFF5BCC7F) else Color(0xFF7DB7ED), RoundedCornerShape(999.dp))
-                .padding(horizontal = 4.dp),
-            contentAlignment = Alignment.Center
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                value,
-                color = if (good) Color(0xFF116D38) else Color(0xFF1165B8),
-                fontSize = textSize * 0.9f,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "$airline $flight",
+                    color = textColor,
+                    style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = previewFlightScaledSp(10.8f, 12f, textScale),
+                        lineHeight = previewFlightScaledSp(12f, 13.4f, textScale)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                StatusCell(status, textScale, accent = statusAccent)
+            }
+            Spacer(Modifier.height(3.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = place,
+                    color = textColor.copy(alpha = 0.88f),
+                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontSize = previewFlightScaledSp(9.2f, 10.4f, textScale),
+                        lineHeight = previewFlightScaledSp(10.4f, 11.7f, textScale)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "Sched $sched",
+                    color = mutedColor.copy(alpha = 0.88f),
+                    fontSize = previewFlightScaledSp(8.4f, 9.4f, textScale),
+                    lineHeight = previewFlightScaledSp(9.5f, 10.6f, textScale),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Actual $actual",
+                    color = mutedColor.copy(alpha = 0.88f),
+                    fontSize = previewFlightScaledSp(8.4f, 9.4f, textScale),
+                    lineHeight = previewFlightScaledSp(9.5f, 10.6f, textScale),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun PreviewAirlineCell(
+    airline: String,
+    textColor: Color,
+    textScale: Float
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        PreviewAirlineBadge(airline, textScale)
+        Text(
+            airline,
+            color = textColor,
+            style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = previewFlightScaledSp(10.8f, 12f, textScale),
+                lineHeight = previewFlightScaledSp(12.2f, 13.4f, textScale)
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun PreviewAirlineBadge(
+    airline: String,
+    textScale: Float,
+    large: Boolean = false
+) {
+    val normalized = airline.lowercase()
+    val (code, color) = when {
+        normalized.contains("american") || normalized == "aa" -> "AA" to Color(0xFF2563EB)
+        normalized.contains("delta") || normalized == "dl" -> "DL" to Color(0xFFDC2626)
+        normalized.contains("united") || normalized == "ua" -> "UA" to Color(0xFF0EA5E9)
+        normalized.contains("alaska") || normalized == "as" -> "AS" to Color(0xFF0F766E)
+        else -> "--" to Color(0xFF64748B)
+    }
+    Box(
+        modifier = Modifier
+            .size(if (large) 38.dp else 20.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(color.copy(alpha = 0.90f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = code,
+            color = Color.White,
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Black,
+                fontSize = if (large) 10.5.sp else previewFlightScaledSp(7.4f, 8.4f, textScale),
+                lineHeight = if (large) 11.5.sp else previewFlightScaledSp(8.4f, 9.4f, textScale),
+                textAlign = TextAlign.Center
+            ),
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun FlightCell(
+    value: String,
+    textColor: Color,
+    textScale: Float
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            value,
+            color = textColor,
+            style = androidx.compose.material3.MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = previewFlightScaledSp(10.8f, 12f, textScale),
+                lineHeight = previewFlightScaledSp(12.2f, 13.4f, textScale)
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 2.dp)
+        )
+    }
+}
+
+@Composable
+private fun StatusCell(
+    value: String,
+    textScale: Float,
+    accent: Color
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterEnd
+    ) {
+        Text(
+            value,
+            color = accent,
+            fontSize = 10.sp,
+            lineHeight = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(accent.copy(alpha = 0.18f))
+                .padding(horizontal = 6.dp, vertical = 5.dp)
+        )
     }
 }
 
@@ -1941,43 +1895,40 @@ private fun SettingToggleCard(
     backdrop: Backdrop? = null,
     onChange: (Boolean) -> Unit
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(12.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .clickable { onChange(!checked) }
+            .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .weight(1f)
-                .clip(shape)
-                .clickable { onChange(!checked) },
-            verticalAlignment = Alignment.CenterVertically
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(theme.accent.copy(alpha = 0.13f)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(theme.accent.copy(alpha = 0.16f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = theme.accent, modifier = Modifier.size(19.dp))
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = theme.text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 19.sp)
-                Spacer(Modifier.height(3.dp))
-                Text(subtitle, color = theme.muted, fontSize = 12.sp, lineHeight = 16.sp)
-            }
+            Icon(icon, contentDescription = null, tint = theme.accent, modifier = Modifier.size(16.dp))
         }
-        Spacer(Modifier.width(10.dp))
-        LiquidSettingsToggle(
-            selected = { checked },
-            onSelect = onChange,
-            backdrop = backdrop,
-            theme = theme
+        Spacer(Modifier.width(9.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = theme.text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, lineHeight = 16.sp)
+            Text(
+                subtitle,
+                color = theme.muted,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange
         )
     }
 }

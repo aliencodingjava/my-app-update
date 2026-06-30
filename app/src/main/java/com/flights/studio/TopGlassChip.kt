@@ -40,6 +40,7 @@ fun TopGlassChip(
 ) {
     val shape = RoundedCornerShape(999.dp)
     val adaptiveEnabled = rememberLiquidGlassAdaptiveLuminanceEnabled()
+    val blurAmount = rememberLiquidGlassBlurAmount()
     val adaptive = rememberAdaptiveLuminance(enabled = adaptiveEnabled)
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -77,13 +78,14 @@ fun TopGlassChip(
                     }
                     blur(
                         radius = if (adaptiveEnabled) {
+                            val baseBlurPx = 8.dp.toPx() * blurAmount
                             adaptiveLuminanceBlurPx(
                                 offset = luminanceOffset,
-                                baseBlurPx = 8.dp.toPx(),
+                                baseBlurPx = baseBlurPx,
                                 dpToPx = { it.dp.toPx() }
                             )
                         } else {
-                            8.dp.toPx()
+                            8.dp.toPx() * blurAmount
                         }
                     )
                     lens(
