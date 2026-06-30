@@ -1874,7 +1874,7 @@ private fun SettingsChangelogSheet(
             items = withContext(Dispatchers.IO) {
                 runCatching { AppUpdateRepository.fetchRemoteUpdate().updates }
                     .getOrElse {
-                        listOf(UpdateBlock(title = "Offline", summary = ""))
+                        listOf(UpdateBlock(title = "Unavailable", summary = ""))
                     }
             }
         }
@@ -2051,12 +2051,12 @@ private fun SettingsChangelogSheet(
 
 @Composable
 private fun ChangelogSheetItem(item: UpdateBlock) {
-    val title = if (item.title == "Offline") {
+    val title = if (item.title == "Offline" || item.title == "Unavailable") {
         stringResource(R.string.settings_changelog_offline_title)
     } else {
         item.title
     }
-    val summary = if (item.title == "Offline") {
+    val summary = if (item.title == "Offline" || item.title == "Unavailable") {
         stringResource(R.string.settings_changelog_offline)
     } else {
         item.summary

@@ -524,8 +524,8 @@ Track flights, save notes, manage contacts, and watch aviation videos — all in
     <string name="settings_device_title">Device Build</string>
     <string name="settings_no_results_hint">Only matching settings are shown while searching.</string>
     <string name="settings_searching_template">Searching: %1$s</string>
-    <string name="settings_changelog_offline_title">Offline</string>
-    <string name="settings_changelog_offline">Connect to the internet to load the latest changelog.</string>
+    <string name="settings_changelog_offline_title">Changelog unavailable</string>
+    <string name="settings_changelog_offline">The update feed could not be reached right now. Please try again in a little while.</string>
 
 
 </resources>

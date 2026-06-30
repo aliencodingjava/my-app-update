@@ -446,8 +446,8 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="settings_device_title">Compilación del dispositivo</string>
     <string name="settings_no_results_hint">Solo se muestran las opciones que coinciden con la búsqueda.</string>
     <string name="settings_searching_template">Buscando: %1$s</string>
-    <string name="settings_changelog_offline_title">Sin conexión</string>
-    <string name="settings_changelog_offline">Conéctate a internet para cargar el registro de cambios más reciente.</string>
+    <string name="settings_changelog_offline_title">Cambios no disponibles</string>
+    <string name="settings_changelog_offline">No se pudo acceder al feed de actualizaciones ahora. Inténtalo de nuevo más tarde.</string>
 
 
 </resources>

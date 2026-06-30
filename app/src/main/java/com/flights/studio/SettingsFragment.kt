@@ -219,8 +219,8 @@ Version: $versionName
             } catch (_: Exception) {
                 listOf(
                     UpdateBlock(
-                        title = "Offline",
-                        summary = "Connect to the internet to load the latest changelog."
+                        title = getString(R.string.settings_changelog_offline_title),
+                        summary = getString(R.string.settings_changelog_offline)
                     )
                 )
             }

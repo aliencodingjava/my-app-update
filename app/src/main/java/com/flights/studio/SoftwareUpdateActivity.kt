@@ -279,7 +279,7 @@ class SoftwareUpdateViewModel(
                 withContext(Dispatchers.Main) {
                     state = UpdateScreenState.Home(
                         checking = false,
-                        statusMessage = "Unable to check for updates",
+                        statusMessage = "Update feed is unavailable right now",
                         hideCheckButton = false
                     )
                 }
@@ -315,7 +315,7 @@ class SoftwareUpdateViewModel(
                 withContext(Dispatchers.Main) {
                     latestUpdate = latestUpdate.copy(
                         loading = false,
-                        errorMessage = "Unable to load the latest changelog"
+                        errorMessage = "Changelog is unavailable right now"
                     )
                 }
             }
