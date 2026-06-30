@@ -38,7 +38,7 @@ jobs:
       VERSION_NAME: ${{ inputs.version_name }}
       UPDATE_TITLE: ${{ inputs.update_title }}
       UPDATE_BODY: ${{ inputs.update_body }}
-      UPDATE_GIST_ID: ${{ vars.UPDATE_GIST_ID || '8ef085a89b30d85e2e86fb6f148d80cb' }}
+      UPDATE_GIST_ID: ${{ vars.UPDATE_GIST_ID || '358e7c8b5658f60cf098c1e7cb4a3cf4' }}
       UPDATE_GIST_FILENAME: ${{ vars.UPDATE_GIST_FILENAME || 'gistfile2.txt' }}
       FCM_PROJECT_ID: ${{ vars.FCM_PROJECT_ID }}
       FCM_TOPIC: app_updates

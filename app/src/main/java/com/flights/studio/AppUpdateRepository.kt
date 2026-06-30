@@ -4,7 +4,7 @@ import org.json.JSONObject
 import java.net.URL
 
 private const val GIST_URL =
-    "https://gist.github.com/aliencodingjava/8ef085a89b30d85e2e86fb6f148d80cb/raw/gistfile2.txt"
+    "https://gist.githubusercontent.com/aliencodingjava/358e7c8b5658f60cf098c1e7cb4a3cf4/raw/gistfile2.txt"
 
 object AppUpdateRepository {
 
