@@ -846,8 +846,10 @@ class MainActivity : FragmentActivity() {
                             message = emergencyMessage,
                             backdrop = mainMenuBackdrop,
                             visible = emergencyMessage?.let { message ->
-                                message.enabled &&
-                                    message.key != dismissedEmergencyKey &&
+                                val pageName = emergencyPageName(selectedMainPage)
+                                val wasDismissed = message.canDismiss() && message.key == dismissedEmergencyKey
+                                message.shouldShowOnPage(pageName) &&
+                                    !wasDismissed &&
                                     !showMainWelcome &&
                                     !(selectedMainPage == PAGE_HOME && homeCameraExpanded)
                             } == true,
@@ -2706,6 +2708,15 @@ Version: $versionName
                 .putExtra("start_card", cardId)
         )
         overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+    }
+
+    private fun emergencyPageName(page: Int): String {
+        return when (page) {
+            PAGE_BRIEFING -> "briefing"
+            PAGE_NOTES -> "notes"
+            PAGE_SETTINGS -> "settings"
+            else -> "home"
+        }
     }
 
     private fun openEmergencyAction(actionUrl: String) {
