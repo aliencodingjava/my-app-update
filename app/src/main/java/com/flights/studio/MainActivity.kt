@@ -854,6 +854,9 @@ class MainActivity : FragmentActivity() {
                             onDismiss = {
                                 dismissedEmergencyKey = emergencyMessage?.key
                             },
+                            onAction = { message ->
+                                openEmergencyAction(message.actionUrl)
+                            },
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
                                 .statusBarsPadding()
@@ -2703,6 +2706,65 @@ Version: $versionName
                 .putExtra("start_card", cardId)
         )
         overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+    }
+
+    private fun openEmergencyAction(actionUrl: String) {
+        val normalized = actionUrl.trim()
+        if (normalized.isBlank()) return
+
+        when (normalized.lowercase(Locale.US)) {
+            "app://flights", "app://flight-status", "app://flight_status", "jhairtracker://flights" -> {
+                openWebCard("card3")
+                return
+            }
+            "app://briefing", "jhairtracker://briefing" -> {
+                openRequestedMainPage?.invoke(PAGE_BRIEFING)
+                return
+            }
+            "app://notes", "jhairtracker://notes" -> {
+                openRequestedMainPage?.invoke(PAGE_NOTES)
+                return
+            }
+            "app://settings", "jhairtracker://settings" -> {
+                openRequestedMainPage?.invoke(PAGE_SETTINGS)
+                return
+            }
+            "app://updates", "app://software-update", "jhairtracker://updates" -> {
+                startActivity(Intent(this, SoftwareUpdateActivity::class.java))
+                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                return
+            }
+            "app://live-cameras", "app://cameras", "jhairtracker://live-cameras" -> {
+                val ts = System.currentTimeMillis()
+                startActivity(
+                    LiveCamerasActivity.intent(
+                        this,
+                        listOf(
+                            CameraCard(
+                                "Curb",
+                                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-curb.jpg?v=$ts"
+                            ),
+                            CameraCard(
+                                "North",
+                                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-north.jpg?v=$ts"
+                            ),
+                            CameraCard(
+                                "South",
+                                "https://www.jacksonholeairport.com/wp-content/uploads/webcams/parking-south.jpg?v=$ts"
+                            )
+                        )
+                    )
+                )
+                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                return
+            }
+        }
+
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, normalized.toUri()))
+        }.onFailure {
+            Toast.makeText(this, "Unable to open link", Toast.LENGTH_SHORT).show()
+        }
     }
 
     @Composable

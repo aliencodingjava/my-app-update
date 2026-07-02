@@ -34,7 +34,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,9 +50,9 @@ fun EmergencyMessageCard(
     backdrop: LayerBackdrop,
     visible: Boolean,
     onDismiss: () -> Unit,
+    onAction: (EmergencyMessage) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val uriHandler = LocalUriHandler.current
     val payload = message ?: EmergencyMessage.Disabled
     val severity = remember(payload.severity) { EmergencySeverity.from(payload.severity) }
     val shape = RoundedCornerShape(30.dp)
@@ -139,7 +138,7 @@ fun EmergencyMessageCard(
                                 .clip(ContinuousCapsule)
                                 .background(severity.accent.copy(alpha = 0.18f))
                                 .clickable(role = Role.Button) {
-                                    runCatching { uriHandler.openUri(payload.actionUrl) }
+                                    onAction(payload)
                                 }
                                 .padding(horizontal = 13.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically
