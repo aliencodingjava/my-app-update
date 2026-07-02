@@ -3,6 +3,8 @@ import json
 import os
 import textwrap
 import sys
+import base64
+import binascii
 
 import google.auth.transport.requests
 import requests
@@ -26,6 +28,45 @@ def normalize_private_key(raw_key: str) -> str:
     return f"{begin}\n{textwrap.fill(body, 64)}\n{end}\n"
 
 
+def load_service_account_info(raw_json: str) -> dict:
+    try:
+        loaded = json.loads(raw_json)
+    except json.JSONDecodeError:
+        try:
+            decoded = base64.b64decode(raw_json, validate=True).decode("utf-8")
+        except (binascii.Error, UnicodeDecodeError):
+            raise
+        loaded = json.loads(decoded)
+
+    if not isinstance(loaded, dict):
+        raise ValueError("service account secret must be a JSON object")
+
+    return loaded
+
+
+def describe_private_key_shape(private_key: str) -> str:
+    begin = "-----BEGIN PRIVATE KEY-----"
+    end = "-----END PRIVATE KEY-----"
+    has_begin = begin in private_key
+    has_end = end in private_key
+    body_chars = 0
+    base64_like = False
+    if has_begin and has_end:
+        body = private_key.split(begin, 1)[1].split(end, 1)[0]
+        body = "".join(body.split())
+        body_chars = len(body)
+        base64_like = bool(body) and all(
+            char.isalnum() or char in "+/=" for char in body
+        )
+
+    return (
+        f"private_key_chars={len(private_key)}, "
+        f"private_key_newlines={private_key.count(chr(10))}, "
+        f"has_begin={has_begin}, has_end={has_end}, "
+        f"body_chars={body_chars}, base64_like={base64_like}"
+    )
+
+
 project_id = os.environ.get("FCM_PROJECT_ID")
 service_account_json = os.environ.get("FCM_SERVICE_ACCOUNT_JSON")
 if not project_id or not service_account_json:
@@ -33,9 +74,12 @@ if not project_id or not service_account_json:
     sys.exit(0)
 
 try:
-    service_account_info = json.loads(service_account_json)
-except json.JSONDecodeError as exc:
-    print(f"FCM_SERVICE_ACCOUNT_JSON is not valid JSON; skipping push notification. {exc}")
+    service_account_info = load_service_account_info(service_account_json)
+except Exception as exc:
+    print(
+        "FCM_SERVICE_ACCOUNT_JSON is not valid raw JSON or base64 JSON; "
+        f"skipping push notification. {type(exc).__name__}: {exc}"
+    )
     sys.exit(0)
 
 private_key = normalize_private_key(str(service_account_info.get("private_key", "")))
@@ -65,7 +109,9 @@ except Exception as exc:
     print(
         "Could not load FCM service-account credentials; skipping push notification. "
         "Replace the FCM_SERVICE_ACCOUNT_JSON secret with the full Firebase service "
-        f"account JSON. Cause: {type(exc).__name__}: {exc}"
+        "account JSON. "
+        f"Safe private-key shape: {describe_private_key_shape(private_key)}. "
+        f"Cause: {type(exc).__name__}: {exc}"
     )
     sys.exit(0)
 
