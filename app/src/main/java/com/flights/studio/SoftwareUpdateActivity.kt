@@ -1499,7 +1499,7 @@ private fun LastUpdateSheet(
 
                 Text(
                     text = remote?.versionName?.takeIf { it.isNotBlank() }
-                        ?: "Tap Last update while online to load the latest release notes.",
+                        ?: "Tap Last update to load the latest release notes.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = secondaryBodyColor
                 )
