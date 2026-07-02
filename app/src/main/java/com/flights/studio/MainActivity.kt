@@ -248,6 +248,8 @@ class MainActivity : FragmentActivity() {
         private const val MAIN_WELCOME_PREFS = "main_welcome_prefs"
         private const val MAIN_WELCOME_SEEN_VERSION = "seen_version"
         private const val MAIN_WELCOME_VERSION = 1
+        private const val EMERGENCY_NOTICE_PREFS = "emergency_notice_prefs"
+        private const val DISMISSED_EMERGENCY_KEY = "dismissed_emergency_key"
         private const val DEBUG_FORCE_BRIEFING_RAIN = false
         private const val DEBUG_FORCE_BRIEFING_THUNDER = false
         private const val DEBUG_FORCE_BRIEFING_SUN = false
@@ -389,6 +391,9 @@ class MainActivity : FragmentActivity() {
                 val welcomePrefs = remember {
                     context.getSharedPreferences(MAIN_WELCOME_PREFS, MODE_PRIVATE)
                 }
+                val emergencyPrefs = remember {
+                    context.getSharedPreferences(EMERGENCY_NOTICE_PREFS, MODE_PRIVATE)
+                }
                 var showMainWelcome by remember {
                     mutableStateOf(
                         welcomePrefs.getInt(MAIN_WELCOME_SEEN_VERSION, 0) < MAIN_WELCOME_VERSION
@@ -406,7 +411,9 @@ class MainActivity : FragmentActivity() {
                 var reminderTimeNote by remember { mutableStateOf<String?>(null) }
                 var reminderDetails by remember { mutableStateOf<ReminderInfo?>(null) }
                 var emergencyMessage by remember { mutableStateOf<EmergencyMessage?>(null) }
-                var dismissedEmergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
+                var dismissedEmergencyKey by remember {
+                    mutableStateOf(emergencyPrefs.getString(DISMISSED_EMERGENCY_KEY, null))
+                }
                 var selectedMainPage by rememberSaveable { mutableIntStateOf(resolveInitialMainPage(intent)) }
                 val scope = rememberCoroutineScope()
                 var lastNonBriefingPage by remember {
@@ -854,7 +861,12 @@ class MainActivity : FragmentActivity() {
                                     !(selectedMainPage == PAGE_HOME && homeCameraExpanded)
                             } == true,
                             onDismiss = {
-                                dismissedEmergencyKey = emergencyMessage?.key
+                                emergencyMessage?.key?.let { key ->
+                                    dismissedEmergencyKey = key
+                                    emergencyPrefs.edit {
+                                        putString(DISMISSED_EMERGENCY_KEY, key)
+                                    }
+                                }
                             },
                             onAction = { message ->
                                 openEmergencyAction(message.actionUrl)
