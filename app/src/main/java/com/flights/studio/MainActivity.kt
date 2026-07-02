@@ -405,6 +405,8 @@ class MainActivity : FragmentActivity() {
                 var reminderNote by remember { mutableStateOf<String?>(null) }
                 var reminderTimeNote by remember { mutableStateOf<String?>(null) }
                 var reminderDetails by remember { mutableStateOf<ReminderInfo?>(null) }
+                var emergencyMessage by remember { mutableStateOf<EmergencyMessage?>(null) }
+                var dismissedEmergencyKey by rememberSaveable { mutableStateOf<String?>(null) }
                 var selectedMainPage by rememberSaveable { mutableIntStateOf(resolveInitialMainPage(intent)) }
                 val scope = rememberCoroutineScope()
                 var lastNonBriefingPage by remember {
@@ -432,6 +434,10 @@ class MainActivity : FragmentActivity() {
                             showMenuSheet = true
                         }
                     }
+                }
+
+                LaunchedEffect(Unit) {
+                    emergencyMessage = EmergencyMessageRepository.fetch()
                 }
 
                 LaunchedEffect(pendingContactsInfoSheet) {
@@ -834,6 +840,25 @@ class MainActivity : FragmentActivity() {
                                     bottom = if (settingsKeyboardOpen) 10.dp else 76.dp
                                 )
                                 .zIndex(95f)
+                        )
+
+                        EmergencyMessageCard(
+                            message = emergencyMessage,
+                            backdrop = mainMenuBackdrop,
+                            visible = emergencyMessage?.let { message ->
+                                message.enabled &&
+                                    message.key != dismissedEmergencyKey &&
+                                    !showMainWelcome &&
+                                    !(selectedMainPage == PAGE_HOME && homeCameraExpanded)
+                            } == true,
+                            onDismiss = {
+                                dismissedEmergencyKey = emergencyMessage?.key
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .statusBarsPadding()
+                                .padding(start = 14.dp, end = 14.dp, top = 12.dp)
+                                .zIndex(92f)
                         )
 
                         MainWelcomeOnboardingOverlay(
