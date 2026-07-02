@@ -126,6 +126,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.preference.PreferenceManager
@@ -511,16 +512,6 @@ fun ModernSettingsScreen(
                 modifier = Modifier.align(Alignment.TopCenter)
             )
 
-            SettingsFloatingSearchButton(
-                visible = showBottomChrome && !modalVisible && !searchSheetVisible,
-                backdrop = settingsChromeBackdrop,
-                onClick = onOpenSearch,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 18.dp, bottom = 82.dp)
-                    .navigationBarsPadding()
-            )
-
             if (showBottomChrome) {
                 SettingsQuickTabBar(
                     modifier = Modifier
@@ -533,6 +524,17 @@ fun ModernSettingsScreen(
                     onOpenContacts = onOpenContacts,
                     onOpenSettings = {},
                     onOpenMenu = { showMenuSheet.value = true }
+                )
+
+                SettingsFloatingSearchButton(
+                    visible = !modalVisible && !searchSheetVisible,
+                    backdrop = settingsChromeBackdrop,
+                    onClick = onOpenSearch,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 22.dp, bottom = 70.dp)
+                        .navigationBarsPadding()
+                        .zIndex(20f)
                 )
             }
         }
