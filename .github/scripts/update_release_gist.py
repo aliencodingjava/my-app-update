@@ -14,6 +14,33 @@ apk_url = os.environ["APK_URL"]
 update_title = os.environ.get("UPDATE_TITLE", "").strip()
 update_body = os.environ.get("UPDATE_BODY", "").strip()
 
+PRUNED_TITLES = {
+    "notification test",
+    "update notifications fixed",
+}
+
+PRUNED_PHRASES = (
+    "firebase credentials",
+    "firebase update notification",
+    "push notifications from github",
+    "notification credentials",
+    "receive the update alert",
+)
+
+
+def normalize_text(value):
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def should_keep_update(title, body):
+    normalized_title = normalize_text(title)
+    normalized_body = normalize_text(body)
+    if normalized_title in PRUNED_TITLES:
+        return False
+    if any(phrase in normalized_body for phrase in PRUNED_PHRASES):
+        return False
+    return True
+
 api_url = f"https://api.github.com/gists/{gist_id}"
 headers = {
     "Accept": "application/vnd.github+json",
@@ -59,6 +86,7 @@ if update_title or update_body:
 
 deduped_updates = []
 seen_updates = set()
+seen_bodies = set()
 for update in updates:
     if not isinstance(update, dict):
         continue
@@ -66,10 +94,16 @@ for update in updates:
     body = str(update.get("body", "")).strip()
     if not title and not body:
         continue
+    if not should_keep_update(title, body):
+        continue
     key = (title, body)
+    body_key = normalize_text(body)
     if key in seen_updates:
         continue
+    if body_key and body_key in seen_bodies:
+        continue
     seen_updates.add(key)
+    seen_bodies.add(body_key)
     deduped_updates.append({"title": title, "body": body})
 
 payload["updates"] = deduped_updates

@@ -25,7 +25,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
@@ -38,6 +42,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -98,13 +103,19 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -114,9 +125,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
@@ -141,6 +155,9 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.capsule.ContinuousCapsule
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -157,9 +174,12 @@ import java.util.Calendar
 import java.util.TimeZone
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.tanh
 import kotlin.random.Random
 
 @Suppress("DEPRECATION")
@@ -206,6 +226,7 @@ class MainActivity : FragmentActivity() {
     private val contactsAlphabeticalMode = mutableStateOf(false)
     private val contactsAddFabVisible = mutableStateOf(true)
     private val settingsSearchQuery = mutableStateOf("")
+    private val settingsSearchSheetVisible = mutableStateOf(false)
 
     fun showRecentContactMenu(contact: AllContact, onRemove: () -> Unit) {
         openRecentContactMenu?.invoke(contact, onRemove)
@@ -555,6 +576,8 @@ class MainActivity : FragmentActivity() {
                         else -> PrimaryTabDestination.Home
                     }
                     var settingsModalVisible by remember { mutableStateOf(false) }
+                    val imeDensity = LocalDensity.current
+                    val settingsKeyboardOpen = WindowInsets.ime.getBottom(imeDensity) > 0
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         Box(
@@ -772,6 +795,46 @@ class MainActivity : FragmentActivity() {
                                 contentView = null
                             )
                         }
+
+                        SettingsMainSearchButton(
+                            visible = selectedMainPage == PAGE_SETTINGS &&
+                                !settingsModalVisible &&
+                                !showMenuSheet &&
+                                !settingsSearchSheetVisible.value,
+                            backdrop = mainMenuBackdrop,
+                            onClick = { settingsSearchSheetVisible.value = true },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 22.dp, bottom = 76.dp)
+                                .navigationBarsPadding()
+                                .zIndex(90f)
+                        )
+
+                        SettingsSearchGlassPanel(
+                            visible = selectedMainPage == PAGE_SETTINGS && settingsSearchSheetVisible.value,
+                            query = settingsSearchQuery.value,
+                            onQueryChange = { settingsSearchQuery.value = it },
+                            backdrop = mainMenuBackdrop,
+                            onDismiss = {
+                                settingsSearchQuery.value = ""
+                                settingsSearchSheetVisible.value = false
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .then(
+                                    if (settingsKeyboardOpen) {
+                                        Modifier.imePadding()
+                                    } else {
+                                        Modifier.navigationBarsPadding()
+                                    }
+                                )
+                                .padding(
+                                    start = 14.dp,
+                                    end = 14.dp,
+                                    bottom = if (settingsKeyboardOpen) 10.dp else 76.dp
+                                )
+                                .zIndex(95f)
+                        )
 
                         MainWelcomeOnboardingOverlay(
                             visible = showMainWelcome,
@@ -2129,6 +2192,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun openSettingsSearchSheet() {
+        settingsSearchSheetVisible.value = true
         val dialog = BottomSheetDialog(this)
         fun px(dpValue: Int): Int = (dpValue * resources.displayMetrics.density).toInt()
         val container = LinearLayout(this).apply {
@@ -2159,6 +2223,7 @@ class MainActivity : FragmentActivity() {
         dialog.setContentView(container)
         dialog.setOnDismissListener {
             settingsSearchQuery.value = ""
+            settingsSearchSheetVisible.value = false
         }
         dialog.show()
         searchInput.requestFocus()
@@ -2171,6 +2236,274 @@ class MainActivity : FragmentActivity() {
         })
         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
         imm.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    @Composable
+    private fun SettingsSearchGlassPanel(
+        visible: Boolean,
+        query: String,
+        onQueryChange: (String) -> Unit,
+        backdrop: LayerBackdrop,
+        onDismiss: () -> Unit,
+        modifier: Modifier = Modifier
+    ) {
+        val isDark = isSystemInDarkTheme()
+        val focusRequester = remember { FocusRequester() }
+        val keyboard = LocalSoftwareKeyboardController.current
+        val focusManager = LocalFocusManager.current
+        val density = LocalDensity.current
+        val keyboardOpen = WindowInsets.ime.getBottom(density) > 0
+        var sawKeyboard by remember { mutableStateOf(false) }
+        var revealPanel by remember { mutableStateOf(false) }
+        val panelColor = if (isDark) Color(0xFF1B2730).copy(alpha = 0.78f) else Color(0xFFB9DFF2).copy(alpha = 0.90f)
+        val capsuleColor = if (isDark) Color.White.copy(alpha = 0.13f) else Color(0xFFE4F5FF).copy(alpha = 0.82f)
+        val contentColor = if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF123B52)
+        val hintColor = if (isDark) Color.White.copy(alpha = 0.56f) else Color(0xFF254B60).copy(alpha = 0.72f)
+
+        LaunchedEffect(visible) {
+            if (visible) {
+                sawKeyboard = false
+                revealPanel = false
+                kotlinx.coroutines.delay(24)
+                runCatching { focusRequester.requestFocus() }
+                keyboard?.show()
+            } else {
+                sawKeyboard = false
+                revealPanel = false
+            }
+        }
+
+        LaunchedEffect(visible, keyboardOpen) {
+            if (!visible) return@LaunchedEffect
+            if (keyboardOpen) {
+                sawKeyboard = true
+                kotlinx.coroutines.delay(24)
+                revealPanel = true
+            } else if (sawKeyboard) {
+                onDismiss()
+            }
+        }
+
+        val panelAlpha by animateFloatAsState(
+            targetValue = if (visible && revealPanel) 1f else 0f,
+            animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing),
+            label = "settingsSearchPanelAlpha"
+        )
+        val panelScale by animateFloatAsState(
+            targetValue = if (visible && revealPanel) 1f else 0.96f,
+            animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+            label = "settingsSearchPanelScale"
+        )
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = visible,
+            modifier = modifier,
+            enter = fadeIn(animationSpec = tween(1)),
+            exit = fadeOut(animationSpec = tween(120)) +
+                scaleOut(
+                    targetScale = 0.98f,
+                    animationSpec = tween(150, easing = FastOutSlowInEasing)
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        alpha = panelAlpha
+                        scaleX = panelScale
+                        scaleY = panelScale
+                    }
+                    .clip(GlassChromeShape)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { GlassChromeShape },
+                        highlight = null,
+                        effects = {
+                            vibrancy()
+                            blur(4f.dp.toPx())
+                            lens(18f.dp.toPx(), 54f.dp.toPx())
+                        },
+                        onDrawSurface = {
+                            drawRect(panelColor)
+                            drawRect(Color.White.copy(alpha = if (isDark) 0.05f else 0.12f))
+                        }
+                    )
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(ContinuousCapsule)
+                        .background(capsuleColor)
+                        .padding(start = 16.dp, end = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null,
+                        tint = contentColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    BasicTextField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            color = contentColor,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
+                                focusManager.clearFocus()
+                                keyboard?.hide()
+                                onDismiss()
+                            }
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
+                            .focusRequester(focusRequester),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (query.isBlank()) {
+                                    Text(
+                                        text = "Search settings",
+                                        color = hintColor,
+                                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                    IconButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboard?.hide()
+                            onDismiss()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Close search",
+                            tint = contentColor,
+                            modifier = Modifier.size(21.dp)
+                        )
+                    }
+                }
+
+                Text(
+                    text = if (query.isBlank()) {
+                        "Type to filter Settings"
+                    } else {
+                        "Showing matching settings"
+                    },
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                    color = hintColor,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun SettingsMainSearchButton(
+        visible: Boolean,
+        backdrop: LayerBackdrop,
+        onClick: () -> Unit,
+        modifier: Modifier = Modifier
+    ) {
+        val isDark = isSystemInDarkTheme()
+        val animationScope = rememberCoroutineScope()
+        val interactiveHighlight = remember(animationScope, isDark) {
+            InteractiveHighlight(
+                animationScope = animationScope,
+                highlightColor = if (isDark) Color.White else Color.Black
+            )
+        }
+        val buttonColor = if (isDark) Color(0xFF59C9F8) else Color(0xFFB9DFF2)
+        val iconColor = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF123B52)
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = visible,
+            modifier = modifier,
+            enter = fadeIn(animationSpec = tween(durationMillis = 140)) +
+                scaleIn(
+                    initialScale = 0.88f,
+                    animationSpec = spring(dampingRatio = 0.72f, stiffness = 460f)
+                ),
+            exit = fadeOut(animationSpec = tween(durationMillis = 120)) +
+                scaleOut(
+                    targetScale = 0.88f,
+                    animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
+                )
+        ) {
+            Row(
+                modifier = Modifier
+                    .size(60.dp)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { ContinuousCapsule },
+                        highlight = null,
+                        effects = {
+                            vibrancy()
+                            blur(2f.dp.toPx())
+                            lens(12f.dp.toPx(), 24f.dp.toPx())
+                        },
+                        layerBlock = {
+                            val width = size.width
+                            val height = size.height
+                            val progress = interactiveHighlight.pressProgress
+                            val scale = 1f + (6f.dp.toPx() / height) * progress
+
+                            val maxOffset = size.minDimension
+                            val offset = interactiveHighlight.offset
+                            translationX = maxOffset * tanh(0.05f * offset.x / maxOffset)
+                            translationY = maxOffset * tanh(0.05f * offset.y / maxOffset)
+
+                            val maxDragScale = 6f.dp.toPx() / height
+                            val offsetAngle = atan2(offset.y, offset.x)
+                            scaleX =
+                                scale +
+                                    maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                                    (width / height).fastCoerceAtMost(1f)
+                            scaleY =
+                                scale +
+                                    maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                                    (height / width).fastCoerceAtMost(1f)
+                        },
+                        onDrawSurface = {
+                            val baseAlpha = if (isDark) 0.34f else 0.92f
+                            drawRect(buttonColor.copy(alpha = baseAlpha))
+                            drawRect(Color.White.copy(alpha = if (isDark) 0.08f else 0.16f))
+                            drawRect(buttonColor.copy(alpha = baseAlpha * 0.36f * interactiveHighlight.pressProgress))
+                        }
+                    )
+                    .clickable(
+                        interactionSource = null,
+                        indication = null,
+                        role = Role.Button,
+                        onClick = onClick
+                    )
+                    .then(interactiveHighlight.modifier)
+                    .then(interactiveHighlight.gestureModifier),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = getString(R.string.search),
+                    modifier = Modifier.size(24.dp),
+                    tint = iconColor
+                )
+            }
+        }
     }
 
     private fun shareApp() {

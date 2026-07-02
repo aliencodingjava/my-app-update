@@ -32,6 +32,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -525,16 +526,27 @@ fun ModernSettingsScreen(
                     onOpenSettings = {},
                     onOpenMenu = { showMenuSheet.value = true }
                 )
+            }
+        }
 
+        if (showBottomChrome) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(
+                        start = GlassChromeHorizontalPadding,
+                        end = GlassChromeHorizontalPadding,
+                        bottom = 76.dp
+                    )
+                    .zIndex(80f),
+                contentAlignment = Alignment.BottomEnd
+            ) {
                 SettingsFloatingSearchButton(
                     visible = !modalVisible && !searchSheetVisible,
                     backdrop = settingsChromeBackdrop,
-                    onClick = onOpenSearch,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 22.dp, bottom = 70.dp)
-                        .navigationBarsPadding()
-                        .zIndex(20f)
+                    onClick = onOpenSearch
                 )
             }
         }
@@ -1006,12 +1018,19 @@ private fun SettingsFloatingSearchButton(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val iconColor = if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
+    val iconColor = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF123B52)
     val buttonColor = if (isDark) {
-        Color.White.copy(alpha = 0.14f)
+        Color(0xFF59C9F8).copy(alpha = 0.34f)
     } else {
-        Color.White.copy(alpha = 0.96f)
+        Color(0xFFB9DFF2).copy(alpha = 0.92f)
     }
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.90f else 1f,
+        animationSpec = spring(dampingRatio = 0.70f, stiffness = 520f),
+        label = "settingsSearchFabPressScale"
+    )
 
     AnimatedVisibility(
         visible = visible,
@@ -1029,7 +1048,11 @@ private fun SettingsFloatingSearchButton(
     ) {
         Box(
             modifier = Modifier
-                .size(54.dp)
+                .size(58.dp)
+                .graphicsLayer {
+                    scaleX = pressScale
+                    scaleY = pressScale
+                }
                 .clip(CircleShape)
                 .adaptiveLiquidGlassBackdrop(
                     backdrop = backdrop,
@@ -1042,7 +1065,7 @@ private fun SettingsFloatingSearchButton(
                     chromaticAberration = true
                 )
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = interaction,
                     indication = null,
                     onClick = onClick
                 ),
@@ -1052,7 +1075,7 @@ private fun SettingsFloatingSearchButton(
                 imageVector = Icons.Filled.Search,
                 contentDescription = stringResource(R.string.search),
                 tint = iconColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(25.dp)
             )
         }
     }

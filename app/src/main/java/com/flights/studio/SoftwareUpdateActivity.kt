@@ -13,6 +13,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -77,7 +78,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -636,8 +640,6 @@ private fun UpdateDetailsScreen(
     val bg = if (dark) Color(0xFF120F20) else Color(0xFFF5F6FA)
     val accent = Color(0xFF77D4B2)
 
-    val headerHeight = 110.dp
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -648,34 +650,25 @@ private fun UpdateDetailsScreen(
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
-                top = 16.dp + headerHeight + 44.dp,
+                top = 250.dp,
                 bottom = 60.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                Spacer(modifier = Modifier.height(headerHeight + 0.dp))
-            }
-
-
             items(state.remote.updates) { item ->
                 UpdateBlockCard(item = item)
             }
         }
 
-        Column(
+        Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .background(bg)
+                .statusBarsPadding()
+                .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 18.dp)
         ) {
-            TopBar(
-                onBack = onBack,
-                onSoftwareInfo = onSoftwareInfo,
-                onLastUpdate = onLastUpdate
-            )
-
-            UpdateHeaderHero(
+            UpdateHeroActionBar(
                 currentVersionCode = state.currentVersionCode,
                 currentVersionName = state.currentVersionName,
                 remoteVersionCode = state.remote.versionCode,
@@ -684,19 +677,19 @@ private fun UpdateDetailsScreen(
                 downloading = state.downloading,
                 downloaded = state.downloadedUri != null,
                 progress = state.progress?.percent ?: 0,
+                onBack = onBack,
+                onSoftwareInfo = onSoftwareInfo,
+                onLastUpdate = onLastUpdate,
                 onActionClick = {
                     if (state.downloadedUri != null) onInstall() else onDownload()
-                },
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                }
             )
         }
-
     }
 }
 
 @Composable
-private fun UpdateHeaderHero(
+private fun UpdateHeroActionBar(
     currentVersionCode: Long,
     currentVersionName: String,
     remoteVersionCode: Int,
@@ -705,78 +698,131 @@ private fun UpdateHeaderHero(
     downloading: Boolean,
     downloaded: Boolean,
     progress: Int,
+    onBack: () -> Unit,
+    onSoftwareInfo: () -> Unit,
+    onLastUpdate: () -> Unit,
     onActionClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val dark = isSystemInDarkTheme()
+    var expanded by remember { mutableStateOf(false) }
 
     val container = if (dark) Color(0xFF1B1828) else Color.White
-    val border = if (dark) {
-        Color.White.copy(alpha = 0.08f)
-    } else {
-        Color(0xFFDCE2EA)
-    }
-
+    val border = if (dark) Color.White.copy(alpha = 0.08f) else Color(0xFFDCE2EA)
     val primaryText = if (dark) Color.White else Color(0xFF111111)
     val secondaryText = if (dark) Color.White.copy(alpha = 0.72f) else Color(0xFF4B5563)
     val labelText = if (dark) Color.White.copy(alpha = 0.60f) else Color(0xFF6B7280)
+    val iconTint = if (dark) Color.White else Color(0xFF111111)
+    val menuBg = if (dark) Color(0xFF1B1828) else Color.White
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = container),
         border = androidx.compose.foundation.BorderStroke(1.dp, border),
         elevation = CardDefaults.cardElevation(defaultElevation = if (dark) 2.dp else 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+            modifier = Modifier
+                .height(166.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = if (dark) {
-                                    listOf(
-                                        accent.copy(alpha = 0.28f),
-                                        Color(0xFF77B6FF).copy(alpha = 0.18f)
-                                    )
-                                } else {
-                                    listOf(
-                                        accent.copy(alpha = 0.20f),
-                                        Color(0xFF77B6FF).copy(alpha = 0.12f)
-                                    )
-                                }
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        ),
-                    contentAlignment = Alignment.Center
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.align(Alignment.CenterStart)
                 ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBackIos,
+                        contentDescription = "Back",
+                        tint = iconTint
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "↑",
-                        color = if (dark) Color.White else accent,
+                        text = "Software Update",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = labelText,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Version $remoteVersionName available",
                         style = MaterialTheme.typography.titleMedium,
+                        color = primaryText,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
+                Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                    IconButton(onClick = { expanded = true }) {
+                        Icon(
+                            imageVector = Icons.Outlined.MoreVert,
+                            contentDescription = "More",
+                            tint = iconTint
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        shape = RoundedCornerShape(24.dp),
+                        containerColor = menuBg,
+                        tonalElevation = 8.dp,
+                        shadowElevation = 12.dp,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, border)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Software information", color = primaryText) },
+                            onClick = {
+                                expanded = false
+                                onSoftwareInfo()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Last update", color = primaryText) },
+                            onClick = {
+                                expanded = false
+                                onLastUpdate()
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = border)
+            Spacer(Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularUpdateProgress(
+                    progress = progress,
+                    accent = accent,
+                    dark = dark,
+                    active = downloading,
+                    downloaded = downloaded
+                )
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Version $remoteVersionCode",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = if (dark) Color.White else accent,
-                        fontWeight = FontWeight.Bold
+                        text = if (downloading) "$progress% downloaded" else "Ready to download",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = primaryText,
+                        fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = remoteVersionName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = secondaryText
-                    )
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        VersionMiniPill(
+                            text = "Installed $currentVersionName",
+                            dark = dark
+                        )
+                    }
                 }
 
                 HeaderActionPill(
@@ -788,45 +834,119 @@ private fun UpdateHeaderHero(
                     onClick = onActionClick
                 )
             }
-            HorizontalDivider(color = border)
-            Spacer(Modifier.height(12.dp))
-            if (downloading) {
-                LinearHeaderProgress(
-                    progress = progress,
-                    accent = accent,
-                    dark = dark
-                )
-                Spacer(Modifier.height(12.dp))
-            }
+        }
+    }
+}
 
-            CompactVersionRow(
-                label = "Current",
-                value = "$currentVersionName ($currentVersionCode)",
-                labelColor = labelText,
-                valueColor = primaryText
+@Composable
+private fun CircularUpdateProgress(
+    progress: Int,
+    accent: Color,
+    dark: Boolean,
+    active: Boolean,
+    downloaded: Boolean
+) {
+    val track = if (dark) Color.White.copy(alpha = 0.12f) else Color(0xFFDCE7F1)
+    val fill = when {
+        downloaded -> Color(0xFF77D4B2)
+        active -> accent
+        else -> if (dark) Color(0xFF77B6FF).copy(alpha = 0.62f) else Color(0xFF4B9FE8)
+    }
+    val shownProgress = when {
+        downloaded -> 100
+        active -> progress.coerceIn(0, 100)
+        else -> 0
+    }
+
+    Box(
+        modifier = Modifier.size(64.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stroke = 5.dp.toPx()
+            val inset = stroke / 2f
+            drawArc(
+                color = track,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
+                style = Stroke(width = stroke, cap = StrokeCap.Round)
             )
-
-            Spacer(Modifier.height(8.dp))
-
-            CompactVersionRow(
-                label = "Available",
-                value = "$remoteVersionName ($remoteVersionCode)",
-                labelColor = labelText,
-                valueColor = primaryText
+            drawArc(
+                color = fill,
+                startAngle = -90f,
+                sweepAngle = 360f * shownProgress / 100f,
+                useCenter = false,
+                topLeft = Offset(inset, inset),
+                size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
+                style = Stroke(width = stroke, cap = StrokeCap.Round)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = if (dark) {
+                            listOf(accent.copy(alpha = 0.28f), Color(0xFF77B6FF).copy(alpha = 0.18f))
+                        } else {
+                            listOf(accent.copy(alpha = 0.20f), Color(0xFF77B6FF).copy(alpha = 0.12f))
+                        }
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (downloaded) "✓" else "↑",
+                color = if (dark) Color.White else accent,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
         }
     }
 }
 
 @Composable
+private fun VersionMiniPill(
+    text: String,
+    dark: Boolean
+) {
+    Text(
+        text = text,
+        maxLines = 1,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (dark) Color.White.copy(alpha = 0.72f) else Color(0xFF425466),
+        modifier = Modifier
+            .background(
+                if (dark) Color.White.copy(alpha = 0.08f) else Color(0xFFE9EEF5),
+                RoundedCornerShape(999.dp)
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    )
+}
+
+@Composable
 private fun LinearHeaderProgress(
     progress: Int,
     accent: Color,
-    dark: Boolean
+    dark: Boolean,
+    visible: Boolean
 ) {
     val track = if (dark) Color.White.copy(alpha = 0.08f) else Color(0xFFE8ECF3)
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 140, easing = FastOutSlowInEasing),
+        label = "downloadProgressAlpha"
+    )
 
-    Column {
+    Column(
+        modifier = Modifier
+            .height(40.dp)
+            .graphicsLayer { this.alpha = alpha }
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -1150,7 +1270,8 @@ private fun UpdateTagPill(title: String) {
 private fun TopBar(
     onBack: () -> Unit,
     onSoftwareInfo: () -> Unit,
-    onLastUpdate: () -> Unit
+    onLastUpdate: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     val dark = isSystemInDarkTheme()
@@ -1165,7 +1286,7 @@ private fun TopBar(
     val menuText = if (dark) Color.White else Color(0xFF111111)
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
             .padding(horizontal = 10.dp, vertical = 2.dp)
