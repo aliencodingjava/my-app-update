@@ -28,6 +28,16 @@ def normalize_private_key(raw_key: str) -> str:
     return f"{begin}\n{textwrap.fill(body, 64)}\n{end}\n"
 
 
+def decode_escaped_private_key(raw_key: str) -> str:
+    return (
+        raw_key.strip()
+        .strip('"')
+        .replace("\\r\\n", "\n")
+        .replace("\\n", "\n")
+        .replace("\r\n", "\n")
+    )
+
+
 def load_service_account_info(raw_json: str) -> dict:
     try:
         loaded = json.loads(raw_json)
@@ -82,10 +92,15 @@ except Exception as exc:
     )
     sys.exit(0)
 
-private_key = normalize_private_key(str(service_account_info.get("private_key", "")))
-service_account_info["private_key"] = private_key
+raw_private_key = str(service_account_info.get("private_key", ""))
+private_key_candidates = [
+    ("decoded", decode_escaped_private_key(raw_private_key)),
+    ("normalized", normalize_private_key(raw_private_key)),
+]
 
-if "-----BEGIN PRIVATE KEY-----" not in str(service_account_info.get("private_key", "")):
+if not any(
+    "-----BEGIN PRIVATE KEY-----" in key for _, key in private_key_candidates
+):
     print(
         "FCM_SERVICE_ACCOUNT_JSON does not look like a Firebase service-account key; "
         "skipping push notification."
@@ -99,20 +114,42 @@ print(
     f"private_key_id={'present' if service_account_info.get('private_key_id') else 'missing'}"
 )
 
+credentials = None
+credential_errors = []
+loaded_key_label = ""
 try:
-    credentials = service_account.Credentials.from_service_account_info(
-        service_account_info,
-        scopes=["https://www.googleapis.com/auth/firebase.messaging"],
-    )
-    credentials.refresh(google.auth.transport.requests.Request())
+    for key_label, private_key in private_key_candidates:
+        candidate_info = dict(service_account_info)
+        candidate_info["private_key"] = private_key
+        try:
+            credentials = service_account.Credentials.from_service_account_info(
+                candidate_info,
+                scopes=["https://www.googleapis.com/auth/firebase.messaging"],
+            )
+            credentials.refresh(google.auth.transport.requests.Request())
+            loaded_key_label = key_label
+            break
+        except Exception as exc:
+            credential_errors.append(
+                f"{key_label}: {type(exc).__name__}: {exc}; "
+                f"{describe_private_key_shape(private_key)}"
+            )
+
+    if credentials is None:
+        raise RuntimeError(" | ".join(credential_errors))
 except Exception as exc:
     print(
         "Could not load FCM service-account credentials; skipping push notification. "
         "Replace the FCM_SERVICE_ACCOUNT_JSON secret with the full Firebase service "
         "account JSON. "
-        f"Safe private-key shape: {describe_private_key_shape(private_key)}. "
         f"Cause: {type(exc).__name__}: {exc}"
     )
+    sys.exit(0)
+
+print(f"Loaded FCM credentials successfully with {loaded_key_label} private key format.")
+
+if os.environ.get("FCM_VALIDATE_ONLY", "").lower() == "true":
+    print("FCM validate-only mode passed; no notification was sent.")
     sys.exit(0)
 
 message = {
