@@ -1,11 +1,30 @@
 #!/usr/bin/env python3
 import json
 import os
+import textwrap
 import sys
 
 import google.auth.transport.requests
 import requests
 from google.oauth2 import service_account
+
+def normalize_private_key(raw_key: str) -> str:
+    private_key = raw_key.strip().strip('"')
+    private_key = private_key.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\r\n", "\n")
+
+    begin = "-----BEGIN PRIVATE KEY-----"
+    end = "-----END PRIVATE KEY-----"
+    if begin not in private_key or end not in private_key:
+        return private_key
+
+    before_end = private_key.split(end, 1)[0]
+    body = before_end.split(begin, 1)[1]
+    body = "".join(body.split())
+    if not body:
+        return private_key
+
+    return f"{begin}\n{textwrap.fill(body, 64)}\n{end}\n"
+
 
 project_id = os.environ.get("FCM_PROJECT_ID")
 service_account_json = os.environ.get("FCM_SERVICE_ACCOUNT_JSON")
@@ -19,9 +38,8 @@ except json.JSONDecodeError as exc:
     print(f"FCM_SERVICE_ACCOUNT_JSON is not valid JSON; skipping push notification. {exc}")
     sys.exit(0)
 
-private_key = str(service_account_info.get("private_key", ""))
-if "\\n" in private_key:
-    service_account_info["private_key"] = private_key.replace("\\n", "\n")
+private_key = normalize_private_key(str(service_account_info.get("private_key", "")))
+service_account_info["private_key"] = private_key
 
 if "-----BEGIN PRIVATE KEY-----" not in str(service_account_info.get("private_key", "")):
     print(
@@ -29,6 +47,13 @@ if "-----BEGIN PRIVATE KEY-----" not in str(service_account_info.get("private_ke
         "skipping push notification."
     )
     sys.exit(0)
+
+print(
+    "Loaded FCM service-account metadata: "
+    f"project_id={service_account_info.get('project_id', '<missing>')}, "
+    f"client_email={service_account_info.get('client_email', '<missing>')}, "
+    f"private_key_id={'present' if service_account_info.get('private_key_id') else 'missing'}"
+)
 
 try:
     credentials = service_account.Credentials.from_service_account_info(
