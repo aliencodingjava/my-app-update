@@ -33,6 +33,7 @@ class SettingsActivity : LocaleActivity() {
     private lateinit var binding: ActivityScrollingSettingsBinding
     private lateinit var userPrefs: UserPreferencesManager
     private val settingsSearchQuery = mutableStateOf("")
+    private val searchSheetVisible = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -150,7 +151,8 @@ class SettingsActivity : LocaleActivity() {
                                 startActivityWithTransition(
                                     Intent(this@SettingsActivity, ProfileDetailsComposeActivity::class.java)
                                 )
-                            }
+                            },
+                            searchSheetVisible = searchSheetVisible.value
                         )
                     }
                 }
@@ -163,6 +165,7 @@ class SettingsActivity : LocaleActivity() {
     }
 
     private fun openSearchView() {
+        searchSheetVisible.value = true
         val parentView = findViewById<ViewGroup>(android.R.id.content)
         val rootLayout = LayoutInflater.from(this)
             .inflate(R.layout.dialog_search_view, parentView, false) as CoordinatorLayout
@@ -176,6 +179,9 @@ class SettingsActivity : LocaleActivity() {
             setContentView(rootLayout)
             window?.setBackgroundDrawableResource(android.R.color.transparent)
             window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
+        searchDialog.setOnDismissListener {
+            searchSheetVisible.value = false
         }
 
         searchDialog.setOnShowListener {

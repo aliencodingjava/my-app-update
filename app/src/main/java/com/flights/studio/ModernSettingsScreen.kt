@@ -89,7 +89,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -175,6 +174,7 @@ fun ModernSettingsScreen(
     onOpenSearch: () -> Unit,
     onOpenQrCode: () -> Unit,
     onOpenProfile: () -> Unit,
+    searchSheetVisible: Boolean = false,
     showBottomChrome: Boolean = true,
     modalBottomPadding: Dp = GlassChromeHorizontalPadding,
     feedbackRequestToken: Int = 0,
@@ -507,9 +507,18 @@ fun ModernSettingsScreen(
                 profileInitials = profileInitials,
                 profilePhotoRaw = profilePhotoRaw,
                 appContext = appContext,
-                onOpenSearch = onOpenSearch,
                 onOpenProfile = onOpenProfile,
                 modifier = Modifier.align(Alignment.TopCenter)
+            )
+
+            SettingsFloatingSearchButton(
+                visible = showBottomChrome && !modalVisible && !searchSheetVisible,
+                backdrop = settingsChromeBackdrop,
+                onClick = onOpenSearch,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 18.dp, bottom = 82.dp)
+                    .navigationBarsPadding()
             )
 
             if (showBottomChrome) {
@@ -920,7 +929,6 @@ private fun SettingsGlassTopAppBar(
     profileInitials: String,
     profilePhotoRaw: String,
     appContext: Context,
-    onOpenSearch: () -> Unit,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -966,12 +974,9 @@ private fun SettingsGlassTopAppBar(
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
                 maxLines = 1
             )
-            IconButton(onClick = onOpenSearch) {
-                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search), tint = contentColor)
-            }
             Box(
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -986,6 +991,67 @@ private fun SettingsGlassTopAppBar(
                     modifier = Modifier.fillMaxSize()
                 )
             }
+        }
+    }
+}
+
+
+@Composable
+private fun SettingsFloatingSearchButton(
+    visible: Boolean,
+    backdrop: Backdrop,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val iconColor = if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
+    val buttonColor = if (isDark) {
+        Color.White.copy(alpha = 0.14f)
+    } else {
+        Color.White.copy(alpha = 0.96f)
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = fadeIn(animationSpec = tween(durationMillis = 130)) +
+            scaleIn(
+                initialScale = 0.88f,
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+            ),
+        exit = fadeOut(animationSpec = tween(durationMillis = 120)) +
+            scaleOut(
+                targetScale = 0.88f,
+                animationSpec = tween(durationMillis = 120, easing = FastOutLinearInEasing)
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .clip(CircleShape)
+                .adaptiveLiquidGlassBackdrop(
+                    backdrop = backdrop,
+                    shape = CircleShape,
+                    surfaceColor = buttonColor,
+                    blurDp = 4f,
+                    shadow = null,
+                    refractionHeightDp = 22f,
+                    refractionAmountDp = 72f,
+                    chromaticAberration = true
+                )
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Search,
+                contentDescription = stringResource(R.string.search),
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }
@@ -1089,10 +1155,12 @@ private fun SettingsInitials(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(R.drawable.contact_logo_topbar),
+            painter = painterResource(R.drawable.account_circle_24dp_ffffff_fill1_profile),
             contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(5.dp),
+            contentScale = ContentScale.Fit
         )
     }
 }

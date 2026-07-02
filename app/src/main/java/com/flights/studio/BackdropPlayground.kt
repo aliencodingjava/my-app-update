@@ -230,8 +230,9 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
         }
     }
     val dropOvershoot = (enterProgress - 1f).coerceAtLeast(0f)
-    val buttonDropProgress = safeEnterProgress +
-            (enterProgress - safeEnterProgress) * 0.42f
+    val buttonDropProgress = (safeEnterProgress * 1.18f).coerceIn(0f, 1f) +
+            ((enterProgress - safeEnterProgress).coerceAtLeast(0f) * 0.24f)
+    val heroShiftProgress = ((safeEnterProgress - 0.10f) / 0.90f).coerceIn(0f, 1f)
     val buttonOffsetY = lerp(
         initialOffsetY.value,
         targetOffsetY.value,
@@ -244,7 +245,7 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
     }
     val heroGlassProgress =
         1f +
-                0.34f * sin((safeEnterProgress * PI).toFloat()) +
+                0.34f * sin((heroShiftProgress * PI).toFloat()) +
                 0.38f * dropOvershoot +
                 heroManualProgress
     val heroDragModifier = Modifier.draggable(
@@ -319,7 +320,7 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
         launch {
             safeEnterProgressAnimation.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 1280, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 920, easing = FastOutSlowInEasing)
             )
         }
         enterProgressAnimation.animateTo(
