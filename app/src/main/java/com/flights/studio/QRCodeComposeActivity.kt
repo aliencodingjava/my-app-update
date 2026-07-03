@@ -426,7 +426,7 @@ private fun HeroQrGlassOnly(
             shadowElevation = 0.dp
         ) {
             Image(
-                painter = painterResource(R.drawable.version249),
+                painter = painterResource(R.drawable.bqrcode),
                 contentDescription = stringResource(R.string.qrcode),
                 modifier = Modifier
                     .padding(16.dp)
