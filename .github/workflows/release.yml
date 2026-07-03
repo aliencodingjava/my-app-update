@@ -134,9 +134,12 @@ jobs:
         id: artifact
         run: |
           APK_NAME="jac-air-tracker-${VERSION_NAME}.apk"
+          LATEST_APK_NAME="jac-air-tracker-latest.apk"
           cp app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          cp app/build/outputs/apk/release/app-release.apk "$LATEST_APK_NAME"
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "apk_url=https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION_NAME}/${APK_NAME}" >> "$GITHUB_OUTPUT"
+          echo "latest_apk_name=$LATEST_APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "apk_url=https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/${LATEST_APK_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
         env:
@@ -144,6 +147,7 @@ jobs:
         run: |
           gh release create "v${VERSION_NAME}" \
             "${{ steps.artifact.outputs.apk_name }}" \
+            "${{ steps.artifact.outputs.latest_apk_name }}" \
             --target "$GITHUB_SHA" \
             --title "JAC Air Tracker ${VERSION_NAME}" \
             --notes "$UPDATE_BODY"
