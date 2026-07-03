@@ -114,6 +114,8 @@ expandablelayout = { group = "com.github.cachapa", name = "ExpandableLayout", ve
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junit" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
+firebase-appcheck-playintegrity = { group = "com.google.firebase", name = "firebase-appcheck-playintegrity" }
 firebase-config = { group = "com.google.firebase", name = "firebase-config" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
 firebase-database = { group = "com.google.firebase", name = "firebase-database" }

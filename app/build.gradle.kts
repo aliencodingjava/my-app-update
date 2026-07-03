@@ -246,6 +246,7 @@ dependencies {
     // ----- Firebase -----
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
+    implementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.firebase.config)
     implementation(libs.firebase.crashlytics)
     implementation(libs.firebase.database)
@@ -316,6 +317,7 @@ dependencies {
     implementation(libs.animation)
 
     debugImplementation(libs.ui.tooling)
+    debugImplementation(libs.firebase.appcheck.debug)
     androidTestImplementation(libs.ui.test.manifest)
     runtimeOnly(libs.material.icons.core)
     implementation(libs.supabase.kt)
