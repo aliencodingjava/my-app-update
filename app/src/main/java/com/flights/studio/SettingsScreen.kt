@@ -346,6 +346,7 @@ fun SettingsScreen(
     var textZoom by remember { mutableIntStateOf(SettingsStore.textZoom(context).coerceIn(60, 100)) }
     var highContrastWeb by remember { mutableStateOf(SettingsStore.highContrastWeb(context)) }
     var reduceWebMotion by remember { mutableStateOf(SettingsStore.reduceWebMotion(context)) }
+    var aiPerformance by remember { mutableStateOf(SettingsStore.aiPerformance(context)) }
     var blockTrackers by remember { mutableStateOf(SettingsStore.blockTrackers(context)) }
     var cachePages by remember { mutableStateOf(SettingsStore.cachePages(context)) }
     var storageStats by remember { mutableStateOf(getWebStorageStats(context)) }
@@ -440,6 +441,7 @@ fun SettingsScreen(
                                 blockTrackers = true
                                 cachePages = true
                                 reduceWebMotion = false
+                                aiPerformance = false
                                 SettingsStore.setWebTheme(context, selectedTheme)
                                 SettingsStore.setTextZoom(context, textZoom)
                                 SettingsStore.setGroupFlights(context, groupFlights)
@@ -448,6 +450,7 @@ fun SettingsScreen(
                                 SettingsStore.setBlockTrackers(context, blockTrackers)
                                 SettingsStore.setCachePages(context, cachePages)
                                 SettingsStore.setReduceWebMotion(context, reduceWebMotion)
+                                SettingsStore.setAiPerformance(context, aiPerformance)
                                 markSaved()
                             }
                         )
@@ -626,15 +629,40 @@ fun SettingsScreen(
                         },
                         {
                             SettingToggleCard(
-                                title = "Reduce web motion",
-                                subtitle = "Calms page transitions and animations.",
+                                title = "Enhanced motion",
+                                subtitle = "Uses softer animated page transitions.",
                                 icon = Icons.Default.Waves,
-                                checked = reduceWebMotion,
+                                checked = !reduceWebMotion,
                                 theme = uiTheme,
                                 backdrop = settingsBackdrop,
                                 onChange = {
-                                    reduceWebMotion = it
-                                    SettingsStore.setReduceWebMotion(context, it)
+                                    reduceWebMotion = !it
+                                    SettingsStore.setReduceWebMotion(context, reduceWebMotion)
+                                    markSaved()
+                                }
+                            )
+                        },
+                        {
+                            SettingToggleCard(
+                                title = "AI performance",
+                                subtitle = "Boosts hardware, text clarity, caching, and motion for AI-assisted views.",
+                                icon = Icons.Default.Speed,
+                                checked = aiPerformance,
+                                theme = uiTheme,
+                                backdrop = settingsBackdrop,
+                                onChange = {
+                                    aiPerformance = it
+                                    SettingsStore.setAiPerformance(context, it)
+                                    if (it) {
+                                        hwAccel = true
+                                        cachePages = true
+                                        reduceWebMotion = false
+                                        textZoom = textZoom.coerceAtLeast(95)
+                                        SettingsStore.setHardwareAccel(context, true)
+                                        SettingsStore.setCachePages(context, true)
+                                        SettingsStore.setReduceWebMotion(context, false)
+                                        SettingsStore.setTextZoom(context, textZoom)
+                                    }
                                     markSaved()
                                 }
                             )
@@ -847,6 +875,15 @@ private fun previewNativeFlightPalette(
             "gray" -> Color(0xFF1F2937)
             else -> Color(0xFF1E1F24)
         }
+        val readableAccent = when (effectiveTheme) {
+            "mint" -> Color(0xFF0F6B4A)
+            "sky" -> Color(0xFF075985)
+            "violet" -> Color(0xFF5B21B6)
+            "rose" -> Color(0xFF9D174D)
+            "amber" -> Color(0xFF8A4B08)
+            "gray" -> Color(0xFF475569)
+            else -> Color(0xFF0F5FA8)
+        }
         PreviewNativeFlightPalette(
             page = page,
             panel = panel,
@@ -857,11 +894,11 @@ private fun previewNativeFlightPalette(
             departedSurface = accent.copy(alpha = 0.13f).compositeOver(surface),
             delayedSurface = Color(0xFFF59E0B).copy(alpha = 0.18f).compositeOver(surface),
             cancelledSurface = Color(0xFFFF453A).copy(alpha = 0.14f).compositeOver(surface),
-            rowBorder = accent.copy(alpha = 0.34f),
+            rowBorder = readableAccent.copy(alpha = 0.30f),
             accent = accent,
-            arrivedAccent = accent,
-            departedAccent = accent.copy(alpha = 0.92f),
-            delayAccent = Color(0xFFB7791F),
+            arrivedAccent = readableAccent,
+            departedAccent = readableAccent,
+            delayAccent = if (effectiveTheme == "amber") Color(0xFF7A3D05) else Color(0xFF9A5A00),
             cancelledAccent = Color(0xFFD93025),
             text = text,
             muted = text.copy(alpha = 0.66f)

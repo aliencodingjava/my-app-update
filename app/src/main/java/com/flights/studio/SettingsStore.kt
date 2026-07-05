@@ -14,6 +14,7 @@ object SettingsStore {
     private const val KEY_CACHE_PAGES = "cache_pages"
     private const val KEY_HIGH_CONTRAST_WEB = "high_contrast_web"
     private const val KEY_REDUCE_WEB_MOTION = "reduce_web_motion"
+    private const val KEY_AI_PERFORMANCE = "ai_performance"
     private const val KEY_GROUP_FLIGHTS = "group_flights"
     private const val KEY_WEB_THEME = "web_theme"
     private const val KEY_FLIGHT_BRIEF_SNAPSHOT = "flight_brief_snapshot"
@@ -77,6 +78,12 @@ object SettingsStore {
 
     fun setReduceWebMotion(context: Context, value: Boolean) =
         prefs(context).edit { putBoolean(KEY_REDUCE_WEB_MOTION, value) }
+
+    fun aiPerformance(context: Context) =
+        prefs(context).getBoolean(KEY_AI_PERFORMANCE, false)
+
+    fun setAiPerformance(context: Context, value: Boolean) =
+        prefs(context).edit { putBoolean(KEY_AI_PERFORMANCE, value) }
 
     fun groupFlights(context: Context) =
         prefs(context).getBoolean(KEY_GROUP_FLIGHTS, false)

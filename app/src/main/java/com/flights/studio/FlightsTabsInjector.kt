@@ -1317,6 +1317,11 @@ object FlightsTabsInjector {
           const rows = primaryDay ? allRows.filter(f => (f.day || '') === primaryDay) : allRows;
           const now = new Date();
           const nowMins = now.getHours() * 60 + now.getMinutes();
+          function scheduleProgress(eta) {
+            if (eta == null) return 4;
+            if (eta <= 0) return 98;
+            return Math.max(4, Math.min(96, ((180 - eta) / 180) * 100));
+          }
           const arrivals = [];
           const landed = [];
           rows.forEach(f => {
@@ -1342,7 +1347,7 @@ object FlightsTabsInjector {
               const sev = delaySeverity(delay);
               const statusText = (f.status || '').toLowerCase();
               const hasLiveAirborneStatus = /\b(en\s*route|airborne|in\s*air|departed|final|approach|landing)\b/.test(statusText);
-              const progress = hasLiveAirborneStatus && eta != null && eta > 0 ? Math.max(3, Math.min(95, ((120 - eta) / 120) * 100)) : 0;
+              const progress = scheduleProgress(eta);
               const status = hasLiveAirborneStatus
                 ? (eta != null && eta <= 5 ? 'Arriving now' : 'En route')
                 : (eta != null && eta <= 5 ? 'Due now' : 'Scheduled');
@@ -1356,7 +1361,7 @@ object FlightsTabsInjector {
                 detail: `Sched ${f.sched || 'pending'}${f.actual ? ` • Est ${f.actual}` : ''}${delay > 0 ? ` • +${delay} min` : ''}`,
                 tone: delay > 0 ? 'delayed' : hasLiveAirborneStatus ? 'active' : 'scheduled',
                 badge,
-                pill: hasLiveAirborneStatus ? 'Landing JAC' : 'Arrival',
+                pill: '',
                 etaText: eta != null && eta > 0 ? `${hasLiveAirborneStatus ? fmtMin(eta) + ' remaining' : 'Scheduled in ' + fmtMin(eta)}` : '',
                 meta: `${f.airline || 'Unknown airline'}`,
                 delayLabel: sev ? sev.text : '',
@@ -1377,7 +1382,7 @@ object FlightsTabsInjector {
                 detail: `${ago != null && ago < 1 ? 'Just landed' : `Landed ${ago || 0} min ago`}${f.actual ? `, ${f.actual}` : ''}`,
                 tone: 'arrived',
                 badge: 'ARRIVED',
-                pill: 'Arrived',
+                pill: '',
                 etaText: '',
                 meta: `${f.airline || 'Unknown airline'}`,
                 delayLabel: '',

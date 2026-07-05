@@ -1534,10 +1534,13 @@ private fun WebCardContent(
 
     val groupedFlights = remember(settingsRevision) { SettingsStore.groupFlights(context) }
     val highContrastWeb = remember(settingsRevision) { SettingsStore.highContrastWeb(context) }
-    val reduceWebMotion = remember(settingsRevision) { SettingsStore.reduceWebMotion(context) }
+    val aiPerformance = remember(settingsRevision) { SettingsStore.aiPerformance(context) }
+    val reduceWebMotion = remember(settingsRevision, aiPerformance) { SettingsStore.reduceWebMotion(context) && !aiPerformance }
     val cachePages = remember(settingsRevision) { SettingsStore.cachePages(context) }
-    val hwAccel = remember(settingsRevision) { SettingsStore.hardwareAccel(context) }
-    val textZoomPref = remember(settingsRevision) { SettingsStore.textZoom(context) }
+    val hwAccel = remember(settingsRevision, aiPerformance) { SettingsStore.hardwareAccel(context) || aiPerformance }
+    val textZoomPref = remember(settingsRevision, aiPerformance) {
+        SettingsStore.textZoom(context).let { if (aiPerformance) it.coerceAtLeast(95) else it }
+    }
     val webTheme = remember(settingsRevision) { SettingsStore.webTheme(context) }
     val baseWebColor = if (isDark) Color(0xFF2B2924) else Color(0xFFF4F1E9)
     val url = remember(cardId) { urlForCard(cardId) }
@@ -1740,10 +1743,12 @@ private fun WebCardContent(
                     injectWebRuntimePreferences(
                         view,
                         SettingsStore.webTheme(context),
-                        SettingsStore.textZoom(context),
+                        SettingsStore.textZoom(context).let {
+                            if (SettingsStore.aiPerformance(context)) it.coerceAtLeast(95) else it
+                        },
                         SettingsStore.groupFlights(context),
                         SettingsStore.highContrastWeb(context),
-                        SettingsStore.reduceWebMotion(context)
+                        SettingsStore.reduceWebMotion(context) && !SettingsStore.aiPerformance(context)
                     )
                     injectHideTriggers(view, cardId == "card3", isFlightsMain)
 
@@ -2442,6 +2447,15 @@ private fun nativeFlightTablePalette(
             "gray" -> Color(0xFF1F2937)
             else -> Color(0xFF1E1F24)
         }
+        val readableAccent = when (effectiveTheme) {
+            "mint" -> Color(0xFF0F6B4A)
+            "sky" -> Color(0xFF075985)
+            "violet" -> Color(0xFF5B21B6)
+            "rose" -> Color(0xFF9D174D)
+            "amber" -> Color(0xFF8A4B08)
+            "gray" -> Color(0xFF475569)
+            else -> Color(0xFF0F5FA8)
+        }
         NativeFlightTablePalette(
             page = page,
             panel = panel,
@@ -2452,12 +2466,12 @@ private fun nativeFlightTablePalette(
             delayedSurface = Color(0xFFF59E0B).copy(alpha = 0.18f).compositeOver(surface),
             cancelledSurface = Color(0xFFFF453A).copy(alpha = 0.14f).compositeOver(surface),
             divertedSurface = Color(0xFFFF9F0A).copy(alpha = 0.16f).compositeOver(surface),
-            rowBorder = accent.copy(alpha = 0.34f),
-            arrivedAccent = accent,
-            departedAccent = accent.copy(alpha = 0.92f),
-            delayAccent = Color(0xFFB7791F),
+            rowBorder = readableAccent.copy(alpha = 0.30f),
+            arrivedAccent = readableAccent,
+            departedAccent = readableAccent,
+            delayAccent = if (effectiveTheme == "amber") Color(0xFF7A3D05) else Color(0xFF9A5A00),
             cancelledAccent = Color(0xFFD93025),
-            divertedAccent = Color(0xFFC46A00),
+            divertedAccent = Color(0xFF9A4D00),
             text = text,
             muted = text.copy(alpha = 0.66f)
         )
@@ -3482,7 +3496,7 @@ private fun FlightTableStatusPill(row: FlightTableRow, palette: NativeFlightTabl
         text = label,
         color = accent,
         style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Bold,
             fontSize = 10.4.sp,
             lineHeight = 11.5.sp
         ),
@@ -3490,7 +3504,8 @@ private fun FlightTableStatusPill(row: FlightTableRow, palette: NativeFlightTabl
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(accent.copy(alpha = if (isDark) 0.20f else 0.16f))
+            .background(accent.copy(alpha = if (isDark) 0.20f else 0.14f))
+            .border(1.dp, accent.copy(alpha = if (isDark) 0.24f else 0.22f), RoundedCornerShape(999.dp))
             .padding(horizontal = 7.dp, vertical = 6.dp)
     )
 }
@@ -4106,9 +4121,9 @@ private fun FlightLiveStatusCard(
     highContrast: Boolean
 ) {
     val isDark = isSystemInDarkTheme()
-    val arrivedAccent = if (isDark) Color(0xFF34C759) else Color(0xFF8A5A3C)
-    val scheduleAccent = if (isDark) Color(0xFFFFB020) else arrivedAccent
-    val upcomingAccent = if (isDark) Color(0xFF5AC8FA) else arrivedAccent
+    val arrivedAccent = if (isDark) Color(0xFF34C759) else Color(0xFF7A4B2E)
+    val scheduleAccent = if (isDark) Color(0xFFFFB020) else Color(0xFF87511F)
+    val upcomingAccent = if (isDark) Color(0xFF5AC8FA) else Color(0xFF245B78)
     val accent = when (item.tone) {
         "arrived" -> arrivedAccent
         "delayed" -> scheduleAccent
@@ -4121,7 +4136,11 @@ private fun FlightLiveStatusCard(
     } else {
         surface
     }
-    val cardShape = RoundedCornerShape(20.dp)
+    val cardShape = RoundedCornerShape(if (item.tone == "arrived") 18.dp else 20.dp)
+    val compactRoute = compactFlightRoute(item.route)
+    val statusLine = compactFlightStatusLine(item, compactRoute)
+    val detailLine = compactFlightDetailLine(item)
+    val progress = item.effectiveProgress()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -4129,8 +4148,8 @@ private fun FlightLiveStatusCard(
             .clip(cardShape)
             .background(cardSurface)
             .border(1.dp, accent.copy(alpha = if (isDark) 0.28f else 0.24f), cardShape)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+            .padding(horizontal = 14.dp, vertical = if (item.tone == "arrived") 10.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (item.tone == "arrived") 5.dp else 7.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -4148,29 +4167,23 @@ private fun FlightLiveStatusCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (item.meta.isNotBlank()) {
-                    Text(
-                        text = item.meta,
-                        color = mutedColor,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = (10f * textScale).sp,
-                            lineHeight = (11f * textScale).sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                FlightTinyPill(text = item.badge.ifBlank { item.status }, accent = accent)
+            Row(
+                modifier = Modifier.widthIn(max = 170.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (item.delayLabel.isNotBlank()) {
-                    FlightTinyPill(text = item.delayLabel, accent = scheduleAccent)
+                    FlightTinyPill(text = readableFlightPillText(item.delayLabel), accent = scheduleAccent)
+                }
+                if (item.badge.isNotBlank() || item.status.isNotBlank()) {
+                    FlightTinyPill(text = readableFlightPillText(item.badge.ifBlank { item.status }), accent = accent)
                 }
             }
         }
-        if (item.route.isNotBlank()) {
+        if (statusLine.isNotBlank()) {
             Text(
-                text = "${item.status} • ${item.route}",
+                text = statusLine,
                 color = textColor.copy(alpha = 0.82f),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = (12f * textScale).sp,
@@ -4180,51 +4193,108 @@ private fun FlightLiveStatusCard(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (item.pill.isNotBlank()) {
-                FlightTinyPill(text = item.pill, accent = arrivedAccent, filled = false)
-            }
-            if (item.etaText.isNotBlank()) {
-                Text(
-                    text = item.etaText,
-                    color = accent,
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (12f * textScale).sp,
-                        lineHeight = (14f * textScale).sp
-                    ),
-                    maxLines = 1
-                )
-            }
-        }
-        if (item.detail.isNotBlank()) {
+        if (detailLine.isNotBlank()) {
             Text(
-                text = item.detail,
+                text = detailLine,
                 color = mutedColor,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontSize = (12f * textScale).sp,
                     lineHeight = (14f * textScale).sp
                 ),
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(5.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(accent.copy(alpha = 0.14f))
-        ) {
+        if (item.tone != "arrived") {
             Box(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth((item.progress / 100f).coerceIn(0.03f, 1f))
+                    .fillMaxWidth()
+                    .height(5.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(accent.copy(alpha = 0.72f))
-            )
+                    .background(accent.copy(alpha = 0.14f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth((progress / 100f).coerceIn(0.04f, 1f))
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(accent.copy(alpha = 0.72f))
+                )
+            }
         }
     }
+}
+
+private fun compactFlightRoute(route: String): String {
+    return route
+        .replace("→", "-")
+        .replace(Regex("\\s*-\\s*"), " - ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun compactFlightStatusLine(item: FlightLiveStatusItem, route: String): String {
+    if (item.tone == "arrived") return route
+    val status = item.status.ifBlank { "Scheduled" }
+    val eta = item.etaText
+        .replace("Scheduled in ", "", ignoreCase = true)
+        .replace(" remaining", "", ignoreCase = true)
+        .trim()
+    return buildString {
+        append(status)
+        if (route.isNotBlank()) append(" ").append(route)
+        if (eta.isNotBlank()) append(" in ").append(eta)
+    }.trim()
+}
+
+private fun compactFlightDetailLine(item: FlightLiveStatusItem): String {
+    if (item.tone == "arrived") {
+        return item.detail.replace(Regex(",\\s*"), " at ").trim()
+    }
+    val sched = Regex("""Sched\s+([^•]+)""", RegexOption.IGNORE_CASE)
+        .find(item.detail)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.trim()
+        .orEmpty()
+    val est = Regex("""Est\s+([^•]+)""", RegexOption.IGNORE_CASE)
+        .find(item.detail)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.trim()
+        .orEmpty()
+    return listOf(
+        sched,
+        est.takeIf { it.isNotBlank() }?.let { "Est $it" }.orEmpty()
+    ).filter { it.isNotBlank() }.joinToString("  ").ifBlank { item.detail }
+}
+
+private fun readableFlightPillText(value: String): String {
+    return value
+        .trim()
+        .lowercase(Locale.US)
+        .split(Regex("\\s+"))
+        .joinToString(" ") { word ->
+            word.replaceFirstChar { char ->
+                if (char.isLowerCase()) char.titlecase(Locale.US) else char.toString()
+            }
+        }
+}
+
+private fun FlightLiveStatusItem.effectiveProgress(): Float {
+    if (tone == "arrived") return 100f
+    val etaMinutes = parseFlightEtaMinutes(etaText)
+    val timeProgress = etaMinutes?.let { ((180f - it) / 180f * 100f).coerceIn(4f, 96f) }
+    return listOfNotNull(progress.takeIf { it > 4f }, timeProgress).maxOrNull() ?: 4f
+}
+
+private fun parseFlightEtaMinutes(value: String): Int? {
+    val text = value.lowercase(Locale.US)
+    if (text.isBlank()) return null
+    val hours = Regex("""(\d+)\s*h""").find(text)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+    val minutes = Regex("""(\d+)\s*m""").find(text)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+    val total = hours * 60 + minutes
+    return total.takeIf { it > 0 }
 }
 
 @Composable
