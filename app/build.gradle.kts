@@ -93,8 +93,8 @@ android {
             //noinspection ChromeOsAbiSupport,ChromeOsAbiSupport
             abiFilters += listOf("arm64-v8a")
         }
-        versionCode = 280
-        versionName = "0.2.280"
+        versionCode = 281
+        versionName = "0.2.281"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "RELEASE_DATE", "\"Jul-16-2026\"")
 

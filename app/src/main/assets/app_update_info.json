@@ -1,8 +1,12 @@
 {
-  "versionCode": 280,
-  "versionName": "0.2.280",
+  "versionCode": 281,
+  "versionName": "0.2.281",
   "apkUrl": "https://github.com/aliencodingjava/my-app-update/releases/latest/download/jac-air-tracker-latest.apk",
   "updates": [
+    {
+      "title": "Software Update Fix",
+      "body": "Update checks respond faster after a new release.\n\n• The app refreshes the update feed without waiting on stale cache\n• Tapping an update notification can show the new version right away\n• Software Update no longer falls back to an older version when the latest release is already known"
+    },
     {
       "title": "Notes Folders",
       "body": "Notes can now be organized into folders.\n\n• Create folders from the Notes page\n• Open a folder and add notes inside it\n• Existing notes are kept in Main\n• Empty folders stay clean and no longer show the welcome card"
