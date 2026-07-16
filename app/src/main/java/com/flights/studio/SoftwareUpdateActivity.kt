@@ -144,7 +144,7 @@ class SoftwareUpdateActivity : ComponentActivity() {
 
     private fun handleUpdateIntent(intent: Intent?) {
         if (intent?.getBooleanExtra(AppUpdateNotificationManager.EXTRA_CHECK_FOR_UPDATES, false) == true) {
-            vm.checkForUpdates()
+            vm.checkForUpdates(intent.remoteUpdateFromNotification())
         }
     }
 
@@ -153,6 +153,22 @@ class SoftwareUpdateActivity : ComponentActivity() {
         if (AppUpdateNotificationManager.canPostNotifications(this)) return
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 4402)
     }
+}
+
+private fun Intent.remoteUpdateFromNotification(): RemoteUpdateInfo? {
+    val versionCode = getIntExtra(AppUpdateNotificationManager.EXTRA_REMOTE_VERSION_CODE, -1)
+    if (versionCode <= 0) return null
+
+    val versionName = getStringExtra(AppUpdateNotificationManager.EXTRA_REMOTE_VERSION_NAME).orEmpty()
+    val apkUrl = getStringExtra(AppUpdateNotificationManager.EXTRA_REMOTE_APK_URL).orEmpty()
+    if (versionName.isBlank() || apkUrl.isBlank()) return null
+
+    return RemoteUpdateInfo(
+        versionCode = versionCode,
+        versionName = versionName,
+        apkUrl = apkUrl,
+        updates = emptyList()
+    )
 }
 
 sealed interface UpdateScreenState {
@@ -229,7 +245,7 @@ class SoftwareUpdateViewModel(
         }
     }
 
-    fun checkForUpdates() {
+    fun checkForUpdates(notificationRemote: RemoteUpdateInfo? = null) {
         val current = state as? UpdateScreenState.Home ?: return
 
         state = current.copy(
@@ -238,9 +254,21 @@ class SoftwareUpdateViewModel(
             hideCheckButton = false
         )
 
+        if (notificationRemote != null) {
+            showNotificationRemoteIfNewer(notificationRemote)
+        }
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val remote = AppUpdateRepository.fetchRemoteUpdate()
+                val fetchedRemote = AppUpdateRepository.fetchRemoteUpdate()
+                val remote = if (
+                    notificationRemote != null &&
+                    notificationRemote.versionCode > fetchedRemote.versionCode
+                ) {
+                    notificationRemote
+                } else {
+                    fetchedRemote
+                }
                 val localCode = AppUpdater.getCurrentVersionCode(appContext)
                 val localName = appContext.packageManager
                     .getPackageInfo(appContext.packageName, 0)
@@ -288,6 +316,38 @@ class SoftwareUpdateViewModel(
                     )
                 }
             }
+        }
+    }
+
+    private fun showNotificationRemoteIfNewer(remote: RemoteUpdateInfo) {
+        viewModelScope.launch {
+            val localCode = AppUpdater.getCurrentVersionCode(appContext)
+            if (remote.versionCode <= localCode) return@launch
+
+            val localName = appContext.packageManager
+                .getPackageInfo(appContext.packageName, 0)
+                .versionName
+                .orEmpty()
+            val nowText = SimpleDateFormat(
+                "MMMM d, yyyy 'at' h:mm a",
+                Locale.getDefault()
+            ).format(Date())
+
+            softwareInfo = softwareInfo.copy(
+                versionCode = localCode,
+                versionName = localName,
+                lastCheckedText = nowText
+            )
+            latestUpdate = LatestUpdateUi(
+                remote = remote,
+                loading = false,
+                loadedAtText = nowText
+            )
+            state = UpdateScreenState.Details(
+                currentVersionCode = localCode,
+                currentVersionName = localName,
+                remote = remote
+            )
         }
     }
 
@@ -686,6 +746,7 @@ private fun UpdateDetailsScreen(
             )
         }
     }
+
 }
 
 @Composable

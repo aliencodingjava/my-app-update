@@ -9,7 +9,7 @@ private const val GIST_URL =
 object AppUpdateRepository {
 
     fun fetchRemoteUpdate(): RemoteUpdateInfo {
-        val jsonText = URL(GIST_URL).readText()
+        val jsonText = URL("$GIST_URL?ts=${System.currentTimeMillis()}").readText()
         val json = JSONObject(jsonText)
 
         val updatesJson = json.optJSONArray("updates")

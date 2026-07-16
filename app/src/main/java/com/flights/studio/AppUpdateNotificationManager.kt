@@ -15,6 +15,9 @@ import androidx.core.content.edit
 
 object AppUpdateNotificationManager {
     const val EXTRA_CHECK_FOR_UPDATES = "com.flights.studio.extra.CHECK_FOR_UPDATES"
+    const val EXTRA_REMOTE_VERSION_CODE = "com.flights.studio.extra.REMOTE_VERSION_CODE"
+    const val EXTRA_REMOTE_VERSION_NAME = "com.flights.studio.extra.REMOTE_VERSION_NAME"
+    const val EXTRA_REMOTE_APK_URL = "com.flights.studio.extra.REMOTE_APK_URL"
 
     private const val CHANNEL_ID = "app_updates"
     private const val NOTIFICATION_ID = 4401
@@ -50,6 +53,9 @@ object AppUpdateNotificationManager {
         val intent = Intent(context, SoftwareUpdateActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(EXTRA_CHECK_FOR_UPDATES, true)
+            putExtra(EXTRA_REMOTE_VERSION_CODE, remote.versionCode)
+            putExtra(EXTRA_REMOTE_VERSION_NAME, remote.versionName)
+            putExtra(EXTRA_REMOTE_APK_URL, remote.apkUrl)
         }
 
         val pendingIntent = PendingIntent.getActivity(
