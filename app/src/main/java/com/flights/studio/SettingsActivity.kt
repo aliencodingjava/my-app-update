@@ -100,7 +100,11 @@ class SettingsActivity : LocaleActivity() {
             ComposeView(this).apply {
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
                 setContent {
-                    FlightsTheme(profileBackdropStyle = ProfileBackdropStyle.Auto) {
+                    val appThemePreset = AppThemeStore.rememberPreset(this@SettingsActivity)
+                    FlightsTheme(
+                        profileBackdropStyle = ProfileBackdropStyle.Auto,
+                        appThemePreset = appThemePreset
+                    ) {
                         ModernSettingsScreen(
                             searchQuery = settingsSearchQuery.value,
                             onOpenHome = {

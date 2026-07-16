@@ -8,10 +8,13 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,16 +41,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -68,6 +75,7 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -97,6 +105,12 @@ enum class NotesSyncUiStatus {
     Error
 }
 
+data class NoteFolderUi(
+    val id: String,
+    val name: String,
+    val count: Int
+)
+
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class,
@@ -111,17 +125,31 @@ fun AllNotesScreen(
     onOpenSearch: (onDismiss: () -> Unit) -> Unit,
     onNavItemClick: (Int) -> Unit,
     onDeleteSelected: (Set<String>) -> Unit,
+    onDeleteSelectedFolders: (Set<String>) -> Unit = {},
     onOpenNote: ((NoteRow, Int) -> Unit)? = null,
     onBack: (() -> Unit)? = null,
     onOpenProfile: () -> Unit = {},
     syncStatus: NotesSyncUiStatus = NotesSyncUiStatus.Synced,
-    onNotesSettingsChanged: () -> Unit = {}
+    onNotesSettingsChanged: () -> Unit = {},
+    pageTitle: String = "Notes",
+    showWelcomeOnEmptyNotes: Boolean = true,
+    folderMode: Boolean = false,
+    folders: List<NoteFolderUi> = emptyList(),
+    onOpenFolder: (String) -> Unit = {},
+    onCreateFolder: (String) -> Unit = {}
 ) {
     var searchActive by remember { mutableStateOf(false) }
+    var showCreateFolderDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingFolderName by rememberSaveable { mutableStateOf("") }
 
     var selectedIds by remember { mutableStateOf(setOf<String>()) }
     val selectionMode = selectedIds.isNotEmpty()
     val selectionHapticView = LocalView.current
+
+    androidx.compose.runtime.LaunchedEffect(folderMode) {
+        selectedIds = emptySet()
+        notesAdapter.clearSelection()
+    }
 
 
     val listState = rememberLazyListState()
@@ -154,10 +182,68 @@ fun AllNotesScreen(
 
     // Settings state (so UI updates without restart)
     var s by remember(ctx, prefs) { mutableStateOf(ctx.readNotesPageSettings()) }
+    val dialogIsDark = isSystemInDarkTheme()
+    val dialogPalette = if (s.paletteEnabled) resolveNotesPalette(s.paletteId, dialogIsDark) else null
+    val cleanFolderName = sanitizeFolderTitleInput(pendingFolderName)
+
+    if (showCreateFolderDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showCreateFolderDialog = false
+                pendingFolderName = ""
+            },
+            containerColor = dialogPalette?.noteTint ?: MaterialTheme.colorScheme.surfaceContainerHigh,
+            title = {
+                Text(
+                    text = "New folder",
+                    color = dialogPalette?.accent ?: MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            text = {
+                OutlinedTextField(
+                    value = pendingFolderName,
+                    onValueChange = { pendingFolderName = limitFolderTitleInput(it) },
+                    label = { Text("Folder name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = cleanFolderName.isNotBlank(),
+                    onClick = {
+                        if (cleanFolderName.isNotBlank()) {
+                            onCreateFolder(cleanFolderName)
+                            showCreateFolderDialog = false
+                            pendingFolderName = ""
+                        }
+                    }
+                ) {
+                    Text("Save", color = dialogPalette?.accent ?: MaterialTheme.colorScheme.primary)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showCreateFolderDialog = false
+                        pendingFolderName = ""
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     // notes snapshot + dedupe
     val notesSnapshot by remember { derivedStateOf { notes.toList() } }
     val safeNotesSnapshot by remember { derivedStateOf { notesSnapshot.distinctBy { it.id } } }
+    val syncCountLabel = if (folderMode) {
+        "${folders.size} folders · $notesSize notes"
+    } else {
+        safeNotesSnapshot.size.toString()
+    }
 
     val scope = rememberCoroutineScope()
 
@@ -273,7 +359,7 @@ fun AllNotesScreen(
                     val titleText = when {
                         selectionMode -> selectedIds.size.toString()
                         searchActive -> "Search"
-                        else -> "Notes"
+                        else -> pageTitle
                     }
 
                     Text(
@@ -287,7 +373,11 @@ fun AllNotesScreen(
                     if (selectionMode) {
                         IconButton(
                             onClick = {
-                                onDeleteSelected(selectedIds)
+                                if (folderMode) {
+                                    onDeleteSelectedFolders(selectedIds)
+                                } else {
+                                    onDeleteSelected(selectedIds)
+                                }
                                 selectedIds = emptySet()
                                 notesAdapter.clearSelection()
                             }
@@ -298,7 +388,7 @@ fun AllNotesScreen(
                         NotesSyncStatusPill(
                             syncOnline = s.syncOnline,
                             status = syncStatus,
-                            noteCount = notesSize,
+                            countLabel = syncCountLabel,
                             backdrop = topBarBackdrop,
                             contentColor = contentColor
                         )
@@ -307,7 +397,14 @@ fun AllNotesScreen(
                         NotesGlassAddButton(
                             backdrop = topBarBackdrop,
                             contentColor = contentColor,
-                            onClick = onAddNote
+                            onClick = {
+                                if (folderMode) {
+                                    pendingFolderName = ""
+                                    showCreateFolderDialog = true
+                                } else {
+                                    onAddNote()
+                                }
+                            }
                         )
                     }
                 }
@@ -407,7 +504,47 @@ fun AllNotesScreen(
 //                        isInteractive = !fastMode
                     )
                 }
-                if (twoCols) {
+                if (folderMode) {
+                    LazyVerticalGrid(
+                        state = gridState,
+                        columns = GridCells.Adaptive(minSize = 78.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        overscrollEffect = overscroll,
+                        contentPadding = PaddingValues(
+                            start = 14.dp, end = 14.dp,
+                            top = padding.calculateTopPadding() + 14.dp,
+                            bottom = 12.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        items(items = folders, key = { it.id }) { folder ->
+                            val selected = selectedIds.contains(folder.id)
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                NotesFolderCard(
+                                    folder = folder,
+                                    palette = palette,
+                                    selected = selected,
+                                    onClick = {
+                                        if (selectionMode) {
+                                            toggleSelected(folder.id)
+                                        } else {
+                                            onOpenFolder(folder.id)
+                                        }
+                                    },
+                                    onLongClick = { toggleSelected(folder.id) }
+                                )
+                            }
+                        }
+
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+                        }
+                    }
+                } else if (twoCols) {
                     LazyVerticalGrid(
                         state = gridState,
                         columns = GridCells.Fixed(2),
@@ -457,13 +594,139 @@ fun AllNotesScreen(
                 val isEmpty = safeNotesSnapshot.isEmpty()
 
                 NotesWelcomeOnboardingOverlay(
-                    visible = isEmpty && showWelcome,
+                    visible = showWelcomeOnEmptyNotes && !folderMode && isEmpty && showWelcome,
                     backdrop = itemBackdrop,
                     onContinue = { onAddNote() }
                 )
 
             }
         }
+    }
+}
+
+@Composable
+private fun NotesFolderCard(
+    folder: NoteFolderUi,
+    palette: NotesPaletteColors?,
+    selected: Boolean,
+    onLongClick: () -> Unit,
+    onClick: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val folderBack = palette?.noteTint ?: if (isDark) Color(0xFF8E8E93) else Color(0xFFA8A8AD)
+    val folderFront = palette?.titleRail ?: if (isDark) Color(0xFF6F7074) else Color(0xFF8D8E93)
+    val folderTab = palette?.accent?.copy(alpha = if (isDark) 0.92f else 0.78f)
+        ?: if (isDark) Color(0xFFB9BBC0) else Color(0xFFD6D7DB)
+    val labelColor = if (isDark) Color.White else Color(0xFF101114)
+
+    Column(
+        modifier = Modifier
+            .width(78.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .border(
+                width = if (selected) 2.dp else 0.dp,
+                color = if (selected) folderTab else Color.Transparent,
+                shape = RoundedCornerShape(6.dp)
+            )
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .padding(3.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Box(
+            modifier = Modifier
+                .width(72.dp)
+                .height(60.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 3.dp)
+                    .width(34.dp)
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                    .background(folderTab)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(folderBack)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(folderFront)
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 7.dp, end = 6.dp, bottom = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                Text(
+                    text = folder.name,
+                    color = labelColor,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
+                        fontWeight = FontWeight.Black
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${folder.count} notes",
+                    color = labelColor.copy(alpha = 0.76f),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(18.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(folderTab),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = if (isDark) Color(0xFF111111) else Color.White,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun sanitizeFolderTitleInput(raw: String): String {
+    return raw
+        .replace('\n', ' ')
+        .trim()
+        .split(Regex("\\s+"))
+        .filter { it.isNotBlank() }
+        .take(3)
+        .joinToString(" ") { it.take(24) }
+        .take(72)
+}
+
+private fun limitFolderTitleInput(raw: String): String {
+    val sanitized = sanitizeFolderTitleInput(raw)
+    val trimmedStart = raw.replace('\n', ' ').trimStart()
+    return if (trimmedStart.split(Regex("\\s+")).filter { it.isNotBlank() }.size <= 3 && trimmedStart.length <= 72) {
+        trimmedStart
+    } else {
+        sanitized
     }
 }
 
@@ -494,7 +757,7 @@ private fun NotesGlassAddButton(
 private fun NotesSyncStatusPill(
     syncOnline: Boolean,
     status: NotesSyncUiStatus,
-    noteCount: Int,
+    countLabel: String,
     backdrop: LayerBackdrop,
     contentColor: Color,
     modifier: Modifier = Modifier
@@ -506,19 +769,19 @@ private fun NotesSyncStatusPill(
                     status == NotesSyncUiStatus.Syncing
             )
     val label = when {
-        !syncOnline -> "Local · $noteCount"
+        !syncOnline -> "Local · $countLabel"
         status == NotesSyncUiStatus.Uploading -> "Uploading..."
         status == NotesSyncUiStatus.Deleting -> "Deleting..."
         status == NotesSyncUiStatus.Downloading -> "Downloading notes..."
         status == NotesSyncUiStatus.Syncing -> "Syncing..."
         status == NotesSyncUiStatus.Error -> "Sync issue"
-        else -> "Online · $noteCount"
+        else -> "Online · $countLabel"
     }
 
     Box(
         modifier = modifier
             .height(NotesActionHeight)
-            .widthIn(min = 104.dp, max = 172.dp)
+            .widthIn(min = 104.dp, max = 224.dp)
             .notesActionGlass(backdrop, NotesActionShape)
             .clip(NotesActionShape),
         contentAlignment = Alignment.Center

@@ -1,5 +1,39 @@
 {
-  "versionCode": 3,
-  "versionName": "0.1.8",
-  "apkUrl": "https://drive.google.com/uc?export=download&id=1BdZpdSNFx5G-GciCKjPJjrAHMArloXzO"
+  "versionCode": 280,
+  "versionName": "0.2.280",
+  "apkUrl": "https://github.com/aliencodingjava/my-app-update/releases/latest/download/jac-air-tracker-latest.apk",
+  "updates": [
+    {
+      "title": "Notes Folders",
+      "body": "Notes can now be organized into folders.\n\n• Create folders from the Notes page\n• Open a folder and add notes inside it\n• Existing notes are kept in Main\n• Empty folders stay clean and no longer show the welcome card"
+    },
+    {
+      "title": "Folder Sync",
+      "body": "Folder organization is ready for account sync.\n\n• Notes save their folder when Sync Online is turned on\n• Folder assignments can restore with your account\n• Folder names can sync after the note_folders table is added in Supabase\n• Folder deletes also remove the notes inside that folder"
+    },
+    {
+      "title": "Notes Search & Counts",
+      "body": "The Notes page is easier to understand.\n\n• Search can find folder names and notes inside folders\n• The top status pill now shows folder and note totals on the Folders page\n• Inside a folder, the pill shows only that folder's note count\n• Folder names are limited to short, clean titles"
+    },
+    {
+      "title": "Notes Design",
+      "body": "Notes received a more polished folder experience.\n\n• Folder cards now follow the selected Notes color palette\n• Folder selection works like note selection\n• Multiple folders can be selected and removed\n• The new-folder dialog uses a cleaner Material-style design"
+    },
+    {
+      "title": "First Screen Polish",
+      "body": "The first screen feels smoother and more premium.\n\n• Welcome card typography and motion were refined\n• The Enter tab fades in more naturally while it lands\n• Landing glow, ripple, and press-ready behavior feel softer\n• The splash experience is more immediate with less visual delay"
+    },
+    {
+      "title": "Themes",
+      "body": "The app has a livelier theme system.\n\n• New vivid app themes were added\n• Bottom tabs and main navigation better match the selected style\n• Settings includes theme controls for changing the app look\n• Colors feel brighter and more alive across the main surfaces"
+    },
+    {
+      "title": "App Polish",
+      "body": "Daily use should feel cleaner and more consistent.\n\n• Main navigation, Settings, Notes, and shared glass surfaces received polish\n• Light and dark mode surfaces feel more balanced\n• Buttons, sheets, and tab surfaces feel more consistent\n• Several visual details were cleaned up across the app"
+    },
+    {
+      "title": "Stability",
+      "body": "This update includes reliability cleanup around Notes and account behavior.\n\n• Notes folder actions are safer when used offline\n• Sync actions only run when the user is logged in and Sync Online is enabled\n• Local Notes still work when the account is offline\n• The app keeps folder behavior consistent across Notes entry points"
+    }
+  ]
 }

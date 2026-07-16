@@ -356,6 +356,7 @@ val LocalAppPageBg = staticCompositionLocalOf { Color.Unspecified }
 fun FlightsTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     profileBackdropStyle: ProfileBackdropStyle = ProfileBackdropStyle.Auto,
+    appThemePreset: AppThemePreset = AppThemePreset.Classic,
     content: @Composable () -> Unit
 ) {
     val colors = when {
@@ -389,6 +390,9 @@ fun FlightsTheme(
 
     val backdropSpec = rememberProfileBackdropSpec(darkTheme, profileBackdropStyle, colors)
     val glassSpec = rememberProfileGlassSpec(darkTheme, profileBackdropStyle)
+    val appThemePalette = remember(appThemePreset, darkTheme) {
+        appThemePaletteFor(appThemePreset, darkTheme)
+    }
 
     MaterialTheme(
         colorScheme = colors,
@@ -398,6 +402,8 @@ fun FlightsTheme(
             LocalProfileBackdropStyle provides profileBackdropStyle,
             LocalProfileBackdropSpec provides backdropSpec,
             LocalProfileGlassSpec provides glassSpec,
+            LocalAppThemePreset provides appThemePreset,
+            LocalAppThemePalette provides appThemePalette,
             LocalAppPageBg provides appPageBg // ✅ provide it
         ) {
             content()

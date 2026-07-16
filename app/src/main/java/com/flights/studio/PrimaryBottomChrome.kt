@@ -63,6 +63,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.graphics.toArgb
@@ -251,6 +252,7 @@ internal fun GlassBottomTabBar(
 ) {
     val glassColor = bottomTabBarTint()
     val overlayTint = bottomTabBarOverlayTint()
+    val isDark = isSystemInDarkTheme()
     val liquidGlassTintAmount = rememberLiquidGlassTintAmount()
     val adaptiveEnabled = rememberLiquidGlassAdaptiveLuminanceEnabled()
     val backdropBlurDp = bottomChromeBackdropBlurDp()
@@ -277,10 +279,14 @@ internal fun GlassBottomTabBar(
         strength = adaptiveSurfaceStrength
     )
     val adaptiveContentBlend = if (adaptiveEnabled) {
-        lerp(0.18f, if (isSystemInDarkTheme()) 0.56f else 0.68f, adaptiveEffectStrength)
+        lerp(0.18f, if (isDark) 0.56f else 0.68f, adaptiveEffectStrength)
     } else {
         0f
     }
+    val appThemePalette = LocalAppThemePalette.current
+    val tabAccent = appThemePalette.accent
+    val tabAccentWarm = appThemePalette.warm
+    val tabAccentRose = appThemePalette.rose
     val adaptiveSelectedContentColor = lerpColor(
         bottomTabSelectedContentColor(),
         adaptiveContentColor,
@@ -377,6 +383,54 @@ internal fun GlassBottomTabBar(
                     .background(adaptiveSurfaceTint, GlassChromeShape)
             )
         }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(GlassChromeShape)
+                .drawBehind {
+                    drawRoundRect(
+                        brush = Brush.linearGradient(
+                            colors = if (isDark) {
+                                listOf(
+                                    Color(0xFF0F172A).copy(alpha = 0.16f),
+                                    tabAccent.copy(alpha = 0.15f),
+                                    tabAccentWarm.copy(alpha = 0.10f)
+                                )
+                            } else {
+                                listOf(
+                                    Color.White.copy(alpha = 0.12f),
+                                    tabAccent.copy(alpha = 0.085f),
+                                    tabAccentWarm.copy(alpha = 0.095f)
+                                )
+                            },
+                            start = Offset.Zero,
+                            end = Offset(size.width, size.height)
+                        )
+                    )
+                    withTransform({
+                        rotate(-12f, pivot = Offset(size.width * 0.86f, size.height * 0.40f))
+                    }) {
+                        drawRoundRect(
+                            color = tabAccent.copy(alpha = if (isDark) 0.22f else 0.13f),
+                            topLeft = Offset(size.width * 0.70f, -8.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(size.width * 0.24f, 18.dp.toPx()),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(9.dp.toPx(), 9.dp.toPx())
+                        )
+                        drawRoundRect(
+                            color = tabAccentWarm.copy(alpha = if (isDark) 0.22f else 0.16f),
+                            topLeft = Offset(size.width * 0.80f, 15.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(size.width * 0.18f, 6.dp.toPx()),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                        )
+                    }
+                    drawRoundRect(
+                        color = tabAccentRose.copy(alpha = if (isDark) 0.16f else 0.10f),
+                        topLeft = Offset(size.width * 0.06f, size.height - 10.dp.toPx()),
+                        size = androidx.compose.ui.geometry.Size(size.width * 0.24f, 5.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                    )
+                }
+        )
         if (selectedLanternColor != null) {
             Box(
                 modifier = Modifier
@@ -469,6 +523,10 @@ private fun RowScope.PrimaryQuickTab(
     val inactiveColor = lerpColor(bottomTabInactiveColor(), adaptiveContentColor, adaptiveContentBlend)
     val selectedContentColor = adaptiveSelectedContentColor
     val selectedPillColor = bottomTabSelectedPillColor()
+    val isDark = isSystemInDarkTheme()
+    val appThemePalette = LocalAppThemePalette.current
+    val pillAccent = appThemePalette.accent
+    val pillAccentWarm = appThemePalette.warm
     val pressSource = remember { MutableInteractionSource() }
     val isPressed by pressSource.collectIsPressedAsState()
     val pillAlpha by animateFloatAsState(
@@ -509,7 +567,30 @@ private fun RowScope.PrimaryQuickTab(
                 .graphicsLayer {
                     alpha = pillAlpha
                 }
-                .background(selectedPillColor, GlassChromeInnerShape)
+                .drawBehind {
+                    drawRoundRect(
+                        color = selectedPillColor,
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx(), 24.dp.toPx())
+                    )
+                    drawRoundRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                pillAccent.copy(alpha = if (isDark) 0.26f else 0.16f),
+                                pillAccentWarm.copy(alpha = if (isDark) 0.20f else 0.14f),
+                                Color.Transparent
+                            ),
+                            start = Offset.Zero,
+                            end = Offset(size.width, size.height)
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx(), 24.dp.toPx())
+                    )
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = if (isDark) 0.08f else 0.16f),
+                        topLeft = Offset(8.dp.toPx(), 5.dp.toPx()),
+                        size = androidx.compose.ui.geometry.Size(size.width - 16.dp.toPx(), 1.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.dp.toPx(), 1.dp.toPx())
+                    )
+                }
         )
         Box(
             modifier = Modifier

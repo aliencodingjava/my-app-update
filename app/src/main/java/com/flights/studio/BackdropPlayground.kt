@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
@@ -67,20 +68,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -138,9 +143,12 @@ class BackdropPlaygroundActivity : ComponentActivity() {
             }
             SideEffect { controller.isAppearanceLightStatusBars = !isDark }
 
-            BackdropPlaygroundScreen(
-                onNavigateToMain = { navigateToMain(this) }
-            )
+            val appThemePreset = AppThemeStore.rememberPreset(this@BackdropPlaygroundActivity)
+            FlightsTheme(appThemePreset = appThemePreset) {
+                BackdropPlaygroundScreen(
+                    onNavigateToMain = { navigateToMain(this) }
+                )
+            }
         }
     }
 
@@ -201,7 +209,7 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
 
     val buttonDiameter = 64.dp
     val heroTopPadding = 46.dp
-    val heroHeight = 166.dp
+    val heroHeight = 184.dp
     val glassEdgePadding = 14.dp
     val splashCornerRadius = 32.dp
     val bottomMargin = 24.dp
@@ -215,7 +223,9 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
     val enterProgressAnimation = remember { Animatable(0f) }
     val safeEnterProgressAnimation = remember { Animatable(0f) }
     val heroDragAnimation = remember { Animatable(0f) }
+    val landingRippleAnimation = remember { Animatable(-1f) }
     val animationScope = rememberCoroutineScope()
+    val view = LocalView.current
     val heroDragRangePx = remember(density) {
         with(density) { 118.dp.toPx() }
     }
@@ -229,9 +239,14 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
             safeEnterProgressAnimation.value.coerceIn(0f, 1f)
         }
     }
+    val readyProgress by remember {
+        derivedStateOf {
+            ((safeEnterProgress - 0.82f) / 0.18f).coerceIn(0f, 1f)
+        }
+    }
+    val isEnterInteractive = readyProgress > 0.01f
     val dropOvershoot = (enterProgress - 1f).coerceAtLeast(0f)
-    val buttonDropProgress = (safeEnterProgress * 1.18f).coerceIn(0f, 1f) +
-            ((enterProgress - safeEnterProgress).coerceAtLeast(0f) * 0.24f)
+    val buttonDropProgress = safeEnterProgress
     val heroShiftProgress = ((safeEnterProgress - 0.10f) / 0.90f).coerceIn(0f, 1f)
     val buttonOffsetY = lerp(
         initialOffsetY.value,
@@ -285,7 +300,7 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
     )
 
     val breatheFactor by animateFloatAsState(
-        targetValue = if (isReady) 1f else 0f,
+        targetValue = readyProgress,
         animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
         label = "breathe_factor"
     )
@@ -311,6 +326,7 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
         enterProgressAnimation.snapTo(0f)
         safeEnterProgressAnimation.snapTo(0f)
         heroDragAnimation.snapTo(0f)
+        landingRippleAnimation.snapTo(-1f)
         delay(80L)
 
         splashState = SplashState.Initial
@@ -318,20 +334,26 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
 
         splashState = SplashState.Dropping
         launch {
-            safeEnterProgressAnimation.animateTo(
+            enterProgressAnimation.animateTo(
                 targetValue = 1f,
-                animationSpec = tween(durationMillis = 920, easing = FastOutSlowInEasing)
+                animationSpec = spring(
+                    dampingRatio = 0.86f,
+                    stiffness = 18f
+                )
             )
         }
-        enterProgressAnimation.animateTo(
+        safeEnterProgressAnimation.animateTo(
             targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = 0.86f,
-                stiffness = 18f
-            )
+            animationSpec = tween(durationMillis = 920, easing = FastOutSlowInEasing)
         )
 
         splashState = SplashState.Ready
+        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        landingRippleAnimation.snapTo(0f)
+        landingRippleAnimation.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 620, easing = FastOutSlowInEasing)
+        )
     }
 
     OpenSplashBackdropScaffold { backdrop ->
@@ -354,7 +376,8 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
                 iconRes = R.drawable.newmainlogo,
                 diameter = buttonDiameter,
                 cornerRadius = splashCornerRadius,
-                isInteractive = isReady,
+                isInteractive = isEnterInteractive,
+                readyProgress = readyProgress,
                 splashState = splashState,
                 uiTight = uiTight,
                 onClick = onNavigateToMain
@@ -366,6 +389,7 @@ fun BackdropPlaygroundScreen(onNavigateToMain: () -> Unit) {
                 visible = splashState != SplashState.Hidden,
                 glassProgress = heroGlassProgress,
                 safeProgress = safeEnterProgress,
+                landingRippleProgress = landingRippleAnimation.value,
                 cornerRadius = splashCornerRadius,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -470,6 +494,7 @@ private fun LiquidGlassRoundIconButton(
     diameter: Dp = 84.dp,
     cornerRadius: Dp = 32.dp,
     isInteractive: Boolean = true,
+    readyProgress: Float = if (isInteractive) 1f else 0f,
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
     contentDescription: String? = null,
@@ -487,6 +512,21 @@ private fun LiquidGlassRoundIconButton(
     val overlayTint = bottomTabBarOverlayTintForAmount(glassTintAmount, isDark)
     val backdropBlurDp = bottomChromeBackdropBlurDpForAmount(glassTintAmount, isDark)
     val logoSize = diameter * 0.76f
+    val readyGlowFactor = readyProgress.coerceIn(0f, 1f)
+    val readyGlowTransition = rememberInfiniteTransition(label = "enter_ready_glow")
+    val readyGlowPulse by readyGlowTransition.animateFloat(
+        initialValue = 0.72f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "enter_ready_glow_pulse"
+    )
+    val appThemePalette = LocalAppThemePalette.current
+    val readyGlowColor = appThemePalette.accent
+    val enterAccent = appThemePalette.accent
+    val enterAccentWarm = appThemePalette.warm
 
 
     Box(
@@ -584,8 +624,87 @@ private fun LiquidGlassRoundIconButton(
             ),
         contentAlignment = Alignment.Center
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawWithCache {
+                    val radius = cornerRadius.toPx()
+                    onDrawBehind {
+                        drawRoundRect(
+                            brush = Brush.linearGradient(
+                                colors = if (isDark) {
+                                    listOf(
+                                        Color(0xFF0F172A).copy(alpha = 0.18f),
+                                        enterAccent.copy(alpha = 0.16f),
+                                        enterAccentWarm.copy(alpha = 0.11f)
+                                    )
+                                } else {
+                                    listOf(
+                                        Color.White.copy(alpha = 0.16f),
+                                        enterAccent.copy(alpha = 0.105f),
+                                        enterAccentWarm.copy(alpha = 0.120f)
+                                    )
+                                },
+                                start = Offset.Zero,
+                                end = Offset(size.width, size.height)
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+                        )
+                        withTransform({
+                            rotate(-12f, pivot = Offset(size.width * 0.82f, size.height * 0.40f))
+                        }) {
+                            drawRoundRect(
+                                color = enterAccent.copy(alpha = if (isDark) 0.22f else 0.16f),
+                                topLeft = Offset(size.width * 0.68f, -10.dp.toPx()),
+                                size = androidx.compose.ui.geometry.Size(size.width * 0.26f, 22.dp.toPx()),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(11.dp.toPx(), 11.dp.toPx())
+                            )
+                            drawRoundRect(
+                                color = enterAccentWarm.copy(alpha = if (isDark) 0.22f else 0.18f),
+                                topLeft = Offset(size.width * 0.78f, 18.dp.toPx()),
+                                size = androidx.compose.ui.geometry.Size(size.width * 0.20f, 7.dp.toPx()),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                            )
+                        }
+                    }
+                }
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawWithCache {
+                    val glowAlpha = readyGlowFactor * readyGlowPulse
+                    val haloInset = 7.dp.toPx()
+                    val radius = cornerRadius.toPx() + haloInset
+                    onDrawBehind {
+                        if (glowAlpha <= 0.001f) return@onDrawBehind
+
+                        drawRoundRect(
+                            color = readyGlowColor.copy(alpha = 0.20f * glowAlpha),
+                            topLeft = Offset(-haloInset, -haloInset),
+                            size = androidx.compose.ui.geometry.Size(
+                                width = size.width + haloInset * 2f,
+                                height = size.height + haloInset * 2f
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+                        )
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.10f * glowAlpha),
+                            topLeft = Offset(1.dp.toPx(), 1.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(
+                                width = size.width - 2.dp.toPx(),
+                                height = size.height - 2.dp.toPx()
+                            ),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius.toPx(), cornerRadius.toPx()),
+                            style = Stroke(width = 0.7.dp.toPx())
+                        )
+                    }
+                }
+        )
+
         AnimatedVisibility(
-            visible = splashState == SplashState.Ready,
+            visible = splashState != SplashState.Hidden,
             enter = fadeIn(tween(durationMillis = 400)) + scaleIn(
                 initialScale = 0.90f,
                 animationSpec = tween(
@@ -765,6 +884,7 @@ private fun SplashHeroBar(
     visible: Boolean,
     glassProgress: Float,
     safeProgress: Float,
+    landingRippleProgress: Float,
     cornerRadius: Dp,
     modifier: Modifier = Modifier
 ) {
@@ -783,7 +903,7 @@ private fun SplashHeroBar(
     }
     val heroTitle = remember(hasSeenHero, hour) {
         when {
-            hasSeenHero -> "Welcome back"
+            hasSeenHero -> "Welcome"
             hour in 5..10 -> "Good morning"
             hour in 11..16 -> "Good afternoon"
             hour in 17..21 -> "Good evening"
@@ -865,6 +985,11 @@ private fun SplashHeroBar(
     )
     val glassStretch = (glassProgress - 1f).coerceAtLeast(0f)
     val heroShape = RoundedCornerShape(cornerRadius)
+    val rippleColor = MaterialTheme.colorScheme.primary
+    val appThemePalette = LocalAppThemePalette.current
+    val cardAccent = appThemePalette.accent
+    val cardAccentWarm = appThemePalette.warm
+    val cardAccentRose = appThemePalette.rose
     Box(
         modifier = modifier
             .offset {
@@ -879,7 +1004,7 @@ private fun SplashHeroBar(
                 transformOrigin = TransformOrigin(0.5f, 0.5f)
                 clip = false
             }
-            .height(166.dp)
+            .height(184.dp)
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { heroShape },
@@ -919,7 +1044,109 @@ private fun SplashHeroBar(
                 },
                 onDrawBackdrop = { drawBackdrop -> drawBackdrop() }
             )
-            .padding(horizontal = 20.dp),
+            .drawWithCache {
+                val rippleProgress = landingRippleProgress.coerceIn(0f, 1f)
+                val rippleAlpha = (1f - rippleProgress) * safeProgress
+                val inset = 18.dp.toPx() * rippleProgress
+                val strokeWidth = 1.2.dp.toPx() + 2.4.dp.toPx() * rippleProgress
+                val radius = cornerRadius.toPx()
+                onDrawWithContent {
+                    val businessTint = if (isDark) {
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF0F172A).copy(alpha = 0.24f),
+                                cardAccent.copy(alpha = 0.18f),
+                                cardAccentWarm.copy(alpha = 0.12f)
+                            ),
+                            start = Offset.Zero,
+                            end = Offset(size.width, size.height)
+                        )
+                    } else {
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.20f),
+                                cardAccent.copy(alpha = 0.115f),
+                                cardAccentWarm.copy(alpha = 0.130f)
+                            ),
+                            start = Offset.Zero,
+                            end = Offset(size.width, size.height)
+                        )
+                    }
+                    drawRoundRect(
+                        brush = businessTint,
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+                    )
+                    withTransform({
+                        rotate(-14f, pivot = Offset(size.width * 0.88f, size.height * 0.28f))
+                    }) {
+                        drawRoundRect(
+                            color = cardAccent.copy(alpha = if (isDark) 0.28f else 0.20f),
+                            topLeft = Offset(size.width * 0.58f, -size.height * 0.22f),
+                            size = androidx.compose.ui.geometry.Size(size.width * 0.50f, 46.dp.toPx()),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(18.dp.toPx(), 18.dp.toPx())
+                        )
+                        drawRoundRect(
+                            color = cardAccentWarm.copy(alpha = if (isDark) 0.26f else 0.22f),
+                            topLeft = Offset(size.width * 0.70f, 30.dp.toPx()),
+                            size = androidx.compose.ui.geometry.Size(size.width * 0.32f, 14.dp.toPx()),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(7.dp.toPx(), 7.dp.toPx())
+                        )
+                    }
+                    withTransform({
+                        rotate(-14f, pivot = Offset(size.width * 0.10f, size.height * 0.80f))
+                    }) {
+                        drawRoundRect(
+                            color = cardAccentRose.copy(alpha = if (isDark) 0.20f else 0.15f),
+                            topLeft = Offset(-size.width * 0.16f, size.height * 0.74f),
+                            size = androidx.compose.ui.geometry.Size(size.width * 0.42f, 34.dp.toPx()),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx(), 16.dp.toPx())
+                        )
+                    }
+                    drawRoundRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                cardAccentWarm.copy(alpha = 0.70f),
+                                cardAccent.copy(alpha = 0.52f),
+                                cardAccentRose.copy(alpha = 0.46f)
+                            )
+                        ),
+                        topLeft = Offset(18.dp.toPx(), 24.dp.toPx()),
+                        size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height - 48.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    )
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = if (isDark) 0.08f else 0.20f),
+                        topLeft = Offset(28.dp.toPx(), 20.dp.toPx()),
+                        size = androidx.compose.ui.geometry.Size(size.width - 56.dp.toPx(), 1.dp.toPx()),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.dp.toPx(), 1.dp.toPx())
+                    )
+                    drawContent()
+                    if (landingRippleProgress < 0f) return@onDrawWithContent
+                    if (rippleAlpha <= 0.001f) return@onDrawWithContent
+
+                    drawRoundRect(
+                        color = rippleColor.copy(alpha = 0.18f * rippleAlpha),
+                        topLeft = Offset(inset, inset),
+                        size = androidx.compose.ui.geometry.Size(
+                            width = size.width - inset * 2f,
+                            height = size.height - inset * 2f
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius),
+                        style = Stroke(width = strokeWidth)
+                    )
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.10f * rippleAlpha),
+                        topLeft = Offset(inset * 0.55f, inset * 0.55f),
+                        size = androidx.compose.ui.geometry.Size(
+                            width = size.width - inset * 1.1f,
+                            height = size.height - inset * 1.1f
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius),
+                        style = Stroke(width = 0.8.dp.toPx())
+                    )
+                }
+            }
+            .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center
     ) {
             Column(
@@ -927,22 +1154,31 @@ private fun SplashHeroBar(
             ) {
 
                 // MAIN TITLE
-                val title = MaterialTheme.typography.headlineMedium
+                val title = MaterialTheme.typography.headlineLarge
                 Text(
                     text = heroTitle,
-                    style = title,
-                    fontSize = title.fontSize.us(uiTight),
+                    style = title.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        shadow = androidx.compose.ui.graphics.Shadow(
+                            color = Color.Black.copy(alpha = if (isDark) 0.28f else 0.10f),
+                            offset = Offset(0f, 2f),
+                            blurRadius = 10f
+                        )
+                    ),
+                    fontSize = title.fontSize.us(uiTight * 1.16f),
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
 
                 // SUBTITLE
+                val subtitle = MaterialTheme.typography.titleLarge
                 Text(
                     text = if (hasSeenHero) "Good to see you again" else "Let’s get you settled",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = subtitle.copy(fontWeight = FontWeight.SemiBold),
+                    fontSize = subtitle.fontSize.us(uiTight * 1.02f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.92f else 0.86f),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 6.dp)
+                    modifier = Modifier.padding(top = 8.dp)
                 )
 
                 // SMART LINE
@@ -955,12 +1191,14 @@ private fun SplashHeroBar(
                     },
                     label = "SmartLineTransition"
                 ) { targetText ->
+                    val smartStyle = MaterialTheme.typography.titleSmall
                     Text(
                         text = targetText,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                        style = smartStyle.copy(fontWeight = FontWeight.SemiBold),
+                        fontSize = smartStyle.fontSize.us(uiTight * 1.03f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.94f else 0.90f),
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 12.dp)
+                        modifier = Modifier.padding(top = 14.dp)
                     )
                 }
             }

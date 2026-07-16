@@ -4,62 +4,68 @@ package com.flights.studio
 
 import android.app.Activity
 import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SplitButtonDefaults
-import androidx.compose.material3.SplitButtonLayout
-import androidx.compose.material3.SplitButtonShapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -74,31 +80,46 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastCoerceAtMost
+import androidx.compose.ui.util.lerp
+import androidx.compose.ui.zIndex
 import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.highlight.HighlightStyle
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tanh
 
 
 data class InstagramPreviewActions(
@@ -165,6 +186,7 @@ fun EditNoteScreen(
 
     val context = LocalContext.current
     val topBarBackdrop = rememberLayerBackdrop()
+    val mediaSheetBackdrop = rememberLayerBackdrop()
 
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -204,8 +226,9 @@ fun EditNoteScreen(
 
     var launchPicker by remember { mutableStateOf(false) }
     var showHelp by rememberSaveable { mutableStateOf(false) }
-    var showAttachmentEditor by rememberSaveable { mutableStateOf(false) }
+    var mediaSheetOpen by rememberSaveable { mutableStateOf(false) }
     var requestAutofillTitle by rememberSaveable { mutableStateOf(false) }
+    var saving by rememberSaveable { mutableStateOf(false) }
 
     val prefs = remember { context.getSharedPreferences(NotesPagePrefs.NAME, Context.MODE_PRIVATE) }
     var tipEnabled by rememberSaveable {
@@ -253,6 +276,33 @@ fun EditNoteScreen(
         if (idx >= 0) images[idx] = newLocalUri else images.add(newLocalUri)
         previewUri = newLocalUri
 
+    }
+
+    fun copyEditedNote() {
+        context.getSystemService(ClipboardManager::class.java)
+            ?.setPrimaryClip(ClipData.newPlainText("note", note))
+        Toast.makeText(context, "Note copied", Toast.LENGTH_SHORT).show()
+    }
+
+    fun shareEditedNote() {
+        val shareText = buildString {
+            val cleanTitle = title.trim()
+            if (cleanTitle.isNotBlank()) {
+                append(cleanTitle)
+                append("\n\n")
+            }
+            append(note)
+        }
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, shareText)
+            title.trim().takeIf { it.isNotBlank() }?.let {
+                putExtra(Intent.EXTRA_SUBJECT, it)
+            }
+        }
+        runCatching {
+            context.startActivity(Intent.createChooser(sendIntent, "Share note"))
+        }
     }
 
 
@@ -308,631 +358,192 @@ fun EditNoteScreen(
         }
     }
 
-    // ✅ Match your other pages: page bg + backdrop
-//    val pageBg = LocalAppPageBg.current
-////    val pageBackdrop = rememberLayerBackdrop {
-////        drawRect(pageBg)
-////        drawContent()
-////    }
-
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            Surface(
-                shape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 1.dp
-            ) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(
-                            text = "Edit Note",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = "Back")
-                        }
-                    },
-                    actions = {
-                        var menuOpen by remember { mutableStateOf(false) }
-                        var saving by rememberSaveable { mutableStateOf(false) }
-                        val canSave = note.isNotBlank()
-
-                        val isDark = isSystemInDarkTheme()
-                        val scheme = MaterialTheme.colorScheme
-
-                        // ✅ Glass
-                        val glassFill = scheme.surfaceVariant.copy(alpha = if (isDark) 0.35f else 0.25f)
-                        val glassContent = scheme.onSurface
-
-                        // ✅ kill Material container (prevents “2 shapes” flash)
-                        val btnColors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Transparent,
-                            contentColor = glassContent,
-                            disabledContainerColor = Color.Transparent,
-                            disabledContentColor = glassContent.copy(alpha = 0.40f)
-                        )
-
-                        // --- pressed tracking (hoisted) ---
-                        val leadIS = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                        val trailIS = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                        val leadPressed by leadIS.collectIsPressedAsState()
-                        val trailPressed by trailIS.collectIsPressedAsState()
-
-                        // ✅ smooth press morph (prevents 1-frame square)
-                        val leadPressT by animateFloatAsState(
-                            targetValue = if (leadPressed) 1f else 0f,
-                            animationSpec = androidx.compose.animation.core.tween(90),
-                            label = "editLeadPressT"
-                        )
-                        val trailPressT by animateFloatAsState(
-                            targetValue = if (trailPressed) 1f else 0f,
-                            animationSpec = androidx.compose.animation.core.tween(90),
-                            label = "editTrailPressT"
-                        )
-
-                        // ✅ right-only morph (menu open)
-                        val shapeT by animateFloatAsState(
-                            targetValue = if (menuOpen) 1f else 0f,
-                            label = "editSplitShapeT"
-                        )
-
-                        fun lerpDp(a: Dp, b: Dp, t: Float): Dp = a + (b - a) * t
-
-                        val outer = 50.dp
-                        val innerClosed = 5.dp
-                        val innerOpen = 24.dp
-                        val pressedInner = 14.dp
-
-                        // base inner when menu opens
-                        val rightInnerBase = lerpDp(innerClosed, innerOpen, shapeT)
-
-                        // ✅ EFFECTIVE inners (press morph blended smoothly)
-                        val leftInner = lerpDp(innerClosed, pressedInner, leadPressT)
-                        val rightInner = lerpDp(rightInnerBase, pressedInner, trailPressT)
-                        val hlColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
 
 
-                        // ✅ EFFECTIVE shapes (single source of truth)
-                        val leftEffectiveShape = RoundedCornerShape(
-                            topStart = outer,
-                            bottomStart = outer,
-                            topEnd = leftInner,
-                            bottomEnd = leftInner
-                        )
+    val previewActions = rememberInstagramPreviewActions(
+        context = context,
+        noteProvider = { note },
+        onRotate = { uri ->
+            scope.launch {
+                val out = rotate90AndSaveNewFile(context, uri) ?: return@launch
+                val newUri = Uri.fromFile(out)
 
-                        val rightEffectiveShape = RoundedCornerShape(
-                            topStart = rightInner,
-                            bottomStart = rightInner,
-                            topEnd = outer,
-                            bottomEnd = outer
-                        )
-
-                        // ✅ Kill SplitButton internal morphs + kill default checked CircleShape
-                        val leftShapes = SplitButtonShapes(
-                            shape = leftEffectiveShape,
-                            pressedShape = leftEffectiveShape,
-                            checkedShape = leftEffectiveShape
-                        )
-                        val rightShapes = SplitButtonShapes(
-                            shape = rightEffectiveShape,
-                            pressedShape = rightEffectiveShape,
-                            checkedShape = rightEffectiveShape
-                        )
-
-                        SplitButtonLayout(
-                            leadingButton = {
-                                SplitButtonDefaults.LeadingButton(
-                                    enabled = canSave && !saving,
-                                    onClick = {
-                                        if (!canSave || saving) return@LeadingButton
-                                        focusManager.clearFocus()
-                                        keyboard?.hide()
-
-                                        scope.launch {
-                                            saving = true
-                                            try {
-                                                val finalTitle =
-                                                    if (title.isNotBlank() || !tipEnabled) {
-                                                        title
-                                                    } else {
-                                                        runCatching {
-                                                            GeminiTitles.generateTitles(
-                                                                note = note,
-                                                                hasImages = images.isNotEmpty(),
-                                                                currentTitle = title
-                                                            ).firstOrNull()?.title?.let {
-                                                                enforceMeaningfulTitle(it, note, images.isNotEmpty())
-                                                            }.orEmpty()
-                                                        }.getOrDefault("")
-                                                    }
-
-                                                onSave(
-                                                    note,
-                                                    finalTitle,
-                                                    images.toList(),
-                                                    attachments.toList(),
-                                                    voiceNotes.toList(),
-                                                    wantsReminder
-                                                )
-                                            } finally {
-                                                saving = false
-                                            }
-                                        }
-                                    },
-                                    colors = btnColors,
-                                    shapes = leftShapes,
-                                    interactionSource = leadIS,
-                                    modifier = Modifier
-                                        .clip(leftEffectiveShape) // ✅ clip always matches ripple/pressed
-                                        .drawBackdrop(
-                                            backdrop = topBarBackdrop,
-                                            shape = { leftEffectiveShape }, // ✅ glass follows same shape
-                                            shadow = null,
-                                            highlight = {
-                                                Highlight(
-                                                    width = 0.50.dp,
-                                                    blurRadius = 1.dp,
-                                                    alpha = 0.96f,
-                                                    style = HighlightStyle.Plain(color = hlColor)
-                                                )
-                                            },
-                                            effects = { blur(radius = 8f.dp.toPx(), edgeTreatment = TileMode.Clamp) },
-                                            onDrawSurface = { drawRect(glassFill) }
-                                        )
-                                ) { Text(if (saving) "Saving…" else "Save") }
-                            },
-                            trailingButton = {
-                                val rotation by animateFloatAsState(
-                                    targetValue = if (menuOpen) 180f else 0f,
-                                    label = "editSplitArrow"
-                                )
-
-                                SplitButtonDefaults.TrailingButton(
-                                    checked = menuOpen,
-                                    onCheckedChange = { menuOpen = it },
-                                    enabled = true,
-                                    colors = btnColors,
-                                    shapes = rightShapes,
-                                    interactionSource = trailIS,
-                                    modifier = Modifier
-                                        .clip(rightEffectiveShape) // ✅ clip always matches ripple/pressed
-                                        .drawBackdrop(
-                                            backdrop = topBarBackdrop,
-                                            shape = { rightEffectiveShape }, // ✅ glass follows same shape
-                                            shadow = null,
-                                            highlight = {
-                                                Highlight(
-                                                    width = 0.50.dp,
-                                                    blurRadius = 1.dp,
-                                                    alpha = 0.96f,
-                                                    style = HighlightStyle.Plain(color = hlColor)
-                                                )
-                                            },
-                                            effects = { blur(radius = 8f.dp.toPx(), edgeTreatment = TileMode.Clamp) },
-                                            onDrawSurface = { drawRect(glassFill) }
-                                        )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.KeyboardArrowDown,
-                                        contentDescription = "More",
-                                        modifier = Modifier
-                                            .size(SplitButtonDefaults.TrailingIconSize)
-                                            .graphicsLayer { rotationZ = rotation }
-                                    )
-                                }
-                            }
-                        )
-
-                        DropdownMenuPopup(
-                            expanded = menuOpen,
-                            onDismissRequest = { menuOpen = false }
-                        ) {
-                            val itemCount = 2
-                            DropdownMenuGroup(
-                                shapes = MenuDefaults.groupShape(index = 0, count = 1),
-                                containerColor = MenuDefaults.groupVibrantContainerColor
-                            ) {
-                                DropdownMenuItem(
-                                    selected = false,
-                                    onClick = {
-                                        menuOpen = false
-                                        launchPicker = true
-                                    },
-                                    text = { Text("Add photo") },
-                                    shapes = MenuDefaults.itemShape(index = 0, count = itemCount),
-                                    colors = MenuDefaults.itemColors(),
-                                    trailingIcon = { Icon(Icons.Filled.PhotoCamera, null) }
-                                )
-
-                                DropdownMenuItem(
-                                    selected = false,
-                                    onClick = {
-                                        menuOpen = false
-                                        requestAutofillTitle = true
-                                        showHelp = true
-                                    },
-                                    text = { Text("Info") },
-                                    shapes = MenuDefaults.itemShape(index = 1, count = itemCount),
-                                    colors = MenuDefaults.itemColors(),
-                                    leadingIcon = { Icon(Icons.Filled.Info, null) }
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.width(8.dp))
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-                )
+                val idx = images.indexOf(uri)
+                if (idx >= 0) images[idx] = newUri else images.add(newUri)
+                previewUri = newUri
             }
+        },
+        onReplace = { uri ->
+            replaceTargetUri = uri
+            replacePicker.launch(arrayOf("image/*"))
+        },
+        onRemove = { uri ->
+            images.remove(uri)
+            previewUri = null
         }
-    ) { padding ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(pageBg)
-                .layerBackdrop(pageBackdrop) // ✅ record ONCE (important)
-        ) {
-            // ✅ same grid pattern background (NO layerBackdrop here)
-            ProfileBackdropImageLayer(
-                modifier = Modifier.matchParentSize(),
-                lightRes = R.drawable.light_grid_pattern,
-                darkRes = R.drawable.dark_grid_pattern,
-                imageAlpha = if (isDark) 1f else 0.8f,
-                scrimDark = 0f,
-                scrimLight = 0f
-            )
+    )
 
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .blur(if (showInstagramDialog) 8.dp else 0.dp) // ✅ BLUR WHOLE SCREEN
-                    .background(
-                        if (showInstagramDialog)
-                            Color.Black.copy(alpha = 0.20f)   // ✨ light glass haze
-                        else
-                            Color.Transparent
-                    )
-                    .padding(padding)
-                    .imePadding()
-                    .padding(horizontal = 14.dp, vertical = 12.dp)
-            ) {
+    val canSave = note.isNotBlank()
 
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // ✅ PINNED images (fixed, not scroll)
-                    if (images.isNotEmpty()) {
-                        Surface(
-                            modifier = Modifier,
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.22f else 0.14f)
-                            ),
-                            shadowElevation = 0.dp
-                        ) {
-                            Column(Modifier.padding(horizontal = 10.dp, vertical = 9.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Images (${images.size})",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(Modifier.weight(1f))
-                                    Text(
-                                        text = "Reorder",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                            alpha = 0.70f
-                                        )
-                                    )
-                                }
+    fun saveEditedNote() {
+        if (!canSave || saving) return
+        focusManager.clearFocus()
+        keyboard?.hide()
 
-                                Spacer(Modifier.size(7.dp))
-
-                                ReorderableImageRow(
-                                    images = images,
-                                    onRemove = { uri -> images.remove(uri) },
-                                    onOpenPreview = { uri -> previewUri = uri },
-                                    itemSize = 78.dp
-                                )
-
-
-                                // ✅ open dialog
-                                val actions = rememberInstagramPreviewActions(
-                                    context = context,
-                                    noteProvider = { note },
-
-                                    onRotate = { uri ->
-                                        scope.launch {
-                                            val out = rotate90AndSaveNewFile(context, uri)
-                                                ?: return@launch
-                                            val newUri = Uri.fromFile(out)
-
-                                            val idx = images.indexOf(uri)
-                                            if (idx >= 0) images[idx] = newUri else images.add(
-                                                newUri
-                                            )
-                                            previewUri = newUri
-
-                                        }
-                                    },
-
-                                    onReplace = { uri ->
-                                        replaceTargetUri = uri
-                                        replacePicker.launch(arrayOf("image/*"))
-                                    },
-
-                                    onRemove = { uri ->
-                                        images.remove(uri)
-                                        previewUri = null
-                                    }
-                                )
-
-
-                                InstagramPreviewOverlay(
-                                    uri = previewUri,
-                                    onDismiss = { previewUri = null },
-                                    onShare = actions.onShare,
-                                    onShareWithNote = actions.onShareWithNote,
-                                    onRotate = actions.onRotate,
-                                    onReplace = actions.onReplace,
-                                    onRemove = actions.onRemove
-                                )
-
-                            }
-
-                        }
-
+        scope.launch {
+            saving = true
+            try {
+                val finalTitle =
+                    if (title.isNotBlank() || !tipEnabled) {
+                        title
+                    } else {
+                        runCatching {
+                            GeminiTitles.generateTitles(
+                                note = note,
+                                hasImages = images.isNotEmpty(),
+                                currentTitle = title
+                            ).firstOrNull()?.title?.let {
+                                enforceMeaningfulTitle(it, note, images.isNotEmpty())
+                            }.orEmpty()
+                        }.getOrDefault("")
                     }
 
-                    if (voiceNotes.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.22f else 0.14f)
-                            ),
-                            shadowElevation = 0.dp
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(7.dp)
-                            ) {
-                                Text(
-                                    text = "Voice (${voiceNotes.size})",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
-                                )
-
-                                voiceNotes.chunked(2).forEach { rowItems ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(7.dp)
-                                    ) {
-                                        rowItems.forEach { item ->
-                                            val voiceIndex = voiceNotes.indexOf(item).coerceAtLeast(0)
-                                            NoteAudioMiniPlayer(
-                                                uri = item.asUri,
-                                                title = "Voice ${voiceIndex + 1}",
-                                                subtitle = formatVoiceDuration(item.durationMs),
-                                                modifier = Modifier.weight(1f),
-                                                onRemove = {
-                                                    voiceNotes.remove(item)
-                                                    if (item.asUri.scheme == "file") {
-                                                        java.io.File(item.asUri.path.orEmpty()).delete()
-                                                    }
-                                                }
-                                            )
-                                        }
-                                        if (rowItems.size == 1) {
-                                            Spacer(Modifier.weight(1f))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (attachments.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(
-                                1.dp,
-                                MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.22f else 0.14f)
-                            ),
-                            shadowElevation = 0.dp
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(7.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(36.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(
-                                        text = "Files (${attachments.size})",
-                                        modifier = Modifier.weight(1f),
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = if (showAttachmentEditor) "Hide" else "Edit",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .clickable { showAttachmentEditor = !showAttachmentEditor }
-                                            .padding(horizontal = 10.dp, vertical = 7.dp)
-                                    )
-                                    Text(
-                                        text = if (showAttachmentEditor) "Less" else "More",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .clickable { showAttachmentEditor = !showAttachmentEditor }
-                                            .padding(horizontal = 10.dp, vertical = 7.dp)
-                                    )
-                                }
-
-                                if (showAttachmentEditor) {
-                                    val sortedAttachments = attachments.sortedWith(
-                                        compareBy<NoteAttachmentItem> {
-                                            when {
-                                                it.isAudioAttachment() -> 1
-                                                it.isVideoAttachment() -> 2
-                                                else -> 0
-                                            }
-                                        }.thenBy { it.name.lowercase() }
-                                    )
-                                    sortedAttachments.chunked(2).forEach { rowItems ->
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(7.dp)
-                                        ) {
-                                            rowItems.forEach { item ->
-                                                EditableAttachmentPill(
-                                                    item = item,
-                                                    modifier = Modifier.weight(1f),
-                                                    onRemove = {
-                                                        attachments.remove(item)
-                                                        if (item.asUri.scheme == "file") java.io.File(item.asUri.path.orEmpty()).delete()
-                                                        if (attachments.isEmpty()) showAttachmentEditor = false
-                                                    }
-                                                )
-                                            }
-                                            if (rowItems.size == 1) {
-                                                Spacer(Modifier.weight(1f))
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    LazyRow(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(7.dp)
-                                    ) {
-                                        itemsIndexed(attachments.take(4)) { _, item ->
-                                            AttachmentPreviewChip(item)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-
-                    // ✅ ONLY the content below scrolls
-                    androidx.compose.foundation.lazy.LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            // --- Compact title + note composer
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(18.dp),
-                                color = MaterialTheme.colorScheme.surface,
-                                border = BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.28f else 0.18f)
-                                ),
-                                shadowElevation = 0.dp
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "Edit content",
-                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Spacer(Modifier.weight(1f))
-                                        Surface(
-                                            shape = RoundedCornerShape(999.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.70f),
-                                            border = BorderStroke(
-                                                1.dp,
-                                                MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
-                                            )
-                                        ) {
-                                            Text(
-                                                text = "${note.length} chars",
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1
-                                            )
-                                        }
-                                    }
-
-                                    OutlinedTextField(
-                                        value = title,
-                                        onValueChange = { title = it },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp),
-                                        singleLine = true,
-                                        placeholder = {
-                                            Text(
-                                                text = "Title",
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        },
-                                        keyboardOptions = KeyboardOptions(
-                                            capitalization = KeyboardCapitalization.Sentences,
-                                            autoCorrectEnabled = false
-                                        ),
-                                        shape = RoundedCornerShape(14.dp)
-                                    )
-
-                                    OutlinedTextField(
-                                        value = note,
-                                        onValueChange = { note = it },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        minLines = 4,
-                                        placeholder = {
-                                            Text("Write your note")
-                                        },
-                                        keyboardOptions = KeyboardOptions(
-                                            capitalization = KeyboardCapitalization.Sentences,
-                                            autoCorrectEnabled = false
-                                        ),
-                                        shape = RoundedCornerShape(14.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        // bottom padding so keyboard doesn't feel cramped
-                        item { Spacer(Modifier.size(18.dp)) }
-                    }
-                }
+                onSave(
+                    note,
+                    finalTitle,
+                    images.toList(),
+                    attachments.toList(),
+                    voiceNotes.toList(),
+                    wantsReminder
+                )
+            } finally {
+                saving = false
             }
         }
     }
+
+    val mediaCount = images.size + voiceNotes.size + attachments.size
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(pageBg)
+            .imePadding()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .layerBackdrop(topBarBackdrop)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(pageBackdrop)
+            ) {
+                ProfileBackdropImageLayer(
+                    modifier = Modifier.matchParentSize(),
+                    lightRes = R.drawable.light_grid_pattern,
+                    darkRes = R.drawable.dark_grid_pattern,
+                    imageAlpha = if (isDark) 1f else 0.8f,
+                    scrimDark = 0f,
+                    scrimLight = 0f
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(mediaSheetBackdrop)
+            ) {
+                ProfileBackdropImageLayer(
+                    modifier = Modifier.matchParentSize(),
+                    lightRes = R.drawable.light_grid_pattern,
+                    darkRes = R.drawable.dark_grid_pattern,
+                    imageAlpha = if (isDark) 0.95f else 0.70f,
+                    scrimDark = 0.12f,
+                    scrimLight = 0.03f
+                )
+
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .blur(if (showInstagramDialog) 8.dp else 0.dp)
+                        .background(
+                            if (showInstagramDialog) {
+                                Color.Black.copy(alpha = 0.20f)
+                            } else {
+                                Color.Transparent
+                            }
+                        )
+                        .padding(start = 6.dp, end = 6.dp, top = 104.dp, bottom = 18.dp)
+                ) {
+                    EditNoteReaderCard(
+                        title = title,
+                        note = note,
+                        isDark = isDark,
+                        backdrop = pageBackdrop,
+                        onTitleChange = { title = it },
+                        onNoteChange = { note = it },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+
+        EditNoteTopActionBar(
+            backdrop = topBarBackdrop,
+            noteLength = note.length,
+            canSave = canSave,
+            saving = saving,
+            onBack = onBack,
+            onShare = ::shareEditedNote,
+            onCopy = ::copyEditedNote,
+            onSave = ::saveEditedNote,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .zIndex(50f)
+        )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(
+                    start = GlassChromeHorizontalPadding,
+                    end = 16.dp,
+                    bottom = 30.dp
+                )
+                .zIndex(80f),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            EditNoteFloatingMediaButton(
+                visible = mediaCount > 0 && !mediaSheetOpen,
+                backdrop = mediaSheetBackdrop,
+                onClick = { mediaSheetOpen = true }
+            )
+        }
+
+        EditNoteMediaSheet(
+            visible = mediaSheetOpen,
+            backdrop = mediaSheetBackdrop,
+            images = images,
+            voiceNotes = voiceNotes,
+            attachments = attachments,
+            onAddPhoto = { launchPicker = true },
+            onDismiss = { mediaSheetOpen = false },
+            onPreviewImage = { previewUri = it }
+        )
+
+        InstagramPreviewOverlay(
+            uri = previewUri,
+            onDismiss = { previewUri = null },
+            onShare = previewActions.onShare,
+            onShareWithNote = previewActions.onShareWithNote,
+            onRotate = previewActions.onRotate,
+            onReplace = previewActions.onReplace,
+            onRemove = previewActions.onRemove
+        )
+
         if (showHelp) {
             AlertDialog(
                 onDismissRequest = { showHelp = false },
@@ -959,10 +570,732 @@ fun EditNoteScreen(
             )
 
         }
-
+    }
 }
 
 
+
+@Composable
+private fun EditNoteTopActionBar(
+    backdrop: Backdrop,
+    noteLength: Int,
+    canSave: Boolean,
+    saving: Boolean,
+    onBack: () -> Unit,
+    onShare: () -> Unit,
+    onCopy: () -> Unit,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val topBarShape = RoundedCornerShape(0.dp)
+    val isDark = isSystemInDarkTheme()
+    val contentColor = if (isDark) Color.White else Color(0xFF111111)
+    val barColor = topActionBarTint()
+
+    Surface(
+        shape = topBarShape,
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(96.dp)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { topBarShape },
+                shadow = null,
+                highlight = null,
+                effects = {
+                    blur(
+                        radius = TopActionBarBlurDp.dp.toPx(),
+                        edgeTreatment = TileMode.Mirror
+                    )
+                },
+                onDrawSurface = { drawRect(barColor) }
+            )
+    ) {
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(start = 4.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
+                    contentDescription = "Back",
+                    tint = contentColor
+                )
+            }
+            Text(
+                text = "Edit Note",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = contentColor,
+                maxLines = 1
+            )
+            EditNoteActionsPill(
+                noteLength = noteLength,
+                isDark = isDark,
+                backdrop = backdrop,
+                canSave = canSave,
+                saving = saving,
+                onShare = onShare,
+                onCopy = onCopy,
+                onSave = onSave
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditNoteReaderCard(
+    title: String,
+    note: String,
+    isDark: Boolean,
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier,
+    onTitleChange: (String) -> Unit,
+    onNoteChange: (String) -> Unit
+) {
+    val glassAmount = rememberLiquidGlassTintAmount()
+    val panelShape = RoundedCornerShape(26.dp)
+    val panelColor = if (isDark) {
+        Color(0xFF111317).copy(alpha = 0.42f + 0.16f * glassAmount)
+    } else {
+        Color(0xFFE6E2E7).copy(alpha = 0.12f + 0.10f * glassAmount)
+    }
+    val overlayTint = if (isDark) {
+        Color.Black.copy(alpha = 0.10f + 0.08f * glassAmount)
+    } else {
+        Color.White.copy(alpha = 0.035f + 0.05f * glassAmount)
+    }
+    val innerSurface = if (isDark) {
+        Color.Black.copy(alpha = 0.22f + 0.12f * glassAmount)
+    } else {
+        Color.White.copy(alpha = 0.07f + 0.08f * glassAmount)
+    }
+    val panelBorder = if (isDark) {
+        Color.White.copy(alpha = 0.18f + 0.08f * glassAmount)
+    } else {
+        Color.White.copy(alpha = 0.52f + 0.18f * glassAmount)
+    }
+    val textColor = if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
+    val titleTextColor = if (isDark) Color.White.copy(alpha = 0.98f) else Color(0xFF102E56)
+    val titlePillColor = if (isDark) {
+        Color(0xFF342C78).copy(alpha = 0.76f + 0.10f * glassAmount)
+    } else {
+        Color(0xFF8EC8F6).copy(alpha = 0.82f + 0.10f * glassAmount)
+    }
+    val titlePillBorder = if (isDark) {
+        Color(0xFF7C66FF).copy(alpha = 0.88f)
+    } else {
+        Color(0xFF3D8DD7).copy(alpha = 0.62f)
+    }
+    val sheenBrush = Brush.verticalGradient(
+        listOf(
+            Color.White.copy(alpha = if (isDark) 0.10f else 0.30f),
+            Color.Transparent,
+            Color.White.copy(alpha = if (isDark) 0.03f else 0.09f)
+        )
+    )
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(max = 650.dp)
+            .clip(panelShape)
+            .adaptiveLiquidGlassBackdrop(
+                backdrop = backdrop,
+                shape = panelShape,
+                surfaceColor = panelColor,
+                blurDp = 1.35f,
+                shadow = null,
+                highlight = null,
+                refractionHeightDp = GlassChromeRefractionHeightDp,
+                refractionAmountDp = GlassChromeRefractionAmountDp,
+                chromaticAberration = true
+            )
+            .background(overlayTint, panelShape)
+            .background(sheenBrush, panelShape)
+            .border(1.dp, panelBorder, panelShape)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            EditNoteLiquidSurface(
+                backdrop = backdrop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, titlePillBorder, RoundedCornerShape(999.dp)),
+                shape = RoundedCornerShape(999.dp),
+                isInteractive = false,
+                surfaceColor = titlePillColor,
+                height = 40.dp,
+                horizontalPadding = 13.dp
+            ) {
+                BasicTextField(
+                    value = title,
+                    onValueChange = onTitleChange,
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Black,
+                        color = titleTextColor,
+                        textAlign = TextAlign.Center
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        autoCorrectEnabled = false
+                    ),
+                    decorationBox = { innerTextField ->
+                        if (title.isBlank()) {
+                            Text(
+                                text = "Title",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = titleTextColor.copy(alpha = 0.62f),
+                                    textAlign = TextAlign.Center
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .border(1.dp, panelBorder.copy(alpha = 0.42f), RoundedCornerShape(18.dp))
+                    .background(innerSurface, RoundedCornerShape(18.dp))
+            ) {
+                BasicTextField(
+                    value = note,
+                    onValueChange = onNoteChange,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp)
+                        .verticalScroll(rememberScrollState()),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        autoCorrectEnabled = false
+                    ),
+                    decorationBox = { innerTextField ->
+                        if (note.isBlank()) {
+                            Text(
+                                text = "Write your note",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditNoteActionsPill(
+    noteLength: Int,
+    isDark: Boolean,
+    backdrop: Backdrop,
+    canSave: Boolean = true,
+    saving: Boolean = false,
+    onShare: () -> Unit,
+    onCopy: () -> Unit,
+    onSave: () -> Unit
+) {
+    val shape = RoundedCornerShape(999.dp)
+    val glassAmount = rememberLiquidGlassTintAmount()
+    val pillColor = if (isDark) {
+        Color.White.copy(alpha = 0.09f + 0.05f * glassAmount)
+    } else {
+        Color.White.copy(alpha = 0.48f + 0.16f * glassAmount)
+    }
+    EditNoteLiquidSurface(
+        backdrop = backdrop,
+        modifier = Modifier,
+        shape = shape,
+        isInteractive = false,
+        surfaceColor = pillColor,
+        height = 34.dp,
+        horizontalPadding = 9.dp,
+        contentSpacing = 6.dp
+    ) {
+        Text(
+            text = "$noteLength chars",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        EditNoteActionDivider()
+        EditNotePillAction(label = "Share", isDark = isDark, onClick = onShare)
+        EditNoteActionDivider()
+        EditNotePillAction(label = "Copy", isDark = isDark, onClick = onCopy)
+        EditNoteActionDivider()
+        EditNotePillAction(
+            label = if (saving) "Saving" else "Save",
+            isDark = isDark,
+            enabled = canSave && !saving,
+            accent = true,
+            onClick = onSave
+        )
+    }
+}
+
+@Composable
+private fun EditNoteActionDivider() {
+    Box(
+        Modifier
+            .width(1.dp)
+            .height(12.dp)
+            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.34f))
+    )
+}
+
+@Composable
+private fun EditNotePillAction(
+    label: String,
+    isDark: Boolean,
+    enabled: Boolean = true,
+    accent: Boolean = false,
+    onClick: () -> Unit
+) {
+    val accentColor = if (isDark) Color(0xFF7DD3FC) else Color(0xFF1268B3)
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+        color = if (enabled) {
+            if (accent) accentColor else if (isDark) Color.White else Color.Black
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.48f)
+        },
+        maxLines = 1,
+        modifier = Modifier.clickable(
+            enabled = enabled,
+            onClick = onClick
+        )
+    )
+}
+
+@Composable
+private fun EditNoteFloatingMediaButton(
+    visible: Boolean,
+    backdrop: Backdrop,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val iconColor = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF123B52)
+    val buttonColor = if (isDark) {
+        Color(0xFF35BFF5).copy(alpha = 0.42f)
+    } else {
+        Color(0xFF8EC8F6).copy(alpha = 0.86f)
+    }
+    val mediaShape = RoundedCornerShape(
+        topStart = 18.dp,
+        topEnd = 0.dp,
+        bottomEnd = 18.dp,
+        bottomStart = 0.dp
+    )
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = fadeIn(animationSpec = tween(durationMillis = 130)) +
+            scaleIn(
+                initialScale = 0.88f,
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)
+            ),
+        exit = fadeOut(animationSpec = tween(durationMillis = 120)) +
+            scaleOut(
+                targetScale = 0.88f,
+                animationSpec = tween(durationMillis = 120, easing = FastOutLinearInEasing)
+            )
+    ) {
+        EditNoteLiquidSurface(
+            onClick = onClick,
+            backdrop = backdrop,
+            shape = mediaShape,
+            surfaceColor = buttonColor,
+            height = 38.dp,
+            horizontalPadding = 14.dp,
+            contentSpacing = 5.dp
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PhotoLibrary,
+                contentDescription = stringResource(R.string.search),
+                tint = iconColor,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = "Media",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                color = iconColor,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditNoteLiquidSurface(
+    backdrop: Backdrop,
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(999.dp),
+    isInteractive: Boolean = true,
+    tint: Color = Color.Unspecified,
+    surfaceColor: Color = Color.Unspecified,
+    height: Dp = 48.dp,
+    horizontalPadding: Dp = 16.dp,
+    contentSpacing: Dp = 8.dp,
+    blurRadius: Dp = 2.dp,
+    lensHeight: Dp = 12.dp,
+    lensAmount: Dp = 24.dp,
+    onClick: (() -> Unit)? = null,
+    content: @Composable RowScope.() -> Unit
+) {
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
+    }
+    val interactive = isInteractive && onClick != null
+
+    Row(
+        modifier
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    blur(blurRadius.toPx())
+                    lens(lensHeight.toPx(), lensAmount.toPx())
+                },
+                layerBlock = if (interactive) {
+                    {
+                        val width = size.width
+                        val heightPx = size.height
+                        val progress = interactiveHighlight.pressProgress
+                        val scale = lerp(1f, 1f + 4f.dp.toPx() / size.height, progress)
+
+                        val maxOffset = size.minDimension
+                        val initialDerivative = 0.05f
+                        val offset = interactiveHighlight.offset
+                        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+                        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+
+                        val maxDragScale = 4f.dp.toPx() / size.height
+                        val offsetAngle = atan2(offset.y, offset.x)
+                        scaleX = scale +
+                            maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                            (width / heightPx).fastCoerceAtMost(1f)
+                        scaleY = scale +
+                            maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                            (heightPx / width).fastCoerceAtMost(1f)
+                    }
+                } else {
+                    null
+                },
+                onDrawSurface = {
+                    if (tint.isSpecified) {
+                        drawRect(tint, blendMode = BlendMode.Hue)
+                        drawRect(tint.copy(alpha = 0.75f))
+                    }
+                    if (surfaceColor.isSpecified) {
+                        drawRect(surfaceColor)
+                    }
+                }
+            )
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = null,
+                        indication = if (interactive) null else LocalIndication.current,
+                        role = Role.Button,
+                        onClick = onClick
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .then(
+                if (interactive) {
+                    Modifier
+                        .then(interactiveHighlight.modifier)
+                        .then(interactiveHighlight.gestureModifier)
+                } else {
+                    Modifier
+                }
+            )
+            .height(height)
+            .padding(horizontal = horizontalPadding),
+        horizontalArrangement = Arrangement.spacedBy(contentSpacing, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content
+    )
+}
+
+@Composable
+private fun EditNoteMediaSheet(
+    visible: Boolean,
+    backdrop: Backdrop,
+    images: MutableList<Uri>,
+    voiceNotes: MutableList<NoteVoiceItem>,
+    attachments: MutableList<NoteAttachmentItem>,
+    onAddPhoto: () -> Unit,
+    onDismiss: () -> Unit,
+    onPreviewImage: (Uri) -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val panelColor = if (isDark) {
+        Color(0xFF176B8A).copy(alpha = 0.58f)
+    } else {
+        Color(0xFF8EC8F6).copy(alpha = 0.56f)
+    }
+    val mediaCount = images.size + voiceNotes.size + attachments.size
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .zIndex(40f)
+    ) {
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(animationSpec = tween(durationMillis = 130)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 160))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = if (isDark) 0.38f else 0.18f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDismiss
+                    )
+            )
+        }
+
+        AnimatedVisibility(
+            visible = visible,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .imePadding(),
+            enter = slideInVertically(
+                animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
+                initialOffsetY = { it / 2 }
+            ) + fadeIn(animationSpec = tween(durationMillis = 170)) +
+                scaleIn(
+                    animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
+                    initialScale = 0.94f
+                ),
+            exit = slideOutVertically(
+                animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
+                targetOffsetY = { it / 3 }
+            ) + fadeOut(animationSpec = tween(durationMillis = 150)) +
+                scaleOut(
+                    animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
+                    targetScale = 0.98f
+                )
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 6.dp, end = 6.dp, bottom = 18.dp)
+                    .fillMaxWidth()
+                    .heightIn(min = 360.dp, max = 520.dp)
+                    .clip(GlassChromeShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    )
+                    .adaptiveLiquidGlassBackdrop(
+                        backdrop = backdrop,
+                        shape = GlassChromeShape,
+                        surfaceColor = panelColor,
+                        blurDp = 4f,
+                        shadow = null,
+                        refractionHeightDp = 22f,
+                        refractionAmountDp = 72f,
+                        chromaticAberration = true
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Media",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "Add photo",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .clickable(onClick = onAddPhoto)
+                                .padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
+                        Text(
+                            text = "Done",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .clickable(onClick = onDismiss)
+                                .padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
+                    }
+
+                    if (mediaCount == 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No files here",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 300.dp, max = 390.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 6.dp)
+                        ) {
+                            if (images.isNotEmpty()) {
+                                item {
+                                    EditNoteMediaCategoryColumn(title = "Images", count = images.size) {
+                                        ReorderableImageRow(
+                                            images = images,
+                                            onRemove = { uri -> images.remove(uri) },
+                                            onOpenPreview = onPreviewImage,
+                                            itemSize = 92.dp
+                                        )
+                                    }
+                                }
+                            }
+                            if (voiceNotes.isNotEmpty()) {
+                                item {
+                                    EditNoteMediaCategoryRow(title = "Voice", count = voiceNotes.size) {
+                                        itemsIndexed(voiceNotes) { index, item ->
+                                            NoteAudioMiniPlayer(
+                                                uri = item.asUri,
+                                                title = "Voice ${index + 1}",
+                                                subtitle = formatVoiceDuration(item.durationMs),
+                                                modifier = Modifier.fillMaxWidth(),
+                                                onRemove = {
+                                                    voiceNotes.remove(item)
+                                                    if (item.asUri.scheme == "file") {
+                                                        File(item.asUri.path.orEmpty()).delete()
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            if (attachments.isNotEmpty()) {
+                                item {
+                                    val sortedAttachments = attachments.sortedWith(
+                                        compareBy<NoteAttachmentItem> {
+                                            when {
+                                                it.isAudioAttachment() -> 1
+                                                it.isVideoAttachment() -> 2
+                                                else -> 0
+                                            }
+                                        }.thenBy { it.name.lowercase() }
+                                    )
+                                    EditNoteMediaCategoryRow(title = "Files", count = attachments.size) {
+                                        itemsIndexed(sortedAttachments) { _, item ->
+                                            EditableAttachmentPill(
+                                                item = item,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                onRemove = {
+                                                    attachments.remove(item)
+                                                    if (item.asUri.scheme == "file") {
+                                                        File(item.asUri.path.orEmpty()).delete()
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditNoteMediaCategoryColumn(
+    title: String,
+    count: Int,
+    content: @Composable () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        EditNoteMediaCategoryTitle(title = title, count = count)
+        content()
+    }
+}
+
+@Composable
+private fun EditNoteMediaCategoryRow(
+    title: String,
+    count: Int,
+    content: LazyListScope.() -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        EditNoteMediaCategoryTitle(title = title, count = count)
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun EditNoteMediaCategoryTitle(
+    title: String,
+    count: Int
+) {
+    Text(
+        text = "$title ($count)",
+        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1
+    )
+}
 
 @Composable
 private fun AttachmentPreviewChip(item: NoteAttachmentItem) {
@@ -1028,14 +1361,12 @@ private fun EditableAttachmentPill(
         modifier = modifier.height(42.dp),
         shape = RoundedCornerShape(14.dp),
         color = when {
-            isAudio -> MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
             isVideo -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.10f)
             else -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f)
         },
         border = BorderStroke(
             1.dp,
             when {
-                isAudio -> MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
                 isVideo -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.20f)
                 else -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
             }
@@ -1048,13 +1379,11 @@ private fun EditableAttachmentPill(
         ) {
             Text(
                 text = when {
-                    isAudio -> "Audio"
                     isVideo -> "Video"
                     else -> "File"
                 },
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
                 color = when {
-                    isAudio -> MaterialTheme.colorScheme.primary
                     isVideo -> MaterialTheme.colorScheme.tertiary
                     else -> MaterialTheme.colorScheme.secondary
                 },
@@ -1186,4 +1515,3 @@ private suspend fun rotate90AndSaveNewFile(
         bmp.recycle()
     }
 }
-

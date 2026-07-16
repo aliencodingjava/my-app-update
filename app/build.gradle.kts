@@ -93,10 +93,10 @@ android {
             //noinspection ChromeOsAbiSupport,ChromeOsAbiSupport
             abiFilters += listOf("arm64-v8a")
         }
-        versionCode = 255
-        versionName = "0.2.251"
+        versionCode = 280
+        versionName = "0.2.280"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "RELEASE_DATE", "\"Jun-17-2026\"")
+        buildConfigField("String", "RELEASE_DATE", "\"Jul-16-2026\"")
 
         // ✅ from local.properties
         buildConfigField("String", "SUPABASE_URL", buildConfigString(supabaseUrl))

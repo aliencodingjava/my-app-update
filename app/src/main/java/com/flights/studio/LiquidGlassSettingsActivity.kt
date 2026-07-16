@@ -12,9 +12,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -53,9 +52,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,12 +76,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.IntOffset
 import androidx.core.view.WindowCompat
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -92,7 +96,7 @@ import com.kyant.backdrop.effects.vibrancy
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import androidx.compose.ui.util.lerp
+import kotlin.time.Duration.Companion.milliseconds
 
 class LiquidGlassSettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -123,10 +127,10 @@ private fun LiquidGlassSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val pageBackdrop = rememberLayerBackdrop()
     var glassTint by remember(context) {
-        mutableStateOf(SettingsStore.liquidGlassTint(context))
+        mutableFloatStateOf(SettingsStore.liquidGlassTint(context))
     }
     var glassBlur by remember(context) {
-        mutableStateOf(SettingsStore.liquidGlassBlur(context))
+        mutableFloatStateOf(SettingsStore.liquidGlassBlur(context))
     }
 
     Scaffold(
@@ -473,7 +477,7 @@ private fun LiquidGlassPreviewTabs(
     LaunchedEffect(pulse) {
         if (pulse == 0) return@LaunchedEffect
         barPressed = true
-        delay(110)
+        delay(110.milliseconds)
         barPressed = false
     }
 
@@ -713,10 +717,10 @@ private fun LiquidGlassSliderRow(
             startIcon()
             LiquidGlassPercentSlider(
                 value = value,
-                steps = steps,
-                valueText = valueText,
+                onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
-                onValueChange = onValueChange
+                steps = steps,
+                valueText = valueText
             )
             endIcon()
         }
@@ -833,36 +837,42 @@ private fun LiquidGlassBlurIcon(
 @Composable
 private fun LiquidGlassPercentSlider(
     value: Float,
-    steps: Int = 100,
-    valueText: (Float) -> String = { value ->
-        "${(value.coerceIn(0f, 1f) * 100f).roundToInt()}%"
-    },
     onValueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    steps: Int = 100,
+    valueText: (Float) -> String = { valPct ->
+        "${(valPct.coerceIn(0f, 1f) * 100f).roundToInt()}%"
+    }
 ) {
     val density = LocalDensity.current
     val maxStep = steps.coerceAtLeast(1)
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
     val step = (value.coerceIn(0f, 1f) * maxStep).roundToInt().coerceIn(0, maxStep)
     val fraction = step / maxStep.toFloat()
     val trackPadding = 6.dp
     val indicatorWidth = 58.dp
     val indicatorHeight = 34.dp
     var widthPx by remember { mutableIntStateOf(0) }
-    var pressed by remember { mutableStateOf(false) }
+
     val handleWidth by animateFloatAsState(
-        targetValue = if (pressed) 6f else 9f,
+        targetValue = if (isPressed) 6f else 9f,
         animationSpec = tween(durationMillis = 100),
         label = "liquidGlassSliderHandleWidth"
     )
 
-    fun updateFromX(x: Float, onValueChange: (Float) -> Unit) {
+    val onValueChangeState = rememberUpdatedState(onValueChange)
+
+    fun updateFromX(x: Float) {
         if (widthPx <= 0) return
         val trackPaddingPx = with(density) { trackPadding.toPx() }
         val trackWidthPx = (widthPx - trackPaddingPx * 2f).coerceAtLeast(1f)
         val nextStep = (((x - trackPaddingPx) / trackWidthPx).coerceIn(0f, 1f) * maxStep)
             .roundToInt()
             .coerceIn(0, maxStep)
-        onValueChange(nextStep / maxStep.toFloat())
+        onValueChangeState.value(nextStep / maxStep.toFloat())
     }
 
     Box(
@@ -870,22 +880,39 @@ private fun LiquidGlassPercentSlider(
             .fillMaxWidth()
             .height(78.dp)
             .onSizeChanged { widthPx = it.width }
+            .semantics {
+                progressBarRangeInfo = ProgressBarRangeInfo(value, 0f..1f, steps)
+                setProgress { newValue ->
+                    onValueChangeState.value(newValue.coerceIn(0f, 1f))
+                    true
+                }
+            }
             .pointerInput(widthPx) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        pressed = true
-                        updateFromX(offset.x, onValueChange)
+                if (widthPx <= 0) return@pointerInput
+                detectTapGestures(
+                    onPress = { offset ->
+                        val press = androidx.compose.foundation.interaction.PressInteraction.Press(offset)
+                        interactionSource.emit(press)
+                        updateFromX(offset.x)
+                        tryAwaitRelease()
+                        interactionSource.emit(androidx.compose.foundation.interaction.PressInteraction.Release(press))
                     },
-                    onDragEnd = { pressed = false },
-                    onDragCancel = { pressed = false },
+                    onTap = { offset -> updateFromX(offset.x) }
+                )
+            }
+            .pointerInput(widthPx) {
+                if (widthPx <= 0) return@pointerInput
+                detectDragGestures(
+                    onDragStart = { offset -> updateFromX(offset.x) },
                     onDrag = { change, _ ->
-                        updateFromX(change.position.x, onValueChange)
+                        change.consume()
+                        updateFromX(change.position.x)
                     }
                 )
             }
     ) {
         LiquidGlassDotTrack(
-            value = value,
+            value = fraction,
             handleWidthDp = handleWidth,
             horizontalPaddingDp = trackPadding.value,
             handleTopDp = indicatorHeight.value,
@@ -899,12 +926,11 @@ private fun LiquidGlassPercentSlider(
             val trackWidthPx = (widthPx - trackPaddingPx * 2f).coerceAtLeast(1f)
             val handleX = trackPaddingPx + trackWidthPx * fraction
             val pillX = (handleX - pillWidthPx / 2f)
-                .roundToInt()
-                .coerceIn(0, (widthPx - pillWidthPx).roundToInt().coerceAtLeast(0))
+                .coerceIn(0f, (widthPx - pillWidthPx).coerceAtLeast(0f))
 
             Surface(
                 modifier = Modifier
-                    .offset { IntOffset(pillX, 0) }
+                    .graphicsLayer { translationX = pillX }
                     .size(width = indicatorWidth, height = indicatorHeight),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -942,29 +968,28 @@ private fun LiquidGlassDotTrack(
     Canvas(modifier = modifier) {
         val count = 100
         val horizontalPaddingPx = horizontalPaddingDp.dp.toPx()
-        val trackStart = horizontalPaddingPx
         val trackEnd = size.width - horizontalPaddingPx
-        val trackWidth = (trackEnd - trackStart).coerceAtLeast(1f)
-        val spacing = if (count > 1) trackWidth / (count - 1) else 0f
+        val trackWidth = (trackEnd - horizontalPaddingPx).coerceAtLeast(1f)
+        val spacing = trackWidth / (count - 1)
         val handleTop = handleTopDp.dp.toPx()
         val centerY = (handleTop + 24.dp.toPx()).coerceAtMost(size.height - 18.dp.toPx())
         val centerIndex = 50
-        val handleX = trackStart + (value.coerceIn(0f, 1f) * trackWidth)
-        val centerX = trackStart + centerIndex * spacing
+        val handleX = horizontalPaddingPx + (value.coerceIn(0f, 1f) * trackWidth)
+        val centerX = horizontalPaddingPx + centerIndex * spacing
         val left = minOf(centerX, handleX)
         val right = maxOf(centerX, handleX)
 
         drawRoundRect(
             color = inactiveColor.copy(alpha = 0.16f),
-            topLeft = Offset(trackStart, centerY - 5.dp.toPx()),
-            size = androidx.compose.ui.geometry.Size(trackWidth, 10.dp.toPx()),
+            topLeft = Offset(horizontalPaddingPx, centerY - 5.dp.toPx()),
+            size = Size(trackWidth, 10.dp.toPx()),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(999f, 999f)
         )
         if (abs(handleX - centerX) > 1f) {
             drawRoundRect(
                 color = activeColor.copy(alpha = 0.58f),
                 topLeft = Offset(left, centerY - 6.dp.toPx()),
-                size = androidx.compose.ui.geometry.Size(right - left, 12.dp.toPx()),
+                size = Size(right - left, 12.dp.toPx()),
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(999f, 999f)
             )
         }
@@ -983,19 +1008,19 @@ private fun LiquidGlassDotTrack(
                     else -> inactiveColor
                 },
                 radius = if (tenth) 2.45.dp.toPx() else 1.75.dp.toPx(),
-                center = Offset(trackStart + index * spacing, centerY)
+                center = Offset(horizontalPaddingPx + index * spacing, centerY)
             )
         }
         drawRoundRect(
             color = centerColor,
             topLeft = Offset(centerX - 1.6.dp.toPx(), centerY - 16.dp.toPx()),
-            size = androidx.compose.ui.geometry.Size(3.2.dp.toPx(), 32.dp.toPx()),
+            size = Size(3.2.dp.toPx(), 32.dp.toPx()),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(999f, 999f)
         )
         drawRoundRect(
             color = activeColor,
             topLeft = Offset(handleX - (handleWidthDp / 2f).dp.toPx(), handleTop),
-            size = androidx.compose.ui.geometry.Size(handleWidthDp.dp.toPx(), size.height - handleTop),
+            size = Size(handleWidthDp.dp.toPx(), size.height - handleTop),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(999f, 999f)
         )
     }

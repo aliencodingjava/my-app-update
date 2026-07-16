@@ -191,10 +191,11 @@ fun ModernSettingsScreen(
     val locale = LocalLocale.current.platformLocale
     val normalizedQuery = searchQuery.trim().lowercase(locale)
     val showLanguageSheet = remember { mutableStateOf(false) }
+    val showThemeSheet = remember { mutableStateOf(false) }
     val showChangelog = remember { mutableStateOf(false) }
     val showFeedbackSheet = remember { mutableStateOf(false) }
     val showMenuSheet = remember { mutableStateOf(false) }
-    val modalVisible = showLanguageSheet.value || showChangelog.value || showFeedbackSheet.value ||
+    val modalVisible = showLanguageSheet.value || showThemeSheet.value || showChangelog.value || showFeedbackSheet.value ||
         showMenuSheet.value
 
     LaunchedEffect(modalVisible) {
@@ -236,6 +237,9 @@ fun ModernSettingsScreen(
         "es" -> stringResource(R.string.settings_language_spanish)
         else -> stringResource(R.string.settings_language_english)
     }
+    var selectedAppTheme by remember {
+        mutableStateOf(AppThemeStore.get(appContext))
+    }
     val sections = listOf(
         SettingsSection(
             title = stringResource(R.string.settings_section_app),
@@ -260,6 +264,12 @@ fun ModernSettingsScreen(
                     summary = stringResource(R.string.settings_app_icon_summary),
                     icon = Icons.Filled.Palette,
                     onClick = onOpenAppIcon
+                ),
+                SettingsEntry(
+                    title = "App theme",
+                    summary = selectedAppTheme.label,
+                    icon = Icons.Filled.ColorLens,
+                    onClick = { showThemeSheet.value = true }
                 ),
                 SettingsEntry(
                     title = stringResource(R.string.settings_liquid_glass_title),
@@ -584,6 +594,20 @@ fun ModernSettingsScreen(
                     return@LanguagePickerSheet
                 }
                 showLanguageSheet.value = false
+            }
+        )
+
+        AppThemePickerSheet(
+            visible = showThemeSheet.value,
+            selectedTheme = selectedAppTheme,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            backdrop = settingsModalBackdrop,
+            bottomPadding = modalBottomPadding,
+            onDismiss = { showThemeSheet.value = false },
+            onThemeSelected = { preset ->
+                selectedAppTheme = preset
+                AppThemeStore.set(appContext, preset)
+                showThemeSheet.value = false
             }
         )
 
@@ -1473,6 +1497,190 @@ private fun LanguageOption(
             RadioButton(
                 selected = selected,
                 onClick = { onClick(languageTag) },
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = MaterialTheme.colorScheme.primary,
+                    unselectedColor = secondaryTextColor
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppThemePickerSheet(
+    visible: Boolean,
+    selectedTheme: AppThemePreset,
+    modifier: Modifier = Modifier,
+    backdrop: Backdrop,
+    bottomPadding: Dp,
+    onDismiss: () -> Unit,
+    onThemeSelected: (AppThemePreset) -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val panelColor = if (isDark) {
+        Color(0xFF202124).copy(alpha = 0.62f)
+    } else {
+        Color(0xFFE6E2E7).copy(alpha = 0.52f)
+    }
+    val textColor = if (isDark) Color.White else Color(0xFF1E1F24)
+    val secondaryTextColor = if (isDark) Color.White.copy(alpha = 0.78f) else Color(0xFF555763)
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 90)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 140))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = if (isDark) 0.38f else 0.18f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+        )
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = slideInVertically(
+            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+            initialOffsetY = { it / 2 }
+        ) + fadeIn(animationSpec = tween(durationMillis = 120)) +
+            scaleIn(
+                animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                initialScale = 0.96f
+            ),
+        exit = slideOutVertically(
+            animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+            targetOffsetY = { it / 3 }
+        ) + fadeOut(animationSpec = tween(durationMillis = 120)) +
+            scaleOut(
+                animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+                targetScale = 0.98f
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(
+                    start = GlassChromeHorizontalPadding,
+                    end = GlassChromeHorizontalPadding,
+                    bottom = bottomPadding
+                )
+                .fillMaxWidth()
+                .clip(GlassChromeShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .adaptiveLiquidGlassBackdrop(
+                    backdrop = backdrop,
+                    shape = GlassChromeShape,
+                    surfaceColor = panelColor,
+                    blurDp = 4f,
+                    shadow = null,
+                    refractionHeightDp = 22f,
+                    refractionAmountDp = 72f,
+                    chromaticAberration = true
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 22.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "App theme",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        lineHeight = 22.sp
+                    ),
+                    color = textColor
+                )
+                Text(
+                    text = "Choose the soft color style used by splash, tabs, and glass accents.",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                    color = secondaryTextColor
+                )
+                Spacer(Modifier.height(4.dp))
+                AppThemeStore.presets.forEach { preset ->
+                    AppThemeOption(
+                        preset = preset,
+                        selected = selectedTheme == preset,
+                        textColor = textColor,
+                        secondaryTextColor = secondaryTextColor,
+                        onClick = onThemeSelected
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppThemeOption(
+    preset: AppThemePreset,
+    selected: Boolean,
+    textColor: Color,
+    secondaryTextColor: Color,
+    onClick: (AppThemePreset) -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val palette = remember(preset, isDark) { appThemePaletteFor(preset, isDark) }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(preset) },
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.26f else 0.14f)
+        } else {
+            if (isDark) Color.White.copy(alpha = 0.10f)
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
+        }
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(palette.accent, palette.warm, palette.rose).forEach { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = preset.label,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        lineHeight = 19.sp
+                    ),
+                    color = if (selected) textColor else secondaryTextColor
+                )
+                Text(
+                    text = preset.summary,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                    color = secondaryTextColor.copy(alpha = 0.78f)
+                )
+            }
+            RadioButton(
+                selected = selected,
+                onClick = { onClick(preset) },
                 colors = RadioButtonDefaults.colors(
                     selectedColor = MaterialTheme.colorScheme.primary,
                     unselectedColor = secondaryTextColor

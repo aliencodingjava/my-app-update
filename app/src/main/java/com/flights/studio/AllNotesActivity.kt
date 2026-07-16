@@ -94,6 +94,8 @@ class AllNotesActivity : LocaleActivity() {
     private val allNotes = mutableListOf<String>()
     private val notesText = mutableStateListOf<String>()          // adapter + legacy logic
     private val noteRows  = mutableStateListOf<NoteRow>()         // compose UI list with ids
+    private val folderRows = mutableStateListOf<NoteFolderUi>()
+    private var currentFolderId by mutableStateOf<String?>(null)
     private val sharedPreferences by lazy { getSharedPreferences("notes_prefs", MODE_PRIVATE) }
     private var isMultiSelectMode = false
     private val handler = Handler(Looper.getMainLooper())
@@ -296,9 +298,11 @@ class AllNotesActivity : LocaleActivity() {
                             notes = noteRows,
                             notesSize = notesCount,
                             onAddNote = {
-                                val intent = AddNoteComposeActivity.newIntent(this@AllNotesActivity)
-                                val opts = ActivityOptionsCompat.makeSceneTransitionAnimation(this@AllNotesActivity)
-                                addNoteLauncher.launch(intent, opts)
+                                if (currentFolderId != null) {
+                                    val intent = AddNoteComposeActivity.newIntent(this@AllNotesActivity)
+                                    val opts = ActivityOptionsCompat.makeSceneTransitionAnimation(this@AllNotesActivity)
+                                    addNoteLauncher.launch(intent, opts)
+                                }
                             },
                             onOpenSearch = { onDismiss ->
                                 openSearchView(onDismiss)
@@ -322,13 +326,36 @@ class AllNotesActivity : LocaleActivity() {
                                 isMultiSelectMode = selectedKeys.isNotEmpty()
                                 deleteSelectedNotes()
                             },
+                            onDeleteSelectedFolders = ::deleteSelectedNoteFolders,
                             onOpenNote = { row, position -> onNoteClick(row.text, position) },
                             onOpenProfile = {
                                 startActivity(Intent(this@AllNotesActivity, ProfileDetailsComposeActivity::class.java))
                                 overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
                             },
                             syncStatus = notesSyncStatus,
-                            onNotesSettingsChanged = ::refreshNotesDisplayFromSettings
+                            onNotesSettingsChanged = ::refreshNotesDisplayFromSettings,
+                            onBack = if (currentFolderId != null) {
+                                {
+                                    currentFolderId = null
+                                    refreshNotesDisplayFromSettings()
+                                }
+                            } else {
+                                null
+                            },
+                            pageTitle = currentFolderTitle(),
+                            showWelcomeOnEmptyNotes = false,
+                            folderMode = currentFolderId == null,
+                            folders = folderRows,
+                            onOpenFolder = { folderId ->
+                                currentFolderId = folderId
+                                refreshNotesDisplayFromSettings()
+                            },
+                            onCreateFolder = { folderName ->
+                                if (NoteFolderStore.createFolder(this@AllNotesActivity, folderName) != null) {
+                                    currentFolderId = null
+                                    refreshNotesDisplayFromSettings()
+                                }
+                            }
 
 
 
@@ -343,8 +370,13 @@ class AllNotesActivity : LocaleActivity() {
         // Back press
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                finish()
-                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                if (currentFolderId != null) {
+                    currentFolderId = null
+                    refreshNotesDisplayFromSettings()
+                } else {
+                    finish()
+                    overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
+                }
             }
         })
 
@@ -387,6 +419,7 @@ class AllNotesActivity : LocaleActivity() {
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onStart() {
         super.onStart()
+        currentFolderId = null
 
         val filter = IntentFilter(ReminderDismissReceiver.ACTION_BADGE_CHANGED)
 
@@ -414,8 +447,6 @@ class AllNotesActivity : LocaleActivity() {
         allNotes.clear()
         allNotes.addAll(newNotes)
 
-        val sorted = applyNotesSort(allNotes, settings.sortMode)
-
         // ✅ 1) apply flags FIRST
         notesAdapter.applyPageSettings(
             compact = settings.compact,
@@ -430,15 +461,7 @@ class AllNotesActivity : LocaleActivity() {
         notesAdapter.preloadReminderFlags(this)
         notesAdapter.preloadBadgeStates(this)
 
-        // ✅ 3) submit list
-        notesAdapter.submit(sorted)
-
-        // ✅ 4) now rebuild Compose models last (so UI reads fresh adapter state)
-        rebuildBoth(sorted)
-
-        notesCount = sorted.size
-        updateNotePlaceholder()
-        showFabBadge(null)
+        refreshDisplayedNotes()
         schedulePendingNotesSync("onStart")
     }
 
@@ -551,8 +574,238 @@ class AllNotesActivity : LocaleActivity() {
     }
 
     private fun removeUidFor(note: String) {
-        contentToUid.remove(note)?.let { uidToContent.remove(it) }
+        contentToUid.remove(note)?.let {
+            NoteFolderStore.removeNote(this, it)
+            uidToContent.remove(it)
+        }
         saveUidMaps()
+    }
+
+    private fun showCreateFolderDialog() {
+        val input = EditText(this).apply {
+            hint = "Folder name"
+            setSingleLine(true)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("New folder")
+            .setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save") { _, _ ->
+                val folder = NoteFolderStore.createFolder(this, input.text?.toString().orEmpty())
+                if (folder != null) {
+                    refreshFolderRows()
+                    currentFolderId = null
+                    rebuildBoth(emptyList())
+                }
+            }
+            .show()
+    }
+
+    private fun ensureFolderAssignmentsFor(notes: List<String>) {
+        notes.forEach { note ->
+            NoteFolderStore.ensureNoteInMain(this, contentToUid[note] ?: ensureLocalUid(note))
+        }
+    }
+
+    private fun assignNoteToCurrentFolder(note: String) {
+        val folderId = currentFolderId ?: NoteFolderStore.MAIN_FOLDER_ID
+        NoteFolderStore.assignNoteToFolder(
+            context = this,
+            noteKey = contentToUid[note] ?: ensureLocalUid(note),
+            folderId = folderId
+        )
+        refreshFolderRows()
+    }
+
+    private fun displayNotesForCurrentFolder(): List<String> {
+        val folderId = currentFolderId ?: return emptyList()
+        ensureFolderAssignmentsFor(allNotes)
+        return allNotes.filter { note ->
+            NoteFolderStore.folderForNoteKey(this, contentToUid[note] ?: ensureLocalUid(note)) == folderId
+        }
+    }
+
+    private fun refreshFolderRows(query: String = "") {
+        ensureFolderAssignmentsFor(allNotes)
+        val counts = NoteFolderStore.countByFolder(
+            this,
+            allNotes.map { note -> contentToUid[note] ?: ensureLocalUid(note) }
+        )
+        val folders = buildList {
+            if (allNotes.isNotEmpty()) {
+                val main = NoteFolderStore.mainFolder()
+                add(NoteFolderUi(main.id, main.name, counts[main.id] ?: 0))
+            }
+            NoteFolderStore.loadCustomFolders(this@AllNotesActivity).forEach { folder ->
+                add(NoteFolderUi(folder.id, folder.name, counts[folder.id] ?: 0))
+            }
+        }
+        val q = query.trim()
+        val filteredFolders = if (q.isBlank()) {
+            folders
+        } else {
+            folders.filter { folder ->
+                folder.name.contains(q, ignoreCase = true) ||
+                        allNotes.any { note ->
+                            NoteFolderStore.folderForNoteKey(
+                                this,
+                                contentToUid[note] ?: ensureLocalUid(note)
+                            ) == folder.id && noteMatchesFolderSearch(note, q)
+                        }
+            }
+        }
+        folderRows.clear()
+        folderRows.addAll(filteredFolders)
+    }
+
+    private fun noteMatchesFolderSearch(note: String, query: String): Boolean {
+        val title = resolveTitle(note).orEmpty()
+        return note.contains(query, ignoreCase = true) || title.contains(query, ignoreCase = true)
+    }
+
+    private fun currentFolderTitle(): String {
+        val folderId = currentFolderId ?: return "Folders"
+        return NoteFolderStore.folderNameForId(this, folderId)
+    }
+
+    private fun localFolderIdForNote(content: String): String {
+        val key = contentToUid[content] ?: ensureLocalUid(content)
+        return NoteFolderStore.folderForNoteKey(this, key)
+    }
+
+    private suspend fun syncLocalNoteFoldersToSupabase(
+        authToken: String,
+        userId: String
+    ) = withContext(Dispatchers.IO) {
+        val folders = NoteFolderStore.loadCustomFolders(this@AllNotesActivity)
+        if (folders.isEmpty()) return@withContext
+
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val anonKey = BuildConfig.SUPABASE_ANON_KEY
+        if (baseUrl.isBlank() || anonKey.isBlank()) return@withContext
+
+        val body = JSONArray().apply {
+            folders.forEach { folder ->
+                put(
+                    JSONObject()
+                        .put("id", folder.id)
+                        .put("user_id", userId)
+                        .put("name", folder.name)
+                )
+            }
+        }.toString()
+
+        val request = Request.Builder()
+            .url("$baseUrl/rest/v1/note_folders")
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $authToken")
+            .addHeader("Content-Type", "application/json")
+            .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val responseBody = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Sync folders failed: ${response.code} $responseBody")
+            }
+        }
+    }
+
+    private suspend fun fetchRemoteNoteFolders(
+        authToken: String,
+        userId: String
+    ): List<NoteFolder> = withContext(Dispatchers.IO) {
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val anonKey = BuildConfig.SUPABASE_ANON_KEY
+        if (baseUrl.isBlank() || anonKey.isBlank()) return@withContext emptyList()
+
+        val request = Request.Builder()
+            .url(
+                "$baseUrl/rest/v1/note_folders" +
+                        "?select=id,name,created_at" +
+                        "&user_id=eq.${urlEncode(userId)}" +
+                        "&deleted_at=is.null" +
+                        "&order=created_at.asc"
+            )
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $authToken")
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val body = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Fetch folders failed: ${response.code} $body")
+            }
+            val rows = JSONArray(body.ifBlank { "[]" })
+            buildList {
+                for (index in 0 until rows.length()) {
+                    val item = rows.optJSONObject(index) ?: continue
+                    val id = item.optString("id").takeIf { it.isNotBlank() } ?: continue
+                    val name = item.optString("name").takeIf { it.isNotBlank() } ?: continue
+                    val createdAt = item.optString("created_at")
+                        .takeIf { it.isNotBlank() }
+                        ?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                        ?: System.currentTimeMillis()
+                    add(NoteFolder(id = id, name = name, createdAt = createdAt))
+                }
+            }
+        }
+    }
+
+    private fun syncDeletedNoteFoldersToSupabase(folderIds: Set<String>) {
+        val removableIds = folderIds - NoteFolderStore.MAIN_FOLDER_ID
+        if (removableIds.isEmpty()) return
+        val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return
+        val userId = session.user?.id ?: return
+        lifecycleScope.launch {
+            runCatching {
+                deleteRemoteNoteFolders(session.accessToken, userId, removableIds)
+            }.onFailure { Log.e("SupabaseSync", "Delete folders from Supabase failed", it) }
+        }
+    }
+
+    private suspend fun deleteRemoteNoteFolders(
+        authToken: String,
+        userId: String,
+        folderIds: Set<String>
+    ) = withContext(Dispatchers.IO) {
+        if (folderIds.isEmpty()) return@withContext
+        val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
+        val anonKey = BuildConfig.SUPABASE_ANON_KEY
+        if (baseUrl.isBlank() || anonKey.isBlank()) return@withContext
+
+        val inList = folderIds.joinToString(",", "(", ")")
+        val request = Request.Builder()
+            .url(
+                "$baseUrl/rest/v1/note_folders" +
+                        "?user_id=eq.${urlEncode(userId)}" +
+                        "&id=in.$inList"
+            )
+            .addHeader("apikey", anonKey)
+            .addHeader("Authorization", "Bearer $authToken")
+            .addHeader("Prefer", "return=minimal")
+            .delete()
+            .build()
+
+        notesHttpClient.newCall(request).execute().use { response ->
+            val responseBody = runCatching { response.body.string() }.getOrDefault("")
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Delete folders failed: ${response.code} $responseBody")
+            }
+        }
+    }
+
+    private fun refreshDisplayedNotes() {
+        refreshFolderRows()
+        val settings = readNotesPageSettings()
+        val sorted = applyNotesSort(displayNotesForCurrentFolder(), settings.sortMode)
+        rebuildBoth(sorted)
+        notesAdapter.submit(sorted)
+        notesCount = allNotes.size
+        updateNotePlaceholder()
+        showFabBadge(null)
     }
 
 
@@ -666,13 +919,7 @@ class AllNotesActivity : LocaleActivity() {
             else notesAdapter.removeUserTitle(updatedNote)
 
 
-            val settings = readNotesPageSettings()
-            val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
-
-            notesText.clear()
-            notesText.addAll(sorted)
-            notesAdapter.submit(sorted)
-            rebuildNoteRowsFromDisplay(sorted)
+            refreshDisplayedNotes()
 
             // ✅ 5) Persist + sync
             saveNotes()
@@ -698,11 +945,6 @@ class AllNotesActivity : LocaleActivity() {
 
     private fun saveIdMaps() {
         idPrefs.edit { putString("id_to_content", Gson().toJson(idToContent)) }
-    }
-
-    private fun shouldSync(): Boolean {
-        val last = metaPrefs.getLong("last_sync_at", 0L)
-        return now() - last > 5_000 // tweak as needed
     }
 
     private fun notesOnlineSyncEnabled(): Boolean {
@@ -773,6 +1015,13 @@ class AllNotesActivity : LocaleActivity() {
                     "Retrying pending note sync from $reason: adds=${pendingAdds.size}, deletes=${pendingDeletes.size}"
                 )
                 syncAllDeletesToSupabase()
+                val syncSession = SupabaseManager.client.auth.currentSessionOrNull()
+                val syncUserId = syncSession?.user?.id
+                if (syncSession != null && syncUserId != null) {
+                    runCatching {
+                        syncLocalNoteFoldersToSupabase(syncSession.accessToken, syncUserId)
+                    }.onFailure { Log.e("SupabaseSync", "Folder sync skipped/failed", it) }
+                }
                 notesSyncStatus = NotesSyncUiStatus.Uploading
                 syncLocalNotesToSupabase()
                 notesSyncStatus = NotesSyncUiStatus.Downloading
@@ -847,21 +1096,12 @@ class AllNotesActivity : LocaleActivity() {
 
         // 1) add to RAW list only
         allNotes.add(content)
+        assignNoteToCurrentFolder(content)
 
         // 2) build DISPLAY list (sorted copy)
-        val settings = readNotesPageSettings()
-        val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
-
-        // ✅ adapter/legacy list
-        notesText.clear()
-        notesText.addAll(sorted)
-        notesAdapter.submit(sorted)
-
-        // ✅ compose list (ids)
-        rebuildNoteRowsFromDisplay(sorted)
+        refreshDisplayedNotes()
 
         // 3) persist RAW
-        notesCount = allNotes.size
         saveNotes()
         updateNotePlaceholder()
         showFabBadge(null)
@@ -887,13 +1127,10 @@ class AllNotesActivity : LocaleActivity() {
         // cache should also be raw, not sorted
         NotesCacheManager.cachedNotes = allNotes.toMutableList()
         notesCount = allNotes.size
+        refreshFolderRows()
         showFabBadge(null)
     }
 
-
-    private suspend fun syncPendingAddsOnly() {
-        syncLocalNotesToSupabase()
-    }
 
     // Make sure every local note is present in the signed-in account,
     // while never re-uploading notes waiting for a cloud delete.
@@ -908,6 +1145,10 @@ class AllNotesActivity : LocaleActivity() {
         val session = SupabaseManager.client.auth.currentSessionOrNull()
             ?: throw IllegalStateException("No Supabase session")
         val userId = session.user?.id ?: throw IllegalStateException("No Supabase user id")
+        runCatching {
+            syncLocalNoteFoldersToSupabase(session.accessToken, userId)
+        }.onFailure { Log.e("SupabaseSync", "Folder sync skipped/failed", it) }
+
         val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
         val pendingAdds = sp.getStringSet("pending_adds", emptySet())!!.toMutableSet()
         val pendingDeletes = pendingDeletesForUser(userId)
@@ -947,20 +1188,6 @@ class AllNotesActivity : LocaleActivity() {
             }
         }
         sp.edit { putStringSet("pending_adds", stillPending) }
-    }
-    // Fetch current remote contents for the logged-in user
-    private suspend fun fetchCurrentRemoteContents(): Set<String> {
-        if (!notesOnlineSyncEnabled()) return emptySet()
-
-        val session = SupabaseManager.client.auth.currentSessionOrNull() ?: return emptySet()
-        val userId  = session.user?.id ?: return emptySet()
-
-        return try {
-            fetchActiveRemoteRows(userId).map { it.content }.toSet()
-        } catch (e: Exception) {
-            Log.e("SupabaseSync", "fetchCurrentRemoteContents failed", e)
-            emptySet()
-        }
     }
 
     private suspend fun fetchActiveRemoteRows(userId: String): List<UserNote> = withContext(Dispatchers.IO) {
@@ -1047,6 +1274,7 @@ class AllNotesActivity : LocaleActivity() {
             .put("user_id", userId)
             .put("content", content)
             .put("title", noteTitle ?: JSONObject.NULL)
+            .put("folder_id", localFolderIdForNote(content))
             .put("has_reminder", hasReminderOverride ?: noteHasReminder(content))
             .put("has_reminder_badge", noteHasReminderBadge(content))
             .toString()
@@ -1453,6 +1681,7 @@ class AllNotesActivity : LocaleActivity() {
 
         val body = JSONObject()
             .put("title", noteTitle ?: JSONObject.NULL)
+            .put("folder_id", localFolderIdForNote(content))
             .put("has_reminder", hasReminderOverride ?: noteHasReminder(content))
             .put("has_reminder_badge", noteHasReminderBadge(content))
             .toString()
@@ -1479,21 +1708,14 @@ class AllNotesActivity : LocaleActivity() {
         }
     }
 
-    private fun noteImageFileName(uri: android.net.Uri, index: Int): String {
+    private fun noteImageFileName(uri: Uri, index: Int): String {
         val raw = uri.lastPathSegment
             ?.substringAfterLast('/')
             ?.takeIf { it.isNotBlank() && "." in it }
         return raw ?: "photo_${index + 1}.jpg"
     }
 
-    private fun noteUriSize(uri: android.net.Uri): Long =
-        runCatching {
-            contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
-                descriptor.length.takeIf { it >= 0L } ?: 0L
-            } ?: 0L
-        }.getOrDefault(0L)
-
-    private fun noteImageDimensions(uri: android.net.Uri): Pair<Int, Int>? =
+    private fun noteImageDimensions(uri: Uri): Pair<Int, Int>? =
         runCatching {
             contentResolver.openInputStream(uri)?.use { stream ->
                 val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -1505,7 +1727,7 @@ class AllNotesActivity : LocaleActivity() {
         }.getOrNull()
 
     private data class RemoteNoteExtras(
-        val images: Map<String, List<android.net.Uri>>,
+        val images: Map<String, List<Uri>>,
         val files: Map<String, List<NoteAttachmentItem>>,
         val voice: Map<String, List<NoteVoiceItem>>
     )
@@ -1514,7 +1736,7 @@ class AllNotesActivity : LocaleActivity() {
         rows: List<UserNote>,
         authToken: String
     ): RemoteNoteExtras = withContext(Dispatchers.IO) {
-        val imagesByContent = mutableMapOf<String, List<android.net.Uri>>()
+        val imagesByContent = mutableMapOf<String, List<Uri>>()
         val filesByContent = mutableMapOf<String, List<NoteAttachmentItem>>()
         val voiceByContent = mutableMapOf<String, List<NoteVoiceItem>>()
 
@@ -1546,7 +1768,7 @@ class AllNotesActivity : LocaleActivity() {
         noteId: String,
         userId: String,
         authToken: String
-    ): List<android.net.Uri> = withContext(Dispatchers.IO) {
+    ): List<Uri> = withContext(Dispatchers.IO) {
         val baseUrl = BuildConfig.SUPABASE_URL.trimEnd('/')
         val anonKey = BuildConfig.SUPABASE_ANON_KEY
         if (baseUrl.isBlank() || anonKey.isBlank()) return@withContext emptyList()
@@ -1665,6 +1887,10 @@ class AllNotesActivity : LocaleActivity() {
             return
         }
 
+        runCatching {
+            NoteFolderStore.mergeRemoteFolders(this, fetchRemoteNoteFolders(session.accessToken, userId))
+        }.onFailure { Log.e("SupabaseSync", "Remote folder pull skipped/failed", it) }
+
         // 1) fetch remote snapshot
         val activeRemoteRows = fetchActiveRemoteRows(userId)
         val remoteExtras = fetchRemoteNoteExtras(
@@ -1746,6 +1972,11 @@ class AllNotesActivity : LocaleActivity() {
 
             activeRemoteRows.forEach { row ->
                 if (row.content in pendingDeletes) return@forEach
+                NoteFolderStore.assignRemoteNoteToFolder(
+                    this@AllNotesActivity,
+                    contentToUid[row.content] ?: ensureLocalUid(row.content),
+                    row.folderId
+                )
 
                 row.title?.takeIf { it.isNotBlank() }?.let { title ->
                     notesAdapter.setUserTitle(row.content, title)
@@ -1789,22 +2020,12 @@ class AllNotesActivity : LocaleActivity() {
                 allNotes.removeAll(toDeleteLocally.toSet())
             }
 
-            // ✅ now rebuild DISPLAY list from allNotes
-            val settings = readNotesPageSettings()
-            val sorted = applyNotesSort(allNotes, settings.sortMode)
-
-            notesText.clear()
-            notesText.addAll(sorted)
-            notesAdapter.submit(sorted)
-
-// ✅ compose list (ids)
-            rebuildNoteRowsFromDisplay(sorted)
+            refreshDisplayedNotes()
 
             // ✅ persist raw
             saveNotes()
             saveIdMaps()
 
-            notesCount = sorted.size
             showFabBadge(null)
         }
 
@@ -1831,7 +2052,6 @@ class AllNotesActivity : LocaleActivity() {
 
     private fun refreshNotesDisplayFromSettings() {
         val settings = readNotesPageSettings()
-        val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
 
         notesAdapter.applyPageSettings(
             compact = settings.compact,
@@ -1843,11 +2063,8 @@ class AllNotesActivity : LocaleActivity() {
         )
         notesAdapter.preloadReminderFlags(this)
         notesAdapter.preloadBadgeStates(this)
-        notesAdapter.submit(sorted)
 
-        rebuildBoth(sorted)
-        notesCount = sorted.size
-        showFabBadge(null)
+        refreshDisplayedNotes()
     }
 
     @Suppress("DEPRECATION")
@@ -1944,16 +2161,8 @@ class AllNotesActivity : LocaleActivity() {
                     NoteVoiceStore.setItems(this, updatedNote, updatedVoiceItems)
                     NoteAttachmentStore.setItems(this, updatedNote, updatedFiles)
 
-                    // 4) rebuild DISPLAY from RAW (sort applied)
-                    val settings = readNotesPageSettings()
-                    val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
-
-                    notesText.clear()
-                    notesText.addAll(sorted)
-                    notesAdapter.submit(sorted)
-
-                    // 5) rebuild compose rows (ids)
-                    rebuildNoteRowsFromDisplay(sorted)
+                    // 4) rebuild DISPLAY from the active folder
+                    refreshDisplayedNotes()
 
                     // 6) apply title store
                     if (!updatedTitle.isNullOrBlank()) notesAdapter.setUserTitle(updatedNote, updatedTitle)
@@ -2107,7 +2316,7 @@ class AllNotesActivity : LocaleActivity() {
             return
         }
 
-        val imagesByNote: Map<String, List<android.net.Uri>> =
+        val imagesByNote: Map<String, List<Uri>> =
             deleted.associate { (note, _, _) -> note to NoteMediaStore.getUris(this, note) }
 
         val notesToDelete: List<String> = deleted.map { it.first }
@@ -2166,11 +2375,8 @@ class AllNotesActivity : LocaleActivity() {
 
         // ✅ IMPORTANT: rebuild DISPLAY from RAW (no removeAt(index))
         run {
-            val settings = readNotesPageSettings()
-            val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
-            rebuildBoth(sorted)
-            notesAdapter.submit(sorted)
-            if (sorted.isEmpty()) removeFabBadge(null)
+            refreshDisplayedNotes()
+            if (notesText.isEmpty()) removeFabBadge(null)
         }
 
         // 4) clear selection
@@ -2212,10 +2418,7 @@ class AllNotesActivity : LocaleActivity() {
                 }
 
                 // ✅ rebuild DISPLAY from RAW again
-                val settingsU = readNotesPageSettings()
-                val sortedU = applyNotesSort(allNotes.toList(), settingsU.sortMode)
-                rebuildBoth(sortedU)
-                notesAdapter.submit(sortedU)
+                refreshDisplayedNotes()
 
                 saveNotes()
 
@@ -2293,18 +2496,7 @@ class AllNotesActivity : LocaleActivity() {
         allNotes.clear()
         allNotes.addAll(base)
 
-        // ✅ build DISPLAY list using your sort setting
-        val settings = readNotesPageSettings()
-        val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
-
-        notesText.clear()
-        notesText.addAll(sorted)
-
-        // ✅ rebuild NoteRow models (this will read badge/bell prefs now)
-        rebuildNoteRowsFromDisplay(sorted)
-
-        updateNotePlaceholder()
-        showFabBadge(null)
+        refreshDisplayedNotes()
     }
 
 
@@ -2316,6 +2508,60 @@ class AllNotesActivity : LocaleActivity() {
         } else {
             tv.data
         }
+    }
+
+    private fun deleteSelectedNoteFolders(selectedFolderIds: Set<String>) {
+        if (selectedFolderIds.isEmpty()) return
+        ensureFolderAssignmentsFor(allNotes)
+
+        val notesToDelete = allNotes.filter { note ->
+            NoteFolderStore.folderForNoteKey(this, contentToUid[note] ?: ensureLocalUid(note)) in selectedFolderIds
+        }.distinct()
+
+        val deleteSession = SupabaseManager.client.auth.currentSessionOrNull()
+        val remoteDeleteUserId = deleteSession?.user?.id?.takeIf { notesOnlineSyncEnabled() }
+        if (remoteDeleteUserId != null) {
+            val pendingDeletes = pendingDeletesForUser(remoteDeleteUserId)
+            notesToDelete.forEach { pendingDeletes.add(it) }
+            savePendingDeletesForUser(remoteDeleteUserId, pendingDeletes)
+            deleteQueuedNotesNowOrRetry("delete folder")
+        }
+
+        val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
+        val pendingAdds = sp.getStringSet("pending_adds", emptySet())!!.toMutableSet()
+        if (notesToDelete.any { pendingAdds.remove(it) }) {
+            sp.edit { putStringSet("pending_adds", pendingAdds) }
+        }
+
+        notesToDelete.forEach { note ->
+            NoteMediaStore.deleteAllForNote(this@AllNotesActivity, note)
+            NoteVoiceStore.deleteAllForNote(this@AllNotesActivity, note)
+            NoteAttachmentStore.deleteAllForNote(this@AllNotesActivity, note)
+            notesAdapter.removeUserTitle(note)
+            NotesCacheManager.cachedTitles.remove(note)
+            getSharedPreferences("reminder_badges", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
+            getSharedPreferences("reminder_flags", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
+            removeUidFor(note)
+        }
+
+        allNotes.removeAll(notesToDelete.toSet())
+        NotesCacheManager.cachedNotes.removeAll(notesToDelete.toSet())
+        NoteFolderStore.removeFolders(this, selectedFolderIds)
+        syncDeletedNoteFoldersToSupabase(selectedFolderIds)
+        if (currentFolderId in selectedFolderIds) currentFolderId = null
+
+        selectedKeys.clear()
+        isMultiSelectMode = false
+        notesAdapter.clearSelection()
+        setDeleteVisibleFromActivity?.invoke(false)
+
+        refreshDisplayedNotes()
+        saveNotes()
+        sharedPreferences.edit(commit = true) {
+            putString("notes_list", Gson().toJson(allNotes))
+        }
+        NotesCacheManager.cachedNotes = allNotes.toMutableList()
+        updateNotePlaceholder()
     }
 
     private fun openSearchView(onDismiss: () -> Unit) {
@@ -2341,10 +2587,14 @@ class AllNotesActivity : LocaleActivity() {
         // ✅ mode state
         var mode = loadSearchMode()
 // ✅ apply persisted mode to hint immediately (so it shows on open)
-        etSearch.hint = when (mode) {
-            SearchMode.NOTE  -> "Search in note"
-            SearchMode.TITLE -> "Search title…"
-            SearchMode.BOTH  -> "Search title or note…"
+        etSearch.hint = if (currentFolderId == null) {
+            "Search folders or notes…"
+        } else {
+            when (mode) {
+                SearchMode.NOTE  -> "Search in note"
+                SearchMode.TITLE -> "Search title…"
+                SearchMode.BOTH  -> "Search title or note…"
+            }
         }
 
         fun applyFilterNow() {
@@ -2370,10 +2620,14 @@ class AllNotesActivity : LocaleActivity() {
 
             var pendingIndex = checkedIndex
 
-            fun hintFor(m: SearchMode) = when (m) {
-                SearchMode.NOTE  -> "Search in note"
-                SearchMode.TITLE -> "Search title…"
-                SearchMode.BOTH  -> "Search title or note…"
+            fun hintFor(m: SearchMode) = if (currentFolderId == null) {
+                "Search folders or notes…"
+            } else {
+                when (m) {
+                    SearchMode.NOTE  -> "Search in note"
+                    SearchMode.TITLE -> "Search title…"
+                    SearchMode.BOTH  -> "Search title or note…"
+                }
             }
 
             fun modeForIndex(i: Int) = when (i) {
@@ -2790,10 +3044,7 @@ class AllNotesActivity : LocaleActivity() {
             return
         }
         runOnUiThread {
-            val settings = readNotesPageSettings()
-            val sorted = applyNotesSort(allNotes.toList(), settings.sortMode)
-            rebuildBoth(sorted)
-            notesAdapter.submit(sorted)
+            refreshDisplayedNotes()
         }
 
 
@@ -2890,10 +3141,21 @@ class AllNotesActivity : LocaleActivity() {
 
     private enum class SearchMode { NOTE, TITLE, BOTH }
 
-    // ✅ mode-aware + always uses RAW list
+    // ✅ mode-aware + uses the active folder list
     private fun filterNotes(query: String, mode: SearchMode) {
         val q = query.trim()
-        val base = allNotes.toList() // RAW truth
+        if (currentFolderId == null) {
+            refreshFolderRows(q)
+            rebuildBoth(emptyList())
+            notesAdapter.submit(emptyList())
+            notesAdapter.preloadReminderFlags(this)
+            notesAdapter.preloadBadgeStates(this)
+            notesCount = allNotes.size
+            showFabBadge(null)
+            return
+        }
+
+        val base = displayNotesForCurrentFolder()
 
         val filtered = if (q.isEmpty()) {
             base
@@ -2921,7 +3183,7 @@ class AllNotesActivity : LocaleActivity() {
         notesAdapter.preloadReminderFlags(this)
         notesAdapter.preloadBadgeStates(this)
 
-        notesCount = result.size
+        notesCount = allNotes.size
         showFabBadge(null)
     }
 
