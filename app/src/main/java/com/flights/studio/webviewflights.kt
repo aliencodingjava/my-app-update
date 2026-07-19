@@ -306,6 +306,7 @@ fun WebviewFlights(
     var showFlightTableSheet by remember { mutableStateOf(false) }
     var flightTableMode by rememberSaveable { mutableStateOf("arrival") }
     var lastFlightContentTab by rememberSaveable { mutableStateOf("arrivals") }
+    var flightTitleProgress by rememberSaveable { mutableStateOf(0f) }
     var liveStatusJson by rememberSaveable { mutableStateOf(SettingsStore.flightLiveStatusSnapshot(context)) }
     var flightBriefJson by rememberSaveable { mutableStateOf(SettingsStore.flightBriefSnapshot(context)) }
     var flightTableJson by rememberSaveable { mutableStateOf(SettingsStore.flightTableSnapshot(context)) }
@@ -367,7 +368,16 @@ fun WebviewFlights(
         "licenses" -> "Licenses"
         else -> "Flight Tracker"
     }
+    val flightSectionTitle = when (selectedFlightContentTab()) {
+        "departures" -> "Departures"
+        "alerts" -> "Alerts"
+        else -> "Arrivals"
+    }
     var previousCard by remember { mutableStateOf(startCardId) }
+
+    LaunchedEffect(cardId, selectedFlightTab, flightTableMode) {
+        flightTitleProgress = 0f
+    }
 
     fun setCard(id: String) {
         previousCard = cardId
@@ -624,6 +634,9 @@ fun WebviewFlights(
                         textZoom = nativeTableTextZoom,
                         groupedFlights = nativeTableGrouped,
                         highContrast = nativeTableHighContrast,
+                        onTitleProgressChange = { progress ->
+                            flightTitleProgress = progress
+                        },
                         onRefreshAlerts = {
                             flightWebView?.evaluateJavascript(
                                 "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
@@ -782,7 +795,9 @@ fun WebviewFlights(
                         .align(Alignment.TopCenter)
                         .zIndex(3f),
                     backdrop = backdrop,
-                    title = screenTitle
+                    title = screenTitle,
+                    alternateTitle = flightSectionTitle.takeIf { cardId == "card3" },
+                    titleProgress = if (cardId == "card3") flightTitleProgress else 0f
                 )
             }
 
@@ -874,12 +889,15 @@ private fun webViewMenuActions(
 private fun WebViewSettingsStyleTopAppBar(
     backdrop: LayerBackdrop,
     title: String,
+    alternateTitle: String? = null,
+    titleProgress: Float = 0f,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
     val topBarShape = RoundedCornerShape(0.dp)
     val barColor = topActionBarTint()
     val contentColor = if (isDark) Color.White else Color(0xFF111111)
+    val visibleTitle = if (alternateTitle != null && titleProgress > 0.56f) alternateTitle else title
 
     Surface(
         shape = topBarShape,
@@ -911,15 +929,38 @@ private fun WebViewSettingsStyleTopAppBar(
                 .padding(start = 18.dp, end = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = title,
+            AnimatedContent(
+                targetState = visibleTitle,
                 modifier = Modifier
                     .weight(1f)
                     .padding(end = 12.dp),
-                color = contentColor,
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 1
-            )
+                transitionSpec = {
+                    (
+                        fadeIn(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)) +
+                            slideInVertically(
+                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                                initialOffsetY = { it / 5 }
+                            )
+                        ).togetherWith(
+                        fadeOut(animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)) +
+                            slideOutVertically(
+                                animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+                                targetOffsetY = { -it / 6 }
+                            )
+                    ).using(SizeTransform(clip = false))
+                },
+                label = "webTopBarTitle"
+            ) { currentTitle ->
+                Text(
+                    text = currentTitle,
+                    color = contentColor,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -2071,6 +2112,8 @@ private data class FlightSheetBrief(
     val delayedCount: Int = 0,
     val cancelledCount: Int = 0,
     val divertedCount: Int = 0,
+    val scheduleDayLabel: String = "",
+    val upcomingDayLabel: String = "",
     val issues: List<FlightSheetIssue> = emptyList()
 )
 
@@ -2108,6 +2151,16 @@ private data class FlightTableRow(
     val tone: String,
     val delay: Int
 )
+
+private fun FlightTableRow.isCancelledFlight(): Boolean {
+    return tone.contains("cancel", ignoreCase = true) ||
+        status.contains("cancel", ignoreCase = true)
+}
+
+private fun FlightTableRow.isDivertedFlight(): Boolean {
+    return tone.contains("divert", ignoreCase = true) ||
+        status.contains("divert", ignoreCase = true)
+}
 
 @Stable
 private data class NativeFlightTablePalette(
@@ -2262,13 +2315,10 @@ private fun parseFlightBriefSnapshotForSheet(json: String): FlightSheetBrief {
 
 private fun currentFlightRows(snapshot: FlightTableSnapshot): List<FlightTableRow> {
     if (snapshot.rows.isEmpty()) return emptyList()
-    val todayRows = snapshot.rows.filter { isTodayFlightDayLabel(it.day) }
-    if (todayRows.isNotEmpty()) return todayRows
-    val todayDay = snapshot.days.firstOrNull { isTodayFlightDayLabel(it.label) }
-    if (todayDay != null) {
-        snapshot.rows.filter { it.day == todayDay.label }.ifEmpty { snapshot.rows }.let { return it }
-    }
-    val firstDay = snapshot.rows.firstOrNull { it.day.isNotBlank() }?.day
+    val firstDay = snapshot.days
+        .map { it.label }
+        .firstOrNull { label -> label.isNotBlank() && snapshot.rows.any { row -> row.day == label } }
+        ?: snapshot.rows.firstOrNull { it.day.isNotBlank() }?.day
         ?: snapshot.days.firstOrNull { it.arrivals > 0 || it.departures > 0 }?.label
         ?: return snapshot.rows
     return snapshot.rows.filter { it.day == firstDay }.ifEmpty { snapshot.rows }
@@ -2296,23 +2346,22 @@ private fun FlightSheetBrief.withCurrentTableCounts(snapshot: FlightTableSnapsho
     val issues = rows
         .filter { row ->
             row.delay > 0 ||
-                row.tone.contains("cancel", ignoreCase = true) ||
-                row.tone.contains("divert", ignoreCase = true)
+                row.isCancelledFlight() ||
+                row.isDivertedFlight()
         }
         .sortedWith(
             compareByDescending<FlightTableRow> {
                 when {
-                    it.tone.contains("cancel", ignoreCase = true) -> 3
-                    it.tone.contains("divert", ignoreCase = true) -> 2
+                    it.isCancelledFlight() -> 3
+                    it.isDivertedFlight() -> 2
                     else -> 1
                 }
             }.thenByDescending { it.delay }
         )
-        .take(4)
         .map { row ->
             val label = when {
-                row.tone.contains("cancel", ignoreCase = true) -> "Cancelled"
-                row.tone.contains("divert", ignoreCase = true) -> "Diverted"
+                row.isCancelledFlight() -> "Cancelled"
+                row.isDivertedFlight() -> "Diverted"
                 row.delay > 0 -> "+${row.delay} min"
                 else -> row.status.ifBlank { "Alert" }
             }
@@ -2325,15 +2374,25 @@ private fun FlightSheetBrief.withCurrentTableCounts(snapshot: FlightTableSnapsho
                 } else {
                     row.sched.ifBlank { "time pending" }
                 },
-                tone = row.tone
+                tone = when {
+                    row.isCancelledFlight() -> "cancelled"
+                    row.isDivertedFlight() -> "diverted"
+                    else -> row.tone
+                }
             )
         }
     val arrivalCount = rows.count { it.kind != "departure" }
     val departureCount = rows.count { it.kind == "departure" }
     val delayedCount = rows.count { it.delay > 0 }
-    val cancelledCount = rows.count { it.tone.contains("cancel", ignoreCase = true) }
-    val divertedCount = rows.count { it.tone.contains("divert", ignoreCase = true) }
+    val cancelledCount = rows.count { it.isCancelledFlight() }
+    val divertedCount = rows.count { it.isDivertedFlight() }
     val day = rows.firstOrNull()?.day.orEmpty()
+    val upcomingDay = snapshot.days
+        .map { it.label }
+        .dropWhile { label -> !label.equals(day, ignoreCase = true) }
+        .drop(1)
+        .firstOrNull { it.isNotBlank() }
+        .orEmpty()
     val summary = buildString {
         if (day.isNotBlank()) append(day).append(": ")
         append(arrivalCount).append(" arrival")
@@ -2353,6 +2412,8 @@ private fun FlightSheetBrief.withCurrentTableCounts(snapshot: FlightTableSnapsho
         delayedCount = delayedCount,
         cancelledCount = cancelledCount,
         divertedCount = divertedCount,
+        scheduleDayLabel = day,
+        upcomingDayLabel = upcomingDay,
         issues = issues
     )
 }
@@ -2533,6 +2594,7 @@ private fun NativeFlightTablePage(
     textZoom: Int,
     groupedFlights: Boolean,
     highContrast: Boolean,
+    onTitleProgressChange: (Float) -> Unit,
     onRefreshAlerts: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
@@ -2559,6 +2621,10 @@ private fun NativeFlightTablePage(
     }
     val effectiveFlightSnapshot = remember(flightSnapshot, snapshot) {
         flightSnapshot.withCurrentTableCounts(snapshot)
+    }
+
+    LaunchedEffect(mode) {
+        onTitleProgressChange(0f)
     }
 
     Box(
@@ -2617,10 +2683,15 @@ private fun NativeFlightTablePage(
                 },
                 label = "flightTableModeContent"
             ) { targetMode ->
+                val contentScrollState = rememberScrollState()
+                val titleProgress = ((contentScrollState.value - 88f) / 82f).coerceIn(0f, 1f)
+                LaunchedEffect(targetMode, titleProgress) {
+                    onTitleProgressChange(titleProgress)
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(contentScrollState)
                         .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
@@ -3269,13 +3340,37 @@ private fun FlightTableRowCard(
     val rowShape = RoundedCornerShape(18.dp)
     val isDark = isSystemInDarkTheme()
     val rowBorder = flightRowBorderColor(row, isDark, tablePalette)
+    val cancelledStyledBorder = !highContrast && row.isCancelledFlight()
+    val borderModifier = if (cancelledStyledBorder) {
+        Modifier.border(
+            width = if (isDark) 1.35.dp else 1.6.dp,
+            brush = if (isDark) {
+                Brush.linearGradient(
+                    0.00f to Color(0xFFC99A36).copy(alpha = 0.54f),
+                    0.42f to Color(0xFFFFD98A).copy(alpha = 0.30f),
+                    0.70f to Color(0xFF5AC8FA).copy(alpha = 0.34f),
+                    1.00f to Color(0xFFC99A36).copy(alpha = 0.46f)
+                )
+            } else {
+                Brush.linearGradient(
+                    0.00f to Color(0xFFD6A948).copy(alpha = 0.72f),
+                    0.44f to Color(0xFFFFF0BC).copy(alpha = 0.58f),
+                    0.68f to Color(0xFF8DD7F7).copy(alpha = 0.44f),
+                    1.00f to Color(0xFFD6A948).copy(alpha = 0.62f)
+                )
+            },
+            shape = rowShape
+        )
+    } else {
+        Modifier.border(1.dp, if (highContrast) textColor.copy(alpha = 0.36f) else rowBorder, rowShape)
+    }
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
             .clip(rowShape)
             .background(if (highContrast) surface else tableRowSurface(row, surface, isDark, tablePalette))
-            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.36f) else rowBorder, rowShape)
+            .then(borderModifier)
             .padding(horizontal = 8.dp, vertical = 8.dp)
     ) {
         Row(
@@ -3480,21 +3575,38 @@ private fun FlightTableCell(
 @Composable
 private fun FlightTableStatusPill(row: FlightTableRow, palette: NativeFlightTablePalette?) {
     val isDark = isSystemInDarkTheme()
-    val arrivedAccent = palette?.arrivedAccent ?: if (isDark) Color(0xFF34C759) else Color(0xFF8A5A3C)
-    val departedAccent = palette?.departedAccent ?: arrivedAccent
-    val scheduleAccent = palette?.delayAccent ?: if (isDark) Color(0xFFFFB020) else Color(0xFF8A5A3C)
-    val onTimeAccent = palette?.arrivedAccent ?: if (isDark) Color(0xFF34C759) else Color(0xFF8A5A3C)
+    val arrivedAccent = palette?.arrivedAccent ?: if (isDark) Color(0xFF34D399) else Color(0xFF047857)
+    val departedAccent = palette?.departedAccent ?: if (isDark) Color(0xFF5EEAD4) else Color(0xFF0F766E)
+    val scheduleAccent = palette?.delayAccent ?: if (isDark) Color(0xFFFFB020) else Color(0xFFB45309)
+    val onTimeAccent = palette?.arrivedAccent ?: if (isDark) Color(0xFF34D399) else Color(0xFF047857)
+    val isCancelled = row.isCancelledFlight()
     val (label, accent) = when {
-        row.tone.contains("cancel", ignoreCase = true) -> "Cancelled" to (palette?.cancelledAccent ?: Color(0xFFFF453A))
-        row.tone.contains("divert", ignoreCase = true) -> "Diverted" to (palette?.divertedAccent ?: Color(0xFFFF9F0A))
+        isCancelled -> "Cancelled" to (palette?.cancelledAccent ?: Color(0xFFFF453A))
+        row.isDivertedFlight() -> "Diverted" to (palette?.divertedAccent ?: Color(0xFFFF9F0A))
         row.delay > 0 -> "+${row.delay}" to scheduleAccent
         row.status.contains("arriv", ignoreCase = true) -> "Arrived" to arrivedAccent
         row.status.contains("depart", ignoreCase = true) -> "Departed" to departedAccent
         else -> row.status.ifBlank { "On time" } to onTimeAccent
     }
+    val pillShape = RoundedCornerShape(999.dp)
+    val pillBackground = if (isCancelled) {
+        if (isDark) Color(0xFF12324C).copy(alpha = 0.86f) else Color(0xFFE3F4FF)
+    } else {
+        accent.copy(alpha = if (isDark) 0.20f else 0.14f)
+    }
+    val pillBorder = if (isCancelled) {
+        if (isDark) Color(0xFF5AC8FA).copy(alpha = 0.48f) else Color(0xFF38BDF8).copy(alpha = 0.55f)
+    } else {
+        accent.copy(alpha = if (isDark) 0.24f else 0.22f)
+    }
+    val statusTextColor = if (isCancelled) {
+        if (isDark) Color.White else Color(0xFF0F3A5A)
+    } else {
+        accent
+    }
     Text(
         text = label,
-        color = accent,
+        color = statusTextColor,
         style = MaterialTheme.typography.labelSmall.copy(
             fontWeight = FontWeight.Bold,
             fontSize = 10.4.sp,
@@ -3503,9 +3615,9 @@ private fun FlightTableStatusPill(row: FlightTableRow, palette: NativeFlightTabl
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(accent.copy(alpha = if (isDark) 0.20f else 0.14f))
-            .border(1.dp, accent.copy(alpha = if (isDark) 0.24f else 0.22f), RoundedCornerShape(999.dp))
+            .clip(pillShape)
+            .background(pillBackground)
+            .border(1.dp, pillBorder, pillShape)
             .padding(horizontal = 7.dp, vertical = 6.dp)
     )
 }
@@ -3517,12 +3629,12 @@ private fun tableRowSurface(
     palette: NativeFlightTablePalette?
 ): Color {
     return when {
-        row.tone.contains("cancel", ignoreCase = true) -> palette?.cancelledSurface ?: if (isDark) {
+        row.isCancelledFlight() -> if (isDark) {
             Color(0xFF351216).copy(alpha = 0.74f)
         } else {
-            Color(0xFFFFE8EA).copy(alpha = 0.82f)
+            Color(0xFFFFE0DD).copy(alpha = 0.90f)
         }
-        row.tone.contains("divert", ignoreCase = true) -> palette?.divertedSurface ?: if (isDark) {
+        row.isDivertedFlight() -> palette?.divertedSurface ?: if (isDark) {
             Color(0xFF352407).copy(alpha = 0.74f)
         } else {
             Color(0xFFFFF0D6).copy(alpha = 0.84f)
@@ -3534,9 +3646,9 @@ private fun tableRowSurface(
         }
         row.status.contains("arriv", ignoreCase = true) ||
             row.status.contains("depart", ignoreCase = true) -> palette?.arrivedSurface ?: if (isDark) {
-            Color(0xFF063B2F).copy(alpha = 0.84f)
+            Color(0xFF063B2F).copy(alpha = 0.82f)
         } else {
-            Color(0xFFE8D6C6).copy(alpha = 0.96f)
+            Color(0xFFE8F7EF).copy(alpha = 0.96f)
         }
         else -> fallback
     }
@@ -3556,14 +3668,18 @@ private fun flightRowBorderColor(
     palette: NativeFlightTablePalette?
 ): Color {
     return when {
-        row.tone.contains("cancel", ignoreCase = true) -> (palette?.cancelledAccent ?: Color(0xFFFF453A)).copy(alpha = if (isDark) 0.34f else 0.26f)
-        row.tone.contains("divert", ignoreCase = true) -> (palette?.divertedAccent ?: Color(0xFFFF9F0A)).copy(alpha = if (isDark) 0.34f else 0.28f)
+        row.isCancelledFlight() -> if (isDark) {
+            Color.Transparent
+        } else {
+            Color(0xFFD8B35A).copy(alpha = 0.46f)
+        }
+        row.isDivertedFlight() -> (palette?.divertedAccent ?: Color(0xFFFF9F0A)).copy(alpha = if (isDark) 0.34f else 0.28f)
         row.delay > 0 -> (palette?.delayAccent ?: Color(0xFFFFB020)).copy(alpha = if (isDark) 0.30f else 0.26f)
         row.status.contains("arriv", ignoreCase = true) ||
             row.status.contains("depart", ignoreCase = true) -> palette?.rowBorder ?: if (isDark) {
-            Color(0xFF34C759).copy(alpha = 0.28f)
+            Color(0xFF34D399).copy(alpha = 0.30f)
         } else {
-            Color(0xFF8A5A3C).copy(alpha = 0.32f)
+            Color(0xFF047857).copy(alpha = 0.25f)
         }
         else -> flightItemBorderColor(isDark)
     }
@@ -3595,11 +3711,18 @@ private fun ColumnScope.FlightLiveStatusContent(
                 .background(mutedColor.copy(alpha = 0.34f))
         )
     }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 50.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (showRefresh) 54.dp else 0.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
                 text = if (title == "Alerts") title.uppercase() else title,
                 color = textColor,
@@ -3636,6 +3759,7 @@ private fun ColumnScope.FlightLiveStatusContent(
                 label = "flightAlertsRefreshRotation"
             )
             IconButton(
+                modifier = Modifier.align(Alignment.CenterEnd),
                 onClick = {
                     refreshSpinKey += 1
                     onRefresh()
@@ -3665,8 +3789,10 @@ private fun ColumnScope.FlightLiveStatusContent(
         brief = flightSnapshot,
         textColor = textColor,
         mutedColor = mutedColor,
+        surface = surface,
         lightLift = lightLift,
-        textScale = textScale
+        textScale = textScale,
+        highContrast = highContrast
     )
 
     if (snapshot.items.isNotEmpty()) {
@@ -3924,10 +4050,14 @@ private fun FlightIssueSummaryRow(
     brief: FlightSheetBrief,
     textColor: Color,
     mutedColor: Color,
+    surface: Color,
     lightLift: Boolean,
-    textScale: Float
+    textScale: Float,
+    highContrast: Boolean
 ) {
-    val hasIssues = brief.delayedCount > 0 || brief.cancelledCount > 0 || brief.divertedCount > 0
+    val countedAlerts = brief.delayedCount + brief.cancelledCount + brief.divertedCount
+    val totalAlerts = if (countedAlerts > brief.issues.size) countedAlerts else brief.issues.size
+    val hasIssues = totalAlerts > 0
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -3936,7 +4066,7 @@ private fun FlightIssueSummaryRow(
             FlightCountPill("${brief.arrivalCount}", "Arrivals", Color(0xFF5AC8FA), textColor, Modifier.weight(1f), lightLift, textScale)
             FlightCountPill("${brief.departureCount}", "Departures", Color(0xFF7C8CFF), textColor, Modifier.weight(1f), lightLift, textScale)
             FlightCountPill(
-                "${brief.delayedCount + brief.cancelledCount + brief.divertedCount}",
+                "$totalAlerts",
                 "Alerts",
                 if (hasIssues) Color(0xFFFFB020) else Color(0xFF34C759),
                 textColor,
@@ -3945,10 +4075,22 @@ private fun FlightIssueSummaryRow(
                 textScale
             )
         }
-        if (brief.issues.isNotEmpty()) {
-            brief.issues.take(4).forEach { issue ->
-                FlightIssuePill(issue = issue, textColor = textColor, mutedColor = mutedColor, lightLift = lightLift, textScale = textScale)
-            }
+        FlightAlertScheduleContextLine(
+            brief = brief,
+            mutedColor = mutedColor,
+            textScale = textScale
+        )
+        if (brief.issues.isNotEmpty() || hasIssues) {
+            FlightAlertsSummaryBox(
+                brief = brief,
+                totalAlerts = totalAlerts,
+                textColor = textColor,
+                mutedColor = mutedColor,
+                surface = surface,
+                lightLift = lightLift,
+                textScale = textScale,
+                highContrast = highContrast
+            )
         } else if (brief.summary.isNotBlank()) {
             Text(
                 text = brief.summary,
@@ -3959,6 +4101,50 @@ private fun FlightIssueSummaryRow(
             )
         }
     }
+}
+
+@Composable
+private fun FlightAlertScheduleContextLine(
+    brief: FlightSheetBrief,
+    mutedColor: Color,
+    textScale: Float
+) {
+    val countedDay = compactFlightDayLabel(brief.scheduleDayLabel)
+    val upcomingDay = compactFlightDayLabel(brief.upcomingDayLabel)
+    val text = when {
+        countedDay.isNotBlank() && upcomingDay.isNotBlank() -> "Counts for $countedDay • $upcomingDay upcoming"
+        countedDay.isNotBlank() -> "Counts for $countedDay"
+        upcomingDay.isNotBlank() -> "$upcomingDay upcoming"
+        else -> ""
+    }
+    if (text.isBlank()) return
+    Text(
+        text = text,
+        color = mutedColor.copy(alpha = 0.82f),
+        textAlign = TextAlign.Center,
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontWeight = FontWeight.Medium,
+            fontSize = (10f * textScale).sp,
+            lineHeight = (11.5f * textScale).sp
+        ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+private fun compactFlightDayLabel(label: String): String {
+    return label
+        .replace("Sunday", "Sun", ignoreCase = true)
+        .replace("Monday", "Mon", ignoreCase = true)
+        .replace("Tuesday", "Tue", ignoreCase = true)
+        .replace("Wednesday", "Wed", ignoreCase = true)
+        .replace("Thursday", "Thu", ignoreCase = true)
+        .replace("Friday", "Fri", ignoreCase = true)
+        .replace("Saturday", "Sat", ignoreCase = true)
+        .replace(",", "")
+        .replace(Regex("\\s+"), " ")
+        .trim()
 }
 
 @Composable
@@ -3998,6 +4184,139 @@ private fun FlightNoLiveStatusCard(
                 lineHeight = (14f * textScale).sp
             )
         )
+    }
+}
+
+@Composable
+private fun FlightAlertsSummaryBox(
+    brief: FlightSheetBrief,
+    totalAlerts: Int,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    lightLift: Boolean,
+    textScale: Float,
+    highContrast: Boolean
+) {
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(19.dp)
+    val accent = when {
+        brief.cancelledCount > 0 -> Color(0xFFFF453A)
+        brief.divertedCount > 0 -> Color(0xFFFF9F0A)
+        brief.delayedCount > 0 -> Color(0xFFFFB020)
+        else -> Color(0xFF22C55E)
+    }
+    val boxSurface = if (highContrast) {
+        surface
+    } else if (isDark) {
+        Color.White.copy(alpha = 0.12f).compositeOver(Color.Black.copy(alpha = 0.12f))
+    } else {
+        Color.White.copy(alpha = 0.48f).compositeOver(surface)
+    }
+    val boxBorder = if (brief.cancelledCount > 0) {
+        Color.Transparent
+    } else if (isDark) {
+        accent.copy(alpha = 0.52f)
+    } else {
+        accent.copy(alpha = 0.26f)
+    }
+    var expanded by rememberSaveable(brief.summary, brief.issues.size, totalAlerts) { mutableStateOf(false) }
+    val previewCount = 3
+    val issuesToShow = if (expanded) brief.issues else brief.issues.take(previewCount)
+    val hiddenCount = (brief.issues.size - issuesToShow.size).coerceAtLeast(0)
+    val issueWord = if (totalAlerts == 1) "alert" else "alerts"
+    val visibleLine = when {
+        totalAlerts > brief.issues.size && brief.issues.isNotEmpty() -> "${brief.issues.size} visible below"
+        brief.issues.isEmpty() && totalAlerts > 0 -> "Waiting for detailed alert rows"
+        else -> "Schedule details below"
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .lightThemeSurfaceLift(lightLift, cardShape)
+            .clip(cardShape)
+            .background(boxSurface)
+            .border(1.dp, boxBorder, cardShape)
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "$totalAlerts total $issueWord",
+                    color = textColor,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Black,
+                        fontSize = (13f * textScale).sp,
+                        lineHeight = (15f * textScale).sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = visibleLine,
+                    color = mutedColor,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = (10.5f * textScale).sp,
+                        lineHeight = (12f * textScale).sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (brief.issues.size > previewCount) {
+                Text(
+                    text = if (expanded) "Show less" else "Show all",
+                    color = if (isDark) Color.White else accent,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Black,
+                        fontSize = (10.5f * textScale).sp,
+                        lineHeight = (12f * textScale).sp
+                    ),
+                    maxLines = 1,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(accent.copy(alpha = if (isDark) 0.22f else 0.14f))
+                        .border(1.dp, accent.copy(alpha = if (isDark) 0.34f else 0.24f), RoundedCornerShape(999.dp))
+                        .clickable { expanded = !expanded }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+        if (issuesToShow.isNotEmpty()) {
+            issuesToShow.forEach { issue ->
+                FlightIssuePill(issue = issue, textColor = textColor, mutedColor = mutedColor, lightLift = false, textScale = textScale)
+            }
+            if (!expanded && hiddenCount > 0) {
+                Text(
+                    text = "$hiddenCount more alerts hidden",
+                    color = mutedColor,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = (10.5f * textScale).sp,
+                        lineHeight = (12f * textScale).sp
+                    ),
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        } else if (brief.summary.isNotBlank()) {
+            Text(
+                text = brief.summary,
+                color = mutedColor,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = (11.5f * textScale).sp,
+                    lineHeight = (13.5f * textScale).sp
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -4062,20 +4381,40 @@ private fun FlightIssuePill(
     }
     val pillShape = RoundedCornerShape(16.dp)
     val isDark = isSystemInDarkTheme()
+    val isCancelled = issue.tone.contains("cancel", ignoreCase = true)
+    val isDiverted = issue.tone.contains("divert", ignoreCase = true)
+    val isDelayed = issue.label.contains("+") || issue.tone.contains("delay", ignoreCase = true)
+    val rowSurface = if (isDark) {
+        when {
+            isCancelled -> Color(0xFF5C1E24).copy(alpha = 0.92f)
+            isDiverted -> Color(0xFF51330A).copy(alpha = 0.90f)
+            isDelayed -> Color(0xFF44320A).copy(alpha = 0.88f)
+            else -> accent.copy(alpha = 0.22f)
+        }
+    } else {
+        accent.copy(alpha = 0.13f)
+    }
+    val rowBorder = if (isCancelled) Color.Transparent
+    else accent.copy(alpha = if (isDark) 0.42f else 0.24f)
+    val labelColor = if (isCancelled) {
+        if (isDark) Color(0xFFFF7A72) else Color(0xFFB42318)
+    } else {
+        accent
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .lightThemeSurfaceLift(lightLift, pillShape)
             .clip(pillShape)
-            .background(accent.copy(alpha = 0.13f))
-            .border(1.dp, accent.copy(alpha = if (isDark) 0.30f else 0.24f), pillShape)
+            .background(rowSurface)
+            .border(1.dp, rowBorder, pillShape)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
             text = issue.label.ifBlank { "Alert" },
-            color = accent,
+            color = labelColor,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.Black,
                 fontSize = (12f * textScale).sp,
@@ -4121,8 +4460,8 @@ private fun FlightLiveStatusCard(
     highContrast: Boolean
 ) {
     val isDark = isSystemInDarkTheme()
-    val arrivedAccent = if (isDark) Color(0xFF34C759) else Color(0xFF7A4B2E)
-    val scheduleAccent = if (isDark) Color(0xFFFFB020) else Color(0xFF87511F)
+    val arrivedAccent = if (isDark) Color(0xFF34D399) else Color(0xFF047857)
+    val scheduleAccent = if (isDark) Color(0xFFFFC14D) else Color(0xFFB45309)
     val upcomingAccent = if (isDark) Color(0xFF5AC8FA) else Color(0xFF245B78)
     val accent = when (item.tone) {
         "arrived" -> arrivedAccent
@@ -4130,7 +4469,7 @@ private fun FlightLiveStatusCard(
         else -> upcomingAccent
     }
     val cardSurface = if (!isDark && item.tone == "arrived") {
-        Color(0xFFEBDCCC).copy(alpha = 0.94f)
+        Color(0xFFE8F8F0).copy(alpha = 0.96f)
     } else if (highContrast) {
         surface
     } else {
@@ -4141,84 +4480,85 @@ private fun FlightLiveStatusCard(
     val statusLine = compactFlightStatusLine(item, compactRoute)
     val detailLine = compactFlightDetailLine(item)
     val progress = item.effectiveProgress()
-    Column(
+    val fillFraction = (progress / 100f).coerceIn(0.04f, 1f)
+    val fillEdge = (fillFraction + 0.001f).coerceAtMost(1f)
+    val progressFill = accent.copy(alpha = if (isDark) 0.26f else 0.18f)
+    val progressFeather = accent.copy(alpha = if (isDark) 0.13f else 0.09f)
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .lightThemeSurfaceLift(lightLift, cardShape)
             .clip(cardShape)
             .background(cardSurface)
+            .background(
+                Brush.horizontalGradient(
+                    0f to progressFill,
+                    (fillFraction * 0.88f).coerceIn(0f, 1f) to progressFill,
+                    fillFraction to progressFeather,
+                    fillEdge to Color.Transparent,
+                    1f to Color.Transparent
+                )
+            )
             .border(1.dp, accent.copy(alpha = if (isDark) 0.28f else 0.24f), cardShape)
-            .padding(horizontal = 14.dp, vertical = if (item.tone == "arrived") 10.dp else 12.dp),
-        verticalArrangement = Arrangement.spacedBy(if (item.tone == "arrived") 5.dp else 7.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = if (item.tone == "arrived") 10.dp else 12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (item.tone == "arrived") 5.dp else 7.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.flight,
+                        color = textColor,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Black,
+                            fontSize = (14f * textScale).sp,
+                            lineHeight = (16f * textScale).sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Row(
+                    modifier = Modifier.widthIn(max = 170.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (item.delayLabel.isNotBlank()) {
+                        FlightTinyPill(text = readableFlightPillText(item.delayLabel), accent = scheduleAccent)
+                    }
+                    if (item.badge.isNotBlank() || item.status.isNotBlank()) {
+                        FlightTinyPill(text = readableFlightPillText(item.badge.ifBlank { item.status }), accent = accent)
+                    }
+                }
+            }
+            if (statusLine.isNotBlank()) {
                 Text(
-                    text = item.flight,
-                    color = textColor,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Black,
-                        fontSize = (14f * textScale).sp,
-                        lineHeight = (16f * textScale).sp
+                    text = statusLine,
+                    color = textColor.copy(alpha = 0.82f),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = (12f * textScale).sp,
+                        lineHeight = (14f * textScale).sp
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Row(
-                modifier = Modifier.widthIn(max = 170.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.End),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (item.delayLabel.isNotBlank()) {
-                    FlightTinyPill(text = readableFlightPillText(item.delayLabel), accent = scheduleAccent)
-                }
-                if (item.badge.isNotBlank() || item.status.isNotBlank()) {
-                    FlightTinyPill(text = readableFlightPillText(item.badge.ifBlank { item.status }), accent = accent)
-                }
-            }
-        }
-        if (statusLine.isNotBlank()) {
-            Text(
-                text = statusLine,
-                color = textColor.copy(alpha = 0.82f),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = (12f * textScale).sp,
-                    lineHeight = (14f * textScale).sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        if (detailLine.isNotBlank()) {
-            Text(
-                text = detailLine,
-                color = mutedColor,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontSize = (12f * textScale).sp,
-                    lineHeight = (14f * textScale).sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        if (item.tone != "arrived") {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(5.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(accent.copy(alpha = 0.14f))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth((progress / 100f).coerceIn(0.04f, 1f))
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(accent.copy(alpha = 0.72f))
+            if (detailLine.isNotBlank()) {
+                Text(
+                    text = detailLine,
+                    color = mutedColor,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = (12f * textScale).sp,
+                        lineHeight = (14f * textScale).sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

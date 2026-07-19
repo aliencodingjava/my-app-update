@@ -333,6 +333,7 @@ class AllNotesActivity : LocaleActivity() {
                                 overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
                             },
                             syncStatus = notesSyncStatus,
+                            syncAvailable = hasActiveSupabaseSession(),
                             onNotesSettingsChanged = ::refreshNotesDisplayFromSettings,
                             onBack = if (currentFolderId != null) {
                                 {

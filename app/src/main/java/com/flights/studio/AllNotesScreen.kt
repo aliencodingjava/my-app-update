@@ -5,14 +5,17 @@ package com.flights.studio
 import android.content.Context
 import android.content.SharedPreferences
 import android.view.HapticFeedbackConstants
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,6 +40,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
@@ -70,19 +75,32 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastCoerceAtMost
+import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tanh
 
 data class NoteRow(
     val id: String,
@@ -130,6 +148,7 @@ fun AllNotesScreen(
     onBack: (() -> Unit)? = null,
     onOpenProfile: () -> Unit = {},
     syncStatus: NotesSyncUiStatus = NotesSyncUiStatus.Synced,
+    syncAvailable: Boolean = false,
     onNotesSettingsChanged: () -> Unit = {},
     pageTitle: String = "Notes",
     showWelcomeOnEmptyNotes: Boolean = true,
@@ -146,9 +165,17 @@ fun AllNotesScreen(
     val selectionMode = selectedIds.isNotEmpty()
     val selectionHapticView = LocalView.current
 
-    androidx.compose.runtime.LaunchedEffect(folderMode) {
+    fun clearSelection() {
         selectedIds = emptySet()
         notesAdapter.clearSelection()
+    }
+
+    BackHandler(enabled = selectionMode) {
+        clearSelection()
+    }
+
+    androidx.compose.runtime.LaunchedEffect(folderMode) {
+        clearSelection()
     }
 
 
@@ -387,15 +414,18 @@ fun AllNotesScreen(
                     } else {
                         NotesSyncStatusPill(
                             syncOnline = s.syncOnline,
+                            syncAvailable = syncAvailable,
                             status = syncStatus,
                             countLabel = syncCountLabel,
                             backdrop = topBarBackdrop,
+                            palette = topPalette,
                             contentColor = contentColor
                         )
                         Spacer(Modifier.width(8.dp))
 
                         NotesGlassAddButton(
                             backdrop = topBarBackdrop,
+                            palette = topPalette,
                             contentColor = contentColor,
                             onClick = {
                                 if (folderMode) {
@@ -507,16 +537,16 @@ fun AllNotesScreen(
                 if (folderMode) {
                     LazyVerticalGrid(
                         state = gridState,
-                        columns = GridCells.Adaptive(minSize = 78.dp),
+                        columns = GridCells.Fixed(4),
                         modifier = Modifier.fillMaxSize(),
                         overscrollEffect = overscroll,
                         contentPadding = PaddingValues(
                             start = 14.dp, end = 14.dp,
-                            top = padding.calculateTopPadding() + 14.dp,
-                            bottom = 12.dp
+                            top = padding.calculateTopPadding() + 16.dp,
+                            bottom = 14.dp
                         ),
-                        verticalArrangement = Arrangement.spacedBy(18.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         items(items = folders, key = { it.id }) { folder ->
                             val selected = selectedIds.contains(folder.id)
@@ -528,6 +558,7 @@ fun AllNotesScreen(
                                     folder = folder,
                                     palette = palette,
                                     selected = selected,
+                                    backdrop = itemBackdrop,
                                     onClick = {
                                         if (selectionMode) {
                                             toggleSelected(folder.id)
@@ -609,104 +640,284 @@ private fun NotesFolderCard(
     folder: NoteFolderUi,
     palette: NotesPaletteColors?,
     selected: Boolean,
+    backdrop: LayerBackdrop,
     onLongClick: () -> Unit,
     onClick: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val folderBack = palette?.noteTint ?: if (isDark) Color(0xFF8E8E93) else Color(0xFFA8A8AD)
-    val folderFront = palette?.titleRail ?: if (isDark) Color(0xFF6F7074) else Color(0xFF8D8E93)
-    val folderTab = palette?.accent?.copy(alpha = if (isDark) 0.92f else 0.78f)
-        ?: if (isDark) Color(0xFFB9BBC0) else Color(0xFFD6D7DB)
-    val labelColor = if (isDark) Color.White else Color(0xFF101114)
+    val normalFolderBack = palette?.noteTint ?: if (isDark) Color(0xFF151617) else Color(0xFFE2E9F1)
+    val folderFrontBase = if (isDark) {
+        palette?.titleRail ?: Color(0xFF252B31)
+    } else {
+        palette?.titleRail ?: Color(0xFFE6EEF7)
+    }
+    val folderAccent = palette?.accent ?: if (isDark) Color(0xFF9FDBFF) else Color(0xFF2A79D8)
+    val folderGlassTint = palette?.backdropTint ?: if (isDark) {
+        Color(0xFF2F3439).copy(alpha = 0.34f)
+    } else {
+        Color(0xFFD4E4F2).copy(alpha = 0.34f)
+    }
+    val selectedBorder = folderAccent
+    val selectedCheckFill = if (isDark) folderAccent.copy(alpha = 0.92f) else folderAccent
+    val folderBack = if (selected) {
+        palette?.accent?.copy(alpha = if (isDark) 0.42f else 0.28f)
+            ?: if (isDark) Color(0xFFBFDDEF) else Color(0xFFE1F2FF)
+    } else {
+        normalFolderBack
+    }
+    val folderFront = if (selected) {
+        palette?.titleRail ?: if (isDark) Color(0xFF2D5F76) else Color(0xFFF8FCFF)
+    } else {
+        folderFrontBase.copy(alpha = if (isDark) 0.94f else 0.92f)
+    }
+    val folderFrontDeep = if (selected) {
+        palette?.actionBarTint ?: if (isDark) Color(0xFF1C3B4A) else Color(0xFFE8F5FF)
+    } else {
+        palette?.actionBarTint ?: if (isDark) Color(0xFF151617) else Color(0xFFD8E3EE)
+    }
+    val frontOutline = if (isDark) {
+        Color.White.copy(alpha = if (selected) 0.20f else 0.10f)
+    } else {
+        Color(0xFF9DA3AD).copy(alpha = if (selected) 0.24f else 0.16f)
+    }
+    val frontTopHighlight = if (isDark) {
+        Color.White.copy(alpha = if (selected) 0.16f else 0.10f)
+    } else {
+        Color.White.copy(alpha = 0.72f)
+    }
+    val labelColor = if (isDark) Color.White else Color(0xFF111111)
+    val countColor = if (isDark) labelColor.copy(alpha = 0.68f) else Color(0xFF7B8087)
+    val countText = if (folder.count == 1) "1 note" else "${folder.count} notes"
+    val outerShape = RoundedCornerShape(12.dp)
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
+    }
 
-    Column(
+    Box(
         modifier = Modifier
-            .width(78.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .border(
-                width = if (selected) 2.dp else 0.dp,
-                color = if (selected) folderTab else Color.Transparent,
-                shape = RoundedCornerShape(6.dp)
+            .fillMaxWidth()
+            .aspectRatio(0.98f)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { outerShape },
+                effects = {
+                    vibrancy()
+                    blur(radius = 18.dp.toPx(), edgeTreatment = TileMode.Mirror)
+                    lens(10.dp.toPx(), 20.dp.toPx())
+                },
+                layerBlock = {
+                    if (size.width > 0f && size.height > 0f) {
+                        val width = size.width
+                        val height = size.height
+                        val progress = interactiveHighlight.pressProgress
+                        val scale = lerp(1f, 1f + 2.dp.toPx() / height, progress)
+
+                        val maxOffset = size.minDimension
+                        val offset = interactiveHighlight.offset
+                        val initialDerivative = 0.018f
+                        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+                        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+
+                        val maxDragScale = 1.25.dp.toPx() / height
+                        val offsetAngle = atan2(offset.y, offset.x)
+                        scaleX =
+                            scale +
+                                    maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                                    (width / height).fastCoerceAtMost(1f)
+                        scaleY =
+                            scale +
+                                    maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                                    (height / width).fastCoerceAtMost(1f)
+                    }
+                },
+                onDrawSurface = {
+                    drawRect(folderBack.copy(alpha = if (isDark) 0.82f else 0.84f))
+                    drawRect(folderGlassTint)
+                }
             )
+            .clip(outerShape)
+            .border(
+                width = if (selected) 2.dp else if (isDark) 0.dp else 1.dp,
+                color = if (selected) {
+                    selectedBorder
+                } else if (isDark) {
+                    Color.Transparent
+                } else {
+                    Color(0xFFB9BEC7).copy(alpha = 0.18f)
+                },
+                shape = outerShape
+            )
+            .then(interactiveHighlight.modifier)
+            .then(interactiveHighlight.gestureModifier)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
-            )
-            .padding(3.dp),
-        horizontalAlignment = Alignment.Start
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .width(72.dp)
-                .height(60.dp)
+                .align(Alignment.TopCenter)
+                .padding(top = 5.dp)
+                .width(58.dp)
+                .height(70.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .padding(start = 3.dp)
-                    .width(34.dp)
-                    .height(14.dp)
-                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                    .background(folderTab)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(folderBack)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(folderFront)
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 7.dp, end = 6.dp, bottom = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(1.dp)
-            ) {
-                Text(
-                    text = folder.name,
-                    color = labelColor,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                        fontWeight = FontWeight.Black
-                    ),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${folder.count} notes",
-                    color = labelColor.copy(alpha = 0.76f),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(18.dp)
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(folderTab),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = if (isDark) Color(0xFF111111) else Color.White,
-                        modifier = Modifier.size(13.dp)
+                    .align(Alignment.BottomEnd)
+                    .width(50.dp)
+                    .height(64.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = if (isDark) 0.76f else 0.94f),
+                                Color(0xFFECEFF4).copy(alpha = if (isDark) 0.62f else 0.88f)
+                            )
+                        )
                     )
-                }
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .width(50.dp)
+                    .height(65.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = if (isDark) 0.90f else 0.98f),
+                                Color(0xFFF1F4F8).copy(alpha = if (isDark) 0.76f else 0.94f)
+                            )
+                        )
+                    )
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(NotesFolderFrontShape)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            folderFront.copy(alpha = if (isDark) 0.78f else 0.84f),
+                            folderFrontDeep.copy(alpha = if (isDark) 0.88f else 0.92f)
+                        )
+                    )
+                )
+                .border(1.dp, frontOutline, NotesFolderFrontShape)
+        ) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = if (isDark) 0.08f else 0.30f),
+                                Color.White.copy(alpha = if (isDark) 0.03f else 0.12f),
+                                Color.Black.copy(alpha = if (isDark) 0.12f else 0.04f)
+                            )
+                        )
+                    )
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .height(18.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                (palette?.accent ?: Color.White).copy(alpha = if (isDark) 0.12f else 0.16f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(NotesFolderFrontShape)
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(frontTopHighlight)
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 8.dp, end = 7.dp, bottom = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            Text(
+                text = folder.name,
+                color = labelColor,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = countText,
+                color = countColor,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        if (selected) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(5.dp)
+                    .size(17.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(selectedCheckFill),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = if (isDark) Color(0xFF102836) else Color.White,
+                    modifier = Modifier.size(12.dp)
+                )
             }
         }
     }
+}
+
+private val NotesFolderFrontShape = GenericShape { size, _ ->
+    val leftTopY = size.height * 0.38f
+    val rightTopY = size.height * 0.46f
+    val tabStartX = size.width * 0.40f
+    val curveEndX = size.width * 0.64f
+    val radius = size.minDimension * 0.11f
+
+    moveTo(0f, leftTopY)
+    lineTo(tabStartX, leftTopY)
+    cubicTo(
+        size.width * 0.49f,
+        leftTopY,
+        size.width * 0.51f,
+        rightTopY,
+        curveEndX,
+        rightTopY
+    )
+    lineTo(size.width, rightTopY)
+    lineTo(size.width, size.height - radius)
+    quadraticBezierTo(size.width, size.height, size.width - radius, size.height)
+    lineTo(radius, size.height)
+    quadraticBezierTo(0f, size.height, 0f, size.height - radius)
+    close()
 }
 
 private fun sanitizeFolderTitleInput(raw: String): String {
@@ -733,61 +944,92 @@ private fun limitFolderTitleInput(raw: String): String {
 @Composable
 private fun NotesGlassAddButton(
     backdrop: LayerBackdrop,
+    palette: NotesPaletteColors?,
     contentColor: Color,
     onClick: () -> Unit
 ) {
-    val shape = NotesActionShape
+    val isDark = isSystemInDarkTheme()
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
+    }
     Box(
         modifier = Modifier
             .size(NotesActionHeight)
-            .notesActionGlass(backdrop, shape)
-            .clip(shape)
-    ) {
-        IconButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
-            Icon(
-                imageVector = Icons.Filled.Add,
-                contentDescription = "Add note",
-                tint = contentColor
+            .notesLiquidTransform(CircleShape, interactiveHighlight)
+            .notesActionGlass(backdrop, CircleShape, isDark, palette, interactiveHighlight)
+            .clickable(
+                interactionSource = null,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick
             )
-        }
+            .then(interactiveHighlight.modifier)
+            .then(interactiveHighlight.gestureModifier),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Add,
+            contentDescription = "Add note",
+            tint = contentColor,
+            modifier = Modifier.size(27.dp)
+        )
     }
 }
 
 @Composable
 private fun NotesSyncStatusPill(
     syncOnline: Boolean,
+    syncAvailable: Boolean,
     status: NotesSyncUiStatus,
     countLabel: String,
     backdrop: LayerBackdrop,
+    palette: NotesPaletteColors?,
     contentColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val active = syncOnline && (
+    val isDark = isSystemInDarkTheme()
+    val online = syncOnline && syncAvailable
+    val active = online && (
             status == NotesSyncUiStatus.Uploading ||
                     status == NotesSyncUiStatus.Deleting ||
                     status == NotesSyncUiStatus.Downloading ||
                     status == NotesSyncUiStatus.Syncing
             )
-    val label = when {
-        !syncOnline -> "Local · $countLabel"
+    val statusLabel = when {
+        !syncOnline -> "Local"
+        !syncAvailable -> "Local"
         status == NotesSyncUiStatus.Uploading -> "Uploading..."
         status == NotesSyncUiStatus.Deleting -> "Deleting..."
         status == NotesSyncUiStatus.Downloading -> "Downloading notes..."
         status == NotesSyncUiStatus.Syncing -> "Syncing..."
         status == NotesSyncUiStatus.Error -> "Sync issue"
-        else -> "Online · $countLabel"
+        else -> "Online"
+    }
+    val dotColor = when {
+        status == NotesSyncUiStatus.Error -> Color(0xFFFF6257)
+        online -> Color(0xFF21C765)
+        else -> if (isDark) Color(0xFFFFC95C) else Color(0xFFC47A00)
+    }
+    val primaryText = contentColor
+    val secondaryText = primaryText.copy(alpha = if (isDark) 0.72f else 0.68f)
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
     }
 
     Box(
         modifier = modifier
             .height(NotesActionHeight)
-            .widthIn(min = 104.dp, max = 224.dp)
-            .notesActionGlass(backdrop, NotesActionShape)
-            .clip(NotesActionShape),
+            .widthIn(min = 126.dp, max = 228.dp)
+            .notesLiquidTransform(NotesPillShape, interactiveHighlight)
+            .notesActionGlass(backdrop, NotesPillShape, isDark, palette, interactiveHighlight)
+            .then(interactiveHighlight.modifier)
+            .then(interactiveHighlight.gestureModifier),
         contentAlignment = Alignment.Center
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier.padding(horizontal = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -795,36 +1037,109 @@ private fun NotesSyncStatusPill(
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 1.6.dp,
-                    color = contentColor
+                    color = primaryText
                 )
-                Spacer(Modifier.width(6.dp))
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(dotColor)
+                )
             }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = contentColor,
-                maxLines = 1
-            )
+            Spacer(Modifier.width(7.dp))
+            Column(
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                Text(
+                    text = statusLabel,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                    color = primaryText,
+                    maxLines = 1
+                )
+                Text(
+                    text = countLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = secondaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
 
-private val NotesActionHeight = 42.dp
-private val NotesActionShape = RoundedCornerShape(18.dp)
+private val NotesActionHeight = 48.dp
+private val NotesPillShape = RoundedCornerShape(percent = 50)
+
+private fun Modifier.notesLiquidTransform(
+    shape: Shape,
+    interactiveHighlight: InteractiveHighlight
+): Modifier = graphicsLayer {
+    this.shape = shape
+    clip = true
+
+    if (size.width > 0f && size.height > 0f) {
+        val width = size.width
+        val height = size.height
+
+        val progress = interactiveHighlight.pressProgress
+        val scale = lerp(1f, 1f + 4.dp.toPx() / height, progress)
+
+        val maxOffset = size.minDimension
+        val initialDerivative = 0.05f
+        val offset = interactiveHighlight.offset
+        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+
+        val maxDragScale = 4.dp.toPx() / height
+        val offsetAngle = atan2(offset.y, offset.x)
+        scaleX =
+            scale +
+                    maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                    (width / height).fastCoerceAtMost(1f)
+        scaleY =
+            scale +
+                    maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                    (height / width).fastCoerceAtMost(1f)
+    }
+}
 
 private fun Modifier.notesActionGlass(
     backdrop: LayerBackdrop,
-    shape: RoundedCornerShape
-): Modifier = drawBackdrop(
-    backdrop = backdrop,
-    shape = { shape },
-    shadow = null,
-    highlight = null,
-    effects = {
-        blur(radius = 18.dp.toPx(), edgeTreatment = TileMode.Mirror)
-        lens(14.dp.toPx(), 24.dp.toPx())
-    },
-    onDrawSurface = {
-        drawRect(Color.White.copy(alpha = 0.16f))
+    shape: Shape,
+    isDark: Boolean,
+    palette: NotesPaletteColors?,
+    interactiveHighlight: InteractiveHighlight? = null
+): Modifier {
+    val surfaceColor = if (isDark) {
+        (palette?.actionBarTint ?: Color(0xFF151617)).copy(alpha = 0.84f)
+    } else {
+        (palette?.actionBarTint ?: Color(0xFFD7ECFF)).copy(alpha = if (palette != null) 0.88f else 0.84f)
     }
-)
+    val tint = if (isDark) {
+        (palette?.accent ?: Color(0xFF2F3439)).copy(alpha = if (palette != null) 0.32f else 0.34f)
+    } else {
+        (palette?.accent ?: Color(0xFF9FD1FF)).copy(alpha = if (palette != null) 0.46f else 0.62f)
+    }
+    val lift = if (isDark) {
+        Color.White.copy(alpha = 0.07f)
+    } else {
+        (palette?.noteTint ?: Color.White).copy(alpha = if (palette != null) 0.18f else 0.10f)
+    }
+    return drawBackdrop(
+        backdrop = backdrop,
+        shape = { shape },
+        effects = {
+            vibrancy()
+            blur(radius = 2.dp.toPx(), edgeTreatment = TileMode.Mirror)
+            lens(12.dp.toPx(), 24.dp.toPx())
+        },
+        onDrawSurface = {
+            drawRect(tint, blendMode = BlendMode.Hue)
+            drawRect(surfaceColor)
+            drawRect(lift)
+        }
+    )
+        .clip(shape)
+}

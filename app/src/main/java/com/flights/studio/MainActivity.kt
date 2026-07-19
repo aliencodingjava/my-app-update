@@ -6021,6 +6021,8 @@ Version: $versionName
             onOpenNote = { row, position -> onNoteClick(row.text, position) },
             onBack = if (currentNotesFolderId != null) returnToFolders else null,
             syncStatus = notesSyncStatus,
+            syncAvailable = notesOnlineSyncEnabled() &&
+                    SupabaseManager.client.auth.currentSessionOrNull()?.user?.id != null,
             pageTitle = mainNotesFolderTitle(),
             showWelcomeOnEmptyNotes = false,
             folderMode = currentNotesFolderId == null,
