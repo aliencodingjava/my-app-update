@@ -18,6 +18,7 @@ object NoteFolderStore {
     private const val PREFS_NAME = "note_folders"
     private const val KEY_FOLDERS = "folders"
     private const val KEY_NOTE_FOLDERS = "note_folder_assignments"
+    private const val KEY_DELETED_FOLDERS = "deleted_folder_ids"
 
     private val gson = Gson()
 
@@ -30,10 +31,11 @@ object NoteFolderStore {
     fun loadCustomFolders(context: Context): List<NoteFolder> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val type = object : TypeToken<List<NoteFolder>>() {}.type
+        val deletedFolderIds = loadDeletedFolderIds(context)
         return prefs.getString(KEY_FOLDERS, null)
             ?.let { runCatching { gson.fromJson<List<NoteFolder>>(it, type) }.getOrNull() }
             .orEmpty()
-            .filterNot { it.id == MAIN_FOLDER_ID }
+            .filterNot { it.id == MAIN_FOLDER_ID || it.id in deletedFolderIds }
             .distinctBy { it.id }
             .sortedBy { it.createdAt }
     }
@@ -57,8 +59,9 @@ object NoteFolderStore {
 
     fun mergeRemoteFolders(context: Context, remoteFolders: List<NoteFolder>) {
         if (remoteFolders.isEmpty()) return
+        val deletedFolderIds = loadDeletedFolderIds(context)
         val current = loadCustomFolders(context)
-        val merged = (current + remoteFolders)
+        val merged = (current + remoteFolders.filterNot { it.id in deletedFolderIds })
             .filterNot { it.id == MAIN_FOLDER_ID }
             .distinctBy { it.id }
             .sortedBy { it.createdAt }
@@ -107,6 +110,8 @@ object NoteFolderStore {
         val removableIds = folderIds - MAIN_FOLDER_ID
         if (removableIds.isEmpty()) return
 
+        rememberDeletedFolderIds(context, removableIds)
+
         val current = loadCustomFolders(context)
         saveCustomFolders(context, current.filterNot { it.id in removableIds })
 
@@ -122,7 +127,7 @@ object NoteFolderStore {
     }
 
     private fun saveCustomFolders(context: Context, folders: List<NoteFolder>) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit(commit = true) {
             putString(KEY_FOLDERS, gson.toJson(folders.filterNot { it.id == MAIN_FOLDER_ID }.distinctBy { it.id }))
         }
     }
@@ -136,8 +141,25 @@ object NoteFolderStore {
     }
 
     private fun saveAssignments(context: Context, assignments: Map<String, String>) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit(commit = true) {
             putString(KEY_NOTE_FOLDERS, gson.toJson(assignments))
+        }
+    }
+
+    private fun loadDeletedFolderIds(context: Context): Set<String> {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getStringSet(KEY_DELETED_FOLDERS, emptySet())
+            .orEmpty()
+            .toSet()
+    }
+
+    private fun rememberDeletedFolderIds(context: Context, folderIds: Set<String>) {
+        val ids = folderIds.filterNot { it == MAIN_FOLDER_ID }.toSet()
+        if (ids.isEmpty()) return
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val rememberedIds = loadDeletedFolderIds(context) + ids
+        prefs.edit(commit = true) {
+            putStringSet(KEY_DELETED_FOLDERS, rememberedIds)
         }
     }
 

@@ -112,7 +112,7 @@ class AllNotesActivity : LocaleActivity() {
 
     private val metaPrefs by lazy { getSharedPreferences("notes_meta", MODE_PRIVATE) }
     private fun now() = System.currentTimeMillis()
-    private val selectedKeys = mutableSetOf<String>()   // selection by UID, not by content
+    private val selectedKeys = mutableSetOf<String>()
 
     // === ID map storage (content <-> id) ===
     private val idToContent = mutableMapOf<String, String>()
@@ -322,7 +322,7 @@ class AllNotesActivity : LocaleActivity() {
 
                             onDeleteSelected = { selectedRowKeys ->
                                 selectedKeys.clear()
-                                selectedKeys.addAll(selectedRowKeys.map { it.substringBefore('#') }) // ✅ uid only
+                                selectedKeys.addAll(selectedRowKeys)
                                 isMultiSelectMode = selectedKeys.isNotEmpty()
                                 deleteSelectedNotes()
                             },
@@ -2301,11 +2301,22 @@ class AllNotesActivity : LocaleActivity() {
         URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
 
     private fun deleteSelectedNotes() {
+        val deletedFromRows = noteRows.mapIndexedNotNull { index, row ->
+            if (row.id in selectedKeys) {
+                Triple(row.text, index, notesAdapter.getUserTitle(row.text))
+            } else {
+                null
+            }
+        }
         val deleted: List<Triple<String, Int, String?>> =
-            selectedKeys.mapNotNull { key ->
-                val note = uidToContent[key] ?: return@mapNotNull null
-                val idx = notesText.indexOf(note)
-                if (idx != -1) Triple(note, idx, notesAdapter.getUserTitle(note)) else null
+            if (deletedFromRows.isNotEmpty()) {
+                deletedFromRows
+            } else {
+                selectedKeys.mapNotNull { key ->
+                    val note = uidToContent[key] ?: return@mapNotNull null
+                    val idx = notesText.indexOf(note)
+                    if (idx != -1) Triple(note, idx, notesAdapter.getUserTitle(note)) else null
+                }
             }.sortedByDescending { it.second }
 
         // ✅ if nothing resolved, do nothing (prevents "deleted" toast with no real delete)
@@ -2322,34 +2333,30 @@ class AllNotesActivity : LocaleActivity() {
 
         val notesToDelete: List<String> = deleted.map { it.first }
 
-// ✅ count how many copies will be deleted (because removeAll deletes ALL duplicates by content)
         val distinctSelected = notesToDelete.distinct()
-        val totalCopiesDeleted = distinctSelected.sumOf { text ->
-            allNotes.count { it == text }
-        }
 
-// ✅ build correct message (single vs multiple / duplicates vs normal)
         val deleteMsg = when (distinctSelected.size) {
-            1 if totalCopiesDeleted > 1 -> "Deleted all duplicates of this note"
             1 -> "Note deleted"
             else -> "Deleted selected notes"
         }
 
-// ✅ delete from RAW truth (this deletes ALL duplicates by content)
-        allNotes.removeAll(distinctSelected.toSet())
-        NotesCacheManager.cachedNotes.removeAll(distinctSelected.toSet())
+        notesToDelete.forEach { note ->
+            allNotes.remove(note)
+            NotesCacheManager.cachedNotes.remove(note)
+        }
 
 
         val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
         val deleteSession = SupabaseManager.client.auth.currentSessionOrNull()
         val remoteDeleteUserId = deleteSession?.user?.id?.takeIf { notesOnlineSyncEnabled() }
         val canDeleteRemote = remoteDeleteUserId != null
+        val notesRemovedEverywhere = distinctSelected.filter { note -> note !in allNotes }
 
         // 1) queue for server-side delete only while the user is signed in.
         // Guest/local deletes should not erase the account's Supabase notes.
         if (remoteDeleteUserId != null) {
             val pendingDeletes = pendingDeletesForUser(remoteDeleteUserId)
-            distinctSelected.forEach { pendingDeletes.add(it) }
+            notesRemovedEverywhere.forEach { pendingDeletes.add(it) }
             savePendingDeletesForUser(remoteDeleteUserId, pendingDeletes)
         }
 
@@ -2357,7 +2364,7 @@ class AllNotesActivity : LocaleActivity() {
         run {
             val pendingAdds = sp.getStringSet("pending_adds", emptySet())!!.toMutableSet()
             var changed = false
-            notesToDelete.forEach { if (pendingAdds.remove(it)) changed = true }
+            notesRemovedEverywhere.forEach { if (pendingAdds.remove(it)) changed = true }
             if (changed) sp.edit { putStringSet("pending_adds", pendingAdds) }
         }
 
@@ -2368,10 +2375,12 @@ class AllNotesActivity : LocaleActivity() {
 
         // 3) local cleanup (titles, flags, etc.)
         deleted.forEach { (note, _, _) ->
-            notesAdapter.removeUserTitle(note)
-            NotesCacheManager.cachedTitles.remove(note)
-            getSharedPreferences("reminder_badges", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
-            getSharedPreferences("reminder_flags", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
+            if (note !in allNotes) {
+                notesAdapter.removeUserTitle(note)
+                NotesCacheManager.cachedTitles.remove(note)
+                getSharedPreferences("reminder_badges", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
+                getSharedPreferences("reminder_flags", MODE_PRIVATE).edit { remove(note.hashCode().toString()) }
+            }
         }
 
         // ✅ IMPORTANT: rebuild DISPLAY from RAW (no removeAt(index))
@@ -2408,7 +2417,7 @@ class AllNotesActivity : LocaleActivity() {
             onAction = {
                 // ✅ restore RAW first
                 notesToDelete.forEach { note ->
-                    if (!allNotes.contains(note)) allNotes.add(note)
+                    allNotes.add(note)
                 }
                 NotesCacheManager.cachedNotes = allNotes.toMutableList()
 
@@ -2435,10 +2444,10 @@ class AllNotesActivity : LocaleActivity() {
                 if (remoteDeleteUserId != null) {
                     val sp2 = getSharedPreferences("notes_prefs", MODE_PRIVATE)
                     val pDel2 = pendingDeletesForUser(remoteDeleteUserId)
-                    notesToDelete.forEach { pDel2.remove(it) }
+                    notesRemovedEverywhere.forEach { pDel2.remove(it) }
 
                     val pAdd2 = sp2.getStringSet("pending_adds", emptySet())!!.toMutableSet()
-                    notesToDelete.forEach { pAdd2.add(it) }
+                    notesRemovedEverywhere.forEach { pAdd2.add(it) }
 
                     savePendingDeletesForUser(remoteDeleteUserId, pDel2)
                     sp2.edit { putStringSet("pending_adds", pAdd2) }
@@ -2454,15 +2463,13 @@ class AllNotesActivity : LocaleActivity() {
             onTimeout = {
                 // finalize media + uid cleanup
                 deleted.forEach { (note, _, _) ->
-                    NoteMediaStore.deleteAllForNote(this@AllNotesActivity, note)
-                    NoteVoiceStore.deleteAllForNote(this@AllNotesActivity, note)
-                    NoteAttachmentStore.deleteAllForNote(this@AllNotesActivity, note)
-                    removeUidFor(note)
+                    if (note !in allNotes) {
+                        NoteMediaStore.deleteAllForNote(this@AllNotesActivity, note)
+                        NoteVoiceStore.deleteAllForNote(this@AllNotesActivity, note)
+                        NoteAttachmentStore.deleteAllForNote(this@AllNotesActivity, note)
+                        removeUidFor(note)
+                    }
                 }
-
-                // safety persist
-                allNotes.removeAll(notesToDelete.toSet())
-                NotesCacheManager.cachedNotes.removeAll(notesToDelete.toSet())
 
                 // ✅ FORCE DISK WRITE so delete survives restart
                 saveNotes()

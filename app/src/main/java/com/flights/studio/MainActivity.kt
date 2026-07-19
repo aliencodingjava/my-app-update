@@ -1285,27 +1285,29 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun deleteSelectedNotes(selectedRowKeys: Set<String>) {
-        val selectedBaseKeys = selectedRowKeys.map { it.substringBefore('#') }.toSet()
         val toDelete = noteRows
-            .filter { selectedBaseKeys.contains(it.id.substringBefore('#')) }
+            .filter { it.id in selectedRowKeys }
             .map { it.text }
-            .toSet()
 
         if (toDelete.isEmpty()) return
 
-        toDelete.forEach { queuePendingDelete(it) }
-        if (SupabaseManager.client.auth.currentSessionOrNull()?.user?.id != null) {
+        toDelete.forEach { note -> allNotes.remove(note) }
+        val notesRemovedEverywhere = toDelete.distinct().filter { note -> note !in allNotes }
+
+        notesRemovedEverywhere.forEach { queuePendingDelete(it) }
+        if (notesRemovedEverywhere.isNotEmpty() && SupabaseManager.client.auth.currentSessionOrNull()?.user?.id != null) {
             syncPendingNotesToSupabase()
         }
 
-        toDelete.forEach { note ->
-            NoteMediaStore.deleteAllForNote(this, note)
-            NoteVoiceStore.deleteAllForNote(this, note)
-            NoteAttachmentStore.deleteAllForNote(this, note)
-            notesAdapter.removeUserTitle(note)
-            removeUidFor(note)
+        toDelete.distinct().forEach { note ->
+            if (note !in allNotes) {
+                NoteMediaStore.deleteAllForNote(this, note)
+                NoteVoiceStore.deleteAllForNote(this, note)
+                NoteAttachmentStore.deleteAllForNote(this, note)
+                notesAdapter.removeUserTitle(note)
+                removeUidFor(note)
+            }
         }
-        allNotes.removeAll(toDelete)
         isMultiSelectMode = false
         notesAdapter.clearSelection()
         refreshNotesDisplay()

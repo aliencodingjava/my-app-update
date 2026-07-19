@@ -400,13 +400,13 @@ fun AllNotesScreen(
                     if (selectionMode) {
                         IconButton(
                             onClick = {
+                                val idsToDelete = selectedIds
                                 if (folderMode) {
-                                    onDeleteSelectedFolders(selectedIds)
+                                    onDeleteSelectedFolders(idsToDelete)
                                 } else {
-                                    onDeleteSelected(selectedIds)
+                                    onDeleteSelected(idsToDelete)
                                 }
-                                selectedIds = emptySet()
-                                notesAdapter.clearSelection()
+                                clearSelection()
                             }
                         ) {
                             Icon(Icons.Filled.Delete, contentDescription = "Delete selected", tint = contentColor)
