@@ -136,6 +136,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
 
@@ -581,15 +582,38 @@ private fun normalizeProfilePhotoPath(raw: String, bucket: String = "profile-pho
         .takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
         ?: return ""
 
+    if (clean.startsWith("http", ignoreCase = true)) {
+        extractStoragePathIfSignedUrl(clean, bucket = bucket)?.let { return it }
+
+        val path = runCatching { Uri.parse(clean).path.orEmpty() }.getOrDefault("")
+        val publicMarker = "/storage/v1/object/public/$bucket/"
+        val publicIndex = path.indexOf(publicMarker)
+        if (publicIndex >= 0) {
+            return path.substring(publicIndex + publicMarker.length)
+                .trim('/')
+                .substringBefore('?')
+        }
+
+        val objectMarker = "/storage/v1/object/$bucket/"
+        val objectIndex = path.indexOf(objectMarker)
+        if (objectIndex >= 0) {
+            return path.substring(objectIndex + objectMarker.length)
+                .trim('/')
+                .substringBefore('?')
+        }
+
+        return clean
+    }
+
     if (
-        clean.startsWith("http", ignoreCase = true) ||
         clean.startsWith("content", ignoreCase = true) ||
         clean.startsWith("file", ignoreCase = true)
     ) {
-        return extractStoragePathIfSignedUrl(clean, bucket = bucket) ?: clean
+        return clean
     }
 
     return clean
+        .substringBefore('?')
         .removePrefix("$bucket/")
         .removePrefix("object/$bucket/")
         .removePrefix("storage/v1/object/public/$bucket/")
@@ -616,10 +640,6 @@ private fun ProfileAvatarImage(
 
     LaunchedEffect(painterState) {
         if (painterState is AsyncImagePainter.State.Error) onError()
-    }
-    LaunchedEffect(data, avatarVersion) {
-        delay(4500)
-        if (painter.state !is AsyncImagePainter.State.Success) onError()
     }
 
     if (painterState is AsyncImagePainter.State.Success) {
@@ -1467,14 +1487,18 @@ private fun ProfileDetailsRoute(
                                                                 fresh,
                                                                 60 * 60
                                                             )
-                                                            value = AvatarLoadState.Ready(fresh)
-                                                            launch(Dispatchers.IO) {
+                                                            val cachedFile = withTimeoutOrNull(6500) {
                                                                 AvatarDiskCache.cacheFromSignedUrl(
                                                                     context,
                                                                     resolvedRawPhoto,
                                                                     fresh
                                                                 )
                                                             }
+                                                            value = AvatarLoadState.Ready(
+                                                                cachedFile
+                                                                    ?.takeIf { it.exists() && it.length() > 0L }
+                                                                    ?: fresh
+                                                            )
                                                             return@produceState
                                                         }
                                                     }
@@ -1498,7 +1522,7 @@ private fun ProfileDetailsRoute(
                                                                 }
                                                             )
                                                         } else {
-                                                            ProfileAvatarFallback()
+                                                            ProfileAvatarSkeleton(shape = avatarShape)
                                                         }
                                                     }
 
@@ -1506,9 +1530,16 @@ private fun ProfileDetailsRoute(
                                                         ProfileAvatarSkeleton(shape = avatarShape)
                                                     }
 
-                                                    AvatarLoadState.Idle,
-                                                    AvatarLoadState.Failed -> {
+                                                    AvatarLoadState.Idle -> {
                                                         ProfileAvatarFallback()
+                                                    }
+
+                                                    AvatarLoadState.Failed -> {
+                                                        if (resolvedRawPhoto.isBlank()) {
+                                                            ProfileAvatarFallback()
+                                                        } else {
+                                                            ProfileAvatarSkeleton(shape = avatarShape)
+                                                        }
                                                     }
                                                 }
                                             }
