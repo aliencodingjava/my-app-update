@@ -198,13 +198,14 @@ fun HomeScreenRouteContent(
     var countdownMs by rememberSaveable { mutableLongStateOf(refreshIntervalMs) }
     var isRefreshing by rememberSaveable { mutableStateOf(false) }
     var lastRefreshAtMs by rememberSaveable { mutableLongStateOf(0L) }
-    var hasInternet by rememberSaveable { mutableStateOf(true) }
+    val initialOnline = remember(appContext) { !appContext.isNetworkCompletelyOff() }
+    var hasInternet by rememberSaveable { mutableStateOf(initialOnline) }
 
     val cameraBackdrop = rememberLayerBackdrop()
 
     var wifiEnabled by rememberSaveable { mutableStateOf(false) }
     var dataEnabled by rememberSaveable { mutableStateOf(false) }
-    var isUserOffline by rememberSaveable { mutableStateOf(false) }
+    var isUserOffline by rememberSaveable { mutableStateOf(!initialOnline) }
     var justBecameOnline by rememberSaveable { mutableStateOf(false) }
     var externalAppPrompt by remember { mutableStateOf<ExternalAppPrompt?>(null) }
 
@@ -234,6 +235,12 @@ fun HomeScreenRouteContent(
     // STARTUP: show cached image immediately, then refresh if old
     // ----------------------------
     LaunchedEffect(Unit) {
+        if (appContext.isNetworkCompletelyOff()) {
+            hasInternet = false
+            isUserOffline = true
+            countdownMs = refreshIntervalMs
+            return@LaunchedEffect
+        }
         // if token is older than refreshIntervalMs, refresh after a short delay
         val age = System.currentTimeMillis() - refreshToken
         if (refreshToken == 0L || age > refreshIntervalMs) {
@@ -366,6 +373,16 @@ fun HomeScreenRouteContent(
 
     val onTabChangeInternal: (FlightsTab) -> Unit = inner@{ tab ->
         if (tab == currentTab) return@inner
+
+        if (appContext.isNetworkCompletelyOff()) {
+            currentTab = tab
+            hasInternet = false
+            isUserOffline = true
+            isRefreshing = false
+            lockNoRefresh = true
+            countdownMs = refreshIntervalMs
+            return@inner
+        }
 
         val token = System.currentTimeMillis()
 
@@ -642,13 +659,16 @@ fun HomeScreenRouteContent(
                                     }
                                 },
                                 onImageLoadFailed = {
+                                    val alreadyOffline = isUserOffline || appContext.isNetworkCompletelyOff()
                                     isRefreshing = false
                                     hasInternet = false
+                                    isUserOffline = alreadyOffline
                                     lockNoRefresh = true
 
-                                    // ✅ Fancy pill instead of snackbar :contentReference[oaicite:4]{index=4}
-                                    hostActivity?.let {
-                                        FancyPillToast.show(it, "Camera image failed to load")
+                                    if (!alreadyOffline) {
+                                        hostActivity?.let {
+                                            FancyPillToast.show(it, "Camera image failed to load")
+                                        }
                                     }
                                 }
                             )
@@ -724,6 +744,12 @@ fun HomeScreenRouteContent(
                         }
 
                         LaunchedEffect(Unit) {
+                            if (appContext.isNetworkCompletelyOff()) {
+                                hasInternet = false
+                                isUserOffline = true
+                                countdownMs = refreshIntervalMs
+                                return@LaunchedEffect
+                            }
                             // if we have no token yet, or it's older than ~1 minute, refresh quickly
                             val age = System.currentTimeMillis() - refreshToken
                             if (refreshToken == 0L || age > 60_000L) {

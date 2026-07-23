@@ -51,6 +51,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -93,6 +94,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
+import java.util.Locale
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
@@ -659,6 +661,302 @@ private fun OpenNoteTopActionBar(
     }
 }
 
+private data class OpenNoteTodoTemplate(
+    val title: String,
+    val subtitle: String,
+    val badge: String,
+    val icon: String,
+    val sections: List<OpenNoteTodoSection>
+)
+
+private data class OpenNoteTodoSection(
+    val title: String,
+    val items: List<OpenNoteTodoItem>
+)
+
+private data class OpenNoteTodoItem(
+    val text: String,
+    val checked: Boolean = false,
+    val checkedAt: String? = null
+)
+
+private val OpenNoteCheckedAtRegex = Regex("""^(.*) \[checked (.+)]$""")
+
+private val OpenNoteTodoTemplateHeaders = setOf(
+    "planner", "idea brief", "priority list", "shopping list", "location task",
+    "reminder plan", "photo checklist", "voice note plan", "attachment checklist", "tags",
+    "progress tracker", "goal plan", "brainstorm board",
+    "project checklist", "bug fix checklist", "airport shift", "airport shift checklist",
+    "meeting notes", "travel prep", "house checklist", "inside home", "outside home",
+    "cleaning list", "meal prep", "bills", "auto checklist", "car repair", "road trip",
+    "repair checklist", "tools checklist", "maintenance", "yard work", "video shoot",
+    "content plan", "health checklist", "hospital list", "medication", "doctor visit",
+    "emergency checklist", "fire safety", "air quality"
+)
+
+private fun openNoteIsTodoTemplateHeader(line: String): Boolean =
+    line.trim().removeSuffix(":").lowercase(Locale.getDefault()) in OpenNoteTodoTemplateHeaders
+
+private fun openNoteTodoTemplateOrNull(title: String?, note: String): OpenNoteTodoTemplate? {
+    val lines = note.lines().filter { it.trim().isNotBlank() }
+    if (lines.count { openNoteTodoItemFromLine(it) != null } < 2) return null
+
+    val firstLine = lines.firstOrNull()?.trim().orEmpty()
+    val displayTitle = title?.takeIf { it.isNotBlank() }
+        ?: firstLine.removeSuffix(":").ifBlank { "Checklist" }
+    val titleKey = "$displayTitle $firstLine".lowercase(Locale.getDefault())
+    val meta = when {
+        "priority" in titleKey -> Triple("Separate urgent work from nice-to-have noise.", "Focus", "★")
+        "idea" in titleKey -> Triple("Capture the problem, why it matters, and the first test.", "Create", "?")
+        "planner" in titleKey || "daily" in titleKey -> Triple("Time blocks, errands, waiting items, tomorrow carry-over.", "Daily", "17")
+        "reminder" in titleKey -> Triple("Time, prep, action, and follow-up in one note.", "Time", "!")
+        "photo" in titleKey -> Triple("Shot list so photos are not random or missing context.", "Media", "#")
+        "voice" in titleKey -> Triple("Turn a recording into clear actions and details.", "Audio", "V")
+        "attachment" in titleKey || "file" in titleKey -> Triple("Track why a file or link matters.", "File", "@")
+        "house" in titleKey || "home" in titleKey -> Triple("Home tasks grouped into clear next steps.", "Home", "H")
+        "cleaning" in titleKey -> Triple("Quick clean, deep clean, laundry, and reset.", "Clean", "C")
+        "meal" in titleKey || "shopping" in titleKey || "bills" in titleKey -> Triple("Everyday errands, money, food, and supplies.", "Life", "L")
+        "auto" in titleKey || "car" in titleKey || "road trip" in titleKey -> Triple("Vehicle checks, service, route, and driving prep.", "Auto", "A")
+        "repair" in titleKey || "tools" in titleKey || "maintenance" in titleKey || "yard" in titleKey -> Triple("Fix, maintain, test, and clean up.", "Fix", "F")
+        "video" in titleKey || "content" in titleKey -> Triple("Plan capture, assets, publishing, and follow-up.", "Media", "#")
+        "health" in titleKey || "hospital" in titleKey || "doctor" in titleKey || "medication" in titleKey -> Triple("Care steps, questions, medication, and follow-up.", "Care", "+")
+        "emergency" in titleKey || "fire" in titleKey || "air quality" in titleKey -> Triple("Safety actions, contacts, protection, and checks.", "Safe", "!")
+        else -> Triple("Organized tasks and follow-up items.", "List", "✓")
+    }
+
+    val sections = mutableListOf<OpenNoteTodoSection>()
+    var currentTitle: String? = null
+    val currentItems = mutableListOf<OpenNoteTodoItem>()
+
+    fun flush() {
+        val sectionTitle = currentTitle?.takeIf { it.isNotBlank() } ?: return
+        sections += OpenNoteTodoSection(sectionTitle, currentItems.toList())
+        currentItems.clear()
+    }
+
+    lines.drop(1).forEach { line ->
+        val item = openNoteTodoItemFromLine(line)
+        if (item != null) {
+            currentItems += item
+        } else {
+            flush()
+            currentTitle = line.removeSuffix(":").trim()
+        }
+    }
+    flush()
+
+    val fallbackSections = if (sections.isEmpty()) {
+        listOf(
+            OpenNoteTodoSection(
+                title = displayTitle,
+                items = lines.mapNotNull { openNoteTodoItemFromLine(it) }
+            )
+        )
+    } else {
+        sections
+    }
+
+    return OpenNoteTodoTemplate(
+        title = displayTitle,
+        subtitle = meta.first,
+        badge = meta.second,
+        icon = meta.third,
+        sections = fallbackSections
+    )
+}
+
+private fun openNoteTodoItemFromLine(line: String): OpenNoteTodoItem? {
+    val trimmedStart = line.trimStart()
+    val marker = trimmedStart.firstOrNull() ?: return null
+    val checked = when (marker) {
+        '☑', '✓', '✔', '●', '◉' -> true
+        '□', '○' -> false
+        else -> return null
+    }
+    val rawText = trimmedStart.drop(1).removePrefix(" ")
+    val checkedAtMatch = OpenNoteCheckedAtRegex.matchEntire(rawText)
+    return OpenNoteTodoItem(
+        text = (checkedAtMatch?.groupValues?.getOrNull(1) ?: rawText).removeSuffix(":").trim(),
+        checked = checked,
+        checkedAt = checkedAtMatch?.groupValues?.getOrNull(2)
+    )
+}
+
+@Composable
+private fun OpenNoteStyledTodoTemplate(
+    template: OpenNoteTodoTemplate,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val scheme = MaterialTheme.colorScheme
+    val accent = when (template.badge.lowercase(Locale.getDefault())) {
+        "focus" -> scheme.tertiary
+        "create" -> scheme.primary
+        "daily" -> scheme.primary
+        else -> scheme.secondary
+    }
+    val sectionAccents = listOf(
+        accent,
+        scheme.error,
+        scheme.tertiary,
+        Color(0xFF5B8DFF),
+        Color(0xFF24B39B)
+    )
+
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = RoundedCornerShape(15.dp),
+                color = accent.copy(alpha = if (isDark) 0.20f else 0.14f),
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.34f))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = template.icon,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                        color = accent,
+                        maxLines = 1
+                    )
+                }
+            }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = template.title.uppercase(Locale.getDefault()),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                    color = scheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${template.badge.uppercase(Locale.getDefault())} · ${template.subtitle}",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = scheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        template.sections.forEachIndexed { index, section ->
+            val sectionAccent = sectionAccents[index % sectionAccents.size]
+            if (index > 0 && openNoteIsTodoTemplateHeader(section.title)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(scheme.outline.copy(alpha = if (isDark) 0.28f else 0.18f))
+                )
+            }
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = sectionAccent.copy(alpha = if (isDark) 0.13f else 0.09f),
+                border = BorderStroke(1.dp, sectionAccent.copy(alpha = if (isDark) 0.24f else 0.16f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(24.dp),
+                            shape = RoundedCornerShape(9.dp),
+                            color = sectionAccent.copy(alpha = if (isDark) 0.24f else 0.16f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = (index + 1).toString().padStart(2, '0'),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                    color = sectionAccent,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        Text(
+                            text = section.title.uppercase(Locale.getDefault()),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                            color = sectionAccent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    section.items.ifEmpty { listOf(OpenNoteTodoItem("")) }.forEach { item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .size(18.dp),
+                                shape = CircleShape,
+                                color = if (item.checked) sectionAccent.copy(alpha = 0.24f) else Color.Transparent,
+                                border = BorderStroke(
+                                    1.3.dp,
+                                    if (item.checked) sectionAccent else scheme.onSurfaceVariant.copy(alpha = if (isDark) 0.68f else 0.42f)
+                                )
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (item.checked) {
+                                        Text(
+                                            text = "✓",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                            color = sectionAccent,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                text = item.text.ifBlank { "Task here..." },
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = if (item.text.isBlank()) {
+                                    scheme.onSurfaceVariant.copy(alpha = 0.58f)
+                                } else {
+                                    scheme.onSurface.copy(alpha = 0.90f)
+                                },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            item.checkedAt?.takeIf { item.checked && it.isNotBlank() }?.let { checkedAt ->
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = sectionAccent.copy(alpha = if (isDark) 0.18f else 0.10f),
+                                    border = BorderStroke(1.dp, sectionAccent.copy(alpha = if (isDark) 0.26f else 0.16f))
+                                ) {
+                                    Text(
+                                        text = checkedAt,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                        color = sectionAccent,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun OpenNoteReaderCard(
     note: String,
@@ -709,6 +1007,7 @@ private fun OpenNoteReaderCard(
     } else {
         Color(0xFF3D8DD7).copy(alpha = 0.62f)
     }
+    val todoTemplate = remember(title, note) { openNoteTodoTemplateOrNull(title, note) }
 
     Box(
         modifier = modifier
@@ -768,16 +1067,24 @@ private fun OpenNoteReaderCard(
                     .border(1.dp, panelBorder.copy(alpha = 0.42f), RoundedCornerShape(18.dp))
                     .background(innerSurface, RoundedCornerShape(18.dp))
             ) {
-                SelectionContainer {
-                    Text(
-                        text = note,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = textColor,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 12.dp, end = 12.dp, top = 12.dp)
-                            .verticalScroll(rememberScrollState())
+                if (todoTemplate != null) {
+                    OpenNoteStyledTodoTemplate(
+                        template = todoTemplate,
+                        isDark = isDark,
+                        modifier = Modifier.fillMaxSize()
                     )
+                } else {
+                    SelectionContainer {
+                        Text(
+                            text = note,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = textColor,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 12.dp, top = 12.dp)
+                                .verticalScroll(rememberScrollState())
+                        )
+                    }
                 }
             }
         }

@@ -37,10 +37,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -50,12 +52,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -80,6 +86,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -87,6 +94,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -115,6 +123,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -145,6 +156,301 @@ private fun stripLegacyVoiceMarkers(note: String, hasVoiceNotes: Boolean): Strin
         .joinToString("\n")
         .replace(Regex("\\n{3,}"), "\n\n")
         .trim()
+}
+
+private data class EditNoteTodoTemplate(
+    val header: String,
+    val title: String,
+    val subtitle: String,
+    val badge: String,
+    val icon: String,
+    val sections: List<EditNoteTodoSection>
+)
+
+private data class EditNoteTodoSection(
+    val title: String,
+    val items: List<EditNoteTodoItem>
+)
+
+private data class EditNoteTodoItem(
+    val text: String,
+    val checked: Boolean = false,
+    val checkedAt: String? = null
+)
+
+private val EditNoteCheckedAtRegex = Regex("""^(.*) \[checked (.+)]$""")
+
+private fun currentEditNoteCheckedAt(): String =
+    SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())
+
+private val EditNoteTodoTemplateHeaders = setOf(
+    "planner",
+    "idea brief",
+    "priority list",
+    "shopping list",
+    "location task",
+    "reminder plan",
+    "photo checklist",
+    "voice note plan",
+    "attachment checklist",
+    "tags",
+    "progress tracker",
+    "goal plan",
+    "brainstorm board",
+    "project checklist",
+    "bug fix checklist",
+    "airport shift",
+    "airport shift checklist",
+    "meeting notes",
+    "travel prep",
+    "house checklist",
+    "inside home",
+    "outside home",
+    "cleaning list",
+    "meal prep",
+    "bills",
+    "auto checklist",
+    "car repair",
+    "road trip",
+    "repair checklist",
+    "tools checklist",
+    "maintenance",
+    "yard work",
+    "video shoot",
+    "content plan",
+    "health checklist",
+    "hospital list",
+    "medication",
+    "doctor visit",
+    "emergency checklist",
+    "fire safety",
+    "air quality"
+)
+
+private fun editNoteIsTodoTemplateHeader(line: String): Boolean =
+    line.trim().removeSuffix(":").lowercase(Locale.getDefault()) in EditNoteTodoTemplateHeaders
+
+private fun editNoteTodoItemFromLine(line: String): EditNoteTodoItem? {
+    val trimmedStart = line.trimStart()
+    val marker = trimmedStart.firstOrNull() ?: return null
+    val checked = when (marker) {
+        '☑', '✓', '✔', '●', '◉' -> true
+        '□', '○' -> false
+        else -> return null
+    }
+    val rawText = trimmedStart.drop(1).removePrefix(" ")
+    val checkedAtMatch = EditNoteCheckedAtRegex.matchEntire(rawText)
+    return EditNoteTodoItem(
+        text = checkedAtMatch?.groupValues?.getOrNull(1) ?: rawText,
+        checked = checked,
+        checkedAt = checkedAtMatch?.groupValues?.getOrNull(2)
+    )
+}
+
+private fun editNoteTodoTemplateOrNull(title: String, note: String): EditNoteTodoTemplate? {
+    return editNoteTodoTemplates(title, note).firstOrNull()
+}
+
+private fun editNoteTodoTemplates(title: String, note: String): List<EditNoteTodoTemplate> {
+    val lines = note.lines().filter { it.trim().isNotBlank() }
+    if (lines.count { editNoteTodoItemFromLine(it) != null } < 2) return emptyList()
+
+    fun buildTemplate(header: String, sections: List<EditNoteTodoSection>): EditNoteTodoTemplate {
+        val displayTitle = title.takeIf { sections.isEmpty() }?.ifBlank { null }
+            ?: header.removeSuffix(":").ifBlank { "Checklist" }
+        val titleKey = "$displayTitle $header".lowercase(Locale.getDefault())
+        val meta = when {
+            "priority" in titleKey -> Triple("Separate urgent work from nice-to-have noise.", "Focus", "★")
+            "idea" in titleKey -> Triple("Capture the problem, why it matters, and the first test.", "Create", "?")
+            "shopping" in titleKey -> Triple("Essentials, optional items, store and budget.", "List", "🛒")
+            "planner" in titleKey || "daily" in titleKey -> Triple("Time blocks, errands, waiting items, tomorrow carry-over.", "Daily", "17")
+            "reminder" in titleKey -> Triple("Time, prep, action, and follow-up in one note.", "Time", "!")
+            "photo" in titleKey -> Triple("Shot list so photos are not random or missing context.", "Media", "#")
+            "voice" in titleKey -> Triple("Turn a recording into clear actions and details.", "Audio", "V")
+            "attachment" in titleKey || "file" in titleKey -> Triple("Track why a file or link matters.", "File", "@")
+            "house" in titleKey || "home" in titleKey -> Triple("Home tasks grouped into clear next steps.", "Home", "H")
+            "cleaning" in titleKey -> Triple("Quick clean, deep clean, laundry, and reset.", "Clean", "C")
+            "meal" in titleKey || "shopping" in titleKey || "bills" in titleKey -> Triple("Everyday errands, money, food, and supplies.", "Life", "L")
+            "auto" in titleKey || "car" in titleKey || "road trip" in titleKey -> Triple("Vehicle checks, service, route, and driving prep.", "Auto", "A")
+            "repair" in titleKey || "tools" in titleKey || "maintenance" in titleKey || "yard" in titleKey -> Triple("Fix, maintain, test, and clean up.", "Fix", "F")
+            "video" in titleKey || "content" in titleKey -> Triple("Plan capture, assets, publishing, and follow-up.", "Media", "#")
+            "health" in titleKey || "hospital" in titleKey || "doctor" in titleKey || "medication" in titleKey -> Triple("Care steps, questions, medication, and follow-up.", "Care", "+")
+            "emergency" in titleKey || "fire" in titleKey || "air quality" in titleKey -> Triple("Safety actions, contacts, protection, and checks.", "Safe", "!")
+            else -> Triple("Organized tasks and follow-up items.", "List", "✓")
+        }
+        return EditNoteTodoTemplate(
+            header = header,
+            title = displayTitle,
+            subtitle = meta.first,
+            badge = meta.second,
+            icon = meta.third,
+            sections = sections.ifEmpty {
+                listOf(
+                    EditNoteTodoSection(
+                        title = displayTitle,
+                        items = lines.mapNotNull { editNoteTodoItemFromLine(it) }
+                    )
+                )
+            }
+        )
+    }
+
+    val templates = mutableListOf<EditNoteTodoTemplate>()
+    val meta = when {
+        else -> Triple("", "", "")
+    }
+    val sections = mutableListOf<EditNoteTodoSection>()
+    var currentHeader = lines.firstOrNull()?.trim().orEmpty().ifBlank { title.ifBlank { "Checklist" } }
+    var currentTitle: String? = null
+    val currentItems = mutableListOf<EditNoteTodoItem>()
+
+    fun flush() {
+        val sectionTitle = currentTitle?.takeIf { it.isNotBlank() } ?: return
+        sections += EditNoteTodoSection(sectionTitle, currentItems.toList())
+        currentItems.clear()
+    }
+
+    fun flushTemplate() {
+        flush()
+        if (sections.isNotEmpty()) {
+            templates += buildTemplate(currentHeader, sections.toList())
+        }
+        sections.clear()
+        currentItems.clear()
+        currentTitle = null
+    }
+
+    lines.drop(1).forEach { line ->
+        val trimmed = line.trim()
+        val item = editNoteTodoItemFromLine(line)
+        if (item != null) {
+            currentItems += item
+        } else if (editNoteIsTodoTemplateHeader(trimmed) && (sections.isNotEmpty() || currentTitle != null || currentItems.isNotEmpty())) {
+            flushTemplate()
+            currentHeader = trimmed
+        } else {
+            flush()
+            currentTitle = trimmed.removeSuffix(":").trim()
+        }
+    }
+    flushTemplate()
+
+    return templates.ifEmpty { listOf(buildTemplate(currentHeader, emptyList())) }
+}
+
+private fun editNoteBuildTodoBody(
+    template: EditNoteTodoTemplate,
+    sections: List<EditNoteTodoSection>
+): String = buildString {
+    appendLine(template.header)
+    appendLine()
+    sections.forEachIndexed { sectionIndex, section ->
+        appendLine(section.title)
+        section.items.ifEmpty { listOf(EditNoteTodoItem("")) }.forEach { item ->
+            val checkedAt = item.checkedAt?.takeIf { item.checked && it.isNotBlank() }?.let { " [checked $it]" }.orEmpty()
+            appendLine("${if (item.checked) "☑" else "□"} ${item.text}$checkedAt")
+        }
+        if (sectionIndex != sections.lastIndex) appendLine()
+    }
+}.let { text ->
+    when {
+        text.endsWith("\r\n") -> text.dropLast(2)
+        text.endsWith("\n") -> text.dropLast(1)
+        else -> text
+    }
+}
+
+private fun editNoteBuildTodoBody(
+    templates: List<EditNoteTodoTemplate>
+): String = templates.joinToString("\n\n") { template ->
+    editNoteBuildTodoBody(template, template.sections)
+}
+
+private fun List<EditNoteTodoSection>.withTodoItem(
+    sectionIndex: Int,
+    itemIndex: Int,
+    value: String
+): List<EditNoteTodoSection> = mapIndexed { currentSectionIndex, section ->
+    if (currentSectionIndex != sectionIndex) {
+        section
+    } else {
+        val currentItems = section.items.ifEmpty { listOf(EditNoteTodoItem("")) }
+        section.copy(
+            items = currentItems.mapIndexed { currentItemIndex, item ->
+                if (currentItemIndex == itemIndex) item.copy(text = value) else item
+            }
+        )
+    }
+}
+
+private fun List<EditNoteTodoTemplate>.withTodoItem(
+    templateIndex: Int,
+    sectionIndex: Int,
+    itemIndex: Int,
+    value: String
+): List<EditNoteTodoTemplate> = mapIndexed { currentTemplateIndex, template ->
+    if (currentTemplateIndex != templateIndex) {
+        template
+    } else {
+        template.copy(sections = template.sections.withTodoItem(sectionIndex, itemIndex, value))
+    }
+}
+
+private fun List<EditNoteTodoTemplate>.withTodoChecked(
+    templateIndex: Int,
+    sectionIndex: Int,
+    itemIndex: Int
+): List<EditNoteTodoTemplate> = mapIndexed { currentTemplateIndex, template ->
+    if (currentTemplateIndex != templateIndex) {
+        template
+    } else {
+        template.copy(sections = template.sections.withTodoChecked(sectionIndex, itemIndex))
+    }
+}
+
+private fun List<EditNoteTodoTemplate>.withAddedTodoItem(
+    templateIndex: Int,
+    sectionIndex: Int
+): List<EditNoteTodoTemplate> = mapIndexed { currentTemplateIndex, template ->
+    if (currentTemplateIndex != templateIndex) {
+        template
+    } else {
+        template.copy(sections = template.sections.withAddedTodoItem(sectionIndex))
+    }
+}
+
+private fun List<EditNoteTodoSection>.withTodoChecked(
+    sectionIndex: Int,
+    itemIndex: Int
+): List<EditNoteTodoSection> = mapIndexed { currentSectionIndex, section ->
+    if (currentSectionIndex != sectionIndex) {
+        section
+    } else {
+        val currentItems = section.items.ifEmpty { listOf(EditNoteTodoItem("")) }
+        section.copy(
+            items = currentItems.mapIndexed { currentItemIndex, item ->
+                if (currentItemIndex == itemIndex) {
+                    val checked = !item.checked
+                    item.copy(
+                        checked = checked,
+                        checkedAt = if (checked) currentEditNoteCheckedAt() else null
+                    )
+                } else {
+                    item
+                }
+            }
+        )
+    }
+}
+
+private fun List<EditNoteTodoSection>.withAddedTodoItem(
+    sectionIndex: Int
+): List<EditNoteTodoSection> = mapIndexed { currentSectionIndex, section ->
+    if (currentSectionIndex != sectionIndex) {
+        section
+    } else {
+        section.copy(items = section.items + EditNoteTodoItem(""))
+    }
 }
 
 @Composable
@@ -651,6 +957,300 @@ private fun EditNoteTopActionBar(
 }
 
 @Composable
+private fun EditNoteStyledTodoTemplate(
+    template: EditNoteTodoTemplate,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
+    scrollable: Boolean = true,
+    onItemChange: (sectionIndex: Int, itemIndex: Int, value: String) -> Unit,
+    onItemCheckedChange: (sectionIndex: Int, itemIndex: Int) -> Unit,
+    onAddItem: (sectionIndex: Int) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    val taskFocusScope = rememberCoroutineScope()
+    val accent = when (template.badge.lowercase(Locale.getDefault())) {
+        "focus" -> scheme.tertiary
+        "create" -> scheme.primary
+        "daily" -> scheme.primary
+        else -> scheme.secondary
+    }
+    val sectionAccents = listOf(
+        accent,
+        scheme.error,
+        scheme.tertiary,
+        Color(0xFF5B8DFF),
+        Color(0xFF24B39B)
+    )
+
+    Column(
+        modifier = modifier
+            .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = RoundedCornerShape(15.dp),
+                color = accent.copy(alpha = if (isDark) 0.20f else 0.14f),
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.34f))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = template.icon,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                        color = accent,
+                        maxLines = 1
+                    )
+                }
+            }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = template.title.uppercase(Locale.getDefault()),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
+                    color = scheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${template.badge.uppercase(Locale.getDefault())} · ${template.subtitle}",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = scheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        template.sections.forEachIndexed { index, section ->
+            val sectionAccent = sectionAccents[index % sectionAccents.size]
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = sectionAccent.copy(alpha = if (isDark) 0.13f else 0.09f),
+                border = BorderStroke(1.dp, sectionAccent.copy(alpha = if (isDark) 0.24f else 0.16f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(24.dp),
+                            shape = RoundedCornerShape(9.dp),
+                            color = sectionAccent.copy(alpha = if (isDark) 0.24f else 0.16f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = (index + 1).toString().padStart(2, '0'),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                    color = sectionAccent,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        Text(
+                            text = section.title.uppercase(Locale.getDefault()),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                            color = sectionAccent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    section.items.ifEmpty { listOf(EditNoteTodoItem("")) }.forEachIndexed { itemIndex, item ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 28.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val taskBringIntoViewRequester = remember { BringIntoViewRequester() }
+                            var taskFocused by remember { mutableStateOf(false) }
+                            LaunchedEffect(taskFocused, item.text) {
+                                if (taskFocused) {
+                                    kotlinx.coroutines.delay(90)
+                                    taskBringIntoViewRequester.bringIntoView()
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .clickable { onItemCheckedChange(index, itemIndex) },
+                                shape = CircleShape,
+                                color = if (item.checked) sectionAccent.copy(alpha = 0.24f) else Color.Transparent,
+                                border = BorderStroke(
+                                    1.3.dp,
+                                    if (item.checked) sectionAccent else scheme.onSurfaceVariant.copy(alpha = if (isDark) 0.68f else 0.42f)
+                                )
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (item.checked) {
+                                        Text(
+                                            text = "✓",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                            color = sectionAccent,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                            BasicTextField(
+                                value = item.text,
+                                onValueChange = { onItemChange(index, itemIndex, it) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(24.dp)
+                                    .bringIntoViewRequester(taskBringIntoViewRequester)
+                                    .onFocusChanged { focusState ->
+                                        taskFocused = focusState.isFocused
+                                        if (focusState.isFocused) {
+                                            taskFocusScope.launch {
+                                                kotlinx.coroutines.delay(90)
+                                                taskBringIntoViewRequester.bringIntoView()
+                                            }
+                                        }
+                                    },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = scheme.onSurface.copy(alpha = 0.88f)
+                                )
+                            ) { innerTextField ->
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(24.dp),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (item.text.isBlank()) {
+                                        Text(
+                                            text = "Task here...",
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            color = scheme.onSurfaceVariant.copy(alpha = 0.62f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                            item.checkedAt?.takeIf { item.checked && it.isNotBlank() }?.let { checkedAt ->
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = sectionAccent.copy(alpha = if (isDark) 0.18f else 0.10f),
+                                    border = BorderStroke(1.dp, sectionAccent.copy(alpha = if (isDark) 0.26f else 0.16f))
+                                ) {
+                                    Text(
+                                        text = checkedAt,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                        color = sectionAccent,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .clickable { onAddItem(index) },
+                        shape = RoundedCornerShape(999.dp),
+                        color = sectionAccent.copy(alpha = if (isDark) 0.12f else 0.08f),
+                        border = BorderStroke(1.dp, sectionAccent.copy(alpha = if (isDark) 0.24f else 0.16f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = null,
+                                tint = sectionAccent,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Text(
+                                text = "Add more",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                                color = sectionAccent,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditNoteStyledTodoTemplates(
+    templates: List<EditNoteTodoTemplate>,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
+    keyboardBottomPadding: Dp = 0.dp,
+    onItemChange: (templateIndex: Int, sectionIndex: Int, itemIndex: Int, value: String) -> Unit,
+    onItemCheckedChange: (templateIndex: Int, sectionIndex: Int, itemIndex: Int) -> Unit,
+    onAddItem: (templateIndex: Int, sectionIndex: Int) -> Unit
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        templates.forEachIndexed { templateIndex, template ->
+            EditNoteStyledTodoTemplate(
+                template = template,
+                isDark = isDark,
+                modifier = Modifier.fillMaxWidth(),
+                scrollable = false,
+                onItemChange = { sectionIndex, itemIndex, value ->
+                    onItemChange(templateIndex, sectionIndex, itemIndex, value)
+                },
+                onItemCheckedChange = { sectionIndex, itemIndex ->
+                    onItemCheckedChange(templateIndex, sectionIndex, itemIndex)
+                },
+                onAddItem = { sectionIndex ->
+                    onAddItem(templateIndex, sectionIndex)
+                }
+            )
+            if (templateIndex != templates.lastIndex) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(scheme.outline.copy(alpha = if (isDark) 0.28f else 0.18f))
+                )
+            }
+        }
+        if (keyboardBottomPadding > 0.dp) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(keyboardBottomPadding + 12.dp)
+            )
+        }
+    }
+}
+
+@Composable
 private fun EditNoteReaderCard(
     title: String,
     note: String,
@@ -701,6 +1301,9 @@ private fun EditNoteReaderCard(
             Color.White.copy(alpha = if (isDark) 0.03f else 0.09f)
         )
     )
+    val density = LocalDensity.current
+    val imeBottomDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
+    val todoTemplates = remember(title, note) { editNoteTodoTemplates(title, note) }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -779,29 +1382,50 @@ private fun EditNoteReaderCard(
                     .border(1.dp, panelBorder.copy(alpha = 0.42f), RoundedCornerShape(18.dp))
                     .background(innerSurface, RoundedCornerShape(18.dp))
             ) {
-                BasicTextField(
-                    value = note,
-                    onValueChange = onNoteChange,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = 12.dp, end = 12.dp, top = 12.dp)
-                        .verticalScroll(rememberScrollState()),
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences,
-                        autoCorrectEnabled = false
-                    ),
-                    decorationBox = { innerTextField ->
-                        if (note.isBlank()) {
-                            Text(
-                                text = "Write your note",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
-                            )
+                if (todoTemplates.isNotEmpty()) {
+                    EditNoteStyledTodoTemplates(
+                        templates = todoTemplates,
+                        isDark = isDark,
+                        keyboardBottomPadding = imeBottomDp,
+                        modifier = Modifier.fillMaxSize(),
+                        onItemChange = { templateIndex, sectionIndex, itemIndex, value ->
+                            val updatedTemplates = todoTemplates.withTodoItem(templateIndex, sectionIndex, itemIndex, value)
+                            onNoteChange(editNoteBuildTodoBody(updatedTemplates))
+                        },
+                        onItemCheckedChange = { templateIndex, sectionIndex, itemIndex ->
+                            val updatedTemplates = todoTemplates.withTodoChecked(templateIndex, sectionIndex, itemIndex)
+                            onNoteChange(editNoteBuildTodoBody(updatedTemplates))
+                        },
+                        onAddItem = { templateIndex, sectionIndex ->
+                            val updatedTemplates = todoTemplates.withAddedTodoItem(templateIndex, sectionIndex)
+                            onNoteChange(editNoteBuildTodoBody(updatedTemplates))
                         }
-                        innerTextField()
-                    }
-                )
+                    )
+                } else {
+                    BasicTextField(
+                        value = note,
+                        onValueChange = onNoteChange,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 12.dp, end = 12.dp, top = 12.dp)
+                            .verticalScroll(rememberScrollState()),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = textColor),
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            autoCorrectEnabled = false
+                        ),
+                        decorationBox = { innerTextField ->
+                            if (note.isBlank()) {
+                                Text(
+                                    text = "Write your note",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.58f)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+                }
             }
         }
     }

@@ -275,6 +275,7 @@ class NotesAdapter(
                         attachmentsCount = attachmentCounts.documents,
                         audioCount = attachmentCounts.audio,
                         videoCount = attachmentCounts.video,
+                        createdAtMs = NoteCreatedAtStore.ensure(holder.composeView.context, key),
                         onClick = { onClick(note, holder.bindingAdapterPosition) },
                         onLongClick = { onLongClick(note) },
                         onEdit = { onEditIconClick(note, holder.bindingAdapterPosition) },

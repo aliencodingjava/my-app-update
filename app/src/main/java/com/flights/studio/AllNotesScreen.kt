@@ -6,10 +6,17 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.view.HapticFeedbackConstants
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
@@ -49,7 +56,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -111,7 +117,8 @@ data class NoteRow(
     val videoCount: Int = 0,
     val title: String,
     val hasReminder: Boolean,
-    val hasBadge: Boolean
+    val hasBadge: Boolean,
+    val createdAtMs: Long = 0L
 )
 
 enum class NotesSyncUiStatus {
@@ -266,12 +273,6 @@ fun AllNotesScreen(
     // notes snapshot + dedupe
     val notesSnapshot by remember { derivedStateOf { notes.toList() } }
     val safeNotesSnapshot by remember { derivedStateOf { notesSnapshot.distinctBy { it.id } } }
-    val syncCountLabel = if (folderMode) {
-        "${folders.size} folders · $notesSize notes"
-    } else {
-        safeNotesSnapshot.size.toString()
-    }
-
     val scope = rememberCoroutineScope()
 
     val overscroll = remember(scope) {
@@ -416,7 +417,6 @@ fun AllNotesScreen(
                             syncOnline = s.syncOnline,
                             syncAvailable = syncAvailable,
                             status = syncStatus,
-                            countLabel = syncCountLabel,
                             backdrop = topBarBackdrop,
                             palette = topPalette,
                             contentColor = contentColor
@@ -508,6 +508,7 @@ fun AllNotesScreen(
                         attachmentsCount = row.attachmentsCount,
                         audioCount = row.audioCount,
                         videoCount = row.videoCount,
+                        createdAtMs = row.createdAtMs,
 
                         onClick = {
                             if (selectionMode) {
@@ -686,7 +687,13 @@ private fun NotesFolderCard(
         Color.White.copy(alpha = 0.72f)
     }
     val labelColor = if (isDark) Color.White else Color(0xFF111111)
-    val countColor = if (isDark) labelColor.copy(alpha = 0.68f) else Color(0xFF7B8087)
+    val countColor = if (folder.count > 0) {
+        folderAccent.copy(alpha = if (isDark) 0.92f else 0.86f)
+    } else if (isDark) {
+        Color.White.copy(alpha = 0.54f)
+    } else {
+        Color(0xFF7B8087)
+    }
     val countText = if (folder.count == 1) "1 note" else "${folder.count} notes"
     val outerShape = RoundedCornerShape(12.dp)
     val animationScope = rememberCoroutineScope()
@@ -862,13 +869,13 @@ private fun NotesFolderCard(
                 text = folder.name,
                 color = labelColor,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = countText,
                 color = countColor,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -896,8 +903,8 @@ private fun NotesFolderCard(
 }
 
 private val NotesFolderFrontShape = GenericShape { size, _ ->
-    val leftTopY = size.height * 0.38f
-    val rightTopY = size.height * 0.46f
+    val leftTopY = size.height * 0.30f
+    val rightTopY = size.height * 0.38f
     val tabStartX = size.width * 0.40f
     val curveEndX = size.width * 0.64f
     val radius = size.minDimension * 0.11f
@@ -972,7 +979,7 @@ private fun NotesGlassAddButton(
             imageVector = Icons.Filled.Add,
             contentDescription = "Add note",
             tint = contentColor,
-            modifier = Modifier.size(27.dp)
+            modifier = Modifier.size(23.dp)
         )
     }
 }
@@ -982,7 +989,6 @@ private fun NotesSyncStatusPill(
     syncOnline: Boolean,
     syncAvailable: Boolean,
     status: NotesSyncUiStatus,
-    countLabel: String,
     backdrop: LayerBackdrop,
     palette: NotesPaletteColors?,
     contentColor: Color,
@@ -990,21 +996,10 @@ private fun NotesSyncStatusPill(
 ) {
     val isDark = isSystemInDarkTheme()
     val online = syncOnline && syncAvailable
-    val active = online && (
-            status == NotesSyncUiStatus.Uploading ||
-                    status == NotesSyncUiStatus.Deleting ||
-                    status == NotesSyncUiStatus.Downloading ||
-                    status == NotesSyncUiStatus.Syncing
-            )
+    val active = online && status != NotesSyncUiStatus.Error
     val statusLabel = when {
-        !syncOnline -> "Local"
-        !syncAvailable -> "Local"
-        status == NotesSyncUiStatus.Uploading -> "Uploading..."
-        status == NotesSyncUiStatus.Deleting -> "Deleting..."
-        status == NotesSyncUiStatus.Downloading -> "Downloading notes..."
-        status == NotesSyncUiStatus.Syncing -> "Syncing..."
-        status == NotesSyncUiStatus.Error -> "Sync issue"
-        else -> "Online"
+        online && status != NotesSyncUiStatus.Error -> "Online"
+        else -> "Local"
     }
     val dotColor = when {
         status == NotesSyncUiStatus.Error -> Color(0xFFFF6257)
@@ -1012,16 +1007,25 @@ private fun NotesSyncStatusPill(
         else -> if (isDark) Color(0xFFFFC95C) else Color(0xFFC47A00)
     }
     val primaryText = contentColor
-    val secondaryText = primaryText.copy(alpha = if (isDark) 0.72f else 0.68f)
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
+    val syncPulse by rememberInfiniteTransition(label = "notes_sync_status_pulse")
+        .animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1250, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "notes_sync_status_pulse_value"
+        )
 
     Box(
         modifier = modifier
             .height(NotesActionHeight)
-            .widthIn(min = 126.dp, max = 228.dp)
+            .widthIn(min = 104.dp, max = 136.dp)
             .notesLiquidTransform(NotesPillShape, interactiveHighlight)
             .notesActionGlass(backdrop, NotesPillShape, isDark, palette, interactiveHighlight)
             .then(interactiveHighlight.modifier)
@@ -1029,17 +1033,28 @@ private fun NotesSyncStatusPill(
         contentAlignment = Alignment.Center
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 11.dp),
+            modifier = Modifier.padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            if (active) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 1.6.dp,
-                    color = primaryText
-                )
-            } else {
+            Box(
+                modifier = Modifier.size(18.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (active) {
+                    Canvas(modifier = Modifier.size(18.dp)) {
+                        val outerRadius = lerp(4.8.dp.toPx(), 8.8.dp.toPx(), syncPulse)
+                        val innerRadius = lerp(3.8.dp.toPx(), 5.8.dp.toPx(), syncPulse)
+                        drawCircle(
+                            color = dotColor.copy(alpha = lerp(0.34f, 0f, syncPulse)),
+                            radius = outerRadius
+                        )
+                        drawCircle(
+                            color = dotColor.copy(alpha = lerp(0.24f, 0.04f, syncPulse)),
+                            radius = innerRadius
+                        )
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .size(8.dp)
@@ -1048,28 +1063,17 @@ private fun NotesSyncStatusPill(
                 )
             }
             Spacer(Modifier.width(7.dp))
-            Column(
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                Text(
-                    text = statusLabel,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
-                    color = primaryText,
-                    maxLines = 1
-                )
-                Text(
-                    text = countLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = secondaryText,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Text(
+                text = statusLabel,
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                color = primaryText,
+                maxLines = 1
+            )
         }
     }
 }
 
-private val NotesActionHeight = 48.dp
+private val NotesActionHeight = 40.dp
 private val NotesPillShape = RoundedCornerShape(percent = 50)
 
 private fun Modifier.notesLiquidTransform(

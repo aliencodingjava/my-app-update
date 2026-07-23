@@ -117,6 +117,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.rememberAsyncImagePainter
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -569,6 +571,70 @@ private sealed interface AvatarLoadState {
     data object Loading : AvatarLoadState
     data class Ready(val data: Any) : AvatarLoadState
     data object Failed : AvatarLoadState
+}
+
+@Composable
+private fun ProfileAvatarImage(
+    data: Any,
+    avatarVersion: Int,
+    shape: RoundedCornerShape,
+    onError: () -> Unit
+) {
+    val context = LocalContext.current
+    val request = remember(context, data, avatarVersion) {
+        ImageRequest.Builder(context)
+            .data(data)
+            .setParameter("v", avatarVersion)
+            .crossfade(false)
+            .build()
+    }
+    val painter = rememberAsyncImagePainter(model = request)
+    val painterState = painter.state
+
+    LaunchedEffect(painterState) {
+        if (painterState is AsyncImagePainter.State.Error) onError()
+    }
+
+    if (painterState is AsyncImagePainter.State.Success) {
+        Image(
+            painter = painter,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+    } else {
+        ProfileAvatarSkeleton(shape = shape)
+    }
+}
+
+@Composable
+private fun ProfileAvatarSkeleton(shape: RoundedCornerShape) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .shimmerEffect(
+                visible = true,
+                shape = shape
+            )
+    )
+}
+
+@Composable
+private fun ProfileAvatarFallback() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(R.drawable.jh_airport_logo_dark),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(0.62f),
+            contentScale = ContentScale.Fit,
+            colorFilter = ColorFilter.tint(
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f)
+            )
+        )
+    }
 }
 
 
@@ -1389,83 +1455,27 @@ private fun ProfileDetailsRoute(
                                                 when (val st = avatarState) {
                                                     is AvatarLoadState.Ready -> {
                                                         if (!avatarFailed) {
-                                                            AsyncImage(
-                                                                model = ImageRequest.Builder(context)
-                                                                    .data(st.data)
-                                                                    .setParameter(
-                                                                        "v",
-                                                                        avatarVersion
-                                                                    )
-                                                                    .crossfade(true)
-                                                                    .build(),
-                                                                contentDescription = null,
-                                                                contentScale = ContentScale.Crop,
-                                                                modifier = Modifier.fillMaxSize(),
+                                                            ProfileAvatarImage(
+                                                                data = st.data,
+                                                                avatarVersion = avatarVersion,
+                                                                shape = avatarShape,
                                                                 onError = {
                                                                     avatarFailed = true
-                                                                    if (rawPhoto.isNotBlank()) {
-                                                                        SignedUrlCache.invalidate(
-                                                                            rawPhoto
-                                                                        )
-                                                                    }
+                                                                    if (rawPhoto.isNotBlank()) SignedUrlCache.invalidate(rawPhoto)
                                                                 }
                                                             )
                                                         } else {
-                                                            // logo fallback if coil failed
-                                                            Box(
-                                                                modifier = Modifier.fillMaxSize(),
-                                                                contentAlignment = Alignment.Center
-                                                            ) {
-                                                                Image(
-                                                                    painter = painterResource(R.drawable.jh_airport_logo_dark),
-                                                                    contentDescription = null,
-                                                                    modifier = Modifier.fillMaxSize(
-                                                                        0.62f
-                                                                    ),
-                                                                    contentScale = ContentScale.Fit,
-                                                                    colorFilter = ColorFilter.tint(
-                                                                        MaterialTheme.colorScheme.onSurface.copy(
-                                                                            alpha = 0.90f
-                                                                        )
-                                                                    )
-                                                                )
-                                                            }
+                                                            ProfileAvatarFallback()
                                                         }
                                                     }
 
                                                     AvatarLoadState.Loading -> {
-                                                        // ✅ shimmer placeholder while we wait
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .fillMaxSize()
-                                                                .shimmerEffect(
-                                                                    visible = true,
-                                                                    shape = avatarShape
-                                                                )
-                                                        )
+                                                        ProfileAvatarSkeleton(shape = avatarShape)
                                                     }
 
                                                     AvatarLoadState.Idle,
                                                     AvatarLoadState.Failed -> {
-                                                        // logo fallback (no photo or couldn't sign)
-                                                        Box(
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Image(
-                                                                painter = painterResource(R.drawable.jh_airport_logo_dark),
-                                                                contentDescription = null,
-                                                                modifier = Modifier.fillMaxSize(
-                                                                    0.62f
-                                                                ),
-                                                                contentScale = ContentScale.Fit,
-                                                                colorFilter = ColorFilter.tint(
-                                                                    MaterialTheme.colorScheme.onSurface.copy(
-                                                                        alpha = 0.90f
-                                                                    )
-                                                                )
-                                                            )
-                                                        }
+                                                        ProfileAvatarFallback()
                                                     }
                                                 }
                                             }

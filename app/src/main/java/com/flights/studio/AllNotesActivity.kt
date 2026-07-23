@@ -163,7 +163,8 @@ class AllNotesActivity : LocaleActivity() {
                     videoCount = attachmentCounts.video,
                     title = title,
                     hasReminder = bellOn,
-                    hasBadge = badgeOn
+                    hasBadge = badgeOn,
+                    createdAtMs = NoteCreatedAtStore.ensure(this, baseUid)
                 )
             )
 
@@ -578,6 +579,7 @@ class AllNotesActivity : LocaleActivity() {
         contentToUid.remove(note)?.let {
             NoteFolderStore.removeNote(this, it)
             uidToContent.remove(it)
+            NoteCreatedAtStore.remove(this, it)
         }
         saveUidMaps()
     }
@@ -977,7 +979,7 @@ class AllNotesActivity : LocaleActivity() {
 
     private fun savePendingDeletesForUser(userId: String, deletes: Set<String>) {
         val sp = getSharedPreferences("notes_prefs", MODE_PRIVATE)
-        sp.edit {
+        sp.edit(commit = true) {
             remove("pending_deletes")
             if (deletes.isEmpty()) remove(pendingDeletesKey(userId))
             else putStringSet(pendingDeletesKey(userId), deletes)
@@ -1097,6 +1099,7 @@ class AllNotesActivity : LocaleActivity() {
 
         // 1) add to RAW list only
         allNotes.add(content)
+        NoteCreatedAtStore.ensure(this, contentToUid[content] ?: ensureLocalUid(content))
         assignNoteToCurrentFolder(content)
 
         // 2) build DISPLAY list (sorted copy)
@@ -1973,6 +1976,7 @@ class AllNotesActivity : LocaleActivity() {
 
             activeRemoteRows.forEach { row ->
                 if (row.content in pendingDeletes) return@forEach
+                rememberRemoteCreatedAt(row)
                 NoteFolderStore.assignRemoteNoteToFolder(
                     this@AllNotesActivity,
                     contentToUid[row.content] ?: ensureLocalUid(row.content),
@@ -2032,6 +2036,16 @@ class AllNotesActivity : LocaleActivity() {
 
         metaPrefs.edit { putLong("last_server_updated_at", System.currentTimeMillis()) }
         notesSyncStatus = NotesSyncUiStatus.Synced
+    }
+
+    private fun rememberRemoteCreatedAt(row: UserNote) {
+        val noteKey = contentToUid[row.content] ?: ensureLocalUid(row.content)
+        val remoteCreatedAt = NoteCreatedAtStore.parseSupabaseTimestamp(row.createdAt)
+        if (remoteCreatedAt != null) {
+            NoteCreatedAtStore.setIfAbsent(this, noteKey, remoteCreatedAt)
+        } else {
+            NoteCreatedAtStore.ensure(this, noteKey)
+        }
     }
 
     // ----------------------- UI helpers (Compose mode) -----------------------

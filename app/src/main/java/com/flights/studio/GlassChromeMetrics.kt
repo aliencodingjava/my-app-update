@@ -17,7 +17,7 @@ import com.kyant.backdrop.shadow.Shadow
 import kotlin.math.abs
 import kotlin.math.sqrt
 
-internal val GlassChromeHorizontalPadding = 18.dp
+internal val GlassChromeHorizontalPadding = 10.dp
 internal val GlassChromeCornerRadius = 27.dp
 internal val GlassChromeInnerCornerRadius = 23.dp
 internal val GlassChromeShadowElevation = 10.dp

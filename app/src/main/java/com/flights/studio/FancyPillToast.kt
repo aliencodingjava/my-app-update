@@ -47,7 +47,10 @@ object FancyPillToast {
         root: ViewGroup,
         host: FrameLayout
     ) {
-        if (activity.isFinishing || activity.isDestroyed) return
+        if (activity.isFinishing || activity.isDestroyed) {
+            activeHosts.remove(activity)
+            return
+        }
         if (host.parent != null) {
             try {
                 root.removeView(host)
@@ -55,6 +58,33 @@ object FancyPillToast {
             }
         }
         activeHosts.remove(activity)
+    }
+
+    private fun contentRootOrNull(activity: FragmentActivity): ViewGroup? {
+        if (activity.isFinishing || activity.isDestroyed) return null
+        return runCatching {
+            activity.findViewById<ViewGroup>(android.R.id.content)
+        }.getOrNull()
+    }
+
+    private fun attachHostSafely(
+        activity: FragmentActivity,
+        root: ViewGroup,
+        host: FrameLayout,
+        composeView: ComposeView
+    ) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        try {
+            host.addView(composeView)
+            root.addView(host)
+        } catch (_: Throwable) {
+            activeHosts.remove(activity)
+            runCatching { composeView.disposeComposition() }
+            runCatching { host.removeAllViews() }
+            runCatching {
+                if (host.parent != null) root.removeView(host)
+            }
+        }
     }
 
     fun show(
@@ -65,8 +95,7 @@ object FancyPillToast {
         if (activity.isFinishing || activity.isDestroyed) return
 
         activity.runOnUiThread {
-            val root =
-                activity.findViewById<ViewGroup>(android.R.id.content) ?: return@runOnUiThread
+            val root = contentRootOrNull(activity) ?: return@runOnUiThread
 
             activeHosts.remove(activity)?.let { old ->
                 try {
@@ -171,8 +200,7 @@ object FancyPillToast {
                 }
             }
 
-            host.addView(composeView)
-            root.addView(host)
+            attachHostSafely(activity, root, host, composeView)
         }
     }
 
@@ -188,7 +216,7 @@ object FancyPillToast {
         if (activity.isFinishing || activity.isDestroyed) return
 
         activity.runOnUiThread {
-            val root = activity.findViewById<ViewGroup>(android.R.id.content) ?: return@runOnUiThread
+            val root = contentRootOrNull(activity) ?: return@runOnUiThread
 
             activeHosts.remove(activity)?.let { old ->
                 try { root.removeView(old) } catch (_: Throwable) {}
@@ -341,8 +369,7 @@ object FancyPillToast {
                 }
             }
 
-            host.addView(composeView)
-            root.addView(host)
+            attachHostSafely(activity, root, host, composeView)
         }
     }
 }

@@ -295,7 +295,8 @@ class MainActivity : FragmentActivity() {
         }
 
         allNotes.add(newNote)
-        ensureLocalUid(newNote)
+        val newNoteUid = ensureLocalUid(newNote)
+        NoteCreatedAtStore.ensure(this, newNoteUid)
         assignMainNoteToCurrentFolder(newNote)
         if (imageUris.isNotEmpty()) NoteMediaStore.setUris(this, newNote, imageUris)
         if (voiceItems.isNotEmpty()) NoteVoiceStore.setItems(this, newNote, voiceItems)
@@ -903,6 +904,7 @@ class MainActivity : FragmentActivity() {
                         ReminderTimePickerSheet(
                             visible = reminderTimeNote != null,
                             backdrop = mainMenuBackdrop,
+                            note = reminderTimeNote,
                             onDismiss = { reminderTimeNote = null },
                             onSetReminder = { hourOfDay, minute, dayOffset ->
                                 reminderTimeNote?.let { note ->
@@ -1083,6 +1085,7 @@ class MainActivity : FragmentActivity() {
         val position = data.getIntExtra("NOTE_POSITION", -1)
         val oldNote = notesText.getOrNull(position) ?: return
         val updatedTitle = data.getStringExtra("UPDATED_TITLE").orEmpty()
+        val updatedWantsReminder = data.getBooleanExtra("UPDATED_NOTE_WANTS_REMINDER", false)
         val updatedImages = data.getStringArrayListExtra("UPDATED_IMAGES")
             ?.mapNotNull { runCatching { it.toUri() }.getOrNull() }
             .orEmpty()
@@ -1127,9 +1130,23 @@ class MainActivity : FragmentActivity() {
         NoteAttachmentStore.setItems(this, updatedNote, updatedFiles)
         if (updatedTitle.isNotBlank()) notesAdapter.setUserTitle(updatedNote, updatedTitle)
         else notesAdapter.removeUserTitle(updatedNote)
+        getSharedPreferences("reminder_flags", MODE_PRIVATE).edit {
+            if (updatedWantsReminder) putBoolean(updatedNote.hashCode().toString(), true)
+            else remove(updatedNote.hashCode().toString())
+        }
+        notesAdapter.preloadReminderFlags(this)
 
         refreshNotesDisplay()
         saveNotes()
+        syncEditedNoteToSupabase(
+            oldNote = oldNote,
+            updatedNote = updatedNote,
+            titleOverride = updatedTitle,
+            imageUrisOverride = updatedImages,
+            fileItemsOverride = updatedFiles,
+            voiceItemsOverride = updatedVoiceItems,
+            hasReminderOverride = updatedWantsReminder
+        )
     }
 
     private fun loadNotesHeadless() {
@@ -1260,7 +1277,8 @@ class MainActivity : FragmentActivity() {
                     hasReminder = getSharedPreferences("reminder_flags", MODE_PRIVATE)
                         .getBoolean(text.hashCode().toString(), false),
                     hasBadge = getSharedPreferences("reminder_badges", MODE_PRIVATE)
-                        .getBoolean(text.hashCode().toString(), false)
+                        .getBoolean(text.hashCode().toString(), false),
+                    createdAtMs = NoteCreatedAtStore.ensure(this, baseUid)
                 )
             )
         }
@@ -1295,6 +1313,7 @@ class MainActivity : FragmentActivity() {
         val notesRemovedEverywhere = toDelete.distinct().filter { note -> note !in allNotes }
 
         notesRemovedEverywhere.forEach { queuePendingDelete(it) }
+        notesRemovedEverywhere.forEach { removePendingAdd(it) }
         if (notesRemovedEverywhere.isNotEmpty() && SupabaseManager.client.auth.currentSessionOrNull()?.user?.id != null) {
             syncPendingNotesToSupabase()
         }
@@ -1323,6 +1342,7 @@ class MainActivity : FragmentActivity() {
         }.toSet()
 
         toDelete.forEach { queuePendingDelete(it) }
+        toDelete.forEach { removePendingAdd(it) }
         if (SupabaseManager.client.auth.currentSessionOrNull()?.user?.id != null) {
             syncPendingNotesToSupabase()
         }
@@ -1346,7 +1366,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun saveNotes() {
-        sharedPreferences.edit {
+        sharedPreferences.edit(commit = true) {
             putString("notes_list", Gson().toJson(allNotes))
         }
     }
@@ -1406,6 +1426,108 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    private fun syncEditedNoteToSupabase(
+        oldNote: String,
+        updatedNote: String,
+        titleOverride: String? = null,
+        imageUrisOverride: List<android.net.Uri>? = null,
+        fileItemsOverride: List<NoteAttachmentItem>? = null,
+        voiceItemsOverride: List<NoteVoiceItem>? = null,
+        hasReminderOverride: Boolean? = null
+    ) {
+        if (!notesOnlineSyncEnabled()) return
+
+        if (oldNote != updatedNote) {
+            queuePendingDelete(oldNote)
+            queuePendingAdd(updatedNote)
+        }
+
+        lifecycleScope.launch {
+            try {
+                val session = SupabaseManager.client.auth.currentSessionOrNull()
+                    ?: throw IllegalStateException("No Supabase session")
+                val userId = session.user?.id ?: throw IllegalStateException("No Supabase user id")
+
+                if (oldNote != updatedNote) {
+                    notesSyncStatus = NotesSyncUiStatus.Deleting
+                    hardDeleteNoteInSupabaseRest(
+                        authToken = session.accessToken,
+                        userId = userId,
+                        id = remoteNoteIdFor(oldNote),
+                        content = oldNote
+                    )
+                    removeRemoteNoteId(oldNote)
+                    removePendingDelete(oldNote)
+
+                    notesSyncStatus = NotesSyncUiStatus.Uploading
+                    val inserted = insertNoteInSupabaseRest(
+                        authToken = session.accessToken,
+                        userId = userId,
+                        content = updatedNote,
+                        titleOverride = titleOverride,
+                        hasReminderOverride = hasReminderOverride
+                    )
+                    inserted.optString("id").takeIf { it.isNotBlank() }?.let { noteId ->
+                        saveRemoteNoteId(noteId, updatedNote)
+                        updateNoteMetadataInSupabase(
+                            authToken = session.accessToken,
+                            userId = userId,
+                            noteId = noteId,
+                            content = updatedNote,
+                            titleOverride = titleOverride,
+                            hasReminderOverride = hasReminderOverride
+                        )
+                        uploadNoteAttachmentsToSupabase(
+                            content = updatedNote,
+                            noteId = noteId,
+                            userId = userId,
+                            authToken = session.accessToken,
+                            imageUrisOverride = imageUrisOverride,
+                            fileItemsOverride = fileItemsOverride,
+                            voiceItemsOverride = voiceItemsOverride
+                        )
+                    }
+                    removePendingAdd(updatedNote)
+                } else {
+                    val noteId = remoteNoteIdFor(updatedNote)
+                    if (noteId != null) {
+                        notesSyncStatus = NotesSyncUiStatus.Uploading
+                        updateNoteMetadataInSupabase(
+                            authToken = session.accessToken,
+                            userId = userId,
+                            noteId = noteId,
+                            content = updatedNote,
+                            titleOverride = titleOverride,
+                            hasReminderOverride = hasReminderOverride
+                        )
+                        uploadNoteAttachmentsToSupabase(
+                            content = updatedNote,
+                            noteId = noteId,
+                            userId = userId,
+                            authToken = session.accessToken,
+                            imageUrisOverride = imageUrisOverride,
+                            fileItemsOverride = fileItemsOverride,
+                            voiceItemsOverride = voiceItemsOverride
+                        )
+                    } else {
+                        queuePendingAdd(updatedNote)
+                        syncLocalNotesToSupabase(session.accessToken, userId)
+                    }
+                }
+
+                notesSyncStatus = NotesSyncUiStatus.Downloading
+                pullNotesFromSupabase(userId, session.accessToken)
+                notesSyncStatus = NotesSyncUiStatus.Synced
+            } catch (e: Exception) {
+                notesSyncStatus = NotesSyncUiStatus.Error
+                if (oldNote != updatedNote) queuePendingDelete(oldNote)
+                queuePendingAdd(updatedNote)
+                Log.e(TAG_MAIN, "Error syncing edited note", e)
+                scheduleNotesSyncRetry()
+            }
+        }
+    }
+
     private fun notesOnlineSyncEnabled(): Boolean {
         return getSharedPreferences(NotesPagePrefs.NAME, MODE_PRIVATE).getBoolean(
             NotesPagePrefs.KEY_SYNC_ONLINE,
@@ -1426,13 +1548,45 @@ class MainActivity : FragmentActivity() {
 
     private fun queuePendingDelete(content: String) {
         if (!notesOnlineSyncEnabled() || content.isBlank()) return
-        if (SupabaseManager.client.auth.currentSessionOrNull()?.user?.id == null) return
-        val pending = sharedPreferences
-            .getStringSet("pending_deletes", emptySet())
-            .orEmpty()
-            .toMutableSet()
+        val userId = SupabaseManager.client.auth.currentSessionOrNull()?.user?.id ?: return
+        val pending = pendingDeletesForUser(userId)
         if (pending.add(content)) {
-            sharedPreferences.edit { putStringSet("pending_deletes", pending) }
+            savePendingDeletesForUser(userId, pending)
+        }
+    }
+
+    private fun removePendingDelete(content: String) {
+        val userId = SupabaseManager.client.auth.currentSessionOrNull()?.user?.id
+        if (userId != null) {
+            val pending = pendingDeletesForUser(userId)
+            if (pending.remove(content)) savePendingDeletesForUser(userId, pending)
+        } else {
+            val pending = sharedPreferences
+                .getStringSet("pending_deletes", emptySet())
+                .orEmpty()
+                .toMutableSet()
+            if (pending.remove(content)) {
+                sharedPreferences.edit(commit = true) {
+                    if (pending.isEmpty()) remove("pending_deletes")
+                    else putStringSet("pending_deletes", pending)
+                }
+            }
+        }
+    }
+
+    private fun pendingDeletesKey(userId: String): String = "pending_deletes_$userId"
+
+    private fun pendingDeletesForUser(userId: String): MutableSet<String> {
+        val accountDeletes = sharedPreferences.getStringSet(pendingDeletesKey(userId), emptySet()).orEmpty()
+        val legacyDeletes = sharedPreferences.getStringSet("pending_deletes", emptySet()).orEmpty()
+        return (accountDeletes + legacyDeletes).toMutableSet()
+    }
+
+    private fun savePendingDeletesForUser(userId: String, deletes: Set<String>) {
+        sharedPreferences.edit(commit = true) {
+            remove("pending_deletes")
+            if (deletes.isEmpty()) remove(pendingDeletesKey(userId))
+            else putStringSet(pendingDeletesKey(userId), deletes)
         }
     }
 
@@ -1453,10 +1607,7 @@ class MainActivity : FragmentActivity() {
 
         lifecycleScope.launch {
             try {
-                val hasDeletes = sharedPreferences
-                    .getStringSet("pending_deletes", emptySet())
-                    .orEmpty()
-                    .isNotEmpty()
+                val hasDeletes = pendingDeletesForUser(userId).isNotEmpty()
                 notesSyncStatus = if (hasDeletes) {
                     NotesSyncUiStatus.Deleting
                 } else {
@@ -1479,10 +1630,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private suspend fun syncPendingDeletesToSupabase(authToken: String, userId: String) {
-        val pending = sharedPreferences
-            .getStringSet("pending_deletes", emptySet())
-            .orEmpty()
-            .toMutableSet()
+        val pending = pendingDeletesForUser(userId)
         if (pending.isEmpty()) return
 
         val stillPending = mutableSetOf<String>()
@@ -1502,10 +1650,7 @@ class MainActivity : FragmentActivity() {
             }
         }
 
-        sharedPreferences.edit {
-            if (stillPending.isEmpty()) remove("pending_deletes")
-            else putStringSet("pending_deletes", stillPending)
-        }
+        savePendingDeletesForUser(userId, stillPending)
     }
 
     private suspend fun syncLocalNotesToSupabase(authToken: String, userId: String) {
@@ -1523,10 +1668,7 @@ class MainActivity : FragmentActivity() {
             .getStringSet("pending_adds", emptySet())
             .orEmpty()
             .toMutableSet()
-        val pendingDeletes = sharedPreferences
-            .getStringSet("pending_deletes", emptySet())
-            .orEmpty()
-            .toSet()
+        val pendingDeletes = pendingDeletesForUser(userId).toSet()
 
         val stillPending = mutableSetOf<String>()
         (allNotes + pendingAdds)
@@ -1555,12 +1697,14 @@ class MainActivity : FragmentActivity() {
             NoteFolderStore.mergeRemoteFolders(this, fetchRemoteNoteFolders(authToken, userId))
         }.onFailure { Log.e(TAG_MAIN, "Remote folder pull skipped/failed", it) }
 
-        val remoteRows = fetchActiveRemoteRows(userId)
+        val pendingDeletes = pendingDeletesForUser(userId).toSet()
+        val remoteRows = fetchActiveRemoteRows(userId).filter { it.content !in pendingDeletes }
         val remoteExtras = fetchRemoteNoteExtras(remoteRows, authToken)
         val localSet = allNotes.toSet()
         var changed = false
         remoteRows.forEach { row ->
             row.id?.let { saveRemoteNoteId(it, row.content) }
+            rememberRemoteCreatedAt(row)
             NoteFolderStore.assignRemoteNoteToFolder(
                 this,
                 contentToUid[row.content] ?: ensureLocalUid(row.content),
@@ -1599,6 +1743,16 @@ class MainActivity : FragmentActivity() {
         notesAdapter.preloadBadgeStates(this)
         refreshNotesDisplay()
         if (changed) saveNotes()
+    }
+
+    private fun rememberRemoteCreatedAt(row: UserNote) {
+        val noteKey = contentToUid[row.content] ?: ensureLocalUid(row.content)
+        val remoteCreatedAt = NoteCreatedAtStore.parseSupabaseTimestamp(row.createdAt)
+        if (remoteCreatedAt != null) {
+            NoteCreatedAtStore.setIfAbsent(this, noteKey, remoteCreatedAt)
+        } else {
+            NoteCreatedAtStore.ensure(this, noteKey)
+        }
     }
 
     private data class RemoteNoteExtras(
@@ -2259,6 +2413,7 @@ class MainActivity : FragmentActivity() {
         contentToUid.remove(note)?.let {
             NoteFolderStore.removeNote(this, it)
             uidToContent.remove(it)
+            NoteCreatedAtStore.remove(this, it)
         }
         saveUidMaps()
     }

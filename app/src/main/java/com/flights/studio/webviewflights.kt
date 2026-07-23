@@ -39,6 +39,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -258,10 +259,13 @@ private fun SystemBarsSync() {
 
 }
 fun hasInternet(context: Context): Boolean {
-    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val network = cm.activeNetwork ?: return false
-    val caps = cm.getNetworkCapabilities(network) ?: return false
-    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    return runCatching {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }.getOrDefault(false)
 }
 
 private fun isWebCard(cardId: String): Boolean =
@@ -1905,9 +1909,17 @@ private fun WebCardContent(
                     wv.loadUrl(url)
                 }
                 if (reloadTick > 0) {
-                    progress = 0
-                    showError = false
-                    wv.reload()
+                    if (!hasInternet(context)) {
+                        hasMainFrameError = true
+                        showError = true
+                        wv.stopLoading()
+                        wv.alpha = 0f
+                    } else {
+                        progress = 0
+                        showError = false
+                        hasMainFrameError = false
+                        wv.reload()
+                    }
                     reloadTick = 0
                 }
             }
@@ -2721,8 +2733,7 @@ private fun NativeFlightTablePage(
                             tablePalette = palette,
                             textScale = textScale,
                             groupedFlights = groupedFlights,
-                            highContrast = highContrast,
-                            loadingText = "Loading live airport schedule..."
+                            highContrast = highContrast
                         )
                     }
                 }
@@ -2871,8 +2882,7 @@ private fun FlightScheduleSheet(
                         tablePalette = null,
                         textScale = tableTextScale,
                         groupedFlights = groupedFlights,
-                        highContrast = highContrast,
-                        loadingText = "Flight table is loading. Open Flights once to refresh the table snapshot."
+                        highContrast = highContrast
                     )
                 }
             }
@@ -2990,8 +3000,7 @@ private fun FlightTableSheet(
                     tablePalette = null,
                     textScale = textScale,
                     groupedFlights = groupedFlights,
-                    highContrast = highContrast,
-                    loadingText = "Flight table is loading. Open Flights once to refresh the table snapshot."
+                    highContrast = highContrast
                 )
             }
         }
@@ -3008,8 +3017,7 @@ private fun FlightTableContent(
     tablePalette: NativeFlightTablePalette?,
     textScale: Float,
     groupedFlights: Boolean,
-    highContrast: Boolean,
-    loadingText: String
+    highContrast: Boolean
 ) {
     val isDeparture = mode == "departure"
     val rows = remember(snapshot, mode) {
@@ -3038,20 +3046,13 @@ private fun FlightTableContent(
     )
 
     if (rows.isEmpty()) {
-        val firstDay = snapshot.days.firstOrNull()?.label.orEmpty()
-        FlightTableDayHeader(
-            day = firstDay.ifBlank { "Flight schedule" },
-            total = 0,
-            lastUpdated = snapshot.lastUpdated,
+        FlightTableLoadingSkeleton(
+            placeLabel = if (isDeparture) "To" else "From",
             textColor = textColor,
-            mutedColor = mutedColor,
-            surface = surface
-        )
-        Text(
-            text = loadingText,
-            color = mutedColor,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(12.dp)
+            surface = surface,
+            textScale = textScale,
+            groupedFlights = groupedFlights,
+            highContrast = highContrast
         )
     } else {
         rowsByDay.entries.forEachIndexed { index, entry ->
@@ -3109,6 +3110,253 @@ private fun FlightTableContent(
                             highContrast = highContrast
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberFlightSkeletonPulse(): Float {
+    val transition = rememberInfiniteTransition(label = "flightSkeletonPulse")
+    val alpha by transition.animateFloat(
+        initialValue = 0.24f,
+        targetValue = 0.58f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 880, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flightSkeletonAlpha"
+    )
+    return alpha
+}
+
+@Composable
+private fun FlightSkeletonBone(
+    modifier: Modifier,
+    color: Color,
+    alpha: Float,
+    shape: Shape = RoundedCornerShape(999.dp)
+) {
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(color.copy(alpha = alpha.coerceIn(0f, 1f)))
+    )
+}
+
+@Composable
+private fun FlightTableLoadingSkeleton(
+    placeLabel: String,
+    textColor: Color,
+    surface: Color,
+    textScale: Float,
+    groupedFlights: Boolean,
+    highContrast: Boolean
+) {
+    val pulse = rememberFlightSkeletonPulse()
+    FlightTableDayHeaderSkeleton(
+        textColor = textColor,
+        pulse = pulse
+    )
+    FlightTableColumnHeader(
+        placeLabel = placeLabel,
+        textColor = textColor.copy(alpha = 0.62f),
+        textScale = textScale
+    )
+    if (groupedFlights) {
+        FlightTableAirlineGroupHeaderSkeleton(
+            textColor = textColor,
+            surface = surface,
+            pulse = pulse,
+            highContrast = highContrast
+        )
+        repeat(4) { index ->
+            FlightTableRowSkeleton(
+                index = index,
+                textColor = textColor,
+                surface = surface,
+                pulse = pulse,
+                highContrast = highContrast
+            )
+        }
+    } else {
+        repeat(5) { index ->
+            FlightTableRowSkeleton(
+                index = index,
+                textColor = textColor,
+                surface = surface,
+                pulse = pulse,
+                highContrast = highContrast
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlightTableDayHeaderSkeleton(
+    textColor: Color,
+    pulse: Float
+) {
+    val headerShape = RoundedCornerShape(999.dp)
+    val isDark = isSystemInDarkTheme()
+    val headerSurface = if (isDark) {
+        Color(0xFF111111).copy(alpha = 0.88f)
+    } else {
+        Color.White.copy(alpha = 0.78f)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(headerShape)
+            .background(headerSurface)
+            .border(1.dp, flightItemBorderColor(isDark), headerShape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        FlightSkeletonBone(
+            modifier = Modifier
+                .fillMaxWidth(0.62f)
+                .height(11.dp),
+            color = textColor,
+            alpha = pulse * 0.72f
+        )
+    }
+}
+
+@Composable
+private fun FlightTableAirlineGroupHeaderSkeleton(
+    textColor: Color,
+    surface: Color,
+    pulse: Float,
+    highContrast: Boolean
+) {
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(13.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(if (highContrast) surface else surface.copy(alpha = 0.76f))
+            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.34f) else flightItemBorderColor(isDark), shape)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FlightSkeletonBone(
+            modifier = Modifier
+                .width(104.dp)
+                .height(12.dp),
+            color = textColor,
+            alpha = pulse
+        )
+        Spacer(Modifier.weight(1f))
+        FlightSkeletonBone(
+            modifier = Modifier
+                .width(118.dp)
+                .height(10.dp),
+            color = textColor,
+            alpha = pulse * 0.76f
+        )
+    }
+}
+
+@Composable
+private fun FlightTableRowSkeleton(
+    index: Int,
+    textColor: Color,
+    surface: Color,
+    pulse: Float,
+    highContrast: Boolean
+) {
+    val rowShape = RoundedCornerShape(18.dp)
+    val isDark = isSystemInDarkTheme()
+    val rowSurface = if (highContrast) {
+        surface
+    } else if (isDark) {
+        Color.White.copy(alpha = 0.07f).compositeOver(surface)
+    } else {
+        Color.White.copy(alpha = 0.60f).compositeOver(surface)
+    }
+    val widths = when (index % 3) {
+        0 -> Triple(110.dp, 72.dp, 54.dp)
+        1 -> Triple(88.dp, 116.dp, 62.dp)
+        else -> Triple(132.dp, 94.dp, 58.dp)
+    }
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .clip(rowShape)
+            .background(rowSurface)
+            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else flightItemBorderColor(isDark), rowShape)
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FlightSkeletonBone(
+                modifier = Modifier.size(38.dp),
+                color = textColor,
+                alpha = pulse * 0.82f
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FlightSkeletonBone(
+                        modifier = Modifier
+                            .width(widths.first)
+                            .height(11.dp),
+                        color = textColor,
+                        alpha = pulse
+                    )
+                    Spacer(Modifier.weight(1f))
+                    FlightSkeletonBone(
+                        modifier = Modifier
+                            .width(widths.third)
+                            .height(22.dp),
+                        color = textColor,
+                        alpha = pulse * 0.78f
+                    )
+                }
+                Spacer(Modifier.height(3.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FlightSkeletonBone(
+                        modifier = Modifier
+                            .width(widths.second)
+                            .height(10.dp),
+                        color = textColor,
+                        alpha = pulse * 0.78f
+                    )
+                    Spacer(Modifier.weight(1f))
+                    FlightSkeletonBone(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .height(9.dp),
+                        color = textColor,
+                        alpha = pulse * 0.58f
+                    )
+                    FlightSkeletonBone(
+                        modifier = Modifier
+                            .width(62.dp)
+                            .height(9.dp),
+                        color = textColor,
+                        alpha = pulse * 0.52f
+                    )
                 }
             }
         }
@@ -3777,6 +4025,17 @@ private fun ColumnScope.FlightLiveStatusContent(
         }
     }
 
+    val showLoadingSkeleton = snapshot.updatedLabel.isBlank() && snapshot.items.isEmpty()
+    if (showLoadingSkeleton) {
+        FlightLiveStatusLoadingSkeleton(
+            textColor = textColor,
+            surface = surface,
+            lightLift = lightLift,
+            highContrast = highContrast
+        )
+        return
+    }
+
     FlightWeatherBanner(
         weather = weather,
         textColor = textColor,
@@ -3958,6 +4217,346 @@ private fun FlightLiveStatusSheet(
 
 private fun Modifier.lightThemeSurfaceLift(enabled: Boolean, shape: Shape): Modifier {
     return this
+}
+
+@Composable
+private fun FlightLiveStatusLoadingSkeleton(
+    textColor: Color,
+    surface: Color,
+    lightLift: Boolean,
+    highContrast: Boolean
+) {
+    val pulse = rememberFlightSkeletonPulse()
+    FlightWeatherBannerSkeleton(
+        textColor = textColor,
+        surface = surface,
+        pulse = pulse,
+        lightLift = lightLift,
+        highContrast = highContrast
+    )
+    FlightIssueSummarySkeleton(
+        textColor = textColor,
+        surface = surface,
+        pulse = pulse,
+        lightLift = lightLift,
+        highContrast = highContrast
+    )
+    repeat(2) { index ->
+        FlightLiveStatusCardSkeleton(
+            index = index,
+            textColor = textColor,
+            surface = surface,
+            pulse = pulse,
+            lightLift = lightLift,
+            highContrast = highContrast
+        )
+    }
+}
+
+@Composable
+private fun FlightWeatherBannerSkeleton(
+    textColor: Color,
+    surface: Color,
+    pulse: Float,
+    lightLift: Boolean,
+    highContrast: Boolean
+) {
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(18.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .lightThemeSurfaceLift(lightLift, cardShape)
+            .clip(cardShape)
+            .background(surface)
+            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else flightItemBorderColor(isDark), cardShape)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            FlightSkeletonBone(
+                modifier = Modifier
+                    .width(58.dp)
+                    .height(30.dp),
+                color = textColor,
+                alpha = pulse * 0.84f,
+                shape = RoundedCornerShape(12.dp)
+            )
+            FlightSkeletonBone(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(13.dp),
+                color = textColor,
+                alpha = pulse
+            )
+        }
+        FlightSkeletonBone(
+            modifier = Modifier
+                .fillMaxWidth(0.72f)
+                .height(11.dp),
+            color = textColor,
+            alpha = pulse * 0.70f
+        )
+    }
+}
+
+@Composable
+private fun FlightIssueSummarySkeleton(
+    textColor: Color,
+    surface: Color,
+    pulse: Float,
+    lightLift: Boolean,
+    highContrast: Boolean
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            repeat(3) { index ->
+                FlightCountPillSkeleton(
+                    index = index,
+                    textColor = textColor,
+                    pulse = pulse,
+                    lightLift = lightLift,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+        FlightSkeletonBone(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .fillMaxWidth(0.52f)
+                .height(10.dp),
+            color = textColor,
+            alpha = pulse * 0.62f
+        )
+        FlightAlertsSummaryBoxSkeleton(
+            textColor = textColor,
+            surface = surface,
+            pulse = pulse,
+            lightLift = lightLift,
+            highContrast = highContrast
+        )
+    }
+}
+
+@Composable
+private fun FlightCountPillSkeleton(
+    index: Int,
+    textColor: Color,
+    pulse: Float,
+    lightLift: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val accents = listOf(Color(0xFF5AC8FA), Color(0xFF7C8CFF), Color(0xFFFFB020))
+    val accent = accents[index % accents.size]
+    val pillShape = RoundedCornerShape(999.dp)
+    Row(
+        modifier = modifier
+            .lightThemeSurfaceLift(lightLift, pillShape)
+            .clip(pillShape)
+            .background(accent.copy(alpha = 0.14f))
+            .border(1.dp, accent.copy(alpha = 0.22f), pillShape)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        FlightSkeletonBone(
+            modifier = Modifier
+                .width(16.dp)
+                .height(14.dp),
+            color = accent,
+            alpha = pulse
+        )
+        Spacer(Modifier.width(5.dp))
+        FlightSkeletonBone(
+            modifier = Modifier
+                .width(48.dp)
+                .height(10.dp),
+            color = textColor,
+            alpha = pulse * 0.58f
+        )
+    }
+}
+
+@Composable
+private fun FlightAlertsSummaryBoxSkeleton(
+    textColor: Color,
+    surface: Color,
+    pulse: Float,
+    lightLift: Boolean,
+    highContrast: Boolean
+) {
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(19.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .lightThemeSurfaceLift(lightLift, cardShape)
+            .clip(cardShape)
+            .background(if (highContrast) surface else Color.White.copy(alpha = if (isDark) 0.11f else 0.46f).compositeOver(surface))
+            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else flightItemBorderColor(isDark), cardShape)
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                FlightSkeletonBone(
+                    modifier = Modifier
+                        .fillMaxWidth(0.52f)
+                        .height(13.dp),
+                    color = textColor,
+                    alpha = pulse
+                )
+                FlightSkeletonBone(
+                    modifier = Modifier
+                        .fillMaxWidth(0.72f)
+                        .height(10.dp),
+                    color = textColor,
+                    alpha = pulse * 0.62f
+                )
+            }
+            FlightSkeletonBone(
+                modifier = Modifier
+                    .width(58.dp)
+                    .height(24.dp),
+                color = textColor,
+                alpha = pulse * 0.52f
+            )
+        }
+        repeat(2) { index ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(textColor.copy(alpha = pulse * if (index == 0) 0.22f else 0.16f))
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FlightSkeletonBone(
+                    modifier = Modifier
+                        .width(54.dp)
+                        .height(11.dp),
+                    color = textColor,
+                    alpha = pulse * 0.82f
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    FlightSkeletonBone(
+                        modifier = Modifier
+                            .fillMaxWidth(0.64f)
+                            .height(10.dp),
+                        color = textColor,
+                        alpha = pulse
+                    )
+                    FlightSkeletonBone(
+                        modifier = Modifier
+                            .fillMaxWidth(0.42f)
+                            .height(8.dp),
+                        color = textColor,
+                        alpha = pulse * 0.58f
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FlightLiveStatusCardSkeleton(
+    index: Int,
+    textColor: Color,
+    surface: Color,
+    pulse: Float,
+    lightLift: Boolean,
+    highContrast: Boolean
+) {
+    val isDark = isSystemInDarkTheme()
+    val accent = if (index % 2 == 0) Color(0xFF5AC8FA) else Color(0xFFFFB020)
+    val cardShape = RoundedCornerShape(20.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(84.dp)
+            .lightThemeSurfaceLift(lightLift, cardShape)
+            .clip(cardShape)
+            .background(surface)
+            .background(
+                Brush.horizontalGradient(
+                    0f to accent.copy(alpha = if (isDark) 0.18f else 0.10f),
+                    0.45f to accent.copy(alpha = if (isDark) 0.10f else 0.06f),
+                    1f to Color.Transparent
+                )
+            )
+            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else accent.copy(alpha = if (isDark) 0.28f else 0.22f), cardShape)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FlightSkeletonBone(
+                    modifier = Modifier
+                        .width(if (index % 2 == 0) 92.dp else 116.dp)
+                        .height(14.dp),
+                    color = textColor,
+                    alpha = pulse
+                )
+                Spacer(Modifier.weight(1f))
+                FlightSkeletonBone(
+                    modifier = Modifier
+                        .width(54.dp)
+                        .height(22.dp),
+                    color = accent,
+                    alpha = pulse * 0.76f
+                )
+                FlightSkeletonBone(
+                    modifier = Modifier
+                        .width(64.dp)
+                        .height(22.dp),
+                    color = accent,
+                    alpha = pulse * 0.58f
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            FlightSkeletonBone(
+                modifier = Modifier
+                    .fillMaxWidth(if (index % 2 == 0) 0.80f else 0.68f)
+                    .height(12.dp),
+                color = textColor,
+                alpha = pulse * 0.76f
+            )
+            Spacer(Modifier.height(6.dp))
+            FlightSkeletonBone(
+                modifier = Modifier
+                    .fillMaxWidth(if (index % 2 == 0) 0.54f else 0.74f)
+                    .height(10.dp),
+                color = textColor,
+                alpha = pulse * 0.54f
+            )
+        }
+    }
 }
 
 @Composable

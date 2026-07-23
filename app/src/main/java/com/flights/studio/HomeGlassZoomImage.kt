@@ -15,9 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -78,8 +80,13 @@ fun ZoomableImageContentInlineImpl(
 
     val inPreview = LocalInspectionMode.current
     val holder = remember { ZoomViewHolder(context) }
+    var hasDrawable by remember { mutableStateOf(false) }
 
     val shape = RoundedCornerShape(cornerRadiusDp)
+    val url = model?.toString().orEmpty()
+    val isRemoteUrl = url.startsWith("http://", ignoreCase = true) ||
+        url.startsWith("https://", ignoreCase = true)
+    val remoteOffline = isRemoteUrl && context.isNetworkCompletelyOff()
 
     Box(
         modifier = modifier
@@ -90,7 +97,7 @@ fun ZoomableImageContentInlineImpl(
             }
     ) {
 
-        if (!inPreview) {
+        if (!inPreview && (!remoteOffline || hasDrawable)) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { holder.container },
@@ -99,10 +106,8 @@ fun ZoomableImageContentInlineImpl(
         }
     }
 
-    LaunchedEffect(model) {
+    LaunchedEffect(url) {
         if (inPreview) return@LaunchedEffect
-
-        val url = model?.toString().orEmpty()
 
         // ✅ If url blank: do NOT clear (avoid flash). Just signal fail.
         if (url.isBlank()) {
@@ -113,62 +118,73 @@ fun ZoomableImageContentInlineImpl(
         // Snapshot current matrix to restore zoom/pan best-effort
         val prevMatrix = holder.tiv.drawable?.let { holder.tiv.imageMatrix }
 
-        Glide.with(context)
-            .asBitmap()
-            .load(url)
-            .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-            .into(object : CustomTarget<Bitmap>() {
+        if (remoteOffline) {
+            onLoadFailed()
+            return@LaunchedEffect
+        }
 
-                override fun onResourceReady(
-                    resource: Bitmap,
-                    transition: Transition<in Bitmap>?
-                ) {
-                    scope.launch {
-                        // Put new bitmap on incoming layer (top) and fade it in
-                        holder.incoming.animate().cancel()
-                        holder.incoming.setImageBitmap(resource)
-                        holder.incoming.alpha = 0f
+        runCatching {
+            Glide.with(context)
+                .asBitmap()
+                .load(url)
+                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                .into(object : CustomTarget<Bitmap>() {
 
-                        holder.incoming.animate()
-                            .alpha(1f)
-                            .setDuration(580)
-                            .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
-                            .withEndAction {
-                                // Commit bitmap to gesture layer (base)
-                                holder.tiv.setImageBitmap(resource)
+                    override fun onResourceReady(
+                        resource: Bitmap,
+                        transition: Transition<in Bitmap>?
+                    ) {
+                        scope.launch {
+                            // Put new bitmap on incoming layer (top) and fade it in
+                            holder.incoming.animate().cancel()
+                            holder.incoming.setImageBitmap(resource)
+                            holder.incoming.alpha = 0f
+                            hasDrawable = true
 
-                                // Restore zoom/pan best-effort
-                                prevMatrix?.let { holder.tiv.imageMatrix = it }
+                            holder.incoming.animate()
+                                .alpha(1f)
+                                .setDuration(580)
+                                .setInterpolator(androidx.interpolator.view.animation.FastOutSlowInInterpolator())
+                                .withEndAction {
+                                    // Commit bitmap to gesture layer (base)
+                                    holder.tiv.setImageBitmap(resource)
 
-                                // Clear incoming layer (now both identical)
-                                holder.incoming.setImageDrawable(null)
-                                holder.incoming.alpha = 0f
+                                    // Restore zoom/pan best-effort
+                                    prevMatrix?.let { holder.tiv.imageMatrix = it }
 
-                                // ✅ Report success after crossfade fully finished
-                                onLoadedOk()
-                            }
-                            .start()
+                                    // Clear incoming layer (now both identical)
+                                    holder.incoming.setImageDrawable(null)
+                                    holder.incoming.alpha = 0f
+
+                                    // ✅ Report success after crossfade fully finished
+                                    onLoadedOk()
+                                }
+                                .start()
+                        }
+
+                        // Optional bitmap callback (don’t crash if used)
+                        scope.launch { runCatching { onBitmapReadyState(resource) } }
                     }
 
-                    // Optional bitmap callback (don’t crash if used)
-                    scope.launch { runCatching { onBitmapReadyState(resource) } }
-                }
+                    override fun onLoadFailed(errorDrawable: Drawable?) {
+                        // ✅ Keep previous image; do NOT clear (avoid flash)
+                        onLoadFailed()
+                    }
 
-                override fun onLoadFailed(errorDrawable: Drawable?) {
-                    // ✅ Keep previous image; do NOT clear (avoid flash)
-                    onLoadFailed()
-                }
-
-                override fun onLoadCleared(placeholder: Drawable?) {
-                    // Do nothing to avoid flashes when target is cleared.
-                }
-            })
+                    override fun onLoadCleared(placeholder: Drawable?) {
+                        // Do nothing to avoid flashes when target is cleared.
+                    }
+                })
+        }.onFailure {
+            onLoadFailed()
+        }
     }
 
     DisposableEffect(Unit) {
         onDispose {
             if (!inPreview) {
                 holder.clearAll()
+                hasDrawable = false
             }
         }
     }
