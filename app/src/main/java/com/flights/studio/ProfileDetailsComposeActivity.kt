@@ -133,6 +133,7 @@ import com.kyant.backdrop.highlight.HighlightStyle
 import dev.seyfarth.composeshimmer.shimmerEffect
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -1421,8 +1422,16 @@ private fun ProfileDetailsRoute(
                                                     }
 
                                                     // 3) sign fresh
-                                                    val session =
+                                                    var session =
                                                         SupabaseManager.client.auth.currentSessionOrNull()
+                                                    if (session == null) {
+                                                        repeat(20) {
+                                                            delay(100)
+                                                            session =
+                                                                SupabaseManager.client.auth.currentSessionOrNull()
+                                                            if (session != null) return@repeat
+                                                        }
+                                                    }
                                                     if (session != null) {
                                                         val fresh =
                                                             SupabaseStorageUploader.createSignedUrl(
@@ -1436,12 +1445,14 @@ private fun ProfileDetailsRoute(
                                                                 fresh,
                                                                 60 * 60
                                                             )
-                                                            AvatarDiskCache.cacheFromSignedUrl(
-                                                                context,
-                                                                rawPhoto,
-                                                                fresh
-                                                            )
                                                             value = AvatarLoadState.Ready(fresh)
+                                                            launch(Dispatchers.IO) {
+                                                                AvatarDiskCache.cacheFromSignedUrl(
+                                                                    context,
+                                                                    rawPhoto,
+                                                                    fresh
+                                                                )
+                                                            }
                                                             return@produceState
                                                         }
                                                     }
