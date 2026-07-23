@@ -620,6 +620,53 @@ private fun normalizeProfilePhotoPath(raw: String, bucket: String = "profile-pho
         .removePrefix("storage/v1/object/sign/$bucket/")
 }
 
+private suspend fun resolveProfileAvatarLikeMenu(
+    appContext: android.content.Context,
+    rawPhoto: String
+): AvatarLoadState {
+    val raw = rawPhoto.trim()
+    if (raw.isBlank() || raw.equals("null", ignoreCase = true)) return AvatarLoadState.Idle
+
+    if (raw.startsWith("http", true) ||
+        raw.startsWith("content", true) ||
+        raw.startsWith("file", true)
+    ) {
+        return AvatarLoadState.Ready(raw)
+    }
+
+    suspend fun resolveStoragePath(path: String): AvatarLoadState? {
+        val local = AvatarDiskCache.localFile(appContext, path)
+        if (local.exists() && local.length() > 0L) return AvatarLoadState.Ready(local)
+
+        SignedUrlCache.getValid(path)?.let { return AvatarLoadState.Ready(it) }
+
+        val session = SupabaseManager.client.auth.currentSessionOrNull()
+        if (session != null) {
+            val fresh = SupabaseStorageUploader.createSignedUrl(
+                objectPath = path,
+                authToken = session.accessToken,
+                bucket = "profile-photos"
+            )
+            if (!fresh.isNullOrBlank()) {
+                SignedUrlCache.put(path, fresh, 60 * 60)
+                AvatarDiskCache.cacheFromSignedUrl(appContext, path, fresh)
+                return AvatarLoadState.Ready(fresh)
+            }
+        }
+
+        return null
+    }
+
+    resolveStoragePath(raw)?.let { return it }
+
+    val normalized = normalizeProfilePhotoPath(raw)
+    if (normalized.isNotBlank() && normalized != raw) {
+        resolveStoragePath(normalized)?.let { return it }
+    }
+
+    return AvatarLoadState.Failed
+}
+
 @Composable
 private fun ProfileAvatarImage(
     data: Any,
@@ -1417,93 +1464,20 @@ private fun ProfileDetailsRoute(
                                                 shape = avatarShape
                                             ) {
                                                 val rawPhoto = ui.photoRaw.trim()
-                                                val resolvedRawPhoto = remember(rawPhoto) {
-                                                    normalizeProfilePhotoPath(rawPhoto)
-                                                }
 
-                                                var avatarFailed by remember(resolvedRawPhoto) {
-                                                    mutableStateOf(
-                                                        false
-                                                    )
+                                                var avatarFailed by remember(rawPhoto, avatarVersion) {
+                                                    mutableStateOf(false)
                                                 }
 
                                                 val avatarState by produceState(
-                                                    initialValue = if (resolvedRawPhoto.isBlank()) AvatarLoadState.Idle else AvatarLoadState.Loading,
-                                                    key1 = resolvedRawPhoto,
+                                                    initialValue = if (rawPhoto.isBlank()) AvatarLoadState.Idle else AvatarLoadState.Loading,
+                                                    key1 = rawPhoto,
                                                     key2 = avatarVersion
                                                 ) {
-                                                    if (resolvedRawPhoto.isBlank()) {
-                                                        value = AvatarLoadState.Idle
-                                                        return@produceState
-                                                    }
-
-                                                    value = AvatarLoadState.Loading
-
-                                                    // already usable by Coil
-                                                    if (
-                                                        resolvedRawPhoto.startsWith("http", true) ||
-                                                        resolvedRawPhoto.startsWith("content", true) ||
-                                                        resolvedRawPhoto.startsWith("file", true)
-                                                    ) {
-                                                        value = AvatarLoadState.Ready(resolvedRawPhoto)
-                                                        return@produceState
-                                                    }
-
-                                                    // 1) try local disk cache FIRST
-                                                    val local =
-                                                        AvatarDiskCache.localFile(context, resolvedRawPhoto)
-                                                    if (local.exists() && local.length() > 0L) {
-                                                        value = AvatarLoadState.Ready(local)
-                                                        return@produceState
-                                                    }
-
-                                                    // 2) try signed-url cache
-                                                    SignedUrlCache.getValid(resolvedRawPhoto)?.let {
-                                                        value = AvatarLoadState.Ready(it)
-                                                        return@produceState
-                                                    }
-
-                                                    // 3) sign fresh
-                                                    var session =
-                                                        SupabaseManager.client.auth.currentSessionOrNull()
-                                                    if (session == null) {
-                                                        repeat(20) {
-                                                            delay(100)
-                                                            session =
-                                                                SupabaseManager.client.auth.currentSessionOrNull()
-                                                            if (session != null) return@repeat
-                                                        }
-                                                    }
-                                                    if (session != null) {
-                                                        val fresh =
-                                                            SupabaseStorageUploader.createSignedUrl(
-                                                                objectPath = resolvedRawPhoto,
-                                                                authToken = session.accessToken,
-                                                                bucket = "profile-photos"
-                                                            )
-                                                        if (!fresh.isNullOrBlank()) {
-                                                            SignedUrlCache.put(
-                                                                resolvedRawPhoto,
-                                                                fresh,
-                                                                60 * 60
-                                                            )
-                                                            val cachedFile = withTimeoutOrNull(6500) {
-                                                                AvatarDiskCache.cacheFromSignedUrl(
-                                                                    context,
-                                                                    resolvedRawPhoto,
-                                                                    fresh
-                                                                )
-                                                            }
-                                                            value = AvatarLoadState.Ready(
-                                                                cachedFile
-                                                                    ?.takeIf { it.exists() && it.length() > 0L }
-                                                                    ?: fresh
-                                                            )
-                                                            return@produceState
-                                                        }
-                                                    }
-
-                                                    value = AvatarLoadState.Failed
+                                                    value = resolveProfileAvatarLikeMenu(
+                                                        appContext = context.applicationContext,
+                                                        rawPhoto = rawPhoto
+                                                    )
                                                 }
 
                                                 // reset error flag whenever our resolved data changes
@@ -1512,15 +1486,20 @@ private fun ProfileDetailsRoute(
                                                 when (val st = avatarState) {
                                                     is AvatarLoadState.Ready -> {
                                                         if (!avatarFailed) {
-                                                            ProfileAvatarImage(
-                                                                data = st.data,
-                                                                avatarVersion = avatarVersion,
-                                                                shape = avatarShape,
-                                                                onError = {
-                                                                    avatarFailed = true
-                                                                    if (resolvedRawPhoto.isNotBlank()) SignedUrlCache.invalidate(resolvedRawPhoto)
-                                                                }
-                                                            )
+                                                            Box(Modifier.fillMaxSize()) {
+                                                                ProfileAvatarSkeleton(shape = avatarShape)
+                                                                AsyncImage(
+                                                                    model = ImageRequest.Builder(context)
+                                                                        .data(st.data)
+                                                                        .setParameter("v", avatarVersion)
+                                                                        .crossfade(false)
+                                                                        .build(),
+                                                                    contentDescription = stringResource(R.string.photo),
+                                                                    contentScale = ContentScale.Crop,
+                                                                    modifier = Modifier.fillMaxSize(),
+                                                                    onError = { avatarFailed = true }
+                                                                )
+                                                            }
                                                         } else {
                                                             ProfileAvatarSkeleton(shape = avatarShape)
                                                         }
@@ -1535,7 +1514,7 @@ private fun ProfileDetailsRoute(
                                                     }
 
                                                     AvatarLoadState.Failed -> {
-                                                        if (resolvedRawPhoto.isBlank()) {
+                                                        if (rawPhoto.isBlank()) {
                                                             ProfileAvatarFallback()
                                                         } else {
                                                             ProfileAvatarSkeleton(shape = avatarShape)
