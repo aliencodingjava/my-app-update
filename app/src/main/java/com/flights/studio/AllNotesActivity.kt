@@ -516,15 +516,15 @@ class AllNotesActivity : LocaleActivity() {
 
             if (!newNoteContent.isNullOrBlank()) {
                 addLocalNote(newNoteContent, queuePendingSync = false)
-                if (imageUris.isNotEmpty()) {
-                    NoteMediaStore.setUris(this, newNoteContent, imageUris)
-                }
-                if (voiceItems.isNotEmpty()) {
-                    NoteVoiceStore.setItems(this, newNoteContent, voiceItems)
-                }
-                if (fileItems.isNotEmpty()) {
-                    NoteAttachmentStore.setItems(this, newNoteContent, fileItems)
-                }
+                val newNoteUid = contentToUid[newNoteContent] ?: ensureLocalUid(newNoteContent)
+                saveNoteMediaForKeys(
+                    context = this,
+                    note = newNoteContent,
+                    noteKey = newNoteUid,
+                    imageUris = imageUris.takeIf { it.isNotEmpty() },
+                    attachments = fileItems.takeIf { it.isNotEmpty() },
+                    voiceItems = voiceItems.takeIf { it.isNotEmpty() }
+                )
                 if (userTitle.isNotBlank()) {
                     notesAdapter.setUserTitle(newNoteContent, userTitle)
                 }
@@ -911,10 +911,16 @@ class AllNotesActivity : LocaleActivity() {
                 rebuildNoteRowsFromDisplay(notesText)   // keep Compose UI in sync
             }
 
-            // ✅ 2) Persist images under the NEW content
-            NoteMediaStore.setUris(this, updatedNote, updatedImageUris)
-            NoteVoiceStore.setItems(this, updatedNote, updatedVoiceItems)
-            NoteAttachmentStore.setItems(this, updatedNote, updatedFiles)
+            // ✅ 2) Persist media under the visible content and stable note id
+            val updatedNoteUid = contentToUid[updatedNote] ?: ensureLocalUid(updatedNote)
+            saveNoteMediaForKeys(
+                context = this,
+                note = updatedNote,
+                noteKey = updatedNoteUid,
+                imageUris = updatedImageUris,
+                attachments = updatedFiles,
+                voiceItems = updatedVoiceItems
+            )
 
             // ✅ 2.5) Title store FIRST (so rebuild reads fresh title)
             if (updatedTitle.isNotBlank()) notesAdapter.setUserTitle(updatedNote, updatedTitle)
@@ -1998,15 +2004,15 @@ class AllNotesActivity : LocaleActivity() {
                     else remove(row.content.hashCode().toString())
                 }
 
-                remoteExtras.images[row.content]?.let { images ->
-                    if (images.isEmpty()) NoteMediaStore.deleteAllForNote(this@AllNotesActivity, row.content)
-                    else NoteMediaStore.setUris(this@AllNotesActivity, row.content, images)
+                val noteKey = contentToUid[row.content] ?: ensureLocalUid(row.content)
+                remoteExtras.images[row.content]?.takeIf { it.isNotEmpty() }?.let { images ->
+                    saveNoteMediaForKeys(this@AllNotesActivity, row.content, noteKey, imageUris = images)
                 }
-                remoteExtras.files[row.content]?.let { files ->
-                    NoteAttachmentStore.setItems(this@AllNotesActivity, row.content, files)
+                remoteExtras.files[row.content]?.takeIf { it.isNotEmpty() }?.let { files ->
+                    saveNoteMediaForKeys(this@AllNotesActivity, row.content, noteKey, attachments = files)
                 }
-                remoteExtras.voice[row.content]?.let { voice ->
-                    NoteVoiceStore.setItems(this@AllNotesActivity, row.content, voice)
+                remoteExtras.voice[row.content]?.takeIf { it.isNotEmpty() }?.let { voice ->
+                    saveNoteMediaForKeys(this@AllNotesActivity, row.content, noteKey, voiceItems = voice)
                 }
             }
             notesAdapter.preloadReminderFlags(this@AllNotesActivity)
@@ -2182,10 +2188,16 @@ class AllNotesActivity : LocaleActivity() {
                         notesText[position] = updatedNote
                     }
 
-                    // 3) persist images under NEW content
-                    NoteMediaStore.setUris(this, updatedNote, updatedImageUris)
-                    NoteVoiceStore.setItems(this, updatedNote, updatedVoiceItems)
-                    NoteAttachmentStore.setItems(this, updatedNote, updatedFiles)
+                    // 3) persist media under NEW content and stable note id
+                    val updatedNoteUid = contentToUid[updatedNote] ?: ensureLocalUid(updatedNote)
+                    saveNoteMediaForKeys(
+                        context = this,
+                        note = updatedNote,
+                        noteKey = updatedNoteUid,
+                        imageUris = updatedImageUris,
+                        attachments = updatedFiles,
+                        voiceItems = updatedVoiceItems
+                    )
 
                     // 4) rebuild DISPLAY from the active folder
                     refreshDisplayedNotes()

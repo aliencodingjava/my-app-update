@@ -298,9 +298,14 @@ class MainActivity : FragmentActivity() {
         val newNoteUid = ensureLocalUid(newNote)
         NoteCreatedAtStore.ensure(this, newNoteUid)
         assignMainNoteToCurrentFolder(newNote)
-        if (imageUris.isNotEmpty()) NoteMediaStore.setUris(this, newNote, imageUris)
-        if (voiceItems.isNotEmpty()) NoteVoiceStore.setItems(this, newNote, voiceItems)
-        if (fileItems.isNotEmpty()) NoteAttachmentStore.setItems(this, newNote, fileItems)
+        saveNoteMediaForKeys(
+            context = this,
+            note = newNote,
+            noteKey = newNoteUid,
+            imageUris = imageUris.takeIf { it.isNotEmpty() },
+            attachments = fileItems.takeIf { it.isNotEmpty() },
+            voiceItems = voiceItems.takeIf { it.isNotEmpty() }
+        )
         if (title.isNotBlank()) notesAdapter.setUserTitle(newNote, title)
 
         val wantsReminder = result.data?.getBooleanExtra("NEW_NOTE_WANTS_REMINDER", false) == true
@@ -1125,9 +1130,15 @@ class MainActivity : FragmentActivity() {
         }
 
         allNotes.indexOf(oldNote).takeIf { it >= 0 }?.let { allNotes[it] = updatedNote }
-        NoteMediaStore.setUris(this, updatedNote, updatedImages)
-        NoteVoiceStore.setItems(this, updatedNote, updatedVoiceItems)
-        NoteAttachmentStore.setItems(this, updatedNote, updatedFiles)
+        val updatedNoteUid = contentToUid[updatedNote] ?: ensureLocalUid(updatedNote)
+        saveNoteMediaForKeys(
+            context = this,
+            note = updatedNote,
+            noteKey = updatedNoteUid,
+            imageUris = updatedImages,
+            attachments = updatedFiles,
+            voiceItems = updatedVoiceItems
+        )
         if (updatedTitle.isNotBlank()) notesAdapter.setUserTitle(updatedNote, updatedTitle)
         else notesAdapter.removeUserTitle(updatedNote)
         getSharedPreferences("reminder_flags", MODE_PRIVATE).edit {
@@ -1731,15 +1742,15 @@ class MainActivity : FragmentActivity() {
                 else remove(row.content.hashCode().toString())
             }
 
-            remoteExtras.images[row.content]?.let { images ->
-                if (images.isEmpty()) NoteMediaStore.deleteAllForNote(this, row.content)
-                else NoteMediaStore.setUris(this, row.content, images)
+            val noteKey = contentToUid[row.content] ?: ensureLocalUid(row.content)
+            remoteExtras.images[row.content]?.takeIf { it.isNotEmpty() }?.let { images ->
+                saveNoteMediaForKeys(this, row.content, noteKey, imageUris = images)
             }
-            remoteExtras.files[row.content]?.let { files ->
-                NoteAttachmentStore.setItems(this, row.content, files)
+            remoteExtras.files[row.content]?.takeIf { it.isNotEmpty() }?.let { files ->
+                saveNoteMediaForKeys(this, row.content, noteKey, attachments = files)
             }
-            remoteExtras.voice[row.content]?.let { voice ->
-                NoteVoiceStore.setItems(this, row.content, voice)
+            remoteExtras.voice[row.content]?.takeIf { it.isNotEmpty() }?.let { voice ->
+                saveNoteMediaForKeys(this, row.content, noteKey, voiceItems = voice)
             }
         }
         notesAdapter.preloadReminderFlags(this)

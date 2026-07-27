@@ -1,6 +1,7 @@
 package com.flights.studio
 
 import android.content.Context
+import android.net.Uri
 import org.json.JSONObject
 
 data class NoteMediaBadgeCounts(
@@ -33,7 +34,24 @@ fun noteMediaBadgeCounts(context: Context, note: String): NoteMediaBadgeCounts {
     )
 }
 
-private fun noteMediaStorageKeys(context: Context, note: String): List<String> {
+fun saveNoteMediaForKeys(
+    context: Context,
+    note: String,
+    noteKey: String,
+    imageUris: List<Uri>? = null,
+    attachments: List<NoteAttachmentItem>? = null,
+    voiceItems: List<NoteVoiceItem>? = null
+) {
+    linkedSetOf(note, noteKey)
+        .filter { it.isNotBlank() }
+        .forEach { key ->
+            imageUris?.let { NoteMediaStore.setUris(context, key, it) }
+            attachments?.let { NoteAttachmentStore.setItems(context, key, it) }
+            voiceItems?.let { NoteVoiceStore.setItems(context, key, it) }
+        }
+}
+
+fun noteMediaStorageKeys(context: Context, note: String): List<String> {
     val keys = linkedSetOf(note)
     val json = context.getSharedPreferences("notes_uids", Context.MODE_PRIVATE)
         .getString("uid_to_content", "{}")
@@ -41,7 +59,9 @@ private fun noteMediaStorageKeys(context: Context, note: String): List<String> {
     runCatching {
         val obj = JSONObject(json.ifBlank { "{}" })
         obj.keys().forEach { uid ->
-            if (obj.optString(uid) == note) keys += uid
+            val content = obj.optString(uid)
+            if (content == note) keys += uid
+            if (uid == note && content.isNotBlank()) keys += content
         }
     }
     return keys.toList()
