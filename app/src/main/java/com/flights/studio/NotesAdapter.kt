@@ -87,7 +87,7 @@ class NotesAdapter(
         showReminderBadge && (reminderBadgeStates[note] == true)
 
     fun imagesCount(note: String): Int =
-        if (showImagesBadge) NoteMediaStore.getUris(appContext, note).size else 0
+        if (showImagesBadge) noteMediaBadgeCounts(appContext, note).images else 0
 
     fun titleNow(note: String): String? {
         val typedTitle = getUserTitle(note)
@@ -231,10 +231,8 @@ class NotesAdapter(
         val bellOn = showReminderBell && (reminderFlags[note] == true)
         val badgeOn = showReminderBadge && (reminderBadgeStates[note] == true)
 
-        val imagesCount = if (showImagesBadge) {
-            NoteMediaStore.getUris(holder.composeView.context, note).size
-        } else 0
-        val attachmentCounts = countNoteAttachments(NoteAttachmentStore.getItems(holder.composeView.context, note))
+        val mediaCounts = noteMediaBadgeCounts(holder.composeView.context, note)
+        val imagesCount = if (showImagesBadge) mediaCounts.images else 0
 
         val typedTitle = userTypedTitles[note]
         val cachedTitle = NotesCacheManager.cachedTitles[note]
@@ -272,9 +270,9 @@ class NotesAdapter(
                         showReminderBell = bellOn,
                         showReminderBadge = badgeOn,
                         imagesCount = imagesCount,
-                        attachmentsCount = attachmentCounts.documents,
-                        audioCount = attachmentCounts.audio,
-                        videoCount = attachmentCounts.video,
+                        attachmentsCount = mediaCounts.documents,
+                        audioCount = mediaCounts.audio,
+                        videoCount = mediaCounts.video,
                         createdAtMs = NoteCreatedAtStore.ensure(holder.composeView.context, key),
                         onClick = { onClick(note, holder.bindingAdapterPosition) },
                         onLongClick = { onLongClick(note) },

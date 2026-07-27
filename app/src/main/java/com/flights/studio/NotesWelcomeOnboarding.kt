@@ -56,8 +56,6 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.highlight.HighlightStyle
 
 @Composable
 fun NotesWelcomeOnboardingOverlay(
@@ -135,17 +133,20 @@ private fun NotesWelcomeCardPro(
 ) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
-    val shape = RoundedCornerShape(28.dp)
+    val appThemePreset = LocalAppThemePreset.current
+    val appThemePalette = LocalAppThemePalette.current
+    val shape = notesWelcomeMaterialShape(appThemePreset)
+    val buttonShape = notesWelcomeButtonShape(appThemePreset)
     val glassTint = if (isDark) {
-        Color.Black.copy(alpha = 0.42f)
+        appThemePalette.glass.copy(alpha = 0.32f)
     } else {
-        Color.White.copy(alpha = 0.50f)
+        appThemePalette.glass.copy(alpha = 0.46f)
     }
     val stroke = Brush.verticalGradient(
         listOf(
-            Color.White.copy(alpha = if (isDark) 0.28f else 0.58f),
-            Color.White.copy(alpha = if (isDark) 0.08f else 0.20f),
-            cs.outline.copy(alpha = 0.10f)
+            appThemePalette.accent.copy(alpha = if (isDark) 0.34f else 0.30f),
+            Color.White.copy(alpha = if (isDark) 0.10f else 0.32f),
+            appThemePalette.outline.copy(alpha = 0.16f)
         )
     )
     val sizedModifier = modifier.heightIn(min = 320.dp)
@@ -154,14 +155,7 @@ private fun NotesWelcomeCardPro(
             backdrop = backdrop,
             shape = { shape },
             shadow = null,
-            highlight = {
-                Highlight(
-                    width = if (isDark) 0.45.dp else 0.30.dp,
-                    blurRadius = if (isDark) 1.6.dp else 1.dp,
-                    alpha = if (isDark) 0.50f else 0.80f,
-                    style = HighlightStyle.Plain
-                )
-            },
+            highlight = null,
             effects = {
                 vibrancy()
                 blur(24.dp.toPx(), edgeTreatment = TileMode.Mirror)
@@ -174,6 +168,8 @@ private fun NotesWelcomeCardPro(
             },
             onDrawSurface = {
                 drawRect(glassTint)
+                drawRect(appThemePalette.glassOverlay.copy(alpha = if (isDark) 0.10f else 0.07f))
+                drawRect(appThemePalette.card.copy(alpha = if (isDark) 0.08f else 0.05f))
             }
         )
     } else {
@@ -193,7 +189,7 @@ private fun NotesWelcomeCardPro(
                 .border(width = 1.dp, brush = stroke, shape = shape)
                 .border(
                     width = 1.dp,
-                    color = cs.outline.copy(alpha = if (isDark) 0.12f else 0.16f),
+                    color = appThemePalette.outline.copy(alpha = if (isDark) 0.12f else 0.16f),
                     shape = shape
                 )
         ) {
@@ -235,7 +231,7 @@ private fun NotesWelcomeCardPro(
                             onClick = onSecondary,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(18.dp)
+                            shape = buttonShape
                         ) {
                             Text(
                                 text = secondaryText,
@@ -248,13 +244,13 @@ private fun NotesWelcomeCardPro(
                     Button(
                         onClick = onContinue,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = cs.surfaceContainerHigh,
-                            contentColor = if (isDark) Color.White else cs.onSurface
+                            containerColor = appThemePalette.action.copy(alpha = if (isDark) 0.30f else 0.24f),
+                            contentColor = appThemePalette.actionContent
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(18.dp)
+                        shape = buttonShape
                     ) {
                         Text(
                             text = "Add note",
@@ -266,6 +262,51 @@ private fun NotesWelcomeCardPro(
 
             }
         }
+    }
+}
+
+private fun notesWelcomeMaterialShape(preset: AppThemePreset): RoundedCornerShape {
+    return when (preset) {
+        AppThemePreset.Classic -> RoundedCornerShape(28.dp)
+        AppThemePreset.Sky -> RoundedCornerShape(
+            topStart = 34.dp,
+            topEnd = 22.dp,
+            bottomEnd = 34.dp,
+            bottomStart = 24.dp
+        )
+        AppThemePreset.Sunset -> RoundedCornerShape(
+            topStart = 22.dp,
+            topEnd = 38.dp,
+            bottomEnd = 24.dp,
+            bottomStart = 38.dp
+        )
+        AppThemePreset.Aurora -> RoundedCornerShape(
+            topStart = 38.dp,
+            topEnd = 22.dp,
+            bottomEnd = 38.dp,
+            bottomStart = 22.dp
+        )
+        AppThemePreset.Graphite -> RoundedCornerShape(18.dp)
+        AppThemePreset.Ocean -> RoundedCornerShape(24.dp, 38.dp, 30.dp, 38.dp)
+        AppThemePreset.Meadow -> RoundedCornerShape(38.dp, 24.dp, 38.dp, 24.dp)
+        AppThemePreset.Candy -> RoundedCornerShape(36.dp)
+        AppThemePreset.Royal -> RoundedCornerShape(22.dp, 34.dp, 22.dp, 34.dp)
+        AppThemePreset.Ember -> RoundedCornerShape(18.dp, 34.dp, 18.dp, 34.dp)
+    }
+}
+
+private fun notesWelcomeButtonShape(preset: AppThemePreset): RoundedCornerShape {
+    return when (preset) {
+        AppThemePreset.Classic -> RoundedCornerShape(18.dp)
+        AppThemePreset.Sky -> RoundedCornerShape(22.dp, 14.dp, 22.dp, 14.dp)
+        AppThemePreset.Sunset -> RoundedCornerShape(14.dp, 24.dp, 14.dp, 24.dp)
+        AppThemePreset.Aurora -> RoundedCornerShape(24.dp, 14.dp, 24.dp, 14.dp)
+        AppThemePreset.Graphite -> RoundedCornerShape(12.dp)
+        AppThemePreset.Ocean -> RoundedCornerShape(18.dp, 24.dp, 18.dp, 24.dp)
+        AppThemePreset.Meadow -> RoundedCornerShape(24.dp, 18.dp, 24.dp, 18.dp)
+        AppThemePreset.Candy -> RoundedCornerShape(24.dp)
+        AppThemePreset.Royal -> RoundedCornerShape(16.dp, 24.dp, 16.dp, 24.dp)
+        AppThemePreset.Ember -> RoundedCornerShape(12.dp, 22.dp, 12.dp, 22.dp)
     }
 }
 
@@ -374,12 +415,13 @@ private fun PremiumMiniChip(
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
+    val palette = LocalAppThemePalette.current
     val chipShape = RoundedCornerShape(14.dp)
 
     val chipBg = Brush.verticalGradient(
         listOf(
-            cs.surface.copy(alpha = 0.46f),
-            cs.surface.copy(alpha = 0.26f)
+            palette.badge.copy(alpha = 0.38f),
+            palette.card.copy(alpha = 0.24f)
         )
     )
 
@@ -387,7 +429,7 @@ private fun PremiumMiniChip(
         modifier
             .clip(chipShape)
             .background(chipBg)
-            .border(1.dp, cs.outline.copy(alpha = 0.10f), chipShape)
+            .border(1.dp, palette.outline.copy(alpha = 0.14f), chipShape)
             .height(34.dp) // ✅ smaller height
             .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center
@@ -399,7 +441,7 @@ private fun PremiumMiniChip(
             Text(
                 text = badge,
                 style = MaterialTheme.typography.labelMedium,
-                color = cs.onSurfaceVariant
+                color = palette.badgeContent
             )
             Spacer(Modifier.width(8.dp))
             Text(

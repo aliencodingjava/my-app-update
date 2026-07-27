@@ -217,7 +217,6 @@ private fun MenuContent(
     androidx.compose.material3.DropdownMenuPopup(
         expanded = true,
         onDismissRequest = onDismiss,
-        offset = androidx.compose.ui.unit.DpOffset(0.dp, 0.dp),
         modifier = modifier
     ) {
         DropdownMenuGroup(

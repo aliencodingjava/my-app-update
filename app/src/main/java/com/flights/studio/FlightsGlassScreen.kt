@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -42,8 +43,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -56,6 +62,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import androidx.compose.material3.MaterialShapes
+import androidx.compose.material3.toPath
 
 data class GlassBtn(
     val id: String,
@@ -263,8 +271,9 @@ private fun HomeActionSectionList(
     itemSpacing: Dp
 ) {
     val darkTheme = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
 
-    val sectionTextColor = MaterialTheme.colorScheme.primary
+    val sectionTextColor = appPalette.accent
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -302,6 +311,7 @@ private fun HomeActionListItem(
     onOpen: (String) -> Unit
 ) {
     val darkTheme = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
     val shape = RoundedCornerShape(18.dp)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -312,29 +322,14 @@ private fun HomeActionListItem(
     )
 
     val rowSurfaceColor = if (darkTheme) {
-        Color(0xFF232425)
+        appPalette.card.copy(alpha = 0.96f)
     } else {
-        Color(0xFFFEFEFE)
+        appPalette.glass.copy(alpha = 0.98f)
     }
-    val rowBorderColor = if (darkTheme) Color(0xFF333538) else Color(0xFFE3E3E4)
-
-    val titleColor = if (darkTheme) {
-        MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
-
-    val descriptionColor = if (darkTheme) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    val chevronColor = if (darkTheme) {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.66f)
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.66f)
-    }
+    val rowBorderColor = appPalette.outline.copy(alpha = if (darkTheme) 0.40f else 0.30f)
+    val titleColor = if (darkTheme) Color(0xFFF7F9FC) else Color(0xFF101418)
+    val descriptionColor = if (darkTheme) Color(0xFFC5CED8) else Color(0xFF4F5B66)
+    val chevronColor = appPalette.accent.copy(alpha = if (darkTheme) 0.74f else 0.68f)
 
     Box(
         modifier = Modifier
@@ -349,15 +344,9 @@ private fun HomeActionListItem(
                 shape = shape,
                 clip = false
             )
-            .border(
-                BorderStroke(
-                    1.dp,
-                    rowBorderColor
-                ),
-                shape
-            )
             .clip(shape)
             .background(rowSurfaceColor, shape)
+            .border(BorderStroke(1.dp, rowBorderColor), shape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -371,7 +360,7 @@ private fun HomeActionListItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            HomeActionIcon(button)
+            HomeActionIcon(button, appPalette)
 
             Column(
                 modifier = Modifier.weight(1f),
@@ -413,8 +402,12 @@ private fun HomeActionListItem(
 }
 
 @Composable
-private fun HomeActionIcon(button: GlassBtn) {
-    val circleColor = button.iconCircleColor ?: Color(0xFF3B3D42)
+private fun HomeActionIcon(
+    button: GlassBtn,
+    appPalette: AppThemePalette
+) {
+    val circleColor = homeActionIconColor(button.id, appPalette)
+    val contentColor = if (circleColor.luminance() > 0.58f) Color(0xFF111418) else Color.White
 
     Box(
         modifier = Modifier
@@ -431,7 +424,7 @@ private fun HomeActionIcon(button: GlassBtn) {
                     fontSize = if (button.iconText.length > 3) 11.sp else 14.sp,
                     lineHeight = 14.sp
                 ),
-                color = Color.White,
+                color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Clip
             )
@@ -439,10 +432,27 @@ private fun HomeActionIcon(button: GlassBtn) {
             Icon(
                 painter = painterResource(button.icon),
                 contentDescription = null,
-                tint = if (button.tintIcon) Color.White else Color.Unspecified,
+                tint = if (button.tintIcon) contentColor else Color.Unspecified,
                 modifier = Modifier.size(22.dp)
             )
         }
+    }
+}
+
+private fun homeActionIconColor(
+    id: String,
+    palette: AppThemePalette
+): Color {
+    return when (id) {
+        "card1" -> palette.accent
+        "card2" -> palette.warm
+        "card3" -> palette.rose
+        "card4" -> palette.action
+        "card12" -> palette.accent.copy(alpha = 0.88f)
+        "card13" -> palette.warm.copy(alpha = 0.90f)
+        "card10" -> palette.bottomPill
+        "card11" -> palette.rose.copy(alpha = 0.92f)
+        else -> palette.badge
     }
 }
 

@@ -582,21 +582,10 @@ fun WebviewFlights(
             val flightSheetWeather = remember(weatherJson) { parseWeatherSnapshotForSheet(weatherJson) }
             val activeFlightBackdrop = if (cardId == "card3") flightPageBackdrop else backdrop
             val isDarkTheme = isSystemInDarkTheme()
-            val flightMenuPanelColor = if (isDarkTheme) {
-                Color(0xFF0B0F17).copy(alpha = 0.42f)
-            } else {
-                Color(0xFFFFF8F0).copy(alpha = 0.54f)
-            }
-            val flightMenuOverlayTint = if (isDarkTheme) {
-                Color(0xFF283141).copy(alpha = 0.035f)
-            } else {
-                Color(0xFFFFF4E8).copy(alpha = 0.045f)
-            }
-            val flightMenuButtonColor = if (isDarkTheme) {
-                Color(0xFF7FA9FF)
-            } else {
-                Color(0xFFC68D62)
-            }
+            val appThemePalette = LocalAppThemePalette.current
+            val flightMenuPanelColor = appThemePalette.glass.copy(alpha = if (isDarkTheme) 0.42f else 0.54f)
+            val flightMenuOverlayTint = appThemePalette.glassOverlay.copy(alpha = if (isDarkTheme) 0.04f else 0.05f)
+            val flightMenuButtonColor = appThemePalette.action
             val flightMenuButtonAlpha = if (isDarkTheme) 0.24f else 0.20f
             val flightMenuBlurDp = if (isDarkTheme) 10f else 9f
 
@@ -5299,7 +5288,8 @@ private fun NativeFlightBottomTabs(
                 label = "Menu",
                 icon = Icons.Filled.Menu,
                 selected = selected == "menu",
-                onClick = { onSelect("menu") }
+                onClick = { onSelect("menu") },
+                lanternColor = LocalAppThemePalette.current.action
             )
         )
     )

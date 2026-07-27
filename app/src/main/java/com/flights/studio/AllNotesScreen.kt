@@ -87,6 +87,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp as colorLerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
@@ -459,6 +461,12 @@ fun AllNotesScreen(
                         modifier = Modifier
                             .matchParentSize()
                             .background(palette.screenBackground)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.background)
                     )
                 }
                 ProfileBackdropImageLayer(
@@ -956,6 +964,7 @@ private fun NotesGlassAddButton(
     onClick: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
@@ -964,7 +973,7 @@ private fun NotesGlassAddButton(
         modifier = Modifier
             .size(NotesActionHeight)
             .notesLiquidTransform(CircleShape, interactiveHighlight)
-            .notesActionGlass(backdrop, CircleShape, isDark, palette, interactiveHighlight)
+            .notesActionGlass(backdrop, CircleShape, isDark, palette, appPalette)
             .clickable(
                 interactionSource = null,
                 indication = null,
@@ -995,6 +1004,7 @@ private fun NotesSyncStatusPill(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
     val online = syncOnline && syncAvailable
     val active = online && status != NotesSyncUiStatus.Error
     val statusLabel = when {
@@ -1027,7 +1037,7 @@ private fun NotesSyncStatusPill(
             .height(NotesActionHeight)
             .widthIn(min = 104.dp, max = 136.dp)
             .notesLiquidTransform(NotesPillShape, interactiveHighlight)
-            .notesActionGlass(backdrop, NotesPillShape, isDark, palette, interactiveHighlight)
+            .notesActionGlass(backdrop, NotesPillShape, isDark, palette, appPalette)
             .then(interactiveHighlight.modifier)
             .then(interactiveHighlight.gestureModifier),
         contentAlignment = Alignment.Center
@@ -1114,35 +1124,29 @@ private fun Modifier.notesActionGlass(
     shape: Shape,
     isDark: Boolean,
     palette: NotesPaletteColors?,
-    interactiveHighlight: InteractiveHighlight? = null
+    appPalette: AppThemePalette
 ): Modifier {
-    val surfaceColor = if (isDark) {
-        (palette?.actionBarTint ?: Color(0xFF151617)).copy(alpha = 0.84f)
+    val barTint = palette?.actionBarTint ?: appPalette.glass
+    val barIsLight = barTint.luminance() > 0.5f
+    val baseTint = if (barIsLight) {
+        colorLerp(Color.Black, palette?.accent ?: appPalette.action, 0.34f)
     } else {
-        (palette?.actionBarTint ?: Color(0xFFD7ECFF)).copy(alpha = if (palette != null) 0.88f else 0.84f)
+        colorLerp(Color.White, palette?.accent ?: appPalette.actionContent, 0.38f)
     }
-    val tint = if (isDark) {
-        (palette?.accent ?: Color(0xFF2F3439)).copy(alpha = if (palette != null) 0.32f else 0.34f)
-    } else {
-        (palette?.accent ?: Color(0xFF9FD1FF)).copy(alpha = if (palette != null) 0.46f else 0.62f)
-    }
-    val lift = if (isDark) {
-        Color.White.copy(alpha = 0.07f)
-    } else {
-        (palette?.noteTint ?: Color.White).copy(alpha = if (palette != null) 0.18f else 0.10f)
-    }
+    val hueTint = baseTint.copy(alpha = if (palette != null) 0.46f else if (isDark) 0.36f else 0.44f)
+    val visibleTint = baseTint.copy(alpha = if (palette != null) 0.22f else if (isDark) 0.18f else 0.20f)
     return drawBackdrop(
         backdrop = backdrop,
         shape = { shape },
+        highlight = null,
         effects = {
             vibrancy()
             blur(radius = 2.dp.toPx(), edgeTreatment = TileMode.Mirror)
             lens(12.dp.toPx(), 24.dp.toPx())
         },
         onDrawSurface = {
-            drawRect(tint, blendMode = BlendMode.Hue)
-            drawRect(surfaceColor)
-            drawRect(lift)
+            drawRect(hueTint, blendMode = BlendMode.Hue)
+            drawRect(visibleTint)
         }
     )
         .clip(shape)

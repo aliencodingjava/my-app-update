@@ -27,6 +27,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -54,6 +55,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -88,8 +90,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -98,6 +102,7 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -112,8 +117,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -125,6 +139,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -134,6 +150,12 @@ import androidx.preference.PreferenceManager
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.flights.studio.ui.AppLanguageManager
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.MutableData
+import com.google.firebase.database.Transaction
+import com.google.firebase.database.ValueEventListener
 import com.google.firebase.messaging.FirebaseMessaging
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -156,6 +178,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.Locale
 import java.util.TimeZone
 import androidx.compose.material.icons.filled.Settings as SettingsIcon
 
@@ -194,8 +217,9 @@ fun ModernSettingsScreen(
     val showThemeSheet = remember { mutableStateOf(false) }
     val showChangelog = remember { mutableStateOf(false) }
     val showFeedbackSheet = remember { mutableStateOf(false) }
+    val showRateSheet = remember { mutableStateOf(false) }
     val showMenuSheet = remember { mutableStateOf(false) }
-    val modalVisible = showLanguageSheet.value || showThemeSheet.value || showChangelog.value || showFeedbackSheet.value ||
+    val modalVisible = showLanguageSheet.value || showThemeSheet.value || showChangelog.value || showFeedbackSheet.value || showRateSheet.value ||
         showMenuSheet.value
 
     LaunchedEffect(modalVisible) {
@@ -416,7 +440,7 @@ fun ModernSettingsScreen(
                     title = stringResource(R.string.settings_rate_title),
                     summary = stringResource(R.string.settings_rate_summary),
                     icon = Icons.Filled.Star,
-                    onClick = onOpenRateUs
+                    onClick = { showRateSheet.value = true }
                 ),
                 SettingsEntry(
                     title = stringResource(R.string.settings_share_title),
@@ -567,6 +591,19 @@ fun ModernSettingsScreen(
             backdrop = settingsModalBackdrop,
             bottomPadding = modalBottomPadding,
             onDismiss = { showChangelog.value = false }
+        )
+
+        RateUsGlassSheet(
+            visible = showRateSheet.value,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            backdrop = settingsModalBackdrop,
+            context = context,
+            bottomPadding = modalBottomPadding,
+            onDismiss = { showRateSheet.value = false },
+            onFeedback = {
+                showRateSheet.value = false
+                showFeedbackSheet.value = true
+            }
         )
 
         FeedbackGlassSheet(
@@ -1325,8 +1362,13 @@ private fun SettingsSurface(
     content: @Composable () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val cardColor = if (isDark) Color(0xFF232425) else Color(0xFFFEFEFE)
-    val borderColor = if (isDark) Color(0xFF333538) else Color(0xFFE3E3E4)
+    val palette = LocalAppThemePalette.current
+    val cardColor = if (isDark) {
+        palette.card.copy(alpha = 0.78f)
+    } else {
+        palette.card.copy(alpha = 0.98f)
+    }
+    val borderColor = palette.outline.copy(alpha = if (isDark) 0.48f else 0.62f)
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -1570,6 +1612,7 @@ private fun AppThemePickerSheet(
                     bottom = bottomPadding
                 )
                 .fillMaxWidth()
+                .heightIn(max = 620.dp)
                 .clip(GlassChromeShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -1580,7 +1623,7 @@ private fun AppThemePickerSheet(
                     backdrop = backdrop,
                     shape = GlassChromeShape,
                     surfaceColor = panelColor,
-                    blurDp = 4f,
+                    blurDp = 8f,
                     shadow = null,
                     refractionHeightDp = 22f,
                     refractionAmountDp = 72f,
@@ -1590,6 +1633,7 @@ private fun AppThemePickerSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 22.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1610,6 +1654,7 @@ private fun AppThemePickerSheet(
                 Spacer(Modifier.height(4.dp))
                 AppThemeStore.presets.forEach { preset ->
                     AppThemeOption(
+                        backdrop = backdrop,
                         preset = preset,
                         selected = selectedTheme == preset,
                         textColor = textColor,
@@ -1624,6 +1669,7 @@ private fun AppThemePickerSheet(
 
 @Composable
 private fun AppThemeOption(
+    backdrop: Backdrop,
     preset: AppThemePreset,
     selected: Boolean,
     textColor: Color,
@@ -1632,62 +1678,649 @@ private fun AppThemeOption(
 ) {
     val isDark = isSystemInDarkTheme()
     val palette = remember(preset, isDark) { appThemePaletteFor(preset, isDark) }
-    Surface(
+    val shape = appThemeOptionSafeGlassShape(preset)
+    val surfaceColor = if (selected) {
+        palette.card.copy(alpha = if (isDark) 0.44f else 0.50f)
+    } else {
+        palette.glass.copy(alpha = if (isDark) 0.26f else 0.44f)
+    }
+    val tintAlpha = if (selected) {
+        if (isDark) 0.32f else 0.24f
+    } else {
+        if (isDark) 0.18f else 0.14f
+    }
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 74.dp)
+            .clip(shape)
+            .adaptiveLiquidGlassBackdrop(
+                backdrop = backdrop,
+                shape = shape,
+                surfaceColor = surfaceColor,
+                blurDp = 3.5f,
+                shadow = { bottomChromeShadow() },
+                highlight = null,
+                refractionHeightDp = 12f,
+                refractionAmountDp = 28f,
+                chromaticAberration = false
+            )
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        palette.accent.copy(alpha = tintAlpha),
+                        palette.card.copy(alpha = tintAlpha * 0.72f),
+                        palette.warm.copy(alpha = tintAlpha * 0.76f),
+                        palette.rose.copy(alpha = tintAlpha * 0.58f)
+                    ),
+                    start = Offset.Zero,
+                    end = Offset.Infinite
+                ),
+                shape = shape
+            )
             .clickable { onClick(preset) },
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.26f else 0.14f)
-        } else {
-            if (isDark) Color.White.copy(alpha = 0.10f)
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
-        }
+        contentAlignment = Alignment.Center
     ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf(palette.accent, palette.warm, palette.rose).forEach { color ->
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = preset.label,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            lineHeight = 19.sp
+                        ),
+                        color = textColor
+                    )
+                    Text(
+                        text = preset.summary,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp),
+                        color = secondaryTextColor.copy(alpha = 0.78f)
+                    )
+                }
+                AppThemeShapePreview(
+                    preset = preset,
+                    palette = palette,
+                    modifier = Modifier.size(width = 76.dp, height = 48.dp)
+                )
+                RadioButton(
+                    selected = selected,
+                    onClick = { onClick(preset) },
+                    colors = RadioButtonDefaults.colors(
+                        selectedColor = MaterialTheme.colorScheme.primary,
+                        unselectedColor = secondaryTextColor
+                    )
+                )
+            }
+        }
+    }
+}
+
+private fun appThemeOptionSafeGlassShape(preset: AppThemePreset): RoundedCornerShape {
+    return when (preset) {
+        AppThemePreset.Classic -> RoundedCornerShape(32.dp)
+        AppThemePreset.Sky -> RoundedCornerShape(28.dp, 18.dp, 28.dp, 18.dp)
+        AppThemePreset.Sunset -> RoundedCornerShape(10.dp, 30.dp, 10.dp, 30.dp)
+        AppThemePreset.Aurora -> RoundedCornerShape(34.dp, 20.dp, 34.dp, 20.dp)
+        AppThemePreset.Graphite -> RoundedCornerShape(10.dp)
+        AppThemePreset.Ocean -> RoundedCornerShape(20.dp, 34.dp, 24.dp, 34.dp)
+        AppThemePreset.Meadow -> RoundedCornerShape(34.dp, 18.dp, 34.dp, 18.dp)
+        AppThemePreset.Candy -> RoundedCornerShape(30.dp)
+        AppThemePreset.Royal -> RoundedCornerShape(14.dp, 28.dp, 14.dp, 28.dp)
+        AppThemePreset.Ember -> RoundedCornerShape(12.dp, 26.dp, 12.dp, 26.dp)
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AppThemeShapePreview(
+    preset: AppThemePreset,
+    palette: AppThemePalette,
+    modifier: Modifier = Modifier
+) {
+    val paths = rememberThemePreviewPaths(preset)
+    val isDark = isSystemInDarkTheme()
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (isDark) Color.Black.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.30f))
+            .padding(horizontal = 5.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        val colors = listOf(
+            palette.accent.copy(alpha = if (isDark) 0.98f else 0.92f),
+            palette.warm.copy(alpha = if (isDark) 0.94f else 0.90f),
+            palette.rose.copy(alpha = if (isDark) 0.96f else 0.92f)
+        )
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(palette.accent, palette.warm, palette.rose).forEach { color ->
+            paths.take(2).forEachIndexed { index, path ->
+                val shape = remember(path) { MaterialPathShape(path) }
+                Box(
+                    modifier = Modifier
+                        .size(31.dp)
+                        .clip(shape)
+                        .background(colors[index % colors.size])
+                )
+            }
+        }
+    }
+}
+
+private class MaterialPathShape(
+    private val source: Path
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density
+    ): Outline {
+        val bounds = source.getBounds()
+        val scale = minOf(
+            size.width / bounds.width.coerceAtLeast(0.001f),
+            size.height / bounds.height.coerceAtLeast(0.001f)
+        )
+        val dx = (size.width - bounds.width * scale) / 2f - bounds.left * scale
+        val dy = (size.height - bounds.height * scale) / 2f - bounds.top * scale
+        val matrix = android.graphics.Matrix().apply {
+            setScale(scale, scale)
+            postTranslate(dx, dy)
+        }
+        val outPath = android.graphics.Path()
+        source.asAndroidPath().transform(matrix, outPath)
+        return Outline.Generic(outPath.asComposePath())
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun rememberThemePreviewPaths(preset: AppThemePreset): List<Path> {
+    val pill = MaterialShapes.Pill.toPath()
+    val oval = MaterialShapes.Oval.toPath()
+    val bun = MaterialShapes.Bun.toPath()
+    val puffy = MaterialShapes.Puffy.toPath()
+    val slanted = MaterialShapes.Slanted.toPath()
+    val sunny = MaterialShapes.Sunny.toPath()
+    val flower = MaterialShapes.Flower.toPath()
+    val boom = MaterialShapes.Boom.toPath()
+    val arrow = MaterialShapes.Arrow.toPath()
+    val square = MaterialShapes.Square.toPath()
+    val clamShell = MaterialShapes.ClamShell.toPath()
+    val semiCircle = MaterialShapes.SemiCircle.toPath()
+    val clover4 = MaterialShapes.Clover4Leaf.toPath()
+    val fan = MaterialShapes.Fan.toPath()
+    val heart = MaterialShapes.Heart.toPath()
+    val gem = MaterialShapes.Gem.toPath()
+    val diamond = MaterialShapes.Diamond.toPath()
+    val softBurst = MaterialShapes.SoftBurst.toPath()
+    val softBoom = MaterialShapes.SoftBoom.toPath()
+
+    return remember(
+        preset,
+        pill,
+        oval,
+        bun,
+        puffy,
+        slanted,
+        sunny,
+        flower,
+        boom,
+        arrow,
+        square,
+        clamShell,
+        semiCircle,
+        clover4,
+        fan,
+        heart,
+        gem,
+        diamond,
+        softBurst,
+        softBoom
+    ) {
+        when (preset) {
+            AppThemePreset.Classic -> listOf(pill, oval)
+            AppThemePreset.Sky -> listOf(bun, puffy)
+            AppThemePreset.Sunset -> listOf(slanted, sunny)
+            AppThemePreset.Aurora -> listOf(flower, boom)
+            AppThemePreset.Graphite -> listOf(arrow, square)
+            AppThemePreset.Ocean -> listOf(clamShell, semiCircle)
+            AppThemePreset.Meadow -> listOf(clover4, fan)
+            AppThemePreset.Candy -> listOf(heart, puffy)
+            AppThemePreset.Royal -> listOf(gem, diamond)
+            AppThemePreset.Ember -> listOf(softBurst, softBoom)
+        }
+    }
+}
+
+private data class SettingsRatingBreakdown(
+    val five: Int = 0,
+    val four: Int = 0,
+    val three: Int = 0,
+    val two: Int = 0,
+    val one: Int = 0
+) {
+    val total: Int get() = five + four + three + two + one
+    val average: Float
+        get() = if (total > 0) {
+            ((five * 5) + (four * 4) + (three * 3) + (two * 2) + one).toFloat() / total.toFloat()
+        } else {
+            0f
+        }
+
+    fun countFor(stars: Int): Int = when (stars) {
+        5 -> five
+        4 -> four
+        3 -> three
+        2 -> two
+        else -> one
+    }
+}
+
+@Composable
+private fun RateUsGlassSheet(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    backdrop: Backdrop,
+    context: Context,
+    bottomPadding: Dp,
+    onDismiss: () -> Unit,
+    onFeedback: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val panelColor = if (isDark) {
+        Color(0xFF202124).copy(alpha = 0.62f)
+    } else {
+        Color(0xFFE6E2E7).copy(alpha = 0.52f)
+    }
+    val textColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
+    val mutedColor = if (isDark) Color.White.copy(alpha = 0.64f) else Color(0xFF5A5D66)
+    val tileColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.72f)
+    val starColor = if (isDark) Color(0xFFFFD76A) else Color(0xFFFFB300)
+    val accent = if (isDark) Color(0xFF8FC7FF) else Color(0xFF096F70)
+    val prefs = remember(context) {
+        context.getSharedPreferences("RateUsSubmitCount", Context.MODE_PRIVATE)
+    }
+    var selectedRating by remember(visible) { mutableIntStateOf(0) }
+    var submitCount by remember(visible) { mutableIntStateOf(prefs.getInt("submitCount", 0)) }
+    var statusMessage by remember(visible) { mutableStateOf<String?>(null) }
+    var breakdown by remember { mutableStateOf(SettingsRatingBreakdown()) }
+
+    DisposableEffect(visible) {
+        if (!visible) {
+            return@DisposableEffect onDispose { }
+        }
+        val ref = FirebaseDatabase.getInstance().getReference("ratings")
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val ratings = snapshot.value as? Map<*, *>
+                breakdown = SettingsRatingBreakdown(
+                    five = (ratings?.get("5") as? Long)?.toInt() ?: 0,
+                    four = (ratings?.get("4") as? Long)?.toInt() ?: 0,
+                    three = (ratings?.get("3") as? Long)?.toInt() ?: 0,
+                    two = (ratings?.get("2") as? Long)?.toInt() ?: 0,
+                    one = (ratings?.get("1") as? Long)?.toInt() ?: 0
+                )
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                statusMessage = "Could not load ratings."
+            }
+        }
+        ref.addValueEventListener(listener)
+        onDispose { ref.removeEventListener(listener) }
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 90)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 140))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = if (isDark) 0.38f else 0.18f))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                )
+        )
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier.imePadding(),
+        enter = slideInVertically(
+            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+            initialOffsetY = { it / 2 }
+        ) + fadeIn(animationSpec = tween(durationMillis = 120)) +
+            scaleIn(
+                animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                initialScale = 0.96f
+            ),
+        exit = slideOutVertically(
+            animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+            targetOffsetY = { it / 3 }
+        ) + fadeOut(animationSpec = tween(durationMillis = 120)) +
+            scaleOut(
+                animationSpec = tween(durationMillis = 170, easing = FastOutLinearInEasing),
+                targetScale = 0.98f
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(
+                    start = GlassChromeHorizontalPadding,
+                    end = GlassChromeHorizontalPadding,
+                    bottom = bottomPadding
+                )
+                .fillMaxWidth()
+                .heightIn(max = 560.dp)
+                .clip(GlassChromeShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .adaptiveLiquidGlassBackdrop(
+                    backdrop = backdrop,
+                    shape = GlassChromeShape,
+                    surfaceColor = panelColor,
+                    blurDp = 4f,
+                    shadow = null,
+                    highlight = {
+                        Highlight(
+                            width = if (isDark) 0.75.dp else 0.55.dp,
+                            blurRadius = 0.8.dp,
+                            alpha = if (isDark) 0.85f else 1.0f,
+                            style = HighlightStyle.Plain
+                        )
+                    },
+                    refractionHeightDp = 22f,
+                    refractionAmountDp = 72f,
+                    chromaticAberration = true
+                )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 18.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.bottomsheetlogo),
+                        contentDescription = stringResource(R.string.card_view_icon),
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                    )
+                    Text(
+                        text = stringResource(R.string.rate_us),
+                        modifier = Modifier.weight(1f),
+                        color = textColor,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    SettingsModalIconButton(
+                        icon = Icons.AutoMirrored.Filled.Send,
+                        tint = accent,
+                        containerColor = tileColor,
+                        onClick = onFeedback
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(GlassChromeInnerShape)
+                        .background(tileColor)
+                        .padding(vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(18.dp)
+                            .size(104.dp)
                             .clip(CircleShape)
-                            .background(color)
+                            .border(8.dp, starColor.copy(alpha = 0.34f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = String.format(Locale.US, "%.1f", breakdown.average),
+                            color = textColor,
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        (1..5).forEach { star ->
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = "$star stars",
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        selectedRating = star
+                                        statusMessage = null
+                                    }
+                                    .padding(4.dp),
+                                tint = if (star <= selectedRating) starColor else mutedColor.copy(alpha = 0.42f)
+                            )
+                        }
+                    }
+                    Text(
+                        text = if (selectedRating > 0) "$selectedRating / 5" else "Tap a star",
+                        color = mutedColor,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(GlassChromeInnerShape)
+                        .background(tileColor)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    (5 downTo 1).forEach { stars ->
+                        RatingBreakdownRow(
+                            stars = stars,
+                            count = breakdown.countFor(stars),
+                            total = breakdown.total,
+                            textColor = textColor,
+                            mutedColor = mutedColor,
+                            starColor = starColor
+                        )
+                    }
+                }
+
+                statusMessage?.let { message ->
+                    Text(
+                        text = message,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = if (message.contains("thank", ignoreCase = true)) accent else MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        if (selectedRating <= 0) {
+                            statusMessage = "Please select a rating before submitting."
+                            return@Button
+                        }
+                        if (submitCount >= 3) {
+                            statusMessage = "Submitted"
+                            return@Button
+                        }
+                        val nextSubmitCount = submitCount + 1
+                        submitCount = nextSubmitCount
+                        prefs.edit { putInt("submitCount", nextSubmitCount) }
+                        submitSettingsRating(selectedRating) { success ->
+                            statusMessage = if (success) "Rating submitted. Thank you!" else "Failed to submit rating."
+                        }
+                    },
+                    enabled = submitCount < 3,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accent.copy(alpha = if (isDark) 0.34f else 0.20f),
+                        contentColor = if (isDark) Color.White else accent,
+                        disabledContainerColor = mutedColor.copy(alpha = 0.16f),
+                        disabledContentColor = mutedColor
+                    ),
+                    contentPadding = PaddingValues(vertical = 12.dp)
+                ) {
+                    Text(
+                        text = if (submitCount >= 3) "Submitted" else stringResource(R.string.submit),
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Text(
-                    text = preset.label,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        lineHeight = 19.sp
-                    ),
-                    color = if (selected) textColor else secondaryTextColor
-                )
-                Text(
-                    text = preset.summary,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp),
-                    color = secondaryTextColor.copy(alpha = 0.78f)
-                )
-            }
-            RadioButton(
-                selected = selected,
-                onClick = { onClick(preset) },
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = MaterialTheme.colorScheme.primary,
-                    unselectedColor = secondaryTextColor
-                )
-            )
         }
     }
+}
+
+@Composable
+private fun SettingsModalIconButton(
+    icon: ImageVector,
+    tint: Color,
+    containerColor: Color,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.93f else 1f,
+        animationSpec = spring(stiffness = 520f, dampingRatio = 0.78f),
+        label = "settingsModalIconScale"
+    )
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(CircleShape)
+            .background(containerColor)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(21.dp))
+    }
+}
+
+@Composable
+private fun RatingBreakdownRow(
+    stars: Int,
+    count: Int,
+    total: Int,
+    textColor: Color,
+    mutedColor: Color,
+    starColor: Color
+) {
+    val fraction = if (total > 0) (count.toFloat() / total.toFloat()).coerceIn(0f, 1f) else 0f
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.width(72.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = "$stars",
+                color = textColor,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+            )
+            Icon(
+                imageVector = Icons.Filled.Star,
+                contentDescription = null,
+                tint = starColor,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(10.dp)
+                .clip(CircleShape)
+                .background(mutedColor.copy(alpha = 0.16f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(fraction)
+                    .height(10.dp)
+                    .clip(CircleShape)
+                    .background(starColor)
+            )
+        }
+        Text(
+            text = count.toString(),
+            modifier = Modifier.width(34.dp),
+            color = mutedColor,
+            textAlign = TextAlign.End,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
+        )
+    }
+}
+
+private fun submitSettingsRating(
+    rating: Int,
+    onComplete: (Boolean) -> Unit
+) {
+    val currentRatingRef = FirebaseDatabase.getInstance().getReference("ratings").child(rating.toString())
+    currentRatingRef.runTransaction(object : Transaction.Handler {
+        override fun doTransaction(currentData: MutableData): Transaction.Result {
+            val currentCount = currentData.getValue(Long::class.java) ?: 0L
+            currentData.value = currentCount + 1L
+            return Transaction.success(currentData)
+        }
+
+        override fun onComplete(
+            error: DatabaseError?,
+            committed: Boolean,
+            currentData: DataSnapshot?
+        ) {
+            onComplete(error == null && committed)
+        }
+    })
 }
 
 @Composable

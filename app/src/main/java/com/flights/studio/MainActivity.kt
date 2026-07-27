@@ -906,9 +906,9 @@ class MainActivity : FragmentActivity() {
                             backdrop = mainMenuBackdrop,
                             note = reminderTimeNote,
                             onDismiss = { reminderTimeNote = null },
-                            onSetReminder = { hourOfDay, minute, dayOffset ->
+                            onSetReminder = { hourOfDay, minute, dayOffset, alarmSoundUri ->
                                 reminderTimeNote?.let { note ->
-                                    scheduleReminderUsingWorkManager(note, hourOfDay, minute, dayOffset)
+                                    scheduleReminderUsingWorkManager(note, hourOfDay, minute, dayOffset, alarmSoundUri)
                                 } == true
                             }
                         )
@@ -1264,15 +1264,15 @@ class MainActivity : FragmentActivity() {
         display.forEachIndexed { index, text ->
             val baseUid = contentToUid[text] ?: ensureLocalUid(text)
             val key = if (used.add(baseUid)) baseUid else "$baseUid#$index"
-            val attachmentCounts = countNoteAttachments(NoteAttachmentStore.getItems(this, text))
+            val mediaCounts = noteMediaBadgeCounts(this, text)
             noteRows.add(
                 NoteRow(
                     id = key,
                     text = text,
-                    imagesCount = NoteMediaStore.getUris(this, text).size,
-                    attachmentsCount = attachmentCounts.documents,
-                    audioCount = attachmentCounts.audio,
-                    videoCount = attachmentCounts.video,
+                    imagesCount = mediaCounts.images,
+                    attachmentsCount = mediaCounts.documents,
+                    audioCount = mediaCounts.audio,
+                    videoCount = mediaCounts.video,
                     title = resolveTitle(text).orEmpty(),
                     hasReminder = getSharedPreferences("reminder_flags", MODE_PRIVATE)
                         .getBoolean(text.hashCode().toString(), false),
@@ -1719,12 +1719,15 @@ class MainActivity : FragmentActivity() {
                 notesAdapter.setUserTitle(row.content, title)
             } ?: notesAdapter.removeUserTitle(row.content)
 
+            val localPendingReminder = hasPendingReminderPulse(row.content)
+            val shouldKeepReminder = row.hasReminder || localPendingReminder
+            val shouldKeepBadge = row.hasReminderBadge || localPendingReminder
             getSharedPreferences("reminder_flags", MODE_PRIVATE).edit {
-                if (row.hasReminder) putBoolean(row.content.hashCode().toString(), true)
+                if (shouldKeepReminder) putBoolean(row.content.hashCode().toString(), true)
                 else remove(row.content.hashCode().toString())
             }
             getSharedPreferences("reminder_badges", MODE_PRIVATE).edit {
-                if (row.hasReminderBadge) putBoolean(row.content.hashCode().toString(), true)
+                if (shouldKeepBadge) putBoolean(row.content.hashCode().toString(), true)
                 else remove(row.content.hashCode().toString())
             }
 
@@ -2280,7 +2283,8 @@ class MainActivity : FragmentActivity() {
         note: String,
         hourOfDay: Int,
         minute: Int,
-        dayOffset: Int = 0
+        dayOffset: Int = 0,
+        alarmSoundUri: String? = null
     ): Boolean {
         val calendar = Calendar.getInstance().apply {
             add(Calendar.DAY_OF_YEAR, dayOffset)
@@ -2304,7 +2308,12 @@ class MainActivity : FragmentActivity() {
 
         val workRequest = OneTimeWorkRequestBuilder<ReminderWorker>()
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
-            .setInputData(workDataOf("note_key" to noteKey))
+            .setInputData(
+                workDataOf(
+                    "note_key" to noteKey,
+                    "alarm_sound_uri" to alarmSoundUri.orEmpty()
+                )
+            )
             .build()
 
         WorkManager.getInstance(this).enqueue(workRequest)
@@ -2321,11 +2330,17 @@ class MainActivity : FragmentActivity() {
             putString("${reminderKey}_work_id", workRequest.id.toString())
             putString("${reminderKey}_note_key", noteKey)
             putString("${reminderKey}_note", note)
+            if (alarmSoundUri.isNullOrBlank()) {
+                remove("${reminderKey}_alarm_sound_uri")
+            } else {
+                putString("${reminderKey}_alarm_sound_uri", alarmSoundUri)
+            }
         }
 
         notesAdapter.preloadBadgeStates(this)
         notesAdapter.preloadReminderFlags(this)
         refreshNotesDisplay()
+        syncEditedNoteToSupabase(note, note, hasReminderOverride = true)
         return true
     }
 
@@ -2380,6 +2395,15 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun reminderKey(note: String): String = note.hashCode().toString()
+
+    private fun hasPendingReminderPulse(note: String): Boolean {
+        val key = reminderKey(note)
+        val triggerAt = getSharedPreferences("reminder_meta", MODE_PRIVATE)
+            .getLong("${key}_trigger_at", 0L)
+        val badgeOn = getSharedPreferences("reminder_badges", MODE_PRIVATE)
+            .getBoolean(key, false)
+        return badgeOn && triggerAt > System.currentTimeMillis()
+    }
 
     private fun resolveTitle(note: String): String? =
         notesAdapter.getUserTitle(note) ?: NotesCacheManager.cachedTitles[note]
@@ -3273,7 +3297,8 @@ Version: $versionName
     ) {
         if (active) {
             val isDark = isSystemInDarkTheme()
-            val palette = rememberBriefingPalette(isDark)
+            val appThemePalette = LocalAppThemePalette.current
+            val palette = rememberBriefingPalette(isDark, appThemePalette)
             val pageColor = palette.page
             val textColor = palette.text
             val subTextColor = palette.subText
@@ -3669,31 +3694,31 @@ Version: $versionName
     )
 
     @Composable
-    private fun rememberBriefingPalette(isDark: Boolean): BriefingPalette {
-        return remember(isDark) {
-            if (isDark) {
-                BriefingPalette(
-                    page = Color(0xFF111317),
-                    card = Color(0xFF232425),
-                    aiCard = Color(0xFF121C22),
-                    border = Color(0xFF333538),
-                    text = Color(0xFFF2F5F8),
-                    subText = Color(0xFFB8C1CC),
-                    accent = Color(0xFF8FD5FF),
-                    warmAccent = Color(0xFFFFD166)
-                )
+    private fun rememberBriefingPalette(
+        isDark: Boolean,
+        appPalette: AppThemePalette
+    ): BriefingPalette {
+        return remember(isDark, appPalette) {
+            val text = if (isDark) {
+                Color(0xFFF6F8FB)
             } else {
-                BriefingPalette(
-                    page = Color(0xFFF1F3F6),
-                    card = Color(0xFFFEFEFE),
-                    aiCard = Color(0xFFF8FBFF),
-                    border = Color(0xFFE3E3E4),
-                    text = Color(0xFF161718),
-                    subText = Color(0xFF5F6670),
-                    accent = Color(0xFF0A6DFF),
-                    warmAccent = Color(0xFFD68A00)
-                )
+                Color(0xFF101418)
             }
+            val subText = if (isDark) {
+                Color(0xFFC4CCD6)
+            } else {
+                Color(0xFF4F5B66)
+            }
+            BriefingPalette(
+                page = appPalette.page,
+                card = appPalette.card.copy(alpha = if (isDark) 0.86f else 0.94f),
+                aiCard = appPalette.glass.copy(alpha = if (isDark) 0.82f else 0.90f),
+                border = appPalette.outline.copy(alpha = if (isDark) 0.42f else 0.34f),
+                text = text,
+                subText = subText,
+                accent = appPalette.accent,
+                warmAccent = appPalette.warm
+            )
         }
     }
 

@@ -359,7 +359,7 @@ fun FlightsTheme(
     appThemePreset: AppThemePreset = AppThemePreset.Classic,
     content: @Composable () -> Unit
 ) {
-    val colors = when {
+    val baseColors = when {
         darkTheme && profileBackdropStyle == ProfileBackdropStyle.Amoled -> darkColorScheme(
             primary = DarkColorScheme.primary,
             onPrimary = DarkColorScheme.onPrimary,
@@ -380,6 +380,31 @@ fun FlightsTheme(
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
+    val appThemePalette = remember(appThemePreset, darkTheme) {
+        appThemePaletteFor(appThemePreset, darkTheme)
+    }
+    val colors = remember(baseColors, appThemePalette, darkTheme, profileBackdropStyle) {
+        val themedSurface = if (darkTheme && profileBackdropStyle == ProfileBackdropStyle.Amoled) {
+            Color.Black
+        } else {
+            appThemePalette.surface
+        }
+        val themedPage = if (darkTheme && profileBackdropStyle == ProfileBackdropStyle.Amoled) {
+            Color.Black
+        } else {
+            appThemePalette.page
+        }
+        baseColors.copy(
+            primary = appThemePalette.accent,
+            secondary = appThemePalette.warm,
+            tertiary = appThemePalette.rose,
+            background = themedPage,
+            surface = themedSurface,
+            surfaceVariant = appThemePalette.card,
+            outline = appThemePalette.outline,
+            outlineVariant = appThemePalette.outline.copy(alpha = if (darkTheme) 0.82f else 0.68f)
+        )
+    }
 
     // ✅ GLOBAL page background (same everywhere)
     val appPageBg = rememberAppPageBg(
@@ -390,10 +415,6 @@ fun FlightsTheme(
 
     val backdropSpec = rememberProfileBackdropSpec(darkTheme, profileBackdropStyle, colors)
     val glassSpec = rememberProfileGlassSpec(darkTheme, profileBackdropStyle)
-    val appThemePalette = remember(appThemePreset, darkTheme) {
-        appThemePaletteFor(appThemePreset, darkTheme)
-    }
-
     MaterialTheme(
         colorScheme = colors,
         typography = Typography()

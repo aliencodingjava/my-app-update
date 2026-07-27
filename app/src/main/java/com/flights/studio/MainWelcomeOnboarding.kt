@@ -58,8 +58,6 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.highlight.HighlightStyle
 
 @Composable
 fun MainWelcomeOnboardingOverlay(
@@ -136,17 +134,20 @@ private fun MainWelcomeCard(
 ) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
-    val shape = RoundedCornerShape(28.dp)
+    val appThemePreset = LocalAppThemePreset.current
+    val appThemePalette = LocalAppThemePalette.current
+    val shape = mainWelcomeMaterialShape(appThemePreset)
+    val buttonShape = mainWelcomeButtonShape(appThemePreset)
     val glassTint = if (isDark) {
-        Color.Black.copy(alpha = 0.42f)
+        appThemePalette.glass.copy(alpha = 0.32f)
     } else {
-        Color.White.copy(alpha = 0.50f)
+        appThemePalette.glass.copy(alpha = 0.46f)
     }
     val stroke = Brush.verticalGradient(
         listOf(
-            Color.White.copy(alpha = if (isDark) 0.28f else 0.58f),
-            Color.White.copy(alpha = if (isDark) 0.08f else 0.20f),
-            cs.outline.copy(alpha = 0.10f)
+            appThemePalette.accent.copy(alpha = if (isDark) 0.34f else 0.30f),
+            Color.White.copy(alpha = if (isDark) 0.10f else 0.32f),
+            appThemePalette.outline.copy(alpha = 0.16f)
         )
     )
 
@@ -157,14 +158,7 @@ private fun MainWelcomeCard(
                 backdrop = backdrop,
                 shape = { shape },
                 shadow = null,
-                highlight = {
-                    Highlight(
-                        width = if (isDark) 0.45.dp else 0.30.dp,
-                        blurRadius = if (isDark) 1.6.dp else 1.dp,
-                        alpha = if (isDark) 0.50f else 0.80f,
-                        style = HighlightStyle.Plain
-                    )
-                },
+                highlight = null,
                 effects = {
                     vibrancy()
                     blur(24.dp.toPx(), edgeTreatment = TileMode.Mirror)
@@ -177,6 +171,8 @@ private fun MainWelcomeCard(
                 },
                 onDrawSurface = {
                     drawRect(glassTint)
+                    drawRect(appThemePalette.glassOverlay.copy(alpha = if (isDark) 0.10f else 0.07f))
+                    drawRect(appThemePalette.card.copy(alpha = if (isDark) 0.08f else 0.05f))
                 }
             ),
         shape = shape,
@@ -188,7 +184,7 @@ private fun MainWelcomeCard(
             Modifier
                 .fillMaxWidth()
                 .border(width = 1.dp, brush = stroke, shape = shape)
-                .border(width = 1.dp, color = cs.outline.copy(alpha = if (isDark) 0.12f else 0.16f), shape = shape)
+                .border(width = 1.dp, color = appThemePalette.outline.copy(alpha = if (isDark) 0.12f else 0.16f), shape = shape)
         ) {
             Column(
                 Modifier
@@ -221,13 +217,13 @@ private fun MainWelcomeCard(
                 Button(
                     onClick = onDone,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = cs.surfaceContainerHigh,
-                        contentColor = if (isDark) Color.White else cs.onSurface
+                        containerColor = appThemePalette.action.copy(alpha = if (isDark) 0.30f else 0.24f),
+                        contentColor = appThemePalette.actionContent
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
                     contentPadding = PaddingValues(horizontal = 18.dp, vertical = 13.dp),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp)
+                    shape = buttonShape
                 ) {
                     Text(
                         text = "Done",
@@ -239,13 +235,59 @@ private fun MainWelcomeCard(
     }
 }
 
+private fun mainWelcomeMaterialShape(preset: AppThemePreset): RoundedCornerShape {
+    return when (preset) {
+        AppThemePreset.Classic -> RoundedCornerShape(28.dp)
+        AppThemePreset.Sky -> RoundedCornerShape(
+            topStart = 34.dp,
+            topEnd = 22.dp,
+            bottomEnd = 34.dp,
+            bottomStart = 24.dp
+        )
+        AppThemePreset.Sunset -> RoundedCornerShape(
+            topStart = 22.dp,
+            topEnd = 38.dp,
+            bottomEnd = 24.dp,
+            bottomStart = 38.dp
+        )
+        AppThemePreset.Aurora -> RoundedCornerShape(
+            topStart = 38.dp,
+            topEnd = 22.dp,
+            bottomEnd = 38.dp,
+            bottomStart = 22.dp
+        )
+        AppThemePreset.Graphite -> RoundedCornerShape(18.dp)
+        AppThemePreset.Ocean -> RoundedCornerShape(24.dp, 38.dp, 30.dp, 38.dp)
+        AppThemePreset.Meadow -> RoundedCornerShape(38.dp, 24.dp, 38.dp, 24.dp)
+        AppThemePreset.Candy -> RoundedCornerShape(36.dp)
+        AppThemePreset.Royal -> RoundedCornerShape(22.dp, 34.dp, 22.dp, 34.dp)
+        AppThemePreset.Ember -> RoundedCornerShape(18.dp, 34.dp, 18.dp, 34.dp)
+    }
+}
+
+private fun mainWelcomeButtonShape(preset: AppThemePreset): RoundedCornerShape {
+    return when (preset) {
+        AppThemePreset.Classic -> RoundedCornerShape(18.dp)
+        AppThemePreset.Sky -> RoundedCornerShape(22.dp, 14.dp, 22.dp, 14.dp)
+        AppThemePreset.Sunset -> RoundedCornerShape(14.dp, 24.dp, 14.dp, 24.dp)
+        AppThemePreset.Aurora -> RoundedCornerShape(24.dp, 14.dp, 24.dp, 14.dp)
+        AppThemePreset.Graphite -> RoundedCornerShape(12.dp)
+        AppThemePreset.Ocean -> RoundedCornerShape(18.dp, 24.dp, 18.dp, 24.dp)
+        AppThemePreset.Meadow -> RoundedCornerShape(24.dp, 18.dp, 24.dp, 18.dp)
+        AppThemePreset.Candy -> RoundedCornerShape(24.dp)
+        AppThemePreset.Royal -> RoundedCornerShape(16.dp, 24.dp, 16.dp, 24.dp)
+        AppThemePreset.Ember -> RoundedCornerShape(12.dp, 22.dp, 12.dp, 22.dp)
+    }
+}
+
 @Composable
 private fun MainHighlightsGrid(modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
+    val palette = LocalAppThemePalette.current
     val shape = RoundedCornerShape(18.dp)
-    val surfaceColor = if (isDark) Color(0xFF232425) else Color(0xFFFEFEFE)
-    val borderColor = if (isDark) Color(0xFF333538) else Color(0xFFE3E3E4)
+    val surfaceColor = palette.card.copy(alpha = if (isDark) 0.62f else 0.82f)
+    val borderColor = palette.outline.copy(alpha = if (isDark) 0.26f else 0.20f)
     val items = listOf(
         MainFeature("Live cams", R.drawable.fullscreen_24dp_46152f_fill1_wght400_grad0_opsz24),
         MainFeature("Play", R.drawable.play_arrow_24dp_ffffff_fill1_wght400_grad0_opsz24),
@@ -324,9 +366,10 @@ private fun MainFeatureChip(
 ) {
     val cs = MaterialTheme.colorScheme
     val isDark = isSystemInDarkTheme()
+    val palette = LocalAppThemePalette.current
     val chipShape = RoundedCornerShape(14.dp)
-    val chipBg = if (isDark) Color(0xFF2A2B2D) else Color(0xFFF5F6F8)
-    val chipBorder = if (isDark) Color(0xFF3A3C3F) else Color(0xFFE3E3E4)
+    val chipBg = palette.badge.copy(alpha = if (isDark) 0.26f else 0.34f)
+    val chipBorder = palette.outline.copy(alpha = if (isDark) 0.18f else 0.16f)
 
     Box(
         modifier
@@ -344,7 +387,7 @@ private fun MainFeatureChip(
             Icon(
                 painter = painterResource(feature.iconRes),
                 contentDescription = null,
-                tint = cs.onSurfaceVariant,
+                tint = palette.badgeContent,
                 modifier = Modifier.size(15.dp)
             )
             Spacer(Modifier.width(7.dp))
@@ -353,7 +396,7 @@ private fun MainFeatureChip(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = cs.onSurface,
+                color = if (isDark) cs.onSurface else palette.actionContent,
                 modifier = Modifier.weight(1f)
             )
         }

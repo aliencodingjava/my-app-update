@@ -34,6 +34,7 @@ class SettingsActivity : LocaleActivity() {
     private lateinit var userPrefs: UserPreferencesManager
     private val settingsSearchQuery = mutableStateOf("")
     private val searchSheetVisible = mutableStateOf(false)
+    private val feedbackRequestToken = mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -156,7 +157,8 @@ class SettingsActivity : LocaleActivity() {
                                     Intent(this@SettingsActivity, ProfileDetailsComposeActivity::class.java)
                                 )
                             },
-                            searchSheetVisible = searchSheetVisible.value
+                            searchSheetVisible = searchSheetVisible.value,
+                            feedbackRequestToken = feedbackRequestToken.value
                         )
                     }
                 }
@@ -166,6 +168,10 @@ class SettingsActivity : LocaleActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
+    }
+
+    fun openFeedbackGlassSheet() {
+        feedbackRequestToken.value += 1
     }
 
     private fun openSearchView() {

@@ -563,7 +563,6 @@ private fun GalleryExpressiveMenuAnchored(
         DropdownMenuPopup(
             expanded = true,
             onDismissRequest = onDismiss,
-            offset = DpOffset(0.dp, 0.dp),
         ) {
             val itemCount = actions.size
 

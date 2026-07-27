@@ -91,14 +91,13 @@ class RateUsDialogFragment : BottomSheetDialogFragment() {
 
         val fabSend = view.findViewById<ImageView>(R.id.fabSend)
         fabSend.setOnClickListener {
-            dismiss() // ✅ Close the rating dialog
-            FeedbackBottomSheet().show(parentFragmentManager, "FeedbackDialog")
+            openFeedback()
         }
 
 
         // ✅ Setup feedback button
         view.findViewById<MaterialButton>(R.id.submitButton).setOnClickListener {
-            FeedbackBottomSheet().show(childFragmentManager, "FeedbackDialog")
+            openFeedback()
         }
 
         // ✅ Setup RatingBar
@@ -125,6 +124,16 @@ class RateUsDialogFragment : BottomSheetDialogFragment() {
                     requireView().postDelayed({ dismiss() }, 1800)
                 }
             }
+        }
+    }
+
+    private fun openFeedback() {
+        val settingsActivity = activity as? SettingsActivity
+        if (settingsActivity != null) {
+            dismiss()
+            settingsActivity.openFeedbackGlassSheet()
+        } else {
+            FeedbackBottomSheet().show(parentFragmentManager, "FeedbackDialog")
         }
     }
 

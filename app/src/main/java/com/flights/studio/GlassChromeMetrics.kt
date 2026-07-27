@@ -35,26 +35,21 @@ internal const val TopActionBarSaturation = 1.08f
 
 @Composable
 internal fun glassChromeTint(): Color {
-    return if (isSystemInDarkTheme()) {
-        Color(0xFF17191D).copy(alpha = 0.40f)
-    } else {
-        Color(0xFFF7F7F8).copy(alpha = 0.48f)
-    }
+    val palette = LocalAppThemePalette.current
+    return palette.glass.copy(alpha = if (isSystemInDarkTheme()) 0.38f else 0.46f)
 }
 
 @Composable
 internal fun glassChromeOverlayTint(): Color {
-    return if (isSystemInDarkTheme()) {
-        Color.White.copy(alpha = 0.07f)
-    } else {
-        Color.Black.copy(alpha = 0.035f)
-    }
+    val palette = LocalAppThemePalette.current
+    return palette.glassOverlay.copy(alpha = if (isSystemInDarkTheme()) 0.08f else 0.045f)
 }
 
 @Composable
 internal fun bottomTabBarTint(): Color {
     val amount = rememberLiquidGlassTintAmount()
-    return bottomTabBarTintForAmount(amount, isSystemInDarkTheme())
+    val palette = LocalAppThemePalette.current
+    return palette.bottomBar.copy(alpha = mix(if (isSystemInDarkTheme()) 0.34f else 0.36f, 0.92f, amount))
 }
 
 internal fun bottomTabBarTintForAmount(amount: Float, isDarkTheme: Boolean): Color {
@@ -68,7 +63,8 @@ internal fun bottomTabBarTintForAmount(amount: Float, isDarkTheme: Boolean): Col
 @Composable
 internal fun bottomTabBarOverlayTint(): Color {
     val amount = rememberLiquidGlassTintAmount()
-    return bottomTabBarOverlayTintForAmount(amount, isSystemInDarkTheme())
+    val palette = LocalAppThemePalette.current
+    return palette.glassOverlay.copy(alpha = mix(if (isSystemInDarkTheme()) 0.035f else 0.018f, if (isSystemInDarkTheme()) 0.16f else 0.10f, amount))
 }
 
 internal fun bottomTabBarOverlayTintForAmount(amount: Float, isDarkTheme: Boolean): Color {
@@ -82,7 +78,8 @@ internal fun bottomTabBarOverlayTintForAmount(amount: Float, isDarkTheme: Boolea
 @Composable
 internal fun bottomTabInactiveColor(): Color {
     val amount = rememberLiquidGlassTintAmount()
-    return bottomTabInactiveColorForAmount(amount, isSystemInDarkTheme())
+    val palette = LocalAppThemePalette.current
+    return lerp(palette.actionContent.copy(alpha = 0.66f), palette.actionContent.copy(alpha = 0.86f), amount)
 }
 
 internal fun bottomTabInactiveColorForAmount(amount: Float, isDarkTheme: Boolean): Color {
@@ -96,7 +93,8 @@ internal fun bottomTabInactiveColorForAmount(amount: Float, isDarkTheme: Boolean
 @Composable
 internal fun bottomTabSelectedPillColor(): Color {
     val amount = rememberLiquidGlassTintAmount()
-    return bottomTabSelectedPillColorForAmount(amount, isSystemInDarkTheme(), primaryTabAccentColor())
+    val palette = LocalAppThemePalette.current
+    return palette.bottomPill.copy(alpha = mix(if (isSystemInDarkTheme()) 0.74f else 0.68f, 0.90f, amount))
 }
 
 internal fun bottomTabSelectedPillColorForAmount(
@@ -116,7 +114,8 @@ internal fun bottomTabSelectedPillColorForAmount(
 @Composable
 internal fun bottomTabSelectedContentColor(): Color {
     val amount = rememberLiquidGlassTintAmount()
-    return bottomTabSelectedContentColorForAmount(amount, isSystemInDarkTheme(), primaryTabAccentColor())
+    val palette = LocalAppThemePalette.current
+    return lerp(palette.actionContent, Color.White, if (isSystemInDarkTheme()) amount * 0.12f else amount * 0.28f)
 }
 
 internal fun bottomTabSelectedContentColorForAmount(
@@ -270,16 +269,13 @@ internal fun rememberLiquidGlassAdaptiveLuminanceEnabled(): Boolean {
 
 @Composable
 internal fun topActionBarTint(): Color {
-    return if (isSystemInDarkTheme()) {
-        Color(0xFF151617).copy(alpha = 0.76f)
-    } else {
-        Color(0xFFF7F7F8).copy(alpha = 0.76f)
-    }
+    val palette = LocalAppThemePalette.current
+    return palette.glass.copy(alpha = if (isSystemInDarkTheme()) 0.70f else 0.76f)
 }
 
 @Composable
 internal fun primaryTabAccentColor(): Color {
-    return MaterialTheme.colorScheme.primary
+    return LocalAppThemePalette.current.accent
 }
 
 internal fun bottomChromeShadow(): Shadow {

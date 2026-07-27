@@ -135,6 +135,7 @@ fun HomeScreenRouteContent(
     val activity = LocalActivity.current
     val hostActivity = activity as? FragmentActivity
     val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
     val ui = rememberUiScale()
 
 
@@ -516,11 +517,7 @@ fun HomeScreenRouteContent(
     val shape = RoundedCornerShape(16.dp)
 
 
-    val themedSurface = if (isDark) {
-        Color(0xFF1A1A1A).copy(alpha = 0.92f)
-    } else {
-        Color(0xFFFDFDFD).copy(alpha = 0.92f)
-    }
+    val themedSurface = appPalette.card.copy(alpha = if (isDark) 0.86f else 0.92f)
 
     externalAppPrompt?.let { prompt ->
         fun openUri(url: String) {
@@ -562,7 +559,11 @@ fun HomeScreenRouteContent(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(appPalette.page)
+    ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
             // TOP CAMERA CARD AREA (FIXED)
@@ -923,7 +924,11 @@ private fun CameraExpandTogglePill(
         animationSpec = tween(240, easing = FastOutSlowInEasing),
         label = "cameraExpandToggleRotation"
     )
-    val textColor = Color.White.copy(alpha = if (expanded) 1f else 0.90f)
+    val textColor = if (isDark) {
+        Color.White.copy(alpha = if (expanded) 1f else 0.90f)
+    } else {
+        Color.Black.copy(alpha = if (expanded) 1f else 0.86f)
+    }
 
     Row(
         modifier = modifier

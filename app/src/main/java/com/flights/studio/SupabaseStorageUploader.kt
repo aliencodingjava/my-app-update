@@ -8,7 +8,10 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.BufferedSink
+import okio.source
 import org.json.JSONObject
 import java.net.URLEncoder
 
@@ -102,11 +105,6 @@ object SupabaseStorageUploader {
         bucket: String = "note-attachments",
     ): String? = withContext(Dispatchers.IO) {
         try {
-            val bytes = context.contentResolver
-                .openInputStream(sourceUri)
-                ?.use { it.readBytes() }
-                ?: return@withContext null
-
             val mime = mimeHint
                 ?: context.contentResolver.getType(sourceUri)
                 ?: when (fileName.substringAfterLast('.', "").lowercase()) {
@@ -127,13 +125,14 @@ object SupabaseStorageUploader {
                 .split("/")
                 .joinToString("/") { URLEncoder.encode(it, "UTF-8") }
 
+            val requestBody = sourceUri.toStreamingRequestBody(context, mime)
             val req = Request.Builder()
                 .url("$supabaseUrl/storage/v1/object/$bucket/$encodedPath")
                 .addHeader("apikey", supabaseAnonKey)
                 .addHeader("Authorization", "Bearer $authToken")
                 .addHeader("Content-Type", mime)
                 .addHeader("x-upsert", "false")
-                .post(bytes.toRequestBody(mime.toMediaType()))
+                .post(requestBody)
                 .build()
 
             client.newCall(req).execute().use { resp ->
@@ -151,6 +150,25 @@ object SupabaseStorageUploader {
             null
         }
     }
+
+    private fun Uri.toStreamingRequestBody(context: Context, mime: String): RequestBody =
+        object : RequestBody() {
+            override fun contentType() = mime.toMediaType()
+
+            override fun contentLength(): Long =
+                runCatching {
+                    context.contentResolver.openAssetFileDescriptor(this@toStreamingRequestBody, "r")
+                        ?.use { it.length }
+                }.getOrNull()?.takeIf { it >= 0L } ?: -1L
+
+            override fun writeTo(sink: BufferedSink) {
+                val input = context.contentResolver.openInputStream(this@toStreamingRequestBody)
+                    ?: throw IllegalStateException("Cannot open attachment stream")
+                input.use { stream ->
+                    sink.writeAll(stream.source())
+                }
+            }
+        }
 
     // ----------------------------
     // Signed URL

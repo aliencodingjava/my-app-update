@@ -29,9 +29,14 @@ class ReminderWorker(context: Context, workerParams: WorkerParameters) : Worker(
             .getSharedPreferences("reminder_notes", Context.MODE_PRIVATE)
             .getString(noteKey, "No note") ?: "No note"
 
-        val channelId = "reminder_channel"
-        val soundUri  =
-            "android.resource://${applicationContext.packageName}/raw/reminder_sound".toUri()
+        val customSoundUri = inputData.getString("alarm_sound_uri")
+            ?.takeIf { it.isNotBlank() }
+            ?.toUri()
+        val defaultSoundUri = "android.resource://${applicationContext.packageName}/${R.raw.confirm}".toUri()
+        val soundUri = customSoundUri
+            ?: defaultSoundUri
+        val channelId = customSoundUri?.let { "reminder_channel_custom_${it.toString().hashCode()}" }
+            ?: "reminder_channel_default"
 
         // ---------- 2. make / verify channel ----------
         val nm = applicationContext.getSystemService(NotificationManager::class.java)
@@ -39,7 +44,7 @@ class ReminderWorker(context: Context, workerParams: WorkerParameters) : Worker(
             nm.createNotificationChannel(
                 NotificationChannel(
                     channelId,
-                    "Reminders",
+                    if (customSoundUri == null) "Reminders" else "Reminder custom sound",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     setSound(soundUri, AudioAttributes.Builder()

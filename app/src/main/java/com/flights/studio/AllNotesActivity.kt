@@ -143,8 +143,7 @@ class AllNotesActivity : LocaleActivity() {
                 used.add(key)
             }
 
-            val imagesCount = NoteMediaStore.getUris(this, text).size
-            val attachmentCounts = countNoteAttachments(NoteAttachmentStore.getItems(this, text))
+            val mediaCounts = noteMediaBadgeCounts(this, text)
             val title = resolveTitle(text).orEmpty()   // ✅ pull from adapter/cache
 
             val bellOn = getSharedPreferences("reminder_flags", MODE_PRIVATE)
@@ -157,10 +156,10 @@ class AllNotesActivity : LocaleActivity() {
                 NoteRow(
                     id = key,
                     text = text,
-                    imagesCount = imagesCount,
-                    attachmentsCount = attachmentCounts.documents,
-                    audioCount = attachmentCounts.audio,
-                    videoCount = attachmentCounts.video,
+                    imagesCount = mediaCounts.images,
+                    attachmentsCount = mediaCounts.documents,
+                    audioCount = mediaCounts.audio,
+                    videoCount = mediaCounts.video,
                     title = title,
                     hasReminder = bellOn,
                     hasBadge = badgeOn,
@@ -1987,12 +1986,15 @@ class AllNotesActivity : LocaleActivity() {
                     notesAdapter.setUserTitle(row.content, title)
                 } ?: notesAdapter.removeUserTitle(row.content)
 
+                val localPendingReminder = hasPendingReminderPulse(row.content)
+                val shouldKeepReminder = row.hasReminder || localPendingReminder
+                val shouldKeepBadge = row.hasReminderBadge || localPendingReminder
                 getSharedPreferences("reminder_flags", MODE_PRIVATE).edit {
-                    if (row.hasReminder) putBoolean(row.content.hashCode().toString(), true)
+                    if (shouldKeepReminder) putBoolean(row.content.hashCode().toString(), true)
                     else remove(row.content.hashCode().toString())
                 }
                 getSharedPreferences("reminder_badges", MODE_PRIVATE).edit {
-                    if (row.hasReminderBadge) putBoolean(row.content.hashCode().toString(), true)
+                    if (shouldKeepBadge) putBoolean(row.content.hashCode().toString(), true)
                     else remove(row.content.hashCode().toString())
                 }
 
@@ -2064,6 +2066,15 @@ class AllNotesActivity : LocaleActivity() {
     private fun noteHasReminderBadge(note: String): Boolean =
         getSharedPreferences("reminder_badges", MODE_PRIVATE)
             .getBoolean(note.hashCode().toString(), false)
+
+    private fun hasPendingReminderPulse(note: String): Boolean {
+        val key = note.hashCode().toString()
+        val triggerAt = getSharedPreferences("reminder_meta", MODE_PRIVATE)
+            .getLong("${key}_trigger_at", 0L)
+        val badgeOn = getSharedPreferences("reminder_badges", MODE_PRIVATE)
+            .getBoolean(key, false)
+        return badgeOn && triggerAt > System.currentTimeMillis()
+    }
 
     private fun refreshNotesDisplayFromSettings() {
         val settings = readNotesPageSettings()
@@ -3096,6 +3107,13 @@ class AllNotesActivity : LocaleActivity() {
         }
         getSharedPreferences("reminder_flags", MODE_PRIVATE).edit(commit = true) {
             putBoolean(note.hashCode().toString(), true)
+        }
+        getSharedPreferences("reminder_meta", MODE_PRIVATE).edit(commit = true) {
+            val reminderKey = note.hashCode().toString()
+            putLong("${reminderKey}_trigger_at", calendar.timeInMillis)
+            putString("${reminderKey}_work_id", workRequest.id.toString())
+            putString("${reminderKey}_note_key", noteKey)
+            putString("${reminderKey}_note", note)
         }
 
         refreshRowFor(note)

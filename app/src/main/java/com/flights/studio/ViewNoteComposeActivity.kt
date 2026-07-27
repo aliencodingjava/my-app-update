@@ -211,7 +211,7 @@ class ViewNoteComposeActivity : ComponentActivity() {
                                 context = this,
                                 note = note,
                                 title = title,
-                                images = NoteMediaStore.getUris(this, uid), // pass images
+                                images = noteMediaUrisForKeys(this, uid, note),
                                 attachments = NoteAttachmentStore.getItems(this, uid).ifEmpty {
                                     NoteAttachmentStore.getItems(this, note)
                                 },
@@ -245,6 +245,19 @@ class ViewNoteComposeActivity : ComponentActivity() {
     }
 }
 
+private fun noteMediaUrisForKeys(
+    context: Context,
+    uid: String?,
+    note: String
+): List<Uri> {
+    val keys = linkedSetOf<String>()
+    uid?.takeIf { it.isNotBlank() }?.let { keys += it }
+    note.takeIf { it.isNotBlank() }?.let { keys += it }
+    return keys
+        .flatMap { key -> NoteMediaStore.getUris(context, key) }
+        .distinctBy { it.toString() }
+}
+
 private fun formatVoiceDuration(durationMs: Long): String {
     val totalSeconds = (durationMs / 1000).coerceAtLeast(0)
     val minutes = totalSeconds / 60
@@ -267,10 +280,10 @@ private fun ViewNoteScreen(
     val isDark = isSystemInDarkTheme()
     val uris by produceState(
         initialValue = emptyList(),
-        key1 = uid
+        key1 = uid,
+        key2 = note
     ) {
-        value = if (uid.isNullOrBlank()) emptyList()
-        else withContext(Dispatchers.IO) { NoteMediaStore.getUris(ctx, uid) }
+        value = withContext(Dispatchers.IO) { noteMediaUrisForKeys(ctx, uid, note) }
     }
     val voiceItems by produceState(
         initialValue = emptyList(),

@@ -4,7 +4,7 @@ import android.content.Context
 import android.media.MediaPlayer
 
 fun playSheetOpenSound(context: Context, soundRes: Int) {
-    val player = MediaPlayer.create(context, soundRes)
+    val player = MediaPlayer.create(context, soundRes) ?: return
     player.setOnCompletionListener {
         it.release() // free resources after playback
     }

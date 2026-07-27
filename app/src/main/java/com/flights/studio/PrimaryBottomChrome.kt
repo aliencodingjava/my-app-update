@@ -44,9 +44,12 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,10 +62,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
@@ -243,6 +251,7 @@ private fun PrimaryQuickTabBar(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 internal fun GlassBottomTabBar(
     modifier: Modifier = Modifier,
     backdrop: LayerBackdrop,
@@ -253,6 +262,9 @@ internal fun GlassBottomTabBar(
     val glassColor = bottomTabBarTint()
     val overlayTint = bottomTabBarOverlayTint()
     val isDark = isSystemInDarkTheme()
+    val appThemePreset = LocalAppThemePreset.current
+    val chromeShape = themedBottomChromeShape(appThemePreset)
+    val chromeInnerShape = themedBottomChromeInnerShape(appThemePreset)
     val liquidGlassTintAmount = rememberLiquidGlassTintAmount()
     val adaptiveEnabled = rememberLiquidGlassAdaptiveLuminanceEnabled()
     val backdropBlurDp = bottomChromeBackdropBlurDp()
@@ -286,7 +298,7 @@ internal fun GlassBottomTabBar(
     val appThemePalette = LocalAppThemePalette.current
     val tabAccent = appThemePalette.accent
     val tabAccentWarm = appThemePalette.warm
-    val tabAccentRose = appThemePalette.rose
+    val materialDecorations = rememberBottomTabMaterialDecorations(appThemePreset)
     val adaptiveSelectedContentColor = lerpColor(
         bottomTabSelectedContentColor(),
         adaptiveContentColor,
@@ -306,11 +318,11 @@ internal fun GlassBottomTabBar(
             .padding(horizontal = GlassChromeHorizontalPadding)
             .fillMaxWidth()
             .height(56.dp)
-            .shadow(GlassChromeShadowElevation, GlassChromeShape, clip = false)
-            .clip(GlassChromeShape)
+            .shadow(GlassChromeShadowElevation, chromeShape, clip = false)
+            .clip(chromeShape)
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { GlassChromeShape },
+                shape = { chromeShape },
                 shadow = { bottomChromeShadow() },
                 highlight = null,
                 effects = {
@@ -360,7 +372,7 @@ internal fun GlassBottomTabBar(
             )
             .background(
                 color = overlayTint,
-                shape = GlassChromeShape
+                shape = chromeShape
             )
     ) {
         AndroidView(
@@ -368,8 +380,8 @@ internal fun GlassBottomTabBar(
             factory = { FrostedActionBarBlurView(it) },
             update = {
                 it.contentView = contentView
-                it.scrimColor = glassColor.toArgb()
-                it.cornerRadiusPx = it.resources.displayMetrics.density * 28f
+                it.scrimColor = Color.Transparent.toArgb()
+                it.cornerRadiusPx = it.resources.displayMetrics.density * themedBottomChromeNativeRadius(appThemePreset)
                 it.useLiquidRefraction = true
                 it.blurRadiusPx = nativeBlurPx
                 it.saturation = 1.18f
@@ -380,54 +392,19 @@ internal fun GlassBottomTabBar(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(adaptiveSurfaceTint, GlassChromeShape)
+                    .background(adaptiveSurfaceTint, chromeShape)
             )
         }
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .clip(GlassChromeShape)
+                .clip(chromeShape)
                 .drawBehind {
-                    drawRoundRect(
-                        brush = Brush.linearGradient(
-                            colors = if (isDark) {
-                                listOf(
-                                    Color(0xFF0F172A).copy(alpha = 0.16f),
-                                    tabAccent.copy(alpha = 0.15f),
-                                    tabAccentWarm.copy(alpha = 0.10f)
-                                )
-                            } else {
-                                listOf(
-                                    Color.White.copy(alpha = 0.12f),
-                                    tabAccent.copy(alpha = 0.085f),
-                                    tabAccentWarm.copy(alpha = 0.095f)
-                                )
-                            },
-                            start = Offset.Zero,
-                            end = Offset(size.width, size.height)
-                        )
-                    )
-                    withTransform({
-                        rotate(-12f, pivot = Offset(size.width * 0.86f, size.height * 0.40f))
-                    }) {
-                        drawRoundRect(
-                            color = tabAccent.copy(alpha = if (isDark) 0.22f else 0.13f),
-                            topLeft = Offset(size.width * 0.70f, -8.dp.toPx()),
-                            size = androidx.compose.ui.geometry.Size(size.width * 0.24f, 18.dp.toPx()),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(9.dp.toPx(), 9.dp.toPx())
-                        )
-                        drawRoundRect(
-                            color = tabAccentWarm.copy(alpha = if (isDark) 0.22f else 0.16f),
-                            topLeft = Offset(size.width * 0.80f, 15.dp.toPx()),
-                            size = androidx.compose.ui.geometry.Size(size.width * 0.18f, 6.dp.toPx()),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
-                        )
-                    }
-                    drawRoundRect(
-                        color = tabAccentRose.copy(alpha = if (isDark) 0.16f else 0.10f),
-                        topLeft = Offset(size.width * 0.06f, size.height - 10.dp.toPx()),
-                        size = androidx.compose.ui.geometry.Size(size.width * 0.24f, 5.dp.toPx()),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
+                    drawBottomTabThemeAccents(
+                        decorations = materialDecorations,
+                        accent = tabAccent,
+                        warm = tabAccentWarm,
+                        rose = appThemePalette.rose
                     )
                 }
         )
@@ -435,37 +412,21 @@ internal fun GlassBottomTabBar(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clip(GlassChromeShape)
+                    .clip(chromeShape)
                     .drawBehind {
                         if (lanternAlpha <= 0.001f || tabs.isEmpty()) return@drawBehind
-                        drawRect(
+                        val tabWidth = size.width / tabs.size.coerceAtLeast(1)
+                        val selectedCenterX = tabWidth * (selectedIndex.coerceIn(0, tabs.lastIndex) + 0.5f)
+                        drawCircle(
                             brush = Brush.radialGradient(
-                                0.00f to selectedLanternColor.copy(alpha = 0.96f * lanternAlpha),
-                                0.18f to selectedLanternColor.copy(alpha = 0.68f * lanternAlpha),
-                                0.52f to selectedLanternColor.copy(alpha = 0.24f * lanternAlpha),
+                                0.00f to selectedLanternColor.copy(alpha = 0.52f * lanternAlpha),
+                                0.44f to selectedLanternColor.copy(alpha = 0.18f * lanternAlpha),
                                 1.00f to selectedLanternColor.copy(alpha = 0f),
-                                center = Offset(0f, size.height * 0.34f),
-                                radius = size.width * 0.92f
-                            )
-                        )
-                        drawRect(
-                            brush = Brush.linearGradient(
-                                0.00f to selectedLanternColor.copy(alpha = 0.72f * lanternAlpha),
-                                0.16f to Color.White.copy(alpha = 0.22f * lanternAlpha),
-                                0.36f to selectedLanternColor.copy(alpha = 0.34f * lanternAlpha),
-                                0.72f to selectedLanternColor.copy(alpha = 0.10f * lanternAlpha),
-                                1.00f to Color.White.copy(alpha = 0.00f),
-                                start = Offset.Zero,
-                                end = Offset(size.width, size.height * 0.78f)
-                            )
-                        )
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                0.00f to Color.White.copy(alpha = 0.22f * lanternAlpha),
-                                0.18f to Color.White.copy(alpha = 0.07f * lanternAlpha),
-                                0.56f to selectedLanternColor.copy(alpha = 0.13f * lanternAlpha),
-                                1.00f to Color.Black.copy(alpha = 0.06f * lanternAlpha)
-                            )
+                                center = Offset(selectedCenterX, size.height * 0.52f),
+                                radius = tabWidth * 0.84f
+                            ),
+                            radius = tabWidth * 0.84f,
+                            center = Offset(selectedCenterX, size.height * 0.52f)
                         )
                     }
             )
@@ -503,8 +464,207 @@ internal fun GlassBottomTabBar(
                     adaptiveContentColor = adaptiveContentColor,
                     adaptiveSelectedContentColor = adaptiveSelectedContentColor,
                     adaptiveContentBlend = adaptiveContentBlend,
+                    pillShape = chromeInnerShape,
                     onClick = tab.onClick
                 )
+            }
+        }
+    }
+}
+
+private fun themedBottomChromeShape(preset: AppThemePreset): RoundedCornerShape {
+    return when (preset) {
+        AppThemePreset.Classic -> RoundedCornerShape(27.dp)
+        AppThemePreset.Sky -> RoundedCornerShape(30.dp)
+        AppThemePreset.Sunset -> RoundedCornerShape(
+            topStart = 18.dp,
+            topEnd = 32.dp,
+            bottomEnd = 18.dp,
+            bottomStart = 32.dp
+        )
+        AppThemePreset.Aurora -> RoundedCornerShape(percent = 50)
+        AppThemePreset.Graphite -> RoundedCornerShape(12.dp)
+        AppThemePreset.Ocean -> RoundedCornerShape(24.dp, 34.dp, 28.dp, 34.dp)
+        AppThemePreset.Meadow -> RoundedCornerShape(34.dp, 24.dp, 34.dp, 24.dp)
+        AppThemePreset.Candy -> RoundedCornerShape(36.dp)
+        AppThemePreset.Royal -> RoundedCornerShape(22.dp, 32.dp, 22.dp, 32.dp)
+        AppThemePreset.Ember -> RoundedCornerShape(16.dp, 30.dp, 16.dp, 30.dp)
+    }
+}
+
+private fun themedBottomChromeInnerShape(preset: AppThemePreset): RoundedCornerShape {
+    return when (preset) {
+        AppThemePreset.Classic -> RoundedCornerShape(23.dp)
+        AppThemePreset.Sky -> RoundedCornerShape(24.dp)
+        AppThemePreset.Sunset -> RoundedCornerShape(
+            topStart = 14.dp,
+            topEnd = 28.dp,
+            bottomEnd = 14.dp,
+            bottomStart = 28.dp
+        )
+        AppThemePreset.Aurora -> RoundedCornerShape(percent = 50)
+        AppThemePreset.Graphite -> RoundedCornerShape(8.dp)
+        AppThemePreset.Ocean -> RoundedCornerShape(20.dp, 28.dp, 22.dp, 28.dp)
+        AppThemePreset.Meadow -> RoundedCornerShape(28.dp, 20.dp, 28.dp, 20.dp)
+        AppThemePreset.Candy -> RoundedCornerShape(28.dp)
+        AppThemePreset.Royal -> RoundedCornerShape(18.dp, 26.dp, 18.dp, 26.dp)
+        AppThemePreset.Ember -> RoundedCornerShape(12.dp, 24.dp, 12.dp, 24.dp)
+    }
+}
+
+private fun themedBottomChromeNativeRadius(preset: AppThemePreset): Float {
+    return when (preset) {
+        AppThemePreset.Classic -> 28f
+        AppThemePreset.Sky -> 30f
+        AppThemePreset.Sunset -> 34f
+        AppThemePreset.Aurora -> 32f
+        AppThemePreset.Graphite -> 18f
+        AppThemePreset.Ocean -> 28f
+        AppThemePreset.Meadow -> 28f
+        AppThemePreset.Candy -> 32f
+        AppThemePreset.Royal -> 24f
+        AppThemePreset.Ember -> 22f
+    }
+}
+
+private data class BottomTabMaterialDecoration(
+    val path: Path,
+    val colorSlot: Int,
+    val x: Float,
+    val y: Float,
+    val size: Float,
+    val rotation: Float = 0f
+)
+
+@Composable
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private fun rememberBottomTabMaterialDecorations(
+    preset: AppThemePreset
+): List<BottomTabMaterialDecoration> {
+    val pill = MaterialShapes.Pill.toPath()
+    val bun = MaterialShapes.Bun.toPath()
+    val puffy = MaterialShapes.Puffy.toPath()
+    val slanted = MaterialShapes.Slanted.toPath()
+    val flower = MaterialShapes.Flower.toPath()
+    val boom = MaterialShapes.Boom.toPath()
+    val arrow = MaterialShapes.Arrow.toPath()
+    val square = MaterialShapes.Square.toPath()
+    val oval = MaterialShapes.Oval.toPath()
+    val sunny = MaterialShapes.Sunny.toPath()
+    val semiCircle = MaterialShapes.SemiCircle.toPath()
+    val clamShell = MaterialShapes.ClamShell.toPath()
+    val fan = MaterialShapes.Fan.toPath()
+    val diamond = MaterialShapes.Diamond.toPath()
+    val gem = MaterialShapes.Gem.toPath()
+    val heart = MaterialShapes.Heart.toPath()
+    val softBurst = MaterialShapes.SoftBurst.toPath()
+    val softBoom = MaterialShapes.SoftBoom.toPath()
+    val clover4 = MaterialShapes.Clover4Leaf.toPath()
+
+    return remember(
+        preset,
+        pill,
+        bun,
+        puffy,
+        slanted,
+        flower,
+        boom,
+        arrow,
+        square,
+        oval,
+        sunny,
+        semiCircle,
+        clamShell,
+        fan,
+        diamond,
+        gem,
+        heart,
+        softBurst,
+        softBoom,
+        clover4
+    ) {
+        when (preset) {
+            AppThemePreset.Classic -> listOf(
+                BottomTabMaterialDecoration(pill, 0, 0.74f, 0.08f, 0.62f, 0f),
+                BottomTabMaterialDecoration(oval, 1, 0.57f, 0.42f, 0.42f, 0f)
+            )
+            AppThemePreset.Sky -> listOf(
+                BottomTabMaterialDecoration(bun, 0, 0.74f, 0.08f, 0.60f, 0f),
+                BottomTabMaterialDecoration(puffy, 2, 0.57f, 0.42f, 0.42f, 0f)
+            )
+            AppThemePreset.Sunset -> listOf(
+                BottomTabMaterialDecoration(slanted, 0, 0.74f, 0.08f, 0.58f, 0f),
+                BottomTabMaterialDecoration(sunny, 1, 0.57f, 0.42f, 0.42f, 0f)
+            )
+            AppThemePreset.Aurora -> listOf(
+                BottomTabMaterialDecoration(flower, 0, 0.74f, 0.08f, 0.56f, 0f),
+                BottomTabMaterialDecoration(boom, 2, 0.57f, 0.42f, 0.40f, 0f)
+            )
+            AppThemePreset.Graphite -> listOf(
+                BottomTabMaterialDecoration(arrow, 0, 0.74f, 0.08f, 0.56f, 0f),
+                BottomTabMaterialDecoration(square, 1, 0.57f, 0.42f, 0.40f, 0f)
+            )
+            AppThemePreset.Ocean -> listOf(
+                BottomTabMaterialDecoration(clamShell, 0, 0.74f, 0.08f, 0.58f, 0f),
+                BottomTabMaterialDecoration(semiCircle, 1, 0.57f, 0.42f, 0.40f, 0f)
+            )
+            AppThemePreset.Meadow -> listOf(
+                BottomTabMaterialDecoration(clover4, 0, 0.74f, 0.08f, 0.56f, 0f),
+                BottomTabMaterialDecoration(fan, 1, 0.57f, 0.42f, 0.40f, 0f)
+            )
+            AppThemePreset.Candy -> listOf(
+                BottomTabMaterialDecoration(heart, 0, 0.74f, 0.08f, 0.56f, 0f),
+                BottomTabMaterialDecoration(puffy, 2, 0.57f, 0.42f, 0.40f, 0f)
+            )
+            AppThemePreset.Royal -> listOf(
+                BottomTabMaterialDecoration(gem, 0, 0.74f, 0.08f, 0.56f, 0f),
+                BottomTabMaterialDecoration(diamond, 1, 0.57f, 0.42f, 0.40f, 0f)
+            )
+            AppThemePreset.Ember -> listOf(
+                BottomTabMaterialDecoration(softBurst, 0, 0.74f, 0.08f, 0.54f, 0f),
+                BottomTabMaterialDecoration(softBoom, 2, 0.57f, 0.42f, 0.40f, 0f)
+            )
+        }
+    }
+}
+
+private fun DrawScope.drawBottomTabThemeAccents(
+    decorations: List<BottomTabMaterialDecoration>,
+    accent: Color,
+    warm: Color,
+    rose: Color
+) {
+    val clip = Path().apply {
+        addRoundRect(
+            androidx.compose.ui.geometry.RoundRect(
+                rect = androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height),
+                cornerRadius = CornerRadius(size.height * 0.36f, size.height * 0.36f)
+            )
+        )
+    }
+    clipPath(clip) {
+        decorations.forEach { decoration ->
+            val color = when (decoration.colorSlot) {
+                1 -> warm
+                2 -> rose
+                else -> accent
+            }.copy(alpha = 0.16f)
+            val shapeSize = size.height * decoration.size
+            val bounds = decoration.path.getBounds()
+            val pathSize = maxOf(bounds.width, bounds.height).coerceAtLeast(0.001f)
+            val scale = shapeSize / pathSize
+            val left = size.width * decoration.x
+            val top = size.height * decoration.y
+            withTransform({
+                translate(left = left, top = top)
+                rotate(
+                    degrees = decoration.rotation,
+                    pivot = Offset(shapeSize / 2f, shapeSize / 2f)
+                )
+                scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+                translate(left = -bounds.left, top = -bounds.top)
+            }) {
+                drawPath(decoration.path, color)
             }
         }
     }
@@ -518,6 +678,7 @@ private fun RowScope.PrimaryQuickTab(
     adaptiveContentColor: Color,
     adaptiveSelectedContentColor: Color,
     adaptiveContentBlend: Float,
+    pillShape: RoundedCornerShape,
     onClick: () -> Unit
 ) {
     val inactiveColor = lerpColor(bottomTabInactiveColor(), adaptiveContentColor, adaptiveContentBlend)
@@ -548,12 +709,13 @@ private fun RowScope.PrimaryQuickTab(
     Box(
         modifier = Modifier
             .weight(1f)
+            .padding(horizontal = 3.dp)
             .height(48.dp)
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
             }
-            .clip(GlassChromeInnerShape)
+            .clip(pillShape)
             .clickable(
                 interactionSource = pressSource,
                 indication = null,
@@ -567,12 +729,10 @@ private fun RowScope.PrimaryQuickTab(
                 .graphicsLayer {
                     alpha = pillAlpha
                 }
+                .clip(pillShape)
+                .background(selectedPillColor)
                 .drawBehind {
-                    drawRoundRect(
-                        color = selectedPillColor,
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx(), 24.dp.toPx())
-                    )
-                    drawRoundRect(
+                    drawRect(
                         brush = Brush.linearGradient(
                             colors = listOf(
                                 pillAccent.copy(alpha = if (isDark) 0.26f else 0.16f),
@@ -581,14 +741,7 @@ private fun RowScope.PrimaryQuickTab(
                             ),
                             start = Offset.Zero,
                             end = Offset(size.width, size.height)
-                        ),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx(), 24.dp.toPx())
-                    )
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = if (isDark) 0.08f else 0.16f),
-                        topLeft = Offset(8.dp.toPx(), 5.dp.toPx()),
-                        size = androidx.compose.ui.geometry.Size(size.width - 16.dp.toPx(), 1.dp.toPx()),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.dp.toPx(), 1.dp.toPx())
+                        )
                     )
                 }
         )
@@ -600,7 +753,7 @@ private fun RowScope.PrimaryQuickTab(
                 }
                 .background(
                     selectedPillColor.copy(alpha = 0.35f),
-                    GlassChromeInnerShape
+                    pillShape
                 )
         )
         Column(

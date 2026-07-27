@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Audiotrack
@@ -52,10 +53,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,8 +69,8 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import com.kyant.capsule.ContinuousRoundedRectangle
-import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -85,7 +87,7 @@ private const val NOTE_SELECT_HOLD_MS = 850L
 private fun notePreview(s: String): String {
     if (s.isBlank()) return ""
     val oneLine = s
-        .replace(Regex("""\[[^\]]*]"""), " ")
+        .replace(Regex("""\[[^]]*]"""), " ")
         .replace(Regex("""[□☐☑☒✓✔●◉○•]"""), " ")
         .replace(Regex("""\b\d+%?\s*[-–]\s*"""), " ")
         .replace('\n', ' ')
@@ -116,7 +118,8 @@ private fun NoteMediaCountChip(
     accent: Color,
     isDark: Boolean,
     compact: Boolean,
-    tight: Boolean
+    tight: Boolean,
+    roundedEnd: Boolean = true
 ) {
     val chipHeight = when {
         tight -> 17.dp
@@ -128,16 +131,31 @@ private fun NoteMediaCountChip(
         compact -> 10.dp
         else -> 12.dp
     }
+    val mediaShape = remember(tight, roundedEnd) {
+        GenericShape { size, _ ->
+            val w = size.width
+            val h = size.height
+            val slant = h * 0.30f
+            val rightRadius = h * 0.44f
+
+            moveTo(0f, 0f)
+            if (roundedEnd) {
+                lineTo(w - rightRadius, 0f)
+                quadraticTo(w, 0f, w, rightRadius)
+                lineTo(w, h)
+            } else {
+                lineTo(w - slant, 0f)
+                lineTo(w, h)
+            }
+            lineTo(slant, h)
+            close()
+        }
+    }
     val countText = if (count > 99) "99+" else count.toString()
 
     Surface(
         modifier = Modifier.height(chipHeight),
-        shape = RoundedCornerShape(
-            topStart = 0.dp,
-            topEnd = if (tight) 8.dp else 10.dp,
-            bottomEnd = 0.dp,
-            bottomStart = if (tight) 8.dp else 10.dp
-        ),
+        shape = mediaShape,
         color = accent.copy(alpha = if (isDark) 0.16f else 0.12f),
         border = BorderStroke(
             if (tight) 0.5.dp else 0.65.dp,
@@ -146,7 +164,7 @@ private fun NoteMediaCountChip(
     ) {
         Row(
             modifier = Modifier.padding(
-                start = if (tight) 4.dp else 5.dp,
+                start = if (tight) 7.dp else 8.dp,
                 end = if (tight) 5.dp else 6.dp
             ),
             verticalAlignment = Alignment.CenterVertically,
@@ -216,7 +234,7 @@ fun NoteItem(
     val titlePadV = if (compact) 4.dp else 7.dp
     val titlePadH = if (compact) 10.dp else 12.dp
     val titleShape = RoundedCornerShape(if (compact) 10.dp else 12.dp)
-    val cardShape = RoundedCornerShape(18.dp)
+    val cardShape = RoundedCornerShape(if (compact) 14.dp else 18.dp)
     val noteMaxLines = 2
     val titleMaxLines = 1
     val colBottom = when {
@@ -228,34 +246,64 @@ fun NoteItem(
     val isDark = isSystemInDarkTheme()
     val scheme = MaterialTheme.colorScheme
     val isLightTheme = !isSystemInDarkTheme()
+    val hasPalette = palette != null
+    val appPalette = LocalAppThemePalette.current
 
 
 // Container: in light, use warmBase; in dark, keep your dark glass
     val containerColor = palette?.noteTint ?: if (isLightTheme) {
-        Color(0xFFFDF9FF).copy(alpha = 0.54f)
+        appPalette.card.copy(alpha = 0.54f)
     } else {
-        Color(0xFF201923).copy(alpha = 0.58f)
+        appPalette.card.copy(alpha = 0.58f)
     }
+    val paletteBackgroundIsLight = (palette?.screenBackground ?: appPalette.page)
+        .luminance() > 0.5f
+    val noteActionColor = palette?.let {
+        val readableBase = if (paletteBackgroundIsLight) Color.Black else Color.White
+        lerp(readableBase, it.accent.copy(alpha = 1f), if (paletteBackgroundIsLight) 0.46f else 0.56f)
+    } ?: appPalette.actionContent
+    val glassBodyTintSource = palette?.let {
+        lerp(it.noteTint.copy(alpha = 1f), it.accent.copy(alpha = 1f), if (isDark) 0.62f else 0.56f)
+    } ?: lerp(appPalette.card.copy(alpha = 1f), appPalette.glassOverlay.copy(alpha = 1f), if (isDark) 0.22f else 0.14f)
+    val containerTintColor = glassBodyTintSource.copy(
+        alpha = when {
+            hasPalette && isDark -> 0.16f
+            hasPalette -> 0.11f
+            isDark -> 0.36f
+            else -> 0.24f
+        }
+    )
 
-    val noteAccentSurfaceColor = palette?.titleRail ?: if (isLightTheme) {
-        Color(0xFFEFE7F6).copy(alpha = 0.76f)
+    val rawNoteAccentSurfaceColor = palette?.titleRail ?: if (isLightTheme) {
+        appPalette.badge.copy(alpha = 0.76f)
     } else {
-        Color(0xFF2A2131).copy(alpha = 0.72f)
+        appPalette.badge.copy(alpha = 0.72f)
     }
-    val noteActionColor = palette?.accent ?: if (isLightTheme) Color(0xFF6D4B86) else Color(0xFFCBB6E5)
+    val glassAccentTintSource = palette?.let {
+        lerp(it.titleRail.copy(alpha = 1f), it.accent.copy(alpha = 1f), if (isDark) 0.48f else 0.42f)
+    } ?: rawNoteAccentSurfaceColor
+    val noteAccentSurfaceColor = glassAccentTintSource.copy(
+        alpha = when {
+            hasPalette && isDark -> 0.18f
+            hasPalette -> 0.13f
+            else -> rawNoteAccentSurfaceColor.alpha
+        }
+    )
     val settingsBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.34f else 0.22f)
 
 
 
 // Selected overlay should be weaker in light (or it turns “blue paint”)
     val selectedOverlay = if (isDark) {
-        scheme.primary.copy(alpha = 0.22f)
+        appPalette.action.copy(alpha = 0.22f)
     } else {
-        scheme.primary.copy(alpha = 0.10f)
+        appPalette.action.copy(alpha = 0.10f)
     }
 
 
-    val adaptiveColor = if (isDark) Color.White else Color.Black
+    val adaptiveColor = if (hasPalette) {
+        if (paletteBackgroundIsLight) Color.Black else Color.White
+    } else if (isDark) Color.White else Color.Black
 
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
@@ -293,24 +341,18 @@ fun NoteItem(
             .clip(cardShape)
             .drawBackdrop(
                 backdrop = backdrop,
-                shape = { ContinuousRoundedRectangle(18f.dp) },
+                shape = { ContinuousRoundedRectangle((if (compact) 14f else 18f).dp) },
                 highlight = null,
                 effects = {
-                    blur(3f, edgeTreatment = TileMode.Clamp)
-
-                    val cornerRadiusPx = size.height / 2f
-                    val safeHeight = cornerRadiusPx * 0.15f
-
-                    lens(
-                        refractionHeight = safeHeight.coerceIn(0f, cornerRadiusPx),
-                        refractionAmount = (size.minDimension * 0.65f)
-                            .coerceIn(0f, size.minDimension),
-                        depthEffect = false,
-                        chromaticAberration = false
-                    )
+                    vibrancy()
+                    blur(2f.dp.toPx())
+                    lens(12f.dp.toPx(), 24f.dp.toPx())
                 },
                 onDrawSurface = {
-                    drawRect(containerColor)
+                    drawRect(containerTintColor, blendMode = BlendMode.Hue)
+                    if (hasPalette) {
+                        drawRect(containerTintColor)
+                    }
                     if (selected) drawRect(selectedOverlay)
                 }
             )
@@ -485,106 +527,116 @@ fun NoteItem(
                     )
                 }
 
-                if (createdLabel.isNotBlank()) {
-                    val tightTimestamp = dense || smallMediaBadges
-                    val timestampBottomPad = when {
-                        tightTimestamp -> 2.dp
-                        compact -> 2.dp
-                        else -> 3.dp
-                    }
-                    val timestampCorner = when {
-                        tightTimestamp -> 8.dp
-                        compact -> 10.dp
-                        else -> 10.dp
-                    }
-                    val timestampLeftBottomCorner = when {
-                        tightTimestamp -> 10.dp
-                        compact -> 18.dp
-                        else -> 14.dp
-                    }
-                    val timestampShape = RoundedCornerShape(
-                        topStart = 0.dp,
-                        topEnd = timestampCorner,
-                        bottomEnd = 0.dp,
-                        bottomStart = timestampLeftBottomCorner
-                    )
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(start = if (tightTimestamp) 4.dp else 6.dp, bottom = timestampBottomPad)
-                            .height(
-                                when {
-                                    tightTimestamp -> 17.dp
-                                    compact -> 19.dp
-                                    else -> 23.dp
-                                }
-                            ),
-                        shape = timestampShape,
-                        color = noteAccentSurfaceColor.copy(alpha = if (isDark) 0.82f else 0.90f),
-                        border = BorderStroke(
-                            if (tightTimestamp) 0.5.dp else 0.65.dp,
-                            settingsBorderColor.copy(alpha = if (isDark) 0.34f else 0.24f)
-                        )
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(
-                                start = when {
-                                    tightTimestamp -> 4.dp
-                                    compact -> 5.dp
-                                    else -> 5.dp
-                                },
-                                end = when {
-                                    tightTimestamp -> 5.dp
-                                    compact -> 6.dp
-                                    else -> 6.dp
-                                }
-                            ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = createdLabel,
-                                maxLines = 1,
-                                fontSize = when {
-                                    tightTimestamp -> 7.sp
-                                    compact -> 7.5.sp
-                                    else -> 9.sp
-                                },
-                                lineHeight = when {
-                                    tightTimestamp -> 8.sp
-                                    compact -> 9.sp
-                                    else -> 11.sp
-                                },
-                                fontWeight = FontWeight.SemiBold,
-                                color = noteActionColor.copy(alpha = if (isDark) 0.94f else 0.86f)
-                            )
-                        }
-                    }
-                }
-
                 // Media chips stay intentionally small so compact and two-column notes remain clean.
                 val tightMediaBadges = dense || smallMediaBadges
-                val mediaChipBottomPad = when {
+                val hasMediaBadges = imagesCount > 0 || attachmentsCount > 0 || audioCount > 0 || videoCount > 0
+                val badgeStripBottomPad = when {
                     tightMediaBadges -> 2.dp
                     compact -> 2.dp
                     else -> 3.dp
                 }
-                val mediaChipStartPad = when {
-                    createdLabel.isNotBlank() && tightMediaBadges -> 50.dp
-                    createdLabel.isNotBlank() && compact -> 54.dp
-                    createdLabel.isNotBlank() -> 84.dp
+                val badgeStripStartPad = when {
+                    createdLabel.isNotBlank() && tightMediaBadges -> 6.dp
+                    createdLabel.isNotBlank() -> 6.dp
                     tightMediaBadges -> 6.dp
                     compact -> 8.dp
                     else -> 12.dp
                 }
-                val mediaChipGap = if (tightMediaBadges) 2.dp else 4.dp
-                if (imagesCount > 0 || attachmentsCount > 0 || audioCount > 0 || videoCount > 0) {
+                val badgeStripGap = 4.dp
+                if (createdLabel.isNotBlank() || hasMediaBadges) {
+                    val lastMediaBadge = when {
+                        videoCount > 0 -> "video"
+                        audioCount > 0 -> "audio"
+                        attachmentsCount > 0 -> "attachments"
+                        imagesCount > 0 -> "images"
+                        else -> ""
+                    }
                     Row(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(start = mediaChipStartPad, bottom = mediaChipBottomPad),
+                            .padding(start = badgeStripStartPad, bottom = badgeStripBottomPad),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(mediaChipGap)
+                        horizontalArrangement = Arrangement.spacedBy(badgeStripGap)
                     ) {
+                        if (createdLabel.isNotBlank()) {
+                            val timestampLeftBottomCorner = when {
+                                tightMediaBadges -> 10.dp
+                                compact -> 18.dp
+                                else -> 14.dp
+                            }
+                            val timestampShape = remember(tightMediaBadges, compact) {
+                                GenericShape { size, _ ->
+                                    val w = size.width
+                                    val h = size.height
+                                    val slant = h * 0.30f
+                                    val bottomLeft = when {
+                                        tightMediaBadges -> h * (10f / 17f)
+                                        compact -> h * (18f / 19f)
+                                        else -> h * (14f / 23f)
+                                    }.coerceAtMost(h)
+
+                                    moveTo(0f, 0f)
+                                    lineTo(w - slant, 0f)
+                                    lineTo(w, h)
+                                    lineTo(bottomLeft, h)
+                                    quadraticTo(0f, h, 0f, h - bottomLeft)
+                                    lineTo(0f, 0f)
+                                    close()
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier.height(
+                                    when {
+                                        tightMediaBadges -> 17.dp
+                                        compact -> 19.dp
+                                        else -> 23.dp
+                                    }
+                                ),
+                                shape = timestampShape,
+                                color = if (hasPalette) {
+                                    noteAccentSurfaceColor
+                                } else {
+                                    noteAccentSurfaceColor.copy(alpha = if (isDark) 0.82f else 0.90f)
+                                },
+                                border = BorderStroke(
+                                    if (tightMediaBadges) 0.5.dp else 0.65.dp,
+                                    settingsBorderColor.copy(alpha = if (isDark) 0.34f else 0.24f)
+                                )
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(
+                                        start = when {
+                                            tightMediaBadges -> 4.dp
+                                            compact -> 5.dp
+                                            else -> 5.dp
+                                        },
+                                        end = when {
+                                            tightMediaBadges -> 9.dp
+                                            compact -> 10.dp
+                                            else -> 11.dp
+                                        }
+                                    ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = createdLabel,
+                                        maxLines = 1,
+                                        fontSize = when {
+                                            tightMediaBadges -> 7.sp
+                                            compact -> 7.5.sp
+                                            else -> 9.sp
+                                        },
+                                        lineHeight = when {
+                                            tightMediaBadges -> 8.sp
+                                            compact -> 9.sp
+                                            else -> 11.sp
+                                        },
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = noteActionColor.copy(alpha = if (isDark) 0.94f else 0.86f)
+                                    )
+                                }
+                            }
+                        }
                         if (imagesCount > 0) {
                             NoteMediaCountChip(
                                 icon = Icons.Filled.Image,
@@ -592,7 +644,8 @@ fun NoteItem(
                                 accent = noteActionColor,
                                 isDark = isDark,
                                 compact = compact,
-                                tight = tightMediaBadges
+                                tight = tightMediaBadges,
+                                roundedEnd = lastMediaBadge == "images"
                             )
                         }
                         if (attachmentsCount > 0) {
@@ -602,7 +655,8 @@ fun NoteItem(
                                 accent = MaterialTheme.colorScheme.secondary,
                                 isDark = isDark,
                                 compact = compact,
-                                tight = tightMediaBadges
+                                tight = tightMediaBadges,
+                                roundedEnd = lastMediaBadge == "attachments"
                             )
                         }
                         if (audioCount > 0) {
@@ -612,7 +666,8 @@ fun NoteItem(
                                 accent = MaterialTheme.colorScheme.tertiary,
                                 isDark = isDark,
                                 compact = compact,
-                                tight = tightMediaBadges
+                                tight = tightMediaBadges,
+                                roundedEnd = lastMediaBadge == "audio"
                             )
                         }
                         if (videoCount > 0) {
@@ -622,7 +677,8 @@ fun NoteItem(
                                 accent = MaterialTheme.colorScheme.primary,
                                 isDark = isDark,
                                 compact = compact,
-                                tight = tightMediaBadges
+                                tight = tightMediaBadges,
+                                roundedEnd = lastMediaBadge == "video"
                             )
                         }
                     }
@@ -681,11 +737,16 @@ fun NoteItem(
 
                     val adaptiveStrength = if (isDark) 0.35f else 0.45f
 
-                    val adaptivePrimary = lerp(primary, adaptiveColor, adaptiveStrength)
+                    val adaptivePrimary = if (hasPalette) {
+                        lerp(adaptiveColor, noteActionColor, 0.28f)
+                    } else {
+                        lerp(primary, adaptiveColor, adaptiveStrength)
+                    }
                     val previewFontSize = if (compact) 12.5.sp else 15.sp
                     val previewLineHeight = if (compact) 16.sp else 21.sp
                     val previewRuleColor = noteActionColor.copy(alpha = if (isDark) 0.18f else 0.12f)
                     val previewLikelyTwoLines = preview.length > if (compact) 18 else 24
+                    val previewBoxHeight = if (compact) 34.dp else 62.dp
 
 
                     Box(
@@ -701,7 +762,7 @@ fun NoteItem(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(if (compact) 0.82f else 0.72f)
-                                    .height(if (compact) 44.dp else 62.dp)
+                                    .height(previewBoxHeight)
                                     .drawBehind {
                                         if (preview.isNotBlank()) {
                                             val stroke = 0.55.dp.toPx()
@@ -710,9 +771,11 @@ fun NoteItem(
                                             val startX = size.width * 0.08f
                                             val endX = size.width * 0.92f
                                             val lines = if (previewLikelyTwoLines) {
-                                                listOf(center - gap * 0.90f, center, center + gap * 0.90f)
+                                                val spread = if (compact) 0.58f else 0.90f
+                                                listOf(center - gap * spread, center, center + gap * spread)
                                             } else {
-                                                listOf(center - gap * 0.70f, center + gap * 0.70f)
+                                                val spread = if (compact) 0.46f else 0.70f
+                                                listOf(center - gap * spread, center + gap * spread)
                                             }
                                             lines.forEach { y ->
                                                 drawLine(
@@ -730,7 +793,14 @@ fun NoteItem(
                                     text = preview,
                                     maxLines = noteMaxLines,
                                     textAlign = TextAlign.Center,
-                                    color = adaptivePrimary.copy(alpha = if (isDark) 0.62f else 0.54f),
+                                    color = adaptivePrimary.copy(
+                                        alpha = when {
+                                            hasPalette && paletteBackgroundIsLight -> 0.78f
+                                            hasPalette -> 0.82f
+                                            isDark -> 0.62f
+                                            else -> 0.54f
+                                        }
+                                    ),
                                     fontSize = previewFontSize,
                                     lineHeight = previewLineHeight
                                 )
