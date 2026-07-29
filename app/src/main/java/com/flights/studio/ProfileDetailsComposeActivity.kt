@@ -238,8 +238,8 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                         .remove("last_sync_at")
                         .apply()
 
-                    profileThemeModeState.intValue = 3
-                    userPrefs.profileThemeMode = 3
+                    profileThemeModeState.intValue = 6
+                    userPrefs.profileThemeMode = 6
 
                     val pendingEmail = userPrefs.pendingEmail
                     val pendingName = userPrefs.pendingFullName

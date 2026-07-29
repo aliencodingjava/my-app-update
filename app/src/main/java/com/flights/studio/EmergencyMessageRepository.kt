@@ -78,7 +78,7 @@ object EmergencyMessageRepository {
     suspend fun fetch(): EmergencyMessage = withContext(Dispatchers.IO) {
         runCatching {
             val remoteConfig = FirebaseRemoteConfig.getInstance()
-            val minimumFetchInterval = if (BuildConfig.DEBUG) 60L else 900L
+            val minimumFetchInterval = 10L
             val settings = FirebaseRemoteConfigSettings.Builder()
                 .setMinimumFetchIntervalInSeconds(minimumFetchInterval)
                 .build()

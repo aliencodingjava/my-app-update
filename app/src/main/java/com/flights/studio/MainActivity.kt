@@ -82,6 +82,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -116,6 +117,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -3309,6 +3311,7 @@ Version: $versionName
         if (active) {
             val isDark = isSystemInDarkTheme()
             val appThemePalette = LocalAppThemePalette.current
+            val surfaceRoles = appThemeSurfaceRoles(appThemePalette, isDark)
             val palette = rememberBriefingPalette(isDark, appThemePalette)
             val pageColor = palette.page
             val textColor = palette.text
@@ -3521,6 +3524,29 @@ Version: $versionName
                     .fillMaxSize()
                     .background(pageColor)
             ) {
+                ProfileBackdropImageLayer(
+                    modifier = Modifier.fillMaxSize(),
+                    lightRes = R.drawable.light_grid_pattern,
+                    darkRes = R.drawable.dark_grid_pattern,
+                    imageAlpha = if (isDark) 0.72f else 0.42f,
+                    scrimDark = 0.04f,
+                    scrimLight = 0.00f
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    surfaceRoles.page.copy(alpha = if (isDark) 0.58f else 0.36f),
+                                    surfaceRoles.glassCard.copy(alpha = if (isDark) 0.44f else 0.34f),
+                                    appThemePalette.surfaceVariant.copy(alpha = if (isDark) 0.34f else 0.28f)
+                                ),
+                                start = Offset.Zero,
+                                end = Offset(900f, 1350f)
+                            )
+                        )
+                )
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -3572,116 +3598,89 @@ Version: $versionName
                         }
                     )
 
-                    BriefingSectionTitle("Airport")
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        BriefingActionCard(
-                            title = "Flights",
-                            body = "Open the live table without refreshing the whole app shell.",
-                            icon = Icons.Filled.Flight,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenFlights
-                        )
-                        BriefingActionCard(
-                            title = "Live cameras",
-                            body = "Check curb, north, and south airport camera views.",
-                            icon = Icons.Filled.Info,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenLiveCameras
-                        )
-                        BriefingActionCard(
-                            title = "FBO services",
-                            body = "Open Jackson Hole Flight Services.",
-                            icon = Icons.Filled.Flight,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenFbo
-                        )
-                        BriefingActionCard(
-                            title = "News",
-                            body = "Check airport updates from the same WebView behavior.",
-                            icon = Icons.Filled.Info,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenNews
-                        )
-                    }
+                    BriefingActionGroup(
+                        title = "Airport",
+                        actions = listOf(
+                            BriefingActionEntry(
+                                title = "Flights",
+                                body = "Open the live table without refreshing the whole app shell.",
+                                icon = Icons.Filled.Flight,
+                                onClick = onOpenFlights
+                            ),
+                            BriefingActionEntry(
+                                title = "Live cameras",
+                                body = "Check curb, north, and south airport camera views.",
+                                icon = Icons.Filled.Info,
+                                onClick = onOpenLiveCameras
+                            ),
+                            BriefingActionEntry(
+                                title = "FBO services",
+                                body = "Open Jackson Hole Flight Services.",
+                                icon = Icons.Filled.Flight,
+                                onClick = onOpenFbo
+                            ),
+                            BriefingActionEntry(
+                                title = "News",
+                                body = "Check airport updates from the same WebView behavior.",
+                                icon = Icons.Filled.Info,
+                                onClick = onOpenNews
+                            )
+                        ),
+                        accentColor = accentColor,
+                        textColor = textColor,
+                        subTextColor = subTextColor,
+                        borderColor = cardBorder
+                    )
 
-                    BriefingSectionTitle("Your Trip")
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        BriefingActionCard(
-                            title = "Notes",
-                            body = "Jump back to saved notes, reminders, and travel details.",
-                            icon = Icons.AutoMirrored.Filled.Article,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenNotes
-                        )
-                        BriefingActionCard(
-                            title = "Quick note",
-                            body = "Capture a flight number, parking spot, or travel reminder.",
-                            icon = Icons.Filled.Add,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenAddNote
-                        )
-                    }
+                    BriefingActionGroup(
+                        title = "Your Trip",
+                        actions = listOf(
+                            BriefingActionEntry(
+                                title = "Notes",
+                                body = "Jump back to saved notes, reminders, and travel details.",
+                                icon = Icons.AutoMirrored.Filled.Article,
+                                onClick = onOpenNotes
+                            ),
+                            BriefingActionEntry(
+                                title = "Quick note",
+                                body = "Capture a flight number, parking spot, or travel reminder.",
+                                icon = Icons.Filled.Add,
+                                onClick = onOpenAddNote
+                            )
+                        ),
+                        accentColor = accentColor,
+                        textColor = textColor,
+                        subTextColor = subTextColor,
+                        borderColor = cardBorder
+                    )
 
-                    BriefingSectionTitle("Airport Info")
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        BriefingActionCard(
-                            title = "Welcome",
-                            body = "Open the airport welcome page.",
-                            icon = Icons.Filled.Info,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenWelcome
-                        )
-                        BriefingActionCard(
-                            title = "About airport",
-                            body = "History, pilot information, and airport details.",
-                            icon = Icons.Filled.Info,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenAbout
-                        )
-                        BriefingActionCard(
-                            title = "Airport help",
-                            body = "Open the official help and information page.",
-                            icon = Icons.Filled.Info,
-                            cardColor = cardColor,
-                            borderColor = cardBorder,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onClick = onOpenContact
-                        )
-                    }
+                    BriefingActionGroup(
+                        title = "Airport Info",
+                        actions = listOf(
+                            BriefingActionEntry(
+                                title = "Welcome",
+                                body = "Open the airport welcome page.",
+                                icon = Icons.Filled.Info,
+                                onClick = onOpenWelcome
+                            ),
+                            BriefingActionEntry(
+                                title = "About airport",
+                                body = "History, pilot information, and airport details.",
+                                icon = Icons.Filled.Info,
+                                onClick = onOpenAbout
+                            ),
+                            BriefingActionEntry(
+                                title = "Airport help",
+                                body = "Open the official help and information page.",
+                                icon = Icons.Filled.Info,
+                                onClick = onOpenContact
+                            )
+                        ),
+                        accentColor = accentColor,
+                        textColor = textColor,
+                        subTextColor = subTextColor,
+                        borderColor = cardBorder
+                    )
                 }
             }
         } else {
@@ -3710,23 +3709,14 @@ Version: $versionName
         appPalette: AppThemePalette
     ): BriefingPalette {
         return remember(isDark, appPalette) {
-            val text = if (isDark) {
-                Color(0xFFF6F8FB)
-            } else {
-                Color(0xFF101418)
-            }
-            val subText = if (isDark) {
-                Color(0xFFC4CCD6)
-            } else {
-                Color(0xFF4F5B66)
-            }
+            val surfaceRoles = appThemeSurfaceRoles(appPalette, isDark)
             BriefingPalette(
-                page = appPalette.page,
-                card = appPalette.card.copy(alpha = if (isDark) 0.86f else 0.94f),
-                aiCard = appPalette.glass.copy(alpha = if (isDark) 0.82f else 0.90f),
-                border = appPalette.outline.copy(alpha = if (isDark) 0.42f else 0.34f),
-                text = text,
-                subText = subText,
+                page = surfaceRoles.page,
+                card = surfaceRoles.card,
+                aiCard = surfaceRoles.glassCard,
+                border = surfaceRoles.border,
+                text = surfaceRoles.title,
+                subText = surfaceRoles.subtitle,
                 accent = appPalette.accent,
                 warmAccent = appPalette.warm
             )
@@ -5795,6 +5785,115 @@ Version: $versionName
         }
     }
 
+    private data class BriefingActionEntry(
+        val title: String,
+        val body: String,
+        val icon: ImageVector,
+        val onClick: () -> Unit
+    )
+
+    @Composable
+    private fun BriefingActionGroup(
+        title: String,
+        actions: List<BriefingActionEntry>,
+        accentColor: Color,
+        textColor: Color,
+        subTextColor: Color,
+        borderColor: Color
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .briefingElasticAppear("group:$title", delayMillis = 70),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            BriefingSectionTitle(title)
+            AppThemeSectionSurface(shape = RoundedCornerShape(18.dp)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    actions.forEachIndexed { index, action ->
+                        BriefingActionRow(
+                            action = action,
+                            accentColor = accentColor,
+                            textColor = textColor,
+                            subTextColor = subTextColor
+                        )
+                        if (index != actions.lastIndex) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 64.dp, end = 14.dp)
+                            ) {
+                                HorizontalDivider(
+                                    thickness = 1.dp,
+                                    color = borderColor.copy(alpha = 0.58f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun BriefingActionRow(
+        action: BriefingActionEntry,
+        accentColor: Color,
+        textColor: Color,
+        subTextColor: Color
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(onClick = action.onClick)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = action.icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(21.dp)
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = action.title,
+                    color = textColor,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        lineHeight = 19.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = action.body,
+                    color = subTextColor,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+
     @Composable
     private fun BriefingActionCard(
         title: String,
@@ -5813,6 +5912,17 @@ Version: $versionName
                 .briefingElasticAppear(title, delayMillis = 70)
                 .clip(RoundedCornerShape(18.dp))
                 .background(cardColor)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            accentColor.copy(alpha = if (isSystemInDarkTheme()) 0.16f else 0.12f),
+                            cardColor.copy(alpha = 0.06f),
+                            accentColor.copy(alpha = 0.08f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(520f, 180f)
+                    )
+                )
                 .border(BorderStroke(1.dp, borderColor), RoundedCornerShape(18.dp))
                 .clickable(onClick = onClick)
                 .padding(14.dp),

@@ -472,7 +472,7 @@ internal fun GlassBottomTabBar(
     }
 }
 
-private fun themedBottomChromeShape(preset: AppThemePreset): RoundedCornerShape {
+internal fun themedBottomChromeShape(preset: AppThemePreset): RoundedCornerShape {
     return when (preset) {
         AppThemePreset.Classic -> RoundedCornerShape(27.dp)
         AppThemePreset.Sky -> RoundedCornerShape(30.dp)
@@ -492,7 +492,7 @@ private fun themedBottomChromeShape(preset: AppThemePreset): RoundedCornerShape 
     }
 }
 
-private fun themedBottomChromeInnerShape(preset: AppThemePreset): RoundedCornerShape {
+internal fun themedBottomChromeInnerShape(preset: AppThemePreset): RoundedCornerShape {
     return when (preset) {
         AppThemePreset.Classic -> RoundedCornerShape(23.dp)
         AppThemePreset.Sky -> RoundedCornerShape(24.dp)
@@ -527,7 +527,7 @@ private fun themedBottomChromeNativeRadius(preset: AppThemePreset): Float {
     }
 }
 
-private data class BottomTabMaterialDecoration(
+internal data class BottomTabMaterialDecoration(
     val path: Path,
     val colorSlot: Int,
     val x: Float,
@@ -538,7 +538,7 @@ private data class BottomTabMaterialDecoration(
 
 @Composable
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-private fun rememberBottomTabMaterialDecorations(
+internal fun rememberBottomTabMaterialDecorations(
     preset: AppThemePreset
 ): List<BottomTabMaterialDecoration> {
     val pill = MaterialShapes.Pill.toPath()
@@ -628,7 +628,7 @@ private fun rememberBottomTabMaterialDecorations(
     }
 }
 
-private fun DrawScope.drawBottomTabThemeAccents(
+internal fun DrawScope.drawBottomTabThemeAccents(
     decorations: List<BottomTabMaterialDecoration>,
     accent: Color,
     warm: Color,
@@ -682,7 +682,7 @@ private fun RowScope.PrimaryQuickTab(
     onClick: () -> Unit
 ) {
     val inactiveColor = lerpColor(bottomTabInactiveColor(), adaptiveContentColor, adaptiveContentBlend)
-    val selectedContentColor = adaptiveSelectedContentColor
+    val selectedContentColor = Color.White
     val selectedPillColor = bottomTabSelectedPillColor()
     val isDark = isSystemInDarkTheme()
     val appThemePalette = LocalAppThemePalette.current

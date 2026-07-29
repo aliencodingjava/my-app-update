@@ -115,6 +115,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -158,6 +159,7 @@ import com.google.firebase.database.Transaction
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.messaging.FirebaseMessaging
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
@@ -209,6 +211,8 @@ fun ModernSettingsScreen(
     val appContext = context.applicationContext
     val prefs = remember(appContext) { PreferenceManager.getDefaultSharedPreferences(appContext) }
     val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
+    val surfaceRoles = appThemeSurfaceRoles(appPalette, isDark)
     val settingsChromeBackdrop = rememberLayerBackdrop()
     val settingsModalBackdrop = rememberLayerBackdrop()
     val locale = LocalLocale.current.platformLocale
@@ -504,13 +508,33 @@ fun ModernSettingsScreen(
                     .fillMaxSize()
                     .layerBackdrop(settingsChromeBackdrop)
             ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(surfaceRoles.page)
+                )
                 ProfileBackdropImageLayer(
                     modifier = Modifier.fillMaxSize(),
                     lightRes = R.drawable.light_grid_pattern,
                     darkRes = R.drawable.dark_grid_pattern,
-                    imageAlpha = if (isDark) 0.95f else 0.70f,
-                    scrimDark = 0.12f,
-                    scrimLight = 0.03f
+                    imageAlpha = if (isDark) 0.72f else 0.42f,
+                    scrimDark = 0.04f,
+                    scrimLight = 0.00f
+                )
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    surfaceRoles.page.copy(alpha = if (isDark) 0.58f else 0.36f),
+                                    surfaceRoles.glassCard.copy(alpha = if (isDark) 0.44f else 0.34f),
+                                    appPalette.surfaceVariant.copy(alpha = if (isDark) 0.34f else 0.28f)
+                                ),
+                                start = Offset.Zero,
+                                end = Offset(900f, 1400f)
+                            )
+                        )
                 )
 
                 LazyColumn(
@@ -530,7 +554,7 @@ fun ModernSettingsScreen(
                             Text(
                                 text = stringResource(R.string.settings_no_results_hint),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = surfaceRoles.subtitle,
                                 modifier = Modifier.padding(horizontal = 6.dp)
                             )
                         }
@@ -678,76 +702,55 @@ fun ModernSettingsScreen(
 @Composable
 private fun SettingsQuickTabBar(
     modifier: Modifier = Modifier,
-    backdrop: Backdrop,
+    backdrop: LayerBackdrop,
     onOpenHome: () -> Unit,
     onOpenNotes: () -> Unit,
     onOpenContacts: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenMenu: () -> Unit
 ) {
-    val glassColor = bottomTabBarTint()
-    val overlayTint = bottomTabBarOverlayTint()
-    val backdropBlurDp = bottomChromeBackdropBlurDp()
-    Box(
-        modifier = modifier
-            .padding(horizontal = GlassChromeHorizontalPadding)
-            .fillMaxWidth()
-            .height(56.dp)
-            .shadow(GlassChromeShadowElevation, GlassChromeShape, clip = false)
-            .clip(GlassChromeShape)
-            .adaptiveLiquidGlassBackdrop(
-                backdrop = backdrop,
-                shape = GlassChromeShape,
-                surfaceColor = glassColor,
-                blurDp = backdropBlurDp,
-                shadow = { bottomChromeShadow() },
-                refractionHeightDp = GlassChromeRefractionHeightDp,
-                refractionAmountDp = GlassChromeRefractionAmountDp
-            )
-            .background(
-                color = overlayTint,
-                shape = GlassChromeShape
-            )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(0.dp)
-        ) {
-            SettingsQuickTab(
+    GlassBottomTabBar(
+        modifier = modifier,
+        backdrop = backdrop,
+        contentView = null,
+        tabs = listOf(
+            GlassBottomTabItem(
                 label = stringResource(R.string.Home),
                 icon = Icons.Filled.Home,
                 selected = false,
-                onClick = onOpenHome
-            )
-            SettingsQuickTab(
+                onClick = onOpenHome,
+                lanternColor = LocalAppThemePalette.current.accent
+            ),
+            GlassBottomTabItem(
                 label = stringResource(R.string.total_contacts),
                 icon = Icons.Filled.Groups,
                 selected = false,
-                onClick = onOpenContacts
-            )
-            SettingsQuickTab(
+                onClick = onOpenContacts,
+                lanternColor = LocalAppThemePalette.current.warm
+            ),
+            GlassBottomTabItem(
                 label = stringResource(R.string.contacts_bottom_notes),
                 icon = Icons.AutoMirrored.Filled.Article,
                 selected = false,
-                onClick = onOpenNotes
-            )
-            SettingsQuickTab(
+                onClick = onOpenNotes,
+                lanternColor = LocalAppThemePalette.current.rose
+            ),
+            GlassBottomTabItem(
                 label = stringResource(R.string.menu_settings),
                 icon = Icons.Filled.SettingsIcon,
                 selected = true,
-                onClick = onOpenSettings
-            )
-            SettingsQuickTab(
+                onClick = onOpenSettings,
+                lanternColor = LocalAppThemePalette.current.action
+            ),
+            GlassBottomTabItem(
                 label = stringResource(R.string.settings_menu_tab),
                 icon = Icons.Filled.Menu,
                 selected = false,
-                onClick = onOpenMenu
+                onClick = onOpenMenu,
+                lanternColor = LocalAppThemePalette.current.action
             )
-        }
-    }
+        )
+    )
 }
 
 @Composable
@@ -1010,7 +1013,7 @@ private fun SettingsGlassTopAppBar(
     val isDark = isSystemInDarkTheme()
     val topBarShape = RoundedCornerShape(0.dp)
     val barColor = topActionBarTint()
-    val contentColor = if (isDark) Color.White else Color(0xFF111111)
+    val contentColor = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark).title
 
     Surface(
         shape = topBarShape,
@@ -1079,12 +1082,9 @@ private fun SettingsFloatingSearchButton(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val iconColor = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF123B52)
-    val buttonColor = if (isDark) {
-        Color(0xFF59C9F8).copy(alpha = 0.34f)
-    } else {
-        Color(0xFFB9DFF2).copy(alpha = 0.92f)
-    }
+    val roles = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark)
+    val iconColor = roles.iconContent
+    val buttonColor = roles.iconSurface
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
@@ -1200,13 +1200,14 @@ private fun SettingsProfileAvatar(
         value = SettingsAvatarState.Empty
     }
 
+    val avatarRoles = appThemeSurfaceRoles(LocalAppThemePalette.current, isSystemInDarkTheme())
     Surface(
         modifier = modifier
             .clip(CircleShape),
         shape = CircleShape,
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-        contentColor = MaterialTheme.colorScheme.primary,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.22f))
+        color = avatarRoles.iconSurface,
+        contentColor = avatarRoles.iconContent,
+        border = BorderStroke(1.dp, avatarRoles.border)
     ) {
         when (val state = avatarState) {
             is SettingsAvatarState.Ready -> {
@@ -1253,6 +1254,8 @@ private fun SettingsInitials(
 
 @Composable
 private fun SettingsSectionGroup(section: SettingsSection) {
+    val isDark = isSystemInDarkTheme()
+    val roles = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark)
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(
             text = section.title,
@@ -1262,11 +1265,11 @@ private fun SettingsSectionGroup(section: SettingsSection) {
                 lineHeight = 16.sp,
                 letterSpacing = 0.sp
             ),
-            color = MaterialTheme.colorScheme.primary,
+            color = roles.section,
             modifier = Modifier.padding(horizontal = 10.dp)
         )
 
-        SettingsSurface(shape = RoundedCornerShape(18.dp)) {
+        AppThemeSectionSurface(shape = RoundedCornerShape(18.dp)) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 section.entries.forEachIndexed { index, entry ->
                     SettingsRow(entry)
@@ -1278,7 +1281,7 @@ private fun SettingsSectionGroup(section: SettingsSection) {
                         ) {
                             HorizontalDivider(
                                 thickness = 1.dp,
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.20f)
+                                color = roles.border.copy(alpha = 0.58f)
                             )
                         }
                     }
@@ -1290,6 +1293,10 @@ private fun SettingsSectionGroup(section: SettingsSection) {
 
 @Composable
 private fun SettingsRow(entry: SettingsEntry) {
+    val isDark = isSystemInDarkTheme()
+    val palette = LocalAppThemePalette.current
+    val surfaceRoles = appThemeSurfaceRoles(palette, isDark)
+    val rowAccent = surfaceRoles.section
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1302,8 +1309,8 @@ private fun SettingsRow(entry: SettingsEntry) {
         Surface(
             modifier = Modifier.size(36.dp),
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-            contentColor = MaterialTheme.colorScheme.primary
+            color = rowAccent.copy(alpha = if (isDark) 0.18f else 0.14f),
+            contentColor = rowAccent
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Icon(
@@ -1325,7 +1332,7 @@ private fun SettingsRow(entry: SettingsEntry) {
                     lineHeight = 19.sp,
                     letterSpacing = 0.sp
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = surfaceRoles.title,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1336,7 +1343,7 @@ private fun SettingsRow(entry: SettingsEntry) {
                         fontSize = 12.sp,
                         lineHeight = 16.sp
                     ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = surfaceRoles.subtitle,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1349,34 +1356,9 @@ private fun SettingsRow(entry: SettingsEntry) {
                 imageVector = Icons.Filled.ChevronRight,
                 contentDescription = null,
                 modifier = Modifier.size(21.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.66f)
+                tint = surfaceRoles.chevron
             )
         }
-    }
-}
-
-@Composable
-private fun SettingsSurface(
-    modifier: Modifier = Modifier,
-    shape: RoundedCornerShape = RoundedCornerShape(24.dp),
-    content: @Composable () -> Unit
-) {
-    val isDark = isSystemInDarkTheme()
-    val palette = LocalAppThemePalette.current
-    val cardColor = if (isDark) {
-        palette.card.copy(alpha = 0.78f)
-    } else {
-        palette.card.copy(alpha = 0.98f)
-    }
-    val borderColor = palette.outline.copy(alpha = if (isDark) 0.48f else 0.62f)
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(cardColor)
-            .border(BorderStroke(1.dp, borderColor), shape)
-    ) {
-        content()
     }
 }
 
@@ -1559,13 +1541,14 @@ private fun AppThemePickerSheet(
     onThemeSelected: (AppThemePreset) -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
     val panelColor = if (isDark) {
-        Color(0xFF202124).copy(alpha = 0.62f)
+        appPalette.glass.copy(alpha = 0.78f)
     } else {
-        Color(0xFFE6E2E7).copy(alpha = 0.52f)
+        appPalette.glass.copy(alpha = 0.72f)
     }
-    val textColor = if (isDark) Color.White else Color(0xFF1E1F24)
-    val secondaryTextColor = if (isDark) Color.White.copy(alpha = 0.78f) else Color(0xFF555763)
+    val textColor = if (isDark) Color.White else Color(0xFF111820)
+    val secondaryTextColor = if (isDark) Color.White.copy(alpha = 0.82f) else Color(0xFF33404B)
 
     AnimatedVisibility(
         visible = visible,
@@ -1623,18 +1606,30 @@ private fun AppThemePickerSheet(
                     backdrop = backdrop,
                     shape = GlassChromeShape,
                     surfaceColor = panelColor,
-                    blurDp = 8f,
+                    blurDp = 10f,
                     shadow = null,
                     refractionHeightDp = 22f,
                     refractionAmountDp = 72f,
                     chromaticAberration = true
+                )
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            appPalette.card.copy(alpha = if (isDark) 0.24f else 0.18f),
+                            appPalette.surfaceVariant.copy(alpha = if (isDark) 0.22f else 0.16f),
+                            appPalette.glass.copy(alpha = if (isDark) 0.18f else 0.14f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(850f, 1100f)
+                    ),
+                    GlassChromeShape
                 )
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 22.dp),
+                    .padding(start = 10.dp, top = 18.dp, end = 10.dp, bottom = 22.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
@@ -1678,60 +1673,90 @@ private fun AppThemeOption(
 ) {
     val isDark = isSystemInDarkTheme()
     val palette = remember(preset, isDark) { appThemePaletteFor(preset, isDark) }
-    val shape = appThemeOptionSafeGlassShape(preset)
-    val surfaceColor = if (selected) {
-        palette.card.copy(alpha = if (isDark) 0.44f else 0.50f)
+    val shape = themedBottomChromeShape(preset)
+    val glassAmount = rememberLiquidGlassTintAmount()
+    val surfaceAlpha = if (selected) {
+        if (isDark) 0.66f + glassAmount * 0.20f else 0.72f + glassAmount * 0.16f
     } else {
-        palette.glass.copy(alpha = if (isDark) 0.26f else 0.44f)
+        if (isDark) 0.52f + glassAmount * 0.18f else 0.62f + glassAmount * 0.14f
     }
-    val tintAlpha = if (selected) {
-        if (isDark) 0.32f else 0.24f
+    val overlayAlpha = if (selected) {
+        if (isDark) 0.24f + glassAmount * 0.10f else 0.18f + glassAmount * 0.08f
     } else {
-        if (isDark) 0.18f else 0.14f
+        if (isDark) 0.16f + glassAmount * 0.08f else 0.12f + glassAmount * 0.06f
     }
+    val surfaceColor = palette.card.copy(alpha = surfaceAlpha.coerceIn(0f, 0.92f))
+    val overlayTint = palette.glassOverlay.copy(alpha = overlayAlpha.coerceIn(0f, 0.34f))
+    val materialDecorations = rememberBottomTabMaterialDecorations(preset)
+    val backdropBlurDp = bottomChromeBackdropBlurDp()
+    val rowTextColor = if (isDark) Color.White else Color(0xFF10161D)
+    val rowSecondaryColor = if (isDark) Color.White.copy(alpha = 0.82f) else Color(0xFF33404B)
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 74.dp)
+            .heightIn(min = 76.dp)
+            .shadow(GlassChromeShadowElevation, shape, clip = false)
             .clip(shape)
-            .adaptiveLiquidGlassBackdrop(
+            .drawBackdrop(
                 backdrop = backdrop,
-                shape = shape,
-                surfaceColor = surfaceColor,
-                blurDp = 3.5f,
+                shape = { shape },
                 shadow = { bottomChromeShadow() },
                 highlight = null,
-                refractionHeightDp = 12f,
-                refractionAmountDp = 28f,
-                chromaticAberration = false
+                effects = {
+                    vibrancy()
+                    blur(
+                        radius = backdropBlurDp.dp.toPx(),
+                        edgeTreatment = TileMode.Mirror
+                    )
+                    lens(
+                        refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
+                        refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
+                        depthEffect = false,
+                        chromaticAberration = false
+                    )
+                },
+                onDrawBackdrop = { drawBackdrop ->
+                    drawBackdrop()
+                },
+                onDrawSurface = {
+                    drawRect(surfaceColor)
+                }
             )
+            .background(overlayTint, shape)
             .background(
-                brush = Brush.linearGradient(
+                Brush.linearGradient(
                     colors = listOf(
-                        palette.accent.copy(alpha = tintAlpha),
-                        palette.card.copy(alpha = tintAlpha * 0.72f),
-                        palette.warm.copy(alpha = tintAlpha * 0.76f),
-                        palette.rose.copy(alpha = tintAlpha * 0.58f)
+                        palette.accent.copy(alpha = if (isDark) 0.18f else 0.14f),
+                        palette.warm.copy(alpha = if (isDark) 0.14f else 0.11f),
+                        palette.rose.copy(alpha = if (isDark) 0.16f else 0.12f)
                     ),
                     start = Offset.Zero,
-                    end = Offset.Infinite
+                    end = Offset(900f, 240f)
                 ),
-                shape = shape
+                shape
             )
+            .drawBehind {
+                drawBottomTabThemeAccents(
+                    decorations = materialDecorations,
+                    accent = palette.accent,
+                    warm = palette.warm,
+                    rose = palette.rose
+                )
+            }
             .clickable { onClick(preset) },
         contentAlignment = Alignment.Center
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     listOf(palette.accent, palette.warm, palette.rose).forEach { color ->
                         Box(
                             modifier = Modifier
-                                .size(18.dp)
+                                .size(20.dp)
                                 .clip(CircleShape)
                                 .background(color)
                         )
@@ -1745,28 +1770,28 @@ private fun AppThemeOption(
                         text = preset.label,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp,
-                            lineHeight = 19.sp
+                            fontSize = 16.sp,
+                            lineHeight = 20.sp
                         ),
-                        color = textColor
+                        color = rowTextColor
                     )
                     Text(
                         text = preset.summary,
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp),
-                        color = secondaryTextColor.copy(alpha = 0.78f)
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 16.sp),
+                        color = rowSecondaryColor
                     )
                 }
                 AppThemeShapePreview(
                     preset = preset,
                     palette = palette,
-                    modifier = Modifier.size(width = 76.dp, height = 48.dp)
+                    modifier = Modifier.size(width = 96.dp, height = 44.dp)
                 )
                 RadioButton(
                     selected = selected,
                     onClick = { onClick(preset) },
                     colors = RadioButtonDefaults.colors(
                         selectedColor = MaterialTheme.colorScheme.primary,
-                        unselectedColor = secondaryTextColor
+                        unselectedColor = rowSecondaryColor
                     )
                 )
             }
@@ -1800,8 +1825,6 @@ private fun AppThemeShapePreview(
     val isDark = isSystemInDarkTheme()
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (isDark) Color.Black.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.30f))
             .padding(horizontal = 5.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -1819,7 +1842,7 @@ private fun AppThemeShapePreview(
                 val shape = remember(path) { MaterialPathShape(path) }
                 Box(
                     modifier = Modifier
-                        .size(31.dp)
+                        .size(34.dp)
                         .clip(shape)
                         .background(colors[index % colors.size])
                 )

@@ -244,18 +244,12 @@ fun NoteItem(
     }
     val afterTitleSpace = if (compact) 4.dp else 10.dp
     val isDark = isSystemInDarkTheme()
-    val scheme = MaterialTheme.colorScheme
     val isLightTheme = !isSystemInDarkTheme()
     val hasPalette = palette != null
     val appPalette = LocalAppThemePalette.current
 
 
 // Container: in light, use warmBase; in dark, keep your dark glass
-    val containerColor = palette?.noteTint ?: if (isLightTheme) {
-        appPalette.card.copy(alpha = 0.54f)
-    } else {
-        appPalette.card.copy(alpha = 0.58f)
-    }
     val paletteBackgroundIsLight = (palette?.screenBackground ?: appPalette.page)
         .luminance() > 0.5f
     val noteActionColor = palette?.let {
@@ -559,11 +553,6 @@ fun NoteItem(
                         horizontalArrangement = Arrangement.spacedBy(badgeStripGap)
                     ) {
                         if (createdLabel.isNotBlank()) {
-                            val timestampLeftBottomCorner = when {
-                                tightMediaBadges -> 10.dp
-                                compact -> 18.dp
-                                else -> 14.dp
-                            }
                             val timestampShape = remember(tightMediaBadges, compact) {
                                 GenericShape { size, _ ->
                                     val w = size.width

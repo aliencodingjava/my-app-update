@@ -6,9 +6,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -21,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -33,6 +30,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -57,7 +55,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -137,21 +134,6 @@ private fun HomeActionPanel(
 ) {
     BoxWithConstraints(modifier = modifier) {
         val bottomReserve = if (maxHeight < 460.dp) 84.dp else 96.dp
-
-        val rowHeight = when {
-            maxWidth >= 900.dp -> 74.dp      // tablets
-            maxWidth >= 700.dp -> 70.dp      // foldables / small tablets
-            maxWidth >= 500.dp -> 66.dp      // big phones / Ultra
-            maxHeight < 390.dp -> 54.dp      // very tight
-            maxHeight < 520.dp -> 60.dp      // compact
-            else -> 64.dp                   // normal phones
-        }
-
-        val itemSpacing = when {
-            maxWidth >= 700.dp -> 8.dp
-            maxHeight < 420.dp -> 5.dp
-            else -> 7.dp
-        }
 
         val horizontalPadding = when {
             maxWidth >= 900.dp -> 18.dp      // tablets need small margin
@@ -251,11 +233,8 @@ private fun HomeActionPanel(
         ) {
             sections.forEach { section ->
                 HomeActionSectionList(
-                    backdrop = backdrop,
                     section = section,
-                    onOpen = onOpen,
-                    rowHeight = rowHeight,
-                    itemSpacing = itemSpacing
+                    onOpen = onOpen
                 )
             }
         }
@@ -264,55 +243,66 @@ private fun HomeActionPanel(
 
 @Composable
 private fun HomeActionSectionList(
-    backdrop: LayerBackdrop,
     section: HomeActionSection,
-    onOpen: (String) -> Unit,
-    rowHeight: Dp,
-    itemSpacing: Dp
+    onOpen: (String) -> Unit
 ) {
     val darkTheme = isSystemInDarkTheme()
     val appPalette = LocalAppThemePalette.current
+    val surfaceRoles = appThemeSurfaceRoles(appPalette, darkTheme)
 
-    val sectionTextColor = appPalette.accent
+    val sectionTextColor = surfaceRoles.section
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(itemSpacing)
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         Text(
             text = section.title,
-            modifier = Modifier.padding(start = 2.dp, bottom = 2.dp),
-            style = MaterialTheme.typography.labelLarge.copy(
+            style = MaterialTheme.typography.titleSmall.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                lineHeight = 16.sp
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                letterSpacing = 0.sp
             ),
             color = sectionTextColor,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 10.dp)
         )
 
-        section.buttons.forEach { btn ->
-            HomeActionListItem(
-                backdrop = backdrop,
-                button = btn,
-                rowHeight = rowHeight,
-                onOpen = onOpen
-            )
+        AppThemeSectionSurface(shape = RoundedCornerShape(18.dp)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                section.buttons.forEachIndexed { index, btn ->
+                    HomeActionListItem(
+                        button = btn,
+                        onOpen = onOpen
+                    )
+                    if (index != section.buttons.lastIndex) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 60.dp, end = 14.dp)
+                        ) {
+                            HorizontalDivider(
+                                thickness = 1.dp,
+                                color = surfaceRoles.border.copy(alpha = 0.58f)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun HomeActionListItem(
-    backdrop: LayerBackdrop,
     button: GlassBtn,
-    rowHeight: Dp,
     onOpen: (String) -> Unit
 ) {
     val darkTheme = isSystemInDarkTheme()
     val appPalette = LocalAppThemePalette.current
-    val shape = RoundedCornerShape(18.dp)
+    val surfaceRoles = appThemeSurfaceRoles(appPalette, darkTheme)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
@@ -321,42 +311,28 @@ private fun HomeActionListItem(
         label = "home_action_press_scale"
     )
 
-    val rowSurfaceColor = if (darkTheme) {
-        appPalette.card.copy(alpha = 0.96f)
-    } else {
-        appPalette.glass.copy(alpha = 0.98f)
-    }
-    val rowBorderColor = appPalette.outline.copy(alpha = if (darkTheme) 0.40f else 0.30f)
-    val titleColor = if (darkTheme) Color(0xFFF7F9FC) else Color(0xFF101418)
-    val descriptionColor = if (darkTheme) Color(0xFFC5CED8) else Color(0xFF4F5B66)
-    val chevronColor = appPalette.accent.copy(alpha = if (darkTheme) 0.74f else 0.68f)
+    val titleColor = surfaceRoles.title
+    val descriptionColor = surfaceRoles.subtitle
+    val chevronColor = surfaceRoles.chevron
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(rowHeight)
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
             }
-            .shadow(
-                elevation = 0.02.dp,
-                shape = shape,
-                clip = false
-            )
-            .clip(shape)
-            .background(rowSurfaceColor, shape)
-            .border(BorderStroke(1.dp, rowBorderColor), shape)
+            .clip(RoundedCornerShape(16.dp))
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = { onOpen(button.id) }
             )
-            .padding(start = 10.dp, end = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -368,10 +344,11 @@ private fun HomeActionListItem(
             ) {
                 Text(
                     text = button.label,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontSize = 14.sp,
-                        lineHeight = 16.sp,
-                        fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        lineHeight = 19.sp,
+                        letterSpacing = 0.sp
                     ),
                     color = titleColor,
                     maxLines = 1,
@@ -381,8 +358,8 @@ private fun HomeActionListItem(
                 Text(
                     text = button.description,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 11.sp,
-                        lineHeight = 13.sp,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
                         fontWeight = FontWeight.Medium
                     ),
                     color = descriptionColor,
@@ -411,7 +388,7 @@ private fun HomeActionIcon(
 
     Box(
         modifier = Modifier
-            .size(38.dp)
+            .size(36.dp)
             .clip(CircleShape)
             .background(circleColor),
         contentAlignment = Alignment.Center

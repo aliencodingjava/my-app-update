@@ -49,6 +49,40 @@ data class AppThemePalette(
     val bottomPill: Color
 )
 
+@Immutable
+data class AppThemeSurfaceRoles(
+    val page: Color,
+    val card: Color,
+    val glassCard: Color,
+    val border: Color,
+    val title: Color,
+    val subtitle: Color,
+    val section: Color,
+    val iconSurface: Color,
+    val iconContent: Color,
+    val chevron: Color
+)
+
+fun appThemeSurfaceRoles(
+    palette: AppThemePalette,
+    isDark: Boolean
+): AppThemeSurfaceRoles {
+    val title = if (isDark) Color(0xFFF6F8FB) else Color(0xFF101418)
+    val subtitle = if (isDark) Color(0xFFC4CCD6) else Color(0xFF4F5B66)
+    return AppThemeSurfaceRoles(
+        page = palette.page,
+        card = palette.card.copy(alpha = if (isDark) 0.86f else 0.92f),
+        glassCard = palette.glass.copy(alpha = if (isDark) 0.78f else 0.88f),
+        border = palette.outline.copy(alpha = if (isDark) 0.46f else 0.34f),
+        title = title,
+        subtitle = subtitle,
+        section = palette.accent,
+        iconSurface = palette.action.copy(alpha = if (isDark) 0.22f else 0.18f),
+        iconContent = palette.actionContent.copy(alpha = if (isDark) 0.96f else 0.98f),
+        chevron = palette.actionContent.copy(alpha = if (isDark) 0.70f else 0.62f)
+    )
+}
+
 val LocalAppThemePreset = staticCompositionLocalOf { AppThemePreset.Classic }
 
 val LocalAppThemePalette = staticCompositionLocalOf {

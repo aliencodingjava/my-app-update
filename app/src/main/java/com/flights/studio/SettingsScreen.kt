@@ -220,7 +220,7 @@ private val SkyFlightTheme = FlightThemeSpec(
 private val OceanFlightTheme = FlightThemeSpec(
     id = "ocean",
     title = "Ocean",
-    previewName = "Night Ocean",
+    previewName = "Ocean",
     accent = Color(0xFF22D3EE),
     page = Color(0xFF071820),
     card = Color(0xFF0D2430),
@@ -281,6 +281,70 @@ private val AmberFlightTheme = FlightThemeSpec(
     glow = Color(0x44F59E0B)
 )
 
+private val SummerFlightTheme = FlightThemeSpec(
+    id = "summer",
+    title = "Summer",
+    previewName = "Summer",
+    accent = Color(0xFFFFB000),
+    page = Color(0xFFFFF2C7),
+    card = Color(0xFFFFF8D8),
+    header = Color(0xFFFFD447),
+    row = Color(0xFFFFF1A6),
+    arrivedRow = Color(0xFFFFE27A),
+    text = Color(0xFF332300),
+    muted = Color(0xFF80620B),
+    border = Color(0xFFE6A400),
+    glow = Color(0x55FFB000)
+)
+
+private val AutumnFlightTheme = FlightThemeSpec(
+    id = "autumn",
+    title = "Autumn",
+    previewName = "Autumn",
+    accent = Color(0xFFD85A16),
+    page = Color(0xFFFFE0C2),
+    card = Color(0xFFFFE9D4),
+    header = Color(0xFFFFA046),
+    row = Color(0xFFFFD0A6),
+    arrivedRow = Color(0xFFFFBC83),
+    text = Color(0xFF3D1800),
+    muted = Color(0xFF8A3E12),
+    border = Color(0xFFC94D19),
+    glow = Color(0x55D85A16)
+)
+
+private val WinterFlightTheme = FlightThemeSpec(
+    id = "winter",
+    title = "Winter",
+    previewName = "Winter",
+    accent = Color(0xFF2F7FE8),
+    page = Color(0xFFDCEEFF),
+    card = Color(0xFFEAF5FF),
+    header = Color(0xFFB9D8FF),
+    row = Color(0xFFD8EAFF),
+    arrivedRow = Color(0xFFC7E0FF),
+    text = Color(0xFF0D2746),
+    muted = Color(0xFF385C82),
+    border = Color(0xFF6FA8EA),
+    glow = Color(0x552F7FE8)
+)
+
+private val SpringFlightTheme = FlightThemeSpec(
+    id = "spring",
+    title = "Spring",
+    previewName = "Spring",
+    accent = Color(0xFF23B26D),
+    page = Color(0xFFE2FFD9),
+    card = Color(0xFFF0FFE8),
+    header = Color(0xFFA8F06D),
+    row = Color(0xFFD5F8C4),
+    arrivedRow = Color(0xFFB9F1AE),
+    text = Color(0xFF0E3318),
+    muted = Color(0xFF3D7142),
+    border = Color(0xFF72C76C),
+    glow = Color(0x5523B26D)
+)
+
 private val GrayFlightTheme = FlightThemeSpec(
     id = "gray",
     title = "Gray",
@@ -300,7 +364,7 @@ private val GrayFlightTheme = FlightThemeSpec(
 private val DarkFlightTheme = FlightThemeSpec(
     id = "dark",
     title = "Dark",
-    previewName = "Night Ops",
+    previewName = "Dark",
     accent = Color(0xFF38BDF8),
     page = Color(0xFF07111C),
     card = Color(0xFF111C28),
@@ -313,22 +377,149 @@ private val DarkFlightTheme = FlightThemeSpec(
     glow = Color(0x4438BDF8)
 )
 
+private val AlpineNightFlightTheme = FlightThemeSpec(
+    id = "alpine_night",
+    title = "Alpine",
+    previewName = "Alpine",
+    accent = Color(0xFF8EDBFF),
+    page = Color(0xFF07131E),
+    card = Color(0xFF101C2A),
+    header = Color(0xFF17263A),
+    row = Color(0xFF101B28),
+    arrivedRow = Color(0xFF12334A),
+    text = Color(0xFFEAF6FF),
+    muted = Color(0xFF9CB3C6),
+    border = Color(0xFF2B4E68),
+    glow = Color(0x558EDBFF)
+)
+
+private val PineNightFlightTheme = FlightThemeSpec(
+    id = "pine_night",
+    title = "Pine",
+    previewName = "Pine",
+    accent = Color(0xFF62E6B5),
+    page = Color(0xFF071710),
+    card = Color(0xFF10231A),
+    header = Color(0xFF183528),
+    row = Color(0xFF10251C),
+    arrivedRow = Color(0xFF0F3B2B),
+    text = Color(0xFFE9FFF6),
+    muted = Color(0xFF9FC3B5),
+    border = Color(0xFF2E6A50),
+    glow = Color(0x5562E6B5)
+)
+
+private val StormNightFlightTheme = FlightThemeSpec(
+    id = "storm_night",
+    title = "Storm",
+    previewName = "Storm",
+    accent = Color(0xFFA9B8FF),
+    page = Color(0xFF0B0D18),
+    card = Color(0xFF151827),
+    header = Color(0xFF222842),
+    row = Color(0xFF151B2C),
+    arrivedRow = Color(0xFF182D45),
+    text = Color(0xFFF0F2FF),
+    muted = Color(0xFFA9B0C8),
+    border = Color(0xFF434D78),
+    glow = Color(0x55A9B8FF)
+)
+
+private val SummerNightFlightTheme = FlightThemeSpec(
+    id = "summer_night",
+    title = "Summer",
+    previewName = "Summer",
+    accent = Color(0xFF61E7FF),
+    page = Color(0xFF061B22),
+    card = Color(0xFF102A31),
+    header = Color(0xFF19424A),
+    row = Color(0xFF102D34),
+    arrivedRow = Color(0xFF174B55),
+    text = Color(0xFFEFFFFF),
+    muted = Color(0xFF9CC8D0),
+    border = Color(0xFF317683),
+    glow = Color(0x5561E7FF)
+)
+
+private val SpringNightFlightTheme = FlightThemeSpec(
+    id = "spring_night",
+    title = "Spring",
+    previewName = "Spring",
+    accent = Color(0xFF8CFF6B),
+    page = Color(0xFF07170B),
+    card = Color(0xFF102414),
+    header = Color(0xFF1D3A22),
+    row = Color(0xFF132B18),
+    arrivedRow = Color(0xFF1F4625),
+    text = Color(0xFFF0FFE9),
+    muted = Color(0xFFA9D6A1),
+    border = Color(0xFF4F8F46),
+    glow = Color(0x558CFF6B)
+)
+
+private val AutumnNightFlightTheme = FlightThemeSpec(
+    id = "autumn_night",
+    title = "Autumn",
+    previewName = "Autumn",
+    accent = Color(0xFFFFB23F),
+    page = Color(0xFF171107),
+    card = Color(0xFF281E10),
+    header = Color(0xFF3C2D17),
+    row = Color(0xFF2F2110),
+    arrivedRow = Color(0xFF4C3518),
+    text = Color(0xFFFFF4DD),
+    muted = Color(0xFFD4B889),
+    border = Color(0xFF7B5B27),
+    glow = Color(0x55FFB23F)
+)
+
+private val WinterNightFlightTheme = FlightThemeSpec(
+    id = "winter_night",
+    title = "Winter",
+    previewName = "Winter",
+    accent = Color(0xFF9AD7FF),
+    page = Color(0xFF07111C),
+    card = Color(0xFF121F2E),
+    header = Color(0xFF1C3247),
+    row = Color(0xFF132437),
+    arrivedRow = Color(0xFF1E4661),
+    text = Color(0xFFF4FBFF),
+    muted = Color(0xFFAEC4D6),
+    border = Color(0xFF3D668C),
+    glow = Color(0x559AD7FF)
+)
+
 private val AutoFlightTheme = LightFlightTheme.copy(
     id = "auto",
     title = "Auto",
     previewName = "Auto Flight"
 )
 
-private val FlightThemeChoices = listOf(
+private val LightFlightThemeChoices = listOf(
     LightFlightTheme,
     MintFlightTheme,
     SkyFlightTheme,
-    OceanFlightTheme,
+    SpringFlightTheme,
+    SummerFlightTheme,
+    AutumnFlightTheme,
+    WinterFlightTheme,
     VioletFlightTheme,
     RoseFlightTheme,
     AmberFlightTheme,
     GrayFlightTheme,
+    AutoFlightTheme
+)
+
+private val DarkFlightThemeChoices = listOf(
     DarkFlightTheme,
+    OceanFlightTheme,
+    AlpineNightFlightTheme,
+    PineNightFlightTheme,
+    StormNightFlightTheme,
+    SpringNightFlightTheme,
+    SummerNightFlightTheme,
+    AutumnNightFlightTheme,
+    WinterNightFlightTheme,
     AutoFlightTheme
 )
 
@@ -741,24 +932,46 @@ fun SettingsScreen(
 
 private fun resolveFlightTheme(themeId: String, systemDark: Boolean): FlightThemeSpec {
     return when (themeId) {
-        "light" -> LightFlightTheme
-        "mint" -> MintFlightTheme
-        "sky" -> SkyFlightTheme
+        "light" -> if (systemDark) AlpineNightFlightTheme.copy(id = "light", title = "Light", previewName = "Alpine") else LightFlightTheme
+        "mint" -> if (systemDark) PineNightFlightTheme.copy(id = "mint", title = "Mint", previewName = "Pine") else MintFlightTheme
+        "sky" -> if (systemDark) AlpineNightFlightTheme.copy(id = "sky", title = "Sky", previewName = "Alpine") else SkyFlightTheme
+        "spring" -> if (systemDark) SpringNightFlightTheme.copy(id = "spring", title = "Spring", previewName = "Spring") else SpringFlightTheme
+        "summer" -> if (systemDark) SummerNightFlightTheme.copy(id = "summer", title = "Summer", previewName = "Summer") else SummerFlightTheme
+        "autumn" -> if (systemDark) AutumnNightFlightTheme.copy(id = "autumn", title = "Autumn", previewName = "Autumn") else AutumnFlightTheme
+        "winter" -> if (systemDark) WinterNightFlightTheme.copy(id = "winter", title = "Winter", previewName = "Winter") else WinterFlightTheme
         "ocean" -> OceanFlightTheme
-        "violet" -> VioletFlightTheme
-        "rose" -> RoseFlightTheme
-        "amber" -> AmberFlightTheme
-        "gray" -> GrayFlightTheme
+        "violet" -> if (systemDark) StormNightFlightTheme.copy(id = "violet", title = "Violet", previewName = "Storm") else VioletFlightTheme
+        "rose" -> if (systemDark) StormNightFlightTheme.copy(id = "rose", title = "Rose", previewName = "Storm") else RoseFlightTheme
+        "amber" -> if (systemDark) PineNightFlightTheme.copy(id = "amber", title = "Amber", previewName = "Pine") else AmberFlightTheme
+        "gray" -> if (systemDark) DarkFlightTheme.copy(id = "gray", title = "Gray", previewName = "Dark") else GrayFlightTheme
         "dark" -> DarkFlightTheme
+        "alpine_night" -> AlpineNightFlightTheme
+        "pine_night" -> PineNightFlightTheme
+        "storm_night" -> StormNightFlightTheme
+        "spring_night" -> SpringNightFlightTheme
+        "summer_night" -> SummerNightFlightTheme
+        "autumn_night" -> AutumnNightFlightTheme
+        "winter_night" -> WinterNightFlightTheme
         "auto" -> if (systemDark) DarkFlightTheme.copy(id = "auto", title = "Auto", previewName = "Auto Flight") else AutoFlightTheme
-        else -> MintFlightTheme
+        else -> if (systemDark) DarkFlightTheme else MintFlightTheme
     }
 }
 
 private fun previewFlightEffectiveTheme(webTheme: String, isDark: Boolean): String {
     return when (webTheme.lowercase()) {
         "auto" -> if (isDark) "dark" else "light"
-        "dark", "ocean", "mint", "sky", "violet", "rose", "amber", "gray", "light" -> webTheme.lowercase()
+        "dark", "ocean", "alpine_night", "pine_night", "storm_night", "spring_night", "summer_night", "autumn_night", "winter_night" -> webTheme.lowercase()
+        "mint", "sky", "violet", "rose", "amber", "gray", "light" -> if (isDark) {
+            when (webTheme.lowercase()) {
+                "mint", "amber" -> "pine_night"
+                "violet", "rose" -> "storm_night"
+                "sky", "light" -> "alpine_night"
+                else -> "dark"
+            }
+        } else {
+            webTheme.lowercase()
+        }
+        "spring", "summer", "autumn", "winter" -> if (isDark) "${webTheme.lowercase()}_night" else webTheme.lowercase()
         else -> if (isDark) "dark" else "light"
     }
 }
@@ -768,6 +981,17 @@ private fun previewFlightThemeAccent(effectiveTheme: String): Color {
         "mint" -> Color(0xFF22B981)
         "sky" -> Color(0xFF3B82F6)
         "ocean" -> Color(0xFF7DD3FC)
+        "alpine_night" -> Color(0xFF8EDBFF)
+        "pine_night" -> Color(0xFF62E6B5)
+        "storm_night" -> Color(0xFFA9B8FF)
+        "spring" -> Color(0xFF23B26D)
+        "summer" -> Color(0xFFFFB000)
+        "autumn" -> Color(0xFFD97900)
+        "winter" -> Color(0xFF2F7FE8)
+        "spring_night" -> Color(0xFF8CFF6B)
+        "summer_night" -> Color(0xFF61E7FF)
+        "autumn_night" -> Color(0xFFFFB23F)
+        "winter_night" -> Color(0xFF9AD7FF)
         "violet" -> Color(0xFF8B5CF6)
         "rose" -> Color(0xFFEC4899)
         "amber" -> Color(0xFFF59E0B)
@@ -829,12 +1053,33 @@ private fun previewNativeFlightPalette(
 
     val effectiveTheme = previewFlightEffectiveTheme(webTheme, isDark)
     val accent = previewFlightThemeAccent(effectiveTheme)
-    return if (effectiveTheme == "dark" || effectiveTheme == "ocean") {
-        val surface = accent.copy(alpha = 0.08f).compositeOver(Color(0xFF101B27).copy(alpha = 0.66f))
+    return if (isDark || effectiveTheme == "dark" || effectiveTheme == "ocean") {
+        val darkPage = when (effectiveTheme) {
+            "ocean" -> Color(0xFF071820)
+            "alpine_night" -> Color(0xFF07131E)
+            "pine_night" -> Color(0xFF071710)
+            "storm_night" -> Color(0xFF0B0D18)
+            "spring_night" -> Color(0xFF07170B)
+            "summer_night" -> Color(0xFF061B22)
+            "autumn_night" -> Color(0xFF171107)
+            "winter_night" -> Color(0xFF07111C)
+            else -> Color(0xFF07111C)
+        }
+        val darkSurfaceBase = when (effectiveTheme) {
+            "pine_night" -> Color(0xFF10251C)
+            "storm_night" -> Color(0xFF151B2C)
+            "alpine_night" -> Color(0xFF101B28)
+            "spring_night" -> Color(0xFF132B18)
+            "summer_night" -> Color(0xFF102D34)
+            "autumn_night" -> Color(0xFF2F2110)
+            "winter_night" -> Color(0xFF132437)
+            else -> Color(0xFF101B27)
+        }
+        val surface = accent.copy(alpha = 0.08f).compositeOver(darkSurfaceBase.copy(alpha = 0.76f))
         val panel = accent.copy(alpha = 0.025f + 0.05f * glassAmount)
-            .compositeOver(Color(0xFF10151D).copy(alpha = 0.58f + 0.32f * glassAmount))
+            .compositeOver(darkPage.copy(alpha = 0.72f + 0.22f * glassAmount))
         PreviewNativeFlightPalette(
-            page = if (effectiveTheme == "ocean") Color(0xFF071820) else Color(0xFF07111C),
+            page = darkPage,
             panel = panel,
             surface = surface,
             datePill = Color(0xFF111111).copy(alpha = 0.88f),
@@ -856,6 +1101,10 @@ private fun previewNativeFlightPalette(
         val page = when (effectiveTheme) {
             "mint" -> Color(0xFFF2FBF8)
             "sky" -> Color(0xFFF0F7FF)
+            "spring" -> Color(0xFFE2FFD9)
+            "summer" -> Color(0xFFFFF2C7)
+            "autumn" -> Color(0xFFFFE0C2)
+            "winter" -> Color(0xFFDCEEFF)
             "violet" -> Color(0xFFF7F3FF)
             "rose" -> Color(0xFFFFF5FA)
             "amber" -> Color(0xFFFFFAEC)
@@ -869,6 +1118,10 @@ private fun previewNativeFlightPalette(
         val text = when (effectiveTheme) {
             "mint" -> Color(0xFF10201C)
             "sky" -> Color(0xFF10243F)
+            "spring" -> Color(0xFF0E3318)
+            "summer" -> Color(0xFF332300)
+            "autumn" -> Color(0xFF3D1800)
+            "winter" -> Color(0xFF12283E)
             "violet" -> Color(0xFF261B3F)
             "rose" -> Color(0xFF3E122A)
             "amber" -> Color(0xFF34230C)
@@ -878,6 +1131,10 @@ private fun previewNativeFlightPalette(
         val readableAccent = when (effectiveTheme) {
             "mint" -> Color(0xFF0F6B4A)
             "sky" -> Color(0xFF075985)
+            "spring" -> Color(0xFF1C7A3A)
+            "summer" -> Color(0xFF9A6400)
+            "autumn" -> Color(0xFF9A3A09)
+            "winter" -> Color(0xFF1D5FAE)
             "violet" -> Color(0xFF5B21B6)
             "rose" -> Color(0xFF9D174D)
             "amber" -> Color(0xFF8A4B08)
@@ -1397,6 +1654,7 @@ private fun ThemeChooser(
 ) {
     val glassAmount = rememberLiquidGlassTintAmount()
     val cardWidth = if (tablet) 118.dp else 98.dp
+    val themeChoices = if (systemDark) DarkFlightThemeChoices else LightFlightThemeChoices
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1404,7 +1662,7 @@ private fun ThemeChooser(
             .padding(bottom = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        FlightThemeChoices.forEach { theme ->
+        themeChoices.forEach { theme ->
             ThemePreviewCard(
                 theme = theme,
                 actualTheme = resolveFlightTheme(theme.id, systemDark),
