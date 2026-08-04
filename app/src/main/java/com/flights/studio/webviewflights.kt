@@ -22,6 +22,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.JavascriptInterface
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.compose.animation.AnimatedContent
@@ -106,8 +107,10 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -131,6 +134,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -230,7 +234,7 @@ fun hasInternet(context: Context): Boolean {
         val network = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(network) ?: return false
         caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }.getOrDefault(false)
 }
 
@@ -251,7 +255,7 @@ private fun rememberValidatedInternetState(context: Context): Boolean {
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
                 updateOnline(
                     networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                        networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                            networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 )
             }
 
@@ -273,11 +277,11 @@ private fun rememberValidatedInternetState(context: Context): Boolean {
 
 private fun isWebCard(cardId: String): Boolean =
     cardId == "card1" ||
-        cardId == "card2" ||
-        cardId == "card3" ||
-        cardId == "card4" ||
-        cardId == "about_us" ||
-        cardId == "contact_us"
+            cardId == "card2" ||
+            cardId == "card3" ||
+            cardId == "card4" ||
+            cardId == "about_us" ||
+            cardId == "contact_us"
 
 private fun webCardOrFlights(cardId: String): String =
     if (isWebCard(cardId)) cardId else "card3"
@@ -291,7 +295,7 @@ fun WebviewFlights(
     onExitNormal: () -> Unit,
     onOpenWelcome: () -> Unit,
     backdrop: LayerBackdrop,
-    ) {
+) {
     SystemBarsSync()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -313,7 +317,7 @@ fun WebviewFlights(
     var showFlightTableSheet by remember { mutableStateOf(false) }
     var flightTableMode by rememberSaveable { mutableStateOf("arrival") }
     var lastFlightContentTab by rememberSaveable { mutableStateOf("arrivals") }
-    var flightTitleProgress by rememberSaveable { mutableStateOf(0f) }
+    var flightTitleProgress by rememberSaveable { mutableFloatStateOf(0f) }
     var liveStatusJson by rememberSaveable { mutableStateOf(SettingsStore.flightLiveStatusSnapshot(context)) }
     var flightBriefJson by rememberSaveable { mutableStateOf(SettingsStore.flightBriefSnapshot(context)) }
     var flightTableJson by rememberSaveable { mutableStateOf(SettingsStore.flightTableSnapshot(context)) }
@@ -655,81 +659,80 @@ fun WebviewFlights(
                 NativeFlightBottomTabs(
                     selected = selectedFlightTab,
                     backdrop = activeFlightBackdrop,
-                    contentView = null,
                     onSelect = { next ->
-                    val sameTabSelected = selectedFlightTab == next
-                    when (next) {
-                        "alerts" -> {
-                            showFlightMenuSheet = false
-                            if (cardId == "card3") {
-                                showFlightTableSheet = false
-                                showFlightAlertsSheet = false
-                                selectedFlightTab = next
-                                lastFlightContentTab = next
-                                flightWebView?.evaluateJavascript(
-                                    "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
-                                    null
-                                )
-                            } else {
-                                val shouldClose = showFlightAlertsSheet && sameTabSelected
-                                showFlightTableSheet = false
-                                showFlightAlertsSheet = !shouldClose
-                                selectedFlightTab = if (shouldClose) selectedFlightTableTab() else next
-                                if (!shouldClose) {
+                        val sameTabSelected = selectedFlightTab == next
+                        when (next) {
+                            "alerts" -> {
+                                showFlightMenuSheet = false
+                                if (cardId == "card3") {
+                                    showFlightTableSheet = false
+                                    showFlightAlertsSheet = false
+                                    selectedFlightTab = next
+                                    lastFlightContentTab = next
                                     flightWebView?.evaluateJavascript(
                                         "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
                                         null
                                     )
+                                } else {
+                                    val shouldClose = showFlightAlertsSheet && sameTabSelected
+                                    showFlightTableSheet = false
+                                    showFlightAlertsSheet = !shouldClose
+                                    selectedFlightTab = if (shouldClose) selectedFlightTableTab() else next
+                                    if (!shouldClose) {
+                                        flightWebView?.evaluateJavascript(
+                                            "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
+                                            null
+                                        )
+                                    }
+                                }
+                            }
+                            "transportation" -> {
+                                val shouldClose = showFlightTableSheet && sameTabSelected && flightTableMode == "transportation"
+                                showFlightAlertsSheet = false
+                                showFlightMenuSheet = false
+                                flightTableMode = "transportation"
+                                if (cardId == "card3") {
+                                    selectedFlightTab = next
+                                    lastFlightContentTab = next
+                                    showFlightTableSheet = false
+                                } else {
+                                    showFlightTableSheet = !shouldClose
+                                    selectedFlightTab = if (shouldClose) selectedFlightTableTab() else next
+                                }
+                            }
+                            "menu" -> {
+                                val shouldClose = showFlightMenuSheet
+                                showFlightAlertsSheet = false
+                                showFlightTableSheet = false
+                                showFlightMenuSheet = !shouldClose
+                                selectedFlightTab = if (cardId == "card3") {
+                                    lastFlightContentTab
+                                } else {
+                                    if (shouldClose) selectedFlightTableTab() else next
+                                }
+                            }
+                            "arrivals", "departures" -> {
+                                showFlightAlertsSheet = false
+                                showFlightMenuSheet = false
+                                if (cardId == "card3") {
+                                    val nextMode = if (next == "departures") "departure" else "arrival"
+                                    flightTableMode = nextMode
+                                    selectedFlightTab = next
+                                    lastFlightContentTab = next
+                                    showFlightTableSheet = false
+                                    flightWebView?.evaluateJavascript(
+                                        "try{window.fsNativeFlightTab&&window.fsNativeFlightTab('$next')}catch(e){}",
+                                        null
+                                    )
+                                } else {
+                                    val nextMode = if (next == "departures") "departure" else "arrival"
+                                    val shouldClose = showFlightTableSheet && sameTabSelected && flightTableMode == nextMode
+                                    flightTableMode = if (next == "departures") "departure" else "arrival"
+                                    showFlightTableSheet = !shouldClose
+                                    selectedFlightTab = if (shouldClose) selectedFlightTableTab() else next
                                 }
                             }
                         }
-                        "transportation" -> {
-                            val shouldClose = showFlightTableSheet && sameTabSelected && flightTableMode == "transportation"
-                            showFlightAlertsSheet = false
-                            showFlightMenuSheet = false
-                            flightTableMode = "transportation"
-                            if (cardId == "card3") {
-                                selectedFlightTab = next
-                                lastFlightContentTab = next
-                                showFlightTableSheet = false
-                            } else {
-                                showFlightTableSheet = !shouldClose
-                                selectedFlightTab = if (shouldClose) selectedFlightTableTab() else next
-                            }
-                        }
-                        "menu" -> {
-                            val shouldClose = showFlightMenuSheet
-                            showFlightAlertsSheet = false
-                            showFlightTableSheet = false
-                            showFlightMenuSheet = !shouldClose
-                            selectedFlightTab = if (cardId == "card3") {
-                                lastFlightContentTab
-                            } else {
-                                if (shouldClose) selectedFlightTableTab() else next
-                            }
-                        }
-                        "arrivals", "departures" -> {
-                            showFlightAlertsSheet = false
-                            showFlightMenuSheet = false
-                            if (cardId == "card3") {
-                                val nextMode = if (next == "departures") "departure" else "arrival"
-                                flightTableMode = nextMode
-                                selectedFlightTab = next
-                                lastFlightContentTab = next
-                                showFlightTableSheet = false
-                                flightWebView?.evaluateJavascript(
-                                    "try{window.fsNativeFlightTab&&window.fsNativeFlightTab('$next')}catch(e){}",
-                                    null
-                                )
-                            } else {
-                                val nextMode = if (next == "departures") "departure" else "arrival"
-                                val shouldClose = showFlightTableSheet && sameTabSelected && flightTableMode == nextMode
-                                flightTableMode = if (next == "departures") "departure" else "arrival"
-                                showFlightTableSheet = !shouldClose
-                                selectedFlightTab = if (shouldClose) selectedFlightTableTab() else next
-                            }
-                        }
-                    }
                     },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -768,34 +771,34 @@ fun WebviewFlights(
                 // ===== FULLSCREEN OVERLAYS =====
                 when (cardId) {
 
-                "settings" -> {
-                    SettingsScreen(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .layerBackdrop(backdrop)
-                            .padding(top = 0.dp)
-                            .zIndex(1f)
-                    )
-                }
+                    "settings" -> {
+                        SettingsScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .layerBackdrop(backdrop)
+                                .padding(top = 0.dp)
+                                .zIndex(1f)
+                        )
+                    }
 
-                "privacy_policy" -> {
-                    PrivacyPolicyScreen(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .layerBackdrop(backdrop)
-                            .zIndex(1f)
-                    )
-                }
+                    "privacy_policy" -> {
+                        PrivacyPolicyScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .layerBackdrop(backdrop)
+                                .zIndex(1f)
+                        )
+                    }
 
-                "licenses" -> {
-                    LicensesScreen(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .layerBackdrop(backdrop)
-                            .zIndex(1f)
-                    )
+                    "licenses" -> {
+                        LicensesScreen(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .layerBackdrop(backdrop)
+                                .zIndex(1f)
+                        )
+                    }
                 }
-            }
 
                 if (cardId != "card3" && cardId != "privacy_policy" && cardId != "licenses") {
                     BackdropGradientLayer(
@@ -909,9 +912,9 @@ private fun webViewMenuActions(
 private fun WebViewSettingsStyleTopAppBar(
     backdrop: LayerBackdrop,
     title: String,
+    modifier: Modifier = Modifier,
     alternateTitle: String? = null,
-    titleProgress: Float = 0f,
-    modifier: Modifier = Modifier
+    titleProgress: Float = 0f
 ) {
     val isDark = isSystemInDarkTheme()
     val topBarShape = RoundedCornerShape(0.dp)
@@ -956,18 +959,18 @@ private fun WebViewSettingsStyleTopAppBar(
                     .padding(end = 12.dp),
                 transitionSpec = {
                     (
-                        fadeIn(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)) +
-                            slideInVertically(
-                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                                initialOffsetY = { it / 5 }
-                            )
-                        ).togetherWith(
-                        fadeOut(animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)) +
-                            slideOutVertically(
-                                animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
-                                targetOffsetY = { -it / 6 }
-                            )
-                    ).using(SizeTransform(clip = false))
+                            fadeIn(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)) +
+                                    slideInVertically(
+                                        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                                        initialOffsetY = { it / 5 }
+                                    )
+                            ).togetherWith(
+                            fadeOut(animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)) +
+                                    slideOutVertically(
+                                        animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+                                        targetOffsetY = { -it / 6 }
+                                    )
+                        ).using(SizeTransform(clip = false))
                 },
                 label = "webTopBarTitle"
             ) { currentTitle ->
@@ -991,12 +994,12 @@ fun LegalHtmlScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current.density
     val isDark = isSystemInDarkTheme()
     val palette = LocalAppThemePalette.current
     val roles = appThemeSurfaceRoles(palette, isDark)
     val textColor = roles.title
     val linkColor = palette.action
-    val density = context.resources.displayMetrics.density
     val topPaddingPx = (108f * density).toInt()
     val sidePaddingPx = (18f * density).toInt()
     val bottomPaddingPx = (126f * density).toInt()
@@ -1565,6 +1568,7 @@ private fun proxiedFlightApiResponse(path: String): WebResourceResponse? {
     )
 }
 
+@Suppress("unused") // Called by JavaScript through FlightsAndroidBridge.
 private class FlightBriefBridge(
     context: Context,
     private val onLiveStatusSnapshot: (String) -> Unit,
@@ -1574,7 +1578,70 @@ private class FlightBriefBridge(
 ) {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var lastLiveStatusSignature: String? = null
 
+    @JavascriptInterface
+    fun updateFlightBriefSnapshot(json: String) {
+        SettingsStore.setFlightBriefSnapshot(appContext, json)
+        mainHandler.post { onFlightBriefSnapshot(json) }
+    }
+
+    @JavascriptInterface
+    fun updateFlightLiveStatusSnapshot(json: String) {
+        val signature = stableFlightLiveStatusSignature(json)
+        if (signature == lastLiveStatusSignature) return
+        lastLiveStatusSignature = signature
+        SettingsStore.setFlightLiveStatusSnapshot(appContext, json)
+        mainHandler.post { onLiveStatusSnapshot(json) }
+    }
+
+    @JavascriptInterface
+    fun updateFlightTableSnapshot(json: String) {
+        SettingsStore.setFlightTableSnapshot(appContext, json)
+        mainHandler.post { onFlightTableSnapshot(json) }
+    }
+
+    @JavascriptInterface
+    fun updateWeatherSnapshot(json: String) {
+        val taggedJson = runCatching {
+            JSONObject(json).apply {
+                put("source", optString("source").ifBlank { "airport_web" })
+                if (!has("updatedAt")) put("updatedAt", System.currentTimeMillis())
+            }.toString()
+        }.getOrElse { json }
+        SettingsStore.setBriefingWeatherSnapshot(appContext, taggedJson)
+        mainHandler.post { onWeatherSnapshot(taggedJson) }
+    }
+}
+
+private fun stableFlightLiveStatusSignature(json: String): String {
+    return runCatching {
+        val root = JSONObject(json)
+        val items = root.optJSONArray("items") ?: JSONArray()
+        buildString {
+            append(root.optString("day"))
+            append('|')
+            for (index in 0 until items.length()) {
+                val item = items.optJSONObject(index) ?: continue
+                append(item.optString("flight"))
+                append('~')
+                append(item.optString("route"))
+                append('~')
+                append(item.optString("status"))
+                append('~')
+                append(item.optString("detail"))
+                append('~')
+                append(item.optString("tone"))
+                append('~')
+                append(item.optString("badge"))
+                append('~')
+                append(item.optString("etaText"))
+                append('~')
+                append(item.optDouble("progress", -1.0))
+                append('|')
+            }
+        }
+    }.getOrElse { json }
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -1891,9 +1958,9 @@ private fun WebCardContent(
 
     LaunchedEffect(cardId, currentPageUrl, showError) {
         val isFlightsMainPage = cardId == "card3" &&
-            currentPageUrl.startsWith("https://www.jacksonholeairport.com/flights/") &&
-            currentPageUrl.endsWith("/flights/") &&
-            !showError
+                currentPageUrl.startsWith("https://www.jacksonholeairport.com/flights/") &&
+                currentPageUrl.endsWith("/flights/") &&
+                !showError
         onFlightMainPageChange(isFlightsMainPage)
     }
 
@@ -2250,12 +2317,12 @@ private data class FlightTableRow(
 
 private fun FlightTableRow.isCancelledFlight(): Boolean {
     return tone.contains("cancel", ignoreCase = true) ||
-        status.contains("cancel", ignoreCase = true)
+            status.contains("cancel", ignoreCase = true)
 }
 
 private fun FlightTableRow.isDivertedFlight(): Boolean {
     return tone.contains("divert", ignoreCase = true) ||
-        status.contains("divert", ignoreCase = true)
+            status.contains("divert", ignoreCase = true)
 }
 
 @Stable
@@ -2420,9 +2487,9 @@ private fun currentFlightRows(snapshot: FlightTableSnapshot): List<FlightTableRo
     val firstDay = todayDay ?: snapshot.days
         .map { it.label }
         .firstOrNull { label -> label.isNotBlank() && snapshot.rows.any { row -> row.day == label } }
-        ?: snapshot.rows.firstOrNull { it.day.isNotBlank() }?.day
-        ?: snapshot.days.firstOrNull { it.arrivals > 0 || it.departures > 0 }?.label
-        ?: return snapshot.rows
+    ?: snapshot.rows.firstOrNull { it.day.isNotBlank() }?.day
+    ?: snapshot.days.firstOrNull { it.arrivals > 0 || it.departures > 0 }?.label
+    ?: return snapshot.rows
     return snapshot.rows.filter { it.day == firstDay }.ifEmpty { snapshot.rows }
 }
 
@@ -2431,20 +2498,20 @@ private fun fallbackFlightLiveStatusItems(snapshot: FlightTableSnapshot): List<F
     if (rows.isEmpty()) return emptyList()
     val issueRows = rows.filter { row ->
         row.delay > 0 ||
-            row.isCancelledFlight() ||
-            row.isDivertedFlight()
+                row.isCancelledFlight() ||
+                row.isDivertedFlight()
     }
     val arrivalRows = flightTableSortedRows(rows.filter { row -> row.kind != "departure" })
     val departureRows = flightTableSortedRows(rows.filter { row -> row.kind == "departure" })
     val normalArrivalRows = arrivalRows.filterNot { row ->
         row.delay > 0 ||
-            row.isCancelledFlight() ||
-            row.isDivertedFlight()
+                row.isCancelledFlight() ||
+                row.isDivertedFlight()
     }
     val normalDepartureRows = departureRows.filterNot { row ->
         row.delay > 0 ||
-            row.isCancelledFlight() ||
-            row.isDivertedFlight()
+                row.isCancelledFlight() ||
+                row.isDivertedFlight()
     }
     val sourceRows = if (issueRows.isNotEmpty()) {
         normalArrivalRows.ifEmpty { normalDepartureRows }
@@ -2459,9 +2526,9 @@ private fun fallbackFlightLiveStatusItems(snapshot: FlightTableSnapshot): List<F
 private fun FlightTableRow.toFallbackLiveStatusItem(): FlightLiveStatusItem {
     val isDeparture = kind == "departure"
     val isArrived = !isDeparture &&
-        (tone.contains("arriv", ignoreCase = true) ||
-            status.contains("arriv", ignoreCase = true) ||
-            actual.isNotBlank())
+            (tone.contains("arriv", ignoreCase = true) ||
+                    status.contains("arriv", ignoreCase = true) ||
+                    actual.isNotBlank())
     val itemTone = when {
         isCancelledFlight() -> "cancelled"
         isDivertedFlight() -> "diverted"
@@ -2493,7 +2560,7 @@ private fun FlightTableRow.toFallbackLiveStatusItem(): FlightLiveStatusItem {
         else -> if (isDeparture) "Departure" else "Arrival"
     }
     return FlightLiveStatusItem(
-        flight = "${airline} ${flight}".trim().ifBlank { flight.ifBlank { "Flight" } },
+        flight = "$airline $flight".trim().ifBlank { flight.ifBlank { "Flight" } },
         route = route,
         status = fallbackStatus,
         detail = detailParts.joinToString(", ").ifBlank { day.ifBlank { "Time pending" } },
@@ -2524,8 +2591,8 @@ private fun isTodayFlightDayLabel(label: String): Boolean {
     val monthLong = SimpleDateFormat("MMMM", Locale.US).format(now).lowercase(Locale.US)
     val weekday = SimpleDateFormat("EEEE", Locale.US).format(now).lowercase(Locale.US)
     return normalized.contains(Regex("\\b$day(st|nd|rd|th)?\\b")) &&
-        (normalized.contains(monthShort) || normalized.contains(monthLong)) &&
-        (normalized.contains(weekday) || normalized.length < 18)
+            (normalized.contains(monthShort) || normalized.contains(monthLong)) &&
+            (normalized.contains(weekday) || normalized.length < 18)
 }
 
 private fun FlightSheetBrief.withCurrentTableCounts(snapshot: FlightTableSnapshot): FlightSheetBrief {
@@ -2534,8 +2601,8 @@ private fun FlightSheetBrief.withCurrentTableCounts(snapshot: FlightTableSnapsho
     val issues = rows
         .filter { row ->
             row.delay > 0 ||
-                row.isCancelledFlight() ||
-                row.isDivertedFlight()
+                    row.isCancelledFlight() ||
+                    row.isDivertedFlight()
         }
         .sortedWith(
             compareByDescending<FlightTableRow> {
@@ -3289,21 +3356,25 @@ private fun NativeFlightTablePage(
                     val enterOffset: (Int) -> Int = { width -> if (forward) width / 4 else -width / 4 }
                     val exitOffset: (Int) -> Int = { width -> if (forward) -width / 5 else width / 5 }
                     (
-                        slideInHorizontally(
-                            animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
-                            initialOffsetX = enterOffset
-                        ) + fadeIn(animationSpec = tween(durationMillis = 160))
-                        ).togetherWith(
-                        slideOutHorizontally(
-                            animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                            targetOffsetX = exitOffset
-                        ) + fadeOut(animationSpec = tween(durationMillis = 130))
-                    ).using(SizeTransform(clip = false))
+                            slideInHorizontally(
+                                animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
+                                initialOffsetX = enterOffset
+                            ) + fadeIn(animationSpec = tween(durationMillis = 160))
+                            ).togetherWith(
+                            slideOutHorizontally(
+                                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                                targetOffsetX = exitOffset
+                            ) + fadeOut(animationSpec = tween(durationMillis = 130))
+                        ).using(SizeTransform(clip = false))
                 },
                 label = "flightTableModeContent"
             ) { targetMode ->
                 val contentScrollState = rememberScrollState()
-                val titleProgress = ((contentScrollState.value - 88f) / 82f).coerceIn(0f, 1f)
+                val titleProgress by remember(contentScrollState) {
+                    derivedStateOf {
+                        ((contentScrollState.value - 88f) / 82f).coerceIn(0f, 1f)
+                    }
+                }
                 LaunchedEffect(targetMode, titleProgress) {
                     onTitleProgressChange(titleProgress)
                 }
@@ -3314,8 +3385,8 @@ private fun NativeFlightTablePage(
                         .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(9.dp)
                 ) {
-                    if (targetMode == "alerts") {
-                        FlightLiveStatusContent(
+                    when (targetMode) {
+                        "alerts" -> FlightLiveStatusContent(
                             snapshot = liveStatusSnapshot,
                             tableSnapshot = snapshot,
                             flightSnapshot = effectiveFlightSnapshot,
@@ -3323,7 +3394,6 @@ private fun NativeFlightTablePage(
                             textColor = palette.text,
                             mutedColor = palette.muted,
                             surface = alertSurface,
-                            lightLift = !isDark,
                             textScale = textScale.coerceIn(0.82f, 1.12f),
                             highContrast = highContrast,
                             showHandle = false,
@@ -3331,18 +3401,14 @@ private fun NativeFlightTablePage(
                             title = "Alerts",
                             onRefresh = onRefreshAlerts
                         )
-                    } else if (targetMode == "transportation") {
-                        FlightTransportationContent(
+                        "transportation" -> FlightTransportationContent(
                             textColor = palette.text,
                             mutedColor = palette.muted,
-                            surface = alertSurface,
-                            lightLift = !isDark,
                             textScale = textScale.coerceIn(0.82f, 1.12f),
                             highContrast = highContrast,
                             showHandle = false
                         )
-                    } else {
-                        FlightTableContent(
+                        else -> FlightTableContent(
                             snapshot = snapshot,
                             mode = targetMode,
                             textColor = palette.text,
@@ -3428,12 +3494,12 @@ private fun FlightScheduleSheet(
             animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
             initialOffsetY = { it / 2 }
         ) + fadeIn(animationSpec = tween(durationMillis = 170)) +
-            scaleIn(animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing), initialScale = 0.94f),
+                scaleIn(animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing), initialScale = 0.94f),
         exit = slideOutVertically(
             animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
             targetOffsetY = { it / 3 }
         ) + fadeOut(animationSpec = tween(durationMillis = 150)) +
-            scaleOut(animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing), targetScale = 0.98f)
+                scaleOut(animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing), targetScale = 0.98f)
     ) {
         Box(
             modifier = Modifier
@@ -3467,8 +3533,8 @@ private fun FlightScheduleSheet(
                     .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 86.dp),
                 verticalArrangement = Arrangement.spacedBy(9.dp)
             ) {
-                if (mode == "alerts") {
-                    FlightLiveStatusContent(
+                when (mode) {
+                    "alerts" -> FlightLiveStatusContent(
                         snapshot = liveStatusSnapshot,
                         tableSnapshot = tableSnapshot,
                         flightSnapshot = effectiveFlightSnapshot,
@@ -3476,7 +3542,6 @@ private fun FlightScheduleSheet(
                         textColor = textColor,
                         mutedColor = mutedColor,
                         surface = innerSurface,
-                        lightLift = !isDark,
                         textScale = statusTextScale,
                         highContrast = highContrast,
                         showHandle = true,
@@ -3484,36 +3549,34 @@ private fun FlightScheduleSheet(
                         title = "Alerts",
                         onRefresh = onRefreshAlerts
                     )
-                } else if (mode == "transportation") {
-                    FlightTransportationContent(
+                    "transportation" -> FlightTransportationContent(
                         textColor = textColor,
                         mutedColor = mutedColor,
-                        surface = innerSurface,
-                        lightLift = !isDark,
                         textScale = statusTextScale,
                         highContrast = highContrast,
                         showHandle = true
                     )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .width(42.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(mutedColor.copy(alpha = 0.34f))
-                    )
-                    FlightTableContent(
-                        snapshot = tableSnapshot,
-                        mode = mode,
-                        textColor = textColor,
-                        mutedColor = mutedColor,
-                        surface = innerSurface,
-                        tablePalette = null,
-                        textScale = tableTextScale,
-                        groupedFlights = groupedFlights,
-                        highContrast = highContrast
-                    )
+                    else -> {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .width(42.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(mutedColor.copy(alpha = 0.34f))
+                        )
+                        FlightTableContent(
+                            snapshot = tableSnapshot,
+                            mode = mode,
+                            textColor = textColor,
+                            mutedColor = mutedColor,
+                            surface = innerSurface,
+                            tablePalette = null,
+                            textScale = tableTextScale,
+                            groupedFlights = groupedFlights,
+                            highContrast = highContrast
+                        )
+                    }
                 }
             }
         }
@@ -3853,7 +3916,7 @@ private fun FlightTableRowSkeleton(
         1 -> Triple(88.dp, 116.dp, 62.dp)
         else -> Triple(132.dp, 94.dp, 58.dp)
     }
-    BoxWithConstraints(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
@@ -3945,7 +4008,7 @@ private fun flightTableSortedRows(rows: List<FlightTableRow>): List<FlightTableR
     return rows
         .mapIndexed { index, row -> index to row }
         .sortedWith(
-            compareBy<Pair<Int, FlightTableRow>>(
+            compareBy(
                 { flightTableRowSortMinutes(it.second) },
                 { it.first }
             )
@@ -3960,7 +4023,7 @@ private fun flightTableSortedAirlineGroups(rows: List<FlightTableRow>): List<Fli
         .map { (airline, indexedRows) ->
             val sortedRows = indexedRows
                 .sortedWith(
-                    compareBy<Pair<Int, FlightTableRow>>(
+                    compareBy(
                         { flightTableRowSortMinutes(it.second) },
                         { it.first }
                     )
@@ -4180,7 +4243,7 @@ private fun FlightTableRowCard(
     } else {
         Modifier.border(1.dp, if (highContrast) textColor.copy(alpha = 0.36f) else rowBorder, rowShape)
     }
-    BoxWithConstraints(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
@@ -4285,6 +4348,7 @@ private fun FlightTablePositionedColumn(
     }
 }
 
+@Suppress("SpellCheckingInspection")
 @Composable
 private fun AirlineBadge(
     airline: String
@@ -4430,7 +4494,7 @@ private fun tableRowSurface(
             Color(0xFFFFF7DA).copy(alpha = 0.88f)
         }
         row.status.contains("arriv", ignoreCase = true) ||
-            row.status.contains("depart", ignoreCase = true) -> palette?.arrivedSurface ?: if (isDark) {
+                row.status.contains("depart", ignoreCase = true) -> palette?.arrivedSurface ?: if (isDark) {
             Color(0xFF063B2F).copy(alpha = 0.82f)
         } else {
             Color(0xFFE8F7EF).copy(alpha = 0.96f)
@@ -4461,7 +4525,7 @@ private fun flightRowBorderColor(
         row.isDivertedFlight() -> (palette?.divertedAccent ?: Color(0xFFFF9F0A)).copy(alpha = if (isDark) 0.34f else 0.28f)
         row.delay > 0 -> (palette?.delayAccent ?: Color(0xFFFFB020)).copy(alpha = if (isDark) 0.30f else 0.26f)
         row.status.contains("arriv", ignoreCase = true) ||
-            row.status.contains("depart", ignoreCase = true) -> palette?.rowBorder ?: if (isDark) {
+                row.status.contains("depart", ignoreCase = true) -> palette?.rowBorder ?: if (isDark) {
             Color(0xFF34D399).copy(alpha = 0.30f)
         } else {
             Color(0xFF047857).copy(alpha = 0.25f)
@@ -4586,7 +4650,6 @@ private fun ColumnScope.FlightLiveStatusContent(
     textColor: Color,
     mutedColor: Color,
     surface: Color,
-    lightLift: Boolean,
     textScale: Float,
     highContrast: Boolean,
     showHandle: Boolean,
@@ -4646,13 +4709,12 @@ private fun ColumnScope.FlightLiveStatusContent(
         snapshot.items.ifEmpty { fallbackFlightLiveStatusItems(tableSnapshot) }
     }
     val showLoadingSkeleton = snapshot.updatedLabel.isBlank() &&
-        displayItems.isEmpty() &&
-        tableSnapshot.rows.isEmpty()
+            displayItems.isEmpty() &&
+            tableSnapshot.rows.isEmpty()
     if (showLoadingSkeleton) {
         FlightLiveStatusLoadingSkeleton(
             textColor = textColor,
             surface = surface,
-            lightLift = lightLift,
             highContrast = highContrast
         )
         return
@@ -4675,7 +4737,6 @@ private fun ColumnScope.FlightLiveStatusContent(
             textColor = textColor,
             mutedColor = mutedColor,
             surface = surface,
-            lightLift = lightLift,
             textScale = textScale
         )
     }
@@ -4685,7 +4746,6 @@ private fun ColumnScope.FlightLiveStatusContent(
             textColor = textColor,
             mutedColor = mutedColor,
             surface = surface,
-            lightLift = lightLift,
             textScale = textScale,
             highContrast = highContrast
         )
@@ -4696,7 +4756,6 @@ private fun ColumnScope.FlightLiveStatusContent(
             textColor = textColor,
             mutedColor = mutedColor,
             surface = surface,
-            lightLift = lightLift,
             textScale = textScale,
             highContrast = highContrast
         )
@@ -4710,19 +4769,17 @@ private fun ColumnScope.FlightLiveStatusContent(
                     textColor = textColor,
                     mutedColor = mutedColor,
                     surface = surface,
-                    lightLift = lightLift,
                     textScale = textScale,
                     highContrast = highContrast
                 )
             }
         }
     } else {
-        FlightDataFadeIn(index = 3, key = "empty-${displayItems.size}") {
+        FlightDataFadeIn(index = 3, key = "empty") {
             FlightNoLiveStatusCard(
                 textColor = textColor,
                 mutedColor = mutedColor,
                 surface = surface,
-                lightLift = lightLift,
                 textScale = textScale
             )
         }
@@ -4733,8 +4790,6 @@ private fun ColumnScope.FlightLiveStatusContent(
 private fun ColumnScope.FlightTransportationContent(
     textColor: Color,
     mutedColor: Color,
-    surface: Color,
-    lightLift: Boolean,
     textScale: Float,
     highContrast: Boolean,
     showHandle: Boolean
@@ -4997,7 +5052,6 @@ private fun Modifier.lightThemeSurfaceLift(): Modifier {
 private fun FlightLiveStatusLoadingSkeleton(
     textColor: Color,
     surface: Color,
-    lightLift: Boolean,
     highContrast: Boolean
 ) {
     val pulse = rememberFlightSkeletonPulse()
@@ -5005,14 +5059,12 @@ private fun FlightLiveStatusLoadingSkeleton(
         textColor = textColor,
         surface = surface,
         pulse = pulse,
-        lightLift = lightLift,
         highContrast = highContrast
     )
     FlightIssueSummarySkeleton(
         textColor = textColor,
         surface = surface,
         pulse = pulse,
-        lightLift = lightLift,
         highContrast = highContrast
     )
     repeat(FlightAlertSkeletonCardCount) { index ->
@@ -5021,7 +5073,6 @@ private fun FlightLiveStatusLoadingSkeleton(
             textColor = textColor,
             surface = surface,
             pulse = pulse,
-            lightLift = lightLift,
             highContrast = highContrast
         )
     }
@@ -5032,7 +5083,6 @@ private fun FlightWeatherBannerSkeleton(
     textColor: Color,
     surface: Color,
     pulse: Float,
-    lightLift: Boolean,
     highContrast: Boolean
 ) {
     val isDark = isSystemInDarkTheme()
@@ -5083,7 +5133,6 @@ private fun FlightIssueSummarySkeleton(
     textColor: Color,
     surface: Color,
     pulse: Float,
-    lightLift: Boolean,
     highContrast: Boolean
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -5096,7 +5145,6 @@ private fun FlightIssueSummarySkeleton(
                     index = index,
                     textColor = textColor,
                     pulse = pulse,
-                    lightLift = lightLift,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -5113,7 +5161,6 @@ private fun FlightIssueSummarySkeleton(
             textColor = textColor,
             surface = surface,
             pulse = pulse,
-            lightLift = lightLift,
             highContrast = highContrast
         )
     }
@@ -5124,7 +5171,6 @@ private fun FlightCountPillSkeleton(
     index: Int,
     textColor: Color,
     pulse: Float,
-    lightLift: Boolean,
     modifier: Modifier = Modifier
 ) {
     val accents = listOf(Color(0xFF5AC8FA), Color(0xFF7C8CFF), Color(0xFFFFB020))
@@ -5163,7 +5209,6 @@ private fun FlightAlertsSummaryBoxSkeleton(
     textColor: Color,
     surface: Color,
     pulse: Float,
-    lightLift: Boolean,
     highContrast: Boolean
 ) {
     val isDark = isSystemInDarkTheme()
@@ -5258,7 +5303,6 @@ private fun FlightLiveStatusCardSkeleton(
     textColor: Color,
     surface: Color,
     pulse: Float,
-    lightLift: Boolean,
     highContrast: Boolean
 ) {
     val isDark = isSystemInDarkTheme()
@@ -5339,7 +5383,6 @@ private fun FlightWeatherBanner(
     textColor: Color,
     mutedColor: Color,
     surface: Color,
-    lightLift: Boolean,
     textScale: Float
 ) {
     if (weather.temp.isBlank() && weather.summary.isBlank()) return
@@ -5424,15 +5467,13 @@ private fun FlightParkingAvailabilityBox(
     textColor: Color,
     mutedColor: Color,
     surface: Color,
-    lightLift: Boolean,
     textScale: Float,
     highContrast: Boolean
 ) {
-    val data = availability
     val isDark = isSystemInDarkTheme()
-    val percent = data?.percent ?: 0
+    val percent = availability?.percent ?: 0
     val accent = when {
-        data == null -> if (isDark) Color(0xFF9CA3AF) else Color(0xFF64748B)
+        availability == null -> if (isDark) Color(0xFF9CA3AF) else Color(0xFF64748B)
         percent >= 50 -> Color(0xFF34C759)
         percent >= 20 -> Color(0xFFFCD116)
         else -> Color(0xFFFF6B4A)
@@ -5487,7 +5528,7 @@ private fun FlightParkingAvailabilityBox(
                     maxLines = 1
                 )
                 Text(
-                    text = data?.updatedLabel?.ifBlank { "Updated by JAC Airport" }
+                    text = availability?.updatedLabel?.ifBlank { "Updated by JAC Airport" }
                         ?: "Checking parking availability",
                     color = mutedColor,
                     style = MaterialTheme.typography.labelMedium.copy(
@@ -5499,7 +5540,7 @@ private fun FlightParkingAvailabilityBox(
                 )
             }
             Text(
-                text = data?.statusLabel ?: "--% AVAILABLE",
+                text = availability?.statusLabel ?: "--% AVAILABLE",
                 color = accent,
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Black,
@@ -5512,8 +5553,8 @@ private fun FlightParkingAvailabilityBox(
         }
         Box(
             modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
+                .fillMaxWidth()
+                .height(6.dp)
                 .clip(RoundedCornerShape(999.dp))
                 .background(textColor.copy(alpha = if (isDark) 0.14f else 0.10f))
         ) {
@@ -5534,7 +5575,6 @@ private fun FlightIssueSummaryRow(
     textColor: Color,
     mutedColor: Color,
     surface: Color,
-    lightLift: Boolean,
     textScale: Float,
     highContrast: Boolean
 ) {
@@ -5546,16 +5586,29 @@ private fun FlightIssueSummaryRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FlightCountPill("${brief.arrivalCount}", "Arrivals", Color(0xFF5AC8FA), textColor, Modifier.weight(1f), lightLift, textScale)
-            FlightCountPill("${brief.departureCount}", "Departures", Color(0xFF7C8CFF), textColor, Modifier.weight(1f), lightLift, textScale)
             FlightCountPill(
-                "$totalAlerts",
-                "Alerts",
-                if (hasIssues) Color(0xFFFFB020) else Color(0xFF34C759),
-                textColor,
-                Modifier.weight(1f),
-                lightLift,
-                textScale
+                value = brief.arrivalCount.toString(),
+                label = "Arrivals",
+                accent = Color(0xFF5AC8FA),
+                textColor = textColor,
+                modifier = Modifier.weight(1f),
+                textScale = textScale
+            )
+            FlightCountPill(
+                value = brief.departureCount.toString(),
+                label = "Departures",
+                accent = Color(0xFF7C8CFF),
+                textColor = textColor,
+                modifier = Modifier.weight(1f),
+                textScale = textScale
+            )
+            FlightCountPill(
+                value = totalAlerts.toString(),
+                label = "Alerts",
+                accent = if (hasIssues) Color(0xFFFFB020) else Color(0xFF34C759),
+                textColor = textColor,
+                modifier = Modifier.weight(1f),
+                textScale = textScale
             )
         }
         FlightAlertScheduleContextLine(
@@ -5570,7 +5623,6 @@ private fun FlightIssueSummaryRow(
                 textColor = textColor,
                 mutedColor = mutedColor,
                 surface = surface,
-                lightLift = lightLift,
                 textScale = textScale,
                 highContrast = highContrast
             )
@@ -5635,7 +5687,6 @@ private fun FlightNoLiveStatusCard(
     textColor: Color,
     mutedColor: Color,
     surface: Color,
-    lightLift: Boolean,
     textScale: Float
 ) {
     val isDark = isSystemInDarkTheme()
@@ -5677,7 +5728,6 @@ private fun FlightAlertsSummaryBox(
     textColor: Color,
     mutedColor: Color,
     surface: Color,
-    lightLift: Boolean,
     textScale: Float,
     highContrast: Boolean
 ) {
@@ -5773,7 +5823,7 @@ private fun FlightAlertsSummaryBox(
         }
         if (issuesToShow.isNotEmpty()) {
             issuesToShow.forEach { issue ->
-                FlightIssuePill(issue = issue, textColor = textColor, mutedColor = mutedColor, lightLift = false, textScale = textScale)
+                FlightIssuePill(issue = issue, textColor = textColor, mutedColor = mutedColor, textScale = textScale)
             }
             if (!expanded && hiddenCount > 0) {
                 Text(
@@ -5810,7 +5860,6 @@ private fun FlightCountPill(
     accent: Color,
     textColor: Color,
     modifier: Modifier = Modifier,
-    lightLift: Boolean,
     textScale: Float
 ) {
     val pillShape = RoundedCornerShape(999.dp)
@@ -5853,7 +5902,6 @@ private fun FlightIssuePill(
     issue: FlightSheetIssue,
     textColor: Color,
     mutedColor: Color,
-    lightLift: Boolean,
     textScale: Float
 ) {
     val accent = when {
@@ -5938,7 +5986,6 @@ private fun FlightLiveStatusCard(
     textColor: Color,
     mutedColor: Color,
     surface: Color,
-    lightLift: Boolean,
     textScale: Float,
     highContrast: Boolean
 ) {
@@ -6160,14 +6207,13 @@ private fun FlightTinyPill(
 private fun NativeFlightBottomTabs(
     selected: String,
     backdrop: LayerBackdrop,
-    contentView: View?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     GlassBottomTabBar(
         modifier = modifier,
         backdrop = backdrop,
-        contentView = contentView,
+        contentView = null,
         tabs = listOf(
             GlassBottomTabItem(
                 label = "Arrivals",
@@ -6217,7 +6263,3 @@ private fun urlForCard(cardId: String): String =
         "contact_us" -> "https://www.jacksonholeairport.com/about/contact/"
         else -> "https://www.jacksonholeairport.com/"
     }
-
-
-
-
