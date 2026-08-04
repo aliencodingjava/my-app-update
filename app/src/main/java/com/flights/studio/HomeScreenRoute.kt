@@ -55,7 +55,6 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +84,6 @@ import com.kyant.backdrop.effects.runtimeShaderEffect
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.highlight.HighlightStyle
-import com.kyant.capsule.ContinuousCapsule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -94,6 +92,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
+import kotlin.time.Duration.Companion.milliseconds
 
 const val TAG = "HomeScreenRoute"
 private data class ExternalAppPrompt(
@@ -245,7 +244,7 @@ fun HomeScreenRouteContent(
         // if token is older than refreshIntervalMs, refresh after a short delay
         val age = System.currentTimeMillis() - refreshToken
         if (refreshToken == 0L || age > refreshIntervalMs) {
-            delay(500) // let cached image show first
+            delay(500.milliseconds) // let cached image show first
             val token = System.currentTimeMillis()
             refreshToken = token
             lastRefreshAtMs = token
@@ -288,7 +287,7 @@ fun HomeScreenRouteContent(
                     hostActivity?.let { FancyPillToast.show(it, "Back online") } // :contentReference[oaicite:3]{index=3}
 
                     launch {
-                        delay(3000)
+                        delay(3000.milliseconds)
                         justBecameOnline = false
                     }
                 }
@@ -298,7 +297,7 @@ fun HomeScreenRouteContent(
                 Log.w(TAG, "connectivity poll failed: ${t.message}")
             }
 
-            delay(1000)
+            delay(1000.milliseconds)
         }
     }
 
@@ -336,11 +335,11 @@ fun HomeScreenRouteContent(
     LaunchedEffect(hasInternet, lockNoRefresh) {
         while (true) {
             if (!hasInternet) {
-                delay(1000)
+                delay(1000.milliseconds)
                 continue
             }
             if (lockNoRefresh) {
-                delay(250)
+                delay(250.milliseconds)
                 continue
             }
 
@@ -356,18 +355,18 @@ fun HomeScreenRouteContent(
 
                         triggerRefreshNow(currentCamUrl)
 
-                        delay(3_000L)
+                        delay(3_000L.milliseconds)
                         isRefreshing = false
                         countdownMs = refreshIntervalMs
                     } else {
-                        delay(250)
+                        delay(250.milliseconds)
                     }
                 } else {
-                    delay(1000)
+                    delay(1000.milliseconds)
                     countdownMs -= 1000
                 }
             } else {
-                delay(250)
+                delay(250.milliseconds)
             }
         }
     }
@@ -683,7 +682,7 @@ fun HomeScreenRouteContent(
                                     backdrop = cameraBackdrop,
                                     shape = { cardShape },
                                     shadow = null,
-                                    highlight = {
+                                    highlight = if (camExpanded) null else ({
                                         if (isDark) {
                                             Highlight(
                                                 width = 0.45.dp,
@@ -699,7 +698,7 @@ fun HomeScreenRouteContent(
                                                 style = HighlightStyle.Plain
                                             )
                                         }
-                                    },
+                                    }),
                                             effects = {
                                         // ✅ YOU WANTED THIS EVEN WHILE LOADING
                                         vibrancy()
@@ -754,7 +753,7 @@ fun HomeScreenRouteContent(
                             // if we have no token yet, or it's older than ~1 minute, refresh quickly
                             val age = System.currentTimeMillis() - refreshToken
                             if (refreshToken == 0L || age > 60_000L) {
-                                delay(500) // let UI show cached last image first
+                                delay(500.milliseconds) // let UI show cached last image first
                                 refreshToken = System.currentTimeMillis()
                                 lastRefreshAtMs = refreshToken
                                 countdownMs = refreshIntervalMs

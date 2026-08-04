@@ -1,13 +1,11 @@
 package com.flights.studio
 
+import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -16,15 +14,11 @@ import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.view.ViewGroup
-import android.view.ViewOutlineProvider
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -35,14 +29,12 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.edit
 import androidx.core.graphics.toColorInt
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
 import com.bumptech.glide.Glide
 import com.flights.studio.CountryUtils.getCountryCodeAndFlag
 import com.flights.studio.databinding.FragmentAllContactsBinding
-import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
@@ -50,18 +42,14 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
 import java.util.UUID
-import kotlin.math.abs
-import androidx.core.net.toUri
 
 class AllContactsFragment : Fragment() {
     private var isFirstImport = true
-    private var hasVibratedOverThreshold = false
     private var wasEmptyTextShown = false
 
 
     companion object {
         private const val REQUEST_CONTACTS_PERMISSION = 1001
-        private const val CONTACT_SWIPE_ARM_DELAY_MS = 600L
     }
 
     // Define light colors for contacts
@@ -96,10 +84,6 @@ class AllContactsFragment : Fragment() {
     private var snackbarHandler = Handler(Looper.getMainLooper())
     private var deletionFinalized = false
     private var floatingSearchVisible = false
-    private var contactSwipeStartedOnCard = false
-    private var contactSwipeArmed = false
-    private var contactSwipeDownX = 0f
-    private var contactSwipeDownY = 0f
     private var contactSwipeArmRunnable: Runnable? = null
     private var alphabeticalMode = false
     private var contactsAddFabVisible = true
@@ -240,34 +224,6 @@ class AllContactsFragment : Fragment() {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.R)
-    private fun setupContactsCompose() {
-        updateVisibleContacts(contacts)
-        binding.contactsComposeView.setViewCompositionStrategy(
-            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
-        )
-        binding.contactsComposeView.setContent {
-            FlightsModernTheme {
-                ContactsComposeList(
-                    contacts = visibleContacts,
-                    topSearchQuery = topSearchQuery,
-                    palettes = contactPalettes,
-                    onFloatingSearchVisibleChange = ::setContactsFloatingSearchVisible,
-                    onEditContact = ::showUpdateContactBottomSheet,
-                    onDeleteContact = { confirmDeleteContact(it) },
-                    onSwipeDeleteContact = ::swipeDeleteContact,
-                    onPaletteClick = ::showPalettePicker,
-                    onCallContact = ::callContact,
-                    onOpenChat = { contact ->
-                        // Removed
-                    },
-                    onAddContact = ::showAddContactBottomSheet,
-                    onImportContacts = ::showImportConfirmationDialog
-                )
-            }
-        }
-    }
-
     private fun updateVisibleContacts(newContacts: List<AllContact>) {
         visibleContacts.clear()
         visibleContacts.addAll(newContacts)
@@ -310,8 +266,6 @@ class AllContactsFragment : Fragment() {
         (activity as? MainActivity)?.updateContactsAlphabeticalMode(alphabeticalMode)
     }
 
-    fun isContactsAlphabeticalMode(): Boolean = alphabeticalMode
-
     fun prepareContactsSearchOpen() {
         floatingSearchVisible = true
         updateRecyclerTopPaddingForSearch(true)
@@ -339,6 +293,7 @@ class AllContactsFragment : Fragment() {
         (activity as? MainActivity)?.updateContactsAddFabVisible(true)
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun updateAlphabetIndex() {
         if (_binding == null || !::contactsAdapter.isInitialized) return
         val letters = if (alphabeticalMode && currentFilterQuery.isBlank()) {
@@ -352,7 +307,7 @@ class AllContactsFragment : Fragment() {
         if (letters.isEmpty()) return
 
         val textColor = if ((resources.configuration.uiMode and
-                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         ) Color.rgb(210, 214, 222) else Color.rgb(88, 92, 100)
 
@@ -373,21 +328,37 @@ class AllContactsFragment : Fragment() {
         }
 
         rail.setOnTouchListener { view, event ->
-            if (event.actionMasked != MotionEvent.ACTION_DOWN &&
-                event.actionMasked != MotionEvent.ACTION_MOVE
-            ) return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN,
+                MotionEvent.ACTION_MOVE -> {
+                    val index = ((event.y / view.height.coerceAtLeast(1)) * letters.size)
+                        .toInt()
+                        .coerceIn(0, letters.lastIndex)
 
-            val index = ((event.y / view.height.coerceAtLeast(1)) * letters.size)
-                .toInt()
-                .coerceIn(0, letters.lastIndex)
-            val adapterPosition = contactsAdapter.adapterPositionForSection(letters[index])
-            if (adapterPosition != RecyclerView.NO_POSITION) {
-                binding.recyclerView.stopScroll()
-                (binding.recyclerView.layoutManager as? LinearLayoutManager)
-                    ?.scrollToPositionWithOffset(adapterPosition, binding.recyclerView.paddingTop + 4)
-                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    val adapterPosition =
+                        contactsAdapter.adapterPositionForSection(letters[index])
+
+                    if (adapterPosition != RecyclerView.NO_POSITION) {
+                        binding.recyclerView.stopScroll()
+                        (binding.recyclerView.layoutManager as? LinearLayoutManager)
+                            ?.scrollToPositionWithOffset(
+                                adapterPosition,
+                                binding.recyclerView.paddingTop + 4
+                            )
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    }
+
+                    true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    view.performClick()
+                    true
+                }
+
+                MotionEvent.ACTION_CANCEL -> true
+                else -> false
             }
-            true
         }
     }
 
@@ -399,13 +370,6 @@ class AllContactsFragment : Fragment() {
         )
     }
 
-    private fun setContactsFloatingSearchVisible(visible: Boolean) {
-        if (!visible && currentFilterQuery.isNotBlank()) return
-        if (visible == floatingSearchVisible) return
-        floatingSearchVisible = visible
-        (activity as? MainActivity)?.updateContactsFloatingSearchVisible(visible)
-    }
-
     private fun refreshPaletteState(scope: List<AllContact> = contacts) {
         scope.forEach { contact ->
             contactPalettes[contact.id] = getPaletteForContact(contact.id)
@@ -415,8 +379,8 @@ class AllContactsFragment : Fragment() {
     private fun getPaletteForContact(contactId: String): ContactsAdapter.ColorPalette {
         val prefs = requireContext().getSharedPreferences("contact_palettes", Context.MODE_PRIVATE)
         val isDark = (resources.configuration.uiMode and
-            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
         val fallbackButton = if (isDark) Color.BLACK else Color.WHITE
         return ContactsAdapter.ColorPalette(
             mainColor = prefs.getInt("${contactId}_main", Color.TRANSPARENT),
@@ -424,56 +388,6 @@ class AllContactsFragment : Fragment() {
             buttonColor = prefs.getInt("${contactId}_button", fallbackButton)
         )
     }
-
-    private fun showPalettePicker(contact: AllContact) {
-        PalettePickerBottomSheet { palette ->
-            updateContactPalette(contact, palette)
-        }.show(parentFragmentManager, "PalettePicker")
-    }
-
-    private fun updateContactPalette(contact: AllContact, palette: ContactsAdapter.ColorPalette) {
-        val prefs = requireContext().getSharedPreferences("contact_palettes", Context.MODE_PRIVATE)
-        prefs.edit {
-            if (palette.mainColor == Color.TRANSPARENT &&
-                palette.overlayColor == Color.TRANSPARENT &&
-                palette.buttonColor == Color.TRANSPARENT
-            ) {
-                remove("${contact.id}_main")
-                remove("${contact.id}_overlay")
-                remove("${contact.id}_button")
-            } else {
-                putInt("${contact.id}_main", palette.mainColor)
-                putInt("${contact.id}_overlay", palette.overlayColor)
-                putInt("${contact.id}_button", palette.buttonColor)
-            }
-        }
-        contactPalettes[contact.id] = getPaletteForContact(contact.id)
-        if (::contactsAdapter.isInitialized) {
-            refreshVisibleContacts()
-        }
-    }
-
-    private fun callContact(contact: AllContact) {
-        if (contact.phone.isNotBlank()) {
-            startActivity(Intent(Intent.ACTION_DIAL, "tel:${contact.phone}".toUri()))
-        } else {
-            Toast.makeText(requireContext(), "Invalid phone number", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun swipeDeleteContact(contact: AllContact) {
-        val masterIndex = contacts.indexOfFirst { it.id == contact.id }
-        if (masterIndex == -1) return
-        deletedContacts.add(contact)
-        deletedPositions.add(masterIndex)
-        contacts.removeAt(masterIndex)
-        saveContactsToSharedPreferences()
-        refreshVisibleContacts()
-        updateContactCount()
-        snackbarHandler.removeCallbacksAndMessages(null)
-        showUndoSnackbar()
-    }
-
 
 
 
@@ -614,7 +528,7 @@ class AllContactsFragment : Fragment() {
         val headerView = binding.recyclerView.findViewHolderForAdapterPosition(0)?.itemView
         val threshold = (24 * resources.displayMetrics.density).toInt()
         val showFloatingSearch = firstVisible > 0 ||
-            (firstVisible == 0 && headerView != null && headerView.bottom <= threshold)
+                (firstVisible == 0 && headerView != null && headerView.bottom <= threshold)
 
         if (showFloatingSearch == floatingSearchVisible) return
         floatingSearchVisible = showFloatingSearch
@@ -622,184 +536,8 @@ class AllContactsFragment : Fragment() {
         (activity as? MainActivity)?.updateContactsFloatingSearchVisible(showFloatingSearch)
     }
 
-    private fun setupContactSwipeGestureGate() {
-        val touchSlop = ViewConfiguration.get(requireContext()).scaledTouchSlop
-        binding.recyclerView.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
-            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-                if (e.actionMasked == MotionEvent.ACTION_DOWN) {
-                    contactSwipeStartedOnCard = touchStartedOnContactCard(rv, e.x, e.y)
-                    contactSwipeArmed = false
-                    contactSwipeDownX = e.x
-                    contactSwipeDownY = e.y
-                    contactSwipeArmRunnable?.let { rv.removeCallbacks(it) }
-                    if (contactSwipeStartedOnCard) {
-                        contactSwipeArmRunnable = Runnable {
-                            contactSwipeArmed = true
-                            rv.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                        }.also { rv.postDelayed(it, CONTACT_SWIPE_ARM_DELAY_MS) }
-                    }
-                } else if (e.actionMasked == MotionEvent.ACTION_MOVE && !contactSwipeArmed) {
-                    val movedEnough = abs(e.x - contactSwipeDownX) > touchSlop ||
-                        abs(e.y - contactSwipeDownY) > touchSlop
-                    if (movedEnough) {
-                        cancelContactSwipeArm(rv)
-                    }
-                } else if (
-                    e.actionMasked == MotionEvent.ACTION_UP ||
-                    e.actionMasked == MotionEvent.ACTION_CANCEL
-                ) {
-                    cancelContactSwipeArm(rv)
-                }
-                return false
-            }
-        })
-    }
-
-    private fun cancelContactSwipeArm(recyclerView: RecyclerView = binding.recyclerView) {
-        contactSwipeArmRunnable?.let { recyclerView.removeCallbacks(it) }
-        contactSwipeArmRunnable = null
-        contactSwipeStartedOnCard = false
-        contactSwipeArmed = false
-    }
-
-    private fun touchStartedOnContactCard(recyclerView: RecyclerView, x: Float, y: Float): Boolean {
-        val child = recyclerView.findChildViewUnder(x, y) ?: return false
-        val holder = recyclerView.getChildViewHolder(child)
-        if (holder.adapterPosition < 0) return false
-
-        val card = child.findViewById<View>(R.id.combined_card) ?: return false
-        val cardLeft = child.left + card.left
-        val cardRight = child.left + card.right
-        val cardTop = child.top + card.top
-        val cardBottom = child.top + card.bottom
-
-        return x >= cardLeft && x <= cardRight && y >= cardTop && y <= cardBottom
-    }
 
 
-    // --- Set up swipe-to-delete behavior ---
-    private fun setupItemTouchHelper() {
-        val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
-            override fun onMove(
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder,
-                target: RecyclerView.ViewHolder,
-            ): Boolean = false
-
-
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val adapterPosition = viewHolder.adapterPosition
-                if (adapterPosition != RecyclerView.NO_POSITION) {
-                    val contactPosition = contactsAdapter.contactIndexForAdapterPosition(adapterPosition)
-                    if (contactPosition !in contactsAdapter.getFilteredContacts().indices) return
-                    val filteredContact = contactsAdapter.getFilteredContacts()[contactPosition]
-                    val masterIndex = contacts.indexOfFirst { it.id == filteredContact.id }
-                    if (masterIndex != -1) {
-                        deletedContacts.add(filteredContact)
-                        deletedPositions.add(masterIndex)
-                        contacts.removeAt(masterIndex)
-                        saveContactsToSharedPreferences()
-                        refreshVisibleContacts()
-                        updateContactCount()
-                        binding.recyclerView.post {
-                            binding.recyclerView.smoothScrollBy(0, 0)
-                        }
-                        snackbarHandler.removeCallbacksAndMessages(null)
-                        showUndoSnackbar()
-                    }
-                }
-            }
-
-
-            @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-            override fun onChildDraw(
-                c: Canvas,
-                recyclerView: RecyclerView,
-                viewHolder: RecyclerView.ViewHolder,
-                dX: Float,
-                dY: Float,
-                actionState: Int,
-                isCurrentlyActive: Boolean,
-             ) {
-                val itemView = viewHolder.itemView
-                val deleteBackground = itemView.findViewById<View>(R.id.delete_background)
-                val foregroundView = itemView.findViewById<MaterialCardView>(R.id.combined_card)
-
-                // 🔐 Clamp swipe distance to avoid overlap
-                val backgroundWidth = deleteBackground.width.takeIf { it > 0 } ?: (itemView.width * 0.25f)
-                val maxSwipeDistance = backgroundWidth.toFloat()
-                val clampedDx = dX.coerceAtLeast(-1f * maxSwipeDistance)
-
-                if (dX < 0) {
-                    deleteBackground.visibility = View.VISIBLE
-
-                    // 🪟 Match vertical position and height
-                    deleteBackground.y = foregroundView.y
-                    deleteBackground.layoutParams.height = foregroundView.height
-                    deleteBackground.requestLayout()
-
-                    // 🧼 Visual integrity
-                    deleteBackground.scaleX = 1f
-                    deleteBackground.scaleY = 1f
-                    deleteBackground.translationZ = 0f
-                    deleteBackground.translationZ = 0f
-                    deleteBackground.elevation = 0f
-
-                    // 🟦 Maintain rounded corners during swipe
-                    foregroundView.clipToOutline = true
-                    foregroundView.outlineProvider = ViewOutlineProvider.BACKGROUND
-
-                    // 📊 Alpha feedback
-                    val swipeProgress: Float = (abs(clampedDx) / maxSwipeDistance).coerceIn(0f, 1f)
-                    foregroundView.alpha = (1f - swipeProgress).coerceAtLeast(0.92f)
-                    deleteBackground.alpha = swipeProgress
-
-                    // 🎯 Haptic feedback at threshold
-                    if (swipeProgress >= 0.5f && !hasVibratedOverThreshold) {
-                        viewHolder.itemView.performHapticFeedback(HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE)
-                        hasVibratedOverThreshold = true
-                    } else if (swipeProgress < 0.5f && hasVibratedOverThreshold) {
-                        viewHolder.itemView.performHapticFeedback(HapticFeedbackConstants.GESTURE_THRESHOLD_DEACTIVATE)
-                        hasVibratedOverThreshold = false
-                    }
-                } else {
-                    deleteBackground.visibility = View.GONE
-                    foregroundView.alpha = 1f
-                    hasVibratedOverThreshold = false
-                }
-
-                // 🎯 Final drawing with clamped swipe
-                getDefaultUIUtil().onDraw(c, recyclerView, foregroundView, clampedDx, dY, actionState, isCurrentlyActive)
-            }
-
-
-
-            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
-                super.clearView(recyclerView, viewHolder)
-                val foregroundView = viewHolder.itemView.findViewById<View>(R.id.combined_card)
-                foregroundView.alpha = 1f
-                getDefaultUIUtil().clearView(foregroundView)
-                cancelContactSwipeArm(recyclerView)
-            }
-
-            override fun getSwipeDirs(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int {
-                val position = viewHolder.adapterPosition
-                val contactPosition = contactsAdapter.contactIndexForAdapterPosition(position)
-                return if (
-                    !contactSwipeStartedOnCard ||
-                    !contactSwipeArmed ||
-                    contactsAdapter.isSelectionMode ||
-                    position == RecyclerView.NO_POSITION ||
-                    contactPosition !in contactsAdapter.getFilteredContacts().indices ||
-                    contactsAdapter.isExpanded(contactPosition)
-                )
-                    0  // Disable swipe when item is expanded
-                else
-                    super.getSwipeDirs(recyclerView, viewHolder)
-            }
-        }
-        ItemTouchHelper(itemTouchHelperCallback).attachToRecyclerView(binding.recyclerView)
-    }
 
     // --- Show Undo Snackbar and restore deleted contacts using specific notifications ---
     private fun finalizeDeletion() {
@@ -1230,13 +968,12 @@ class AllContactsFragment : Fragment() {
         }
 
         if (contactList.isNotEmpty()) {
-            val startIndex = contacts.size
             contacts.addAll(contactList.sortedBy { it.name.lowercase(Locale.getDefault()) })
             saveContactsToSharedPreferences()
             refreshVisibleContacts()
             updateContactCount()
             isFirstImport = false
-            triggerImportAnimation(startIndex, contactList.size)
+            triggerImportAnimation()
         } else if (updatedExistingPhotos) {
             saveContactsToSharedPreferences()
             refreshVisibleContacts()
@@ -1244,7 +981,7 @@ class AllContactsFragment : Fragment() {
     }
 
     // Method to animate newly imported contacts
-    private fun triggerImportAnimation(startIndex: Int, count: Int) {
+    private fun triggerImportAnimation() {
         // Compose list rows animate their own placement; no XML holder animation is needed.
     }
 

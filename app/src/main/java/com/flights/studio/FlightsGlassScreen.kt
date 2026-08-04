@@ -8,7 +8,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -32,6 +31,8 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,12 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -59,8 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
-import androidx.compose.material3.MaterialShapes
-import androidx.compose.material3.toPath
 
 data class GlassBtn(
     val id: String,
@@ -69,7 +63,8 @@ data class GlassBtn(
     val description: String,
     val tintIcon: Boolean = true,
     val iconCircleColor: Color? = null,
-    val iconText: String? = null
+    val iconText: String? = null,
+    val trailingLabel: String? = null
 )
 
 private data class HomeActionSection(
@@ -115,7 +110,6 @@ fun FlightsGlassScreen(
             contentAlignment = Alignment.Center
         ) {
             HomeActionPanel(
-                backdrop = backdrop,
                 onOpen = { id ->
                     haptics.tick()
                     onOpenCard(id)
@@ -128,7 +122,6 @@ fun FlightsGlassScreen(
 
 @Composable
 private fun HomeActionPanel(
-    backdrop: LayerBackdrop,
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -202,7 +195,8 @@ private fun HomeActionPanel(
                             label = "Uber Driver",
                             description = "Open driver app",
                             iconCircleColor = Color.Black,
-                            iconText = "uber"
+                            iconText = "uber",
+                            trailingLabel = "Beta"
                         ),
                         GlassBtn(
                             id = "card11",
@@ -210,7 +204,8 @@ private fun HomeActionPanel(
                             label = "Lyft Driver",
                             description = "Open driver app",
                             iconCircleColor = Color(0xFFFF00BF),
-                            iconText = "Lyft"
+                            iconText = "Lyft",
+                            trailingLabel = "Beta"
                         )
                     )
                 )
@@ -328,53 +323,86 @@ private fun HomeActionListItem(
                 indication = null,
                 onClick = { onOpen(button.id) }
             )
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 2.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center
     ) {
-        Row(
+        ListItem(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            HomeActionIcon(button, appPalette)
+            leadingContent = {
+                        HomeActionIcon(button, appPalette)
+                    },
+            trailingContent = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        ) {
+                            button.trailingLabel?.let { label ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(
+                                            appPalette.badge.copy(
+                                                alpha = if (darkTheme) 0.36f else 0.72f
+                                            )
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp,
+                                            lineHeight = 11.sp,
+                                            letterSpacing = 0.sp
+                                        ),
+                                        color = appPalette.badgeContent,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = button.label,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        lineHeight = 19.sp,
-                        letterSpacing = 0.sp
+                            Icon(
+                                imageVector = Icons.Filled.ChevronRight,
+                                contentDescription = null,
+                                tint = chevronColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    },
+            overlineContent = null,
+            supportingContent = {
+                        Text(
+                            text = button.description,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+            colors = ListItemDefaults.colors(
+                        containerColor = Color.Transparent,
+                        headlineColor = titleColor,
+                        supportingColor = descriptionColor
                     ),
-                    color = titleColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text = button.description,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = descriptionColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Icon(
-                imageVector = Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = chevronColor,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+            elevation = ListItemDefaults.elevation(ListItemDefaults.Elevation),
+            content = {
+                        Text(
+                            text = button.label,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                lineHeight = 19.sp,
+                                letterSpacing = 0.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+        )
     }
 }
 

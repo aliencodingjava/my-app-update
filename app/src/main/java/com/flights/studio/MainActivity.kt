@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import androidx.compose.ui.graphics.lerp as colorLerp
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -25,13 +26,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -47,6 +48,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.AnimatedContent
@@ -79,15 +81,20 @@ import androidx.compose.material.icons.filled.ImportContacts
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -106,28 +113,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastCoerceAtMost
@@ -144,6 +156,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.flights.studio.ui.AppLanguageManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.datepicker.MaterialDatePicker
@@ -376,7 +393,7 @@ class MainActivity : FragmentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setSoftInputMode(
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
-                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                    WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
         )
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.statusBars())
@@ -449,7 +466,7 @@ class MainActivity : FragmentActivity() {
                         recentMenuContact = contact
                         recentMenuRemove = onRemove
                         scope.launch {
-                            delay(120)
+                            delay(120.milliseconds)
                             showMenuSheet = true
                         }
                     }
@@ -461,7 +478,7 @@ class MainActivity : FragmentActivity() {
 
                 LaunchedEffect(pendingContactsInfoSheet) {
                     if (pendingContactsInfoSheet) {
-                        delay(140)
+                        delay(140.milliseconds)
                         pendingContactsInfoSheet = false
                         showContactsInfoSheet = true
                     }
@@ -624,31 +641,31 @@ class MainActivity : FragmentActivity() {
                                     scrimLight = 0f
                                 )
 
-                                    MainPager(
-                                        currentBackdrop = globalBackdrop,
-                                        onOpenHome = { goToPage(PAGE_HOME) },
-                                        onOpenContacts = ::openBriefingPage,
-                                        onOpenNotes = { goToPage(PAGE_NOTES) },
-                                        onOpenLiveCameras = ::openLiveCamerasScreen,
-                                        onOpenAddNote = {
-                                            addNoteLauncher.launch(
-                                                AddNoteComposeActivity.newIntent(this@MainActivity),
-                                                ActivityOptionsCompat.makeSceneTransitionAnimation(this@MainActivity)
-                                            )
-                                        },
-                                        onHomeCameraExpandedChange = { expanded ->
-                                            homeCameraExpanded = expanded && selectedMainPage == PAGE_HOME
-                                        },
-                                        onHomeCameraGestureActiveChange = { active ->
-                                            homeCameraGestureActive = active && selectedMainPage == PAGE_HOME
-                                        },
-                                        actuallyExitApp = ::actuallyExitApp,
-                                        triggerRefreshNow = { newUrl ->
-                                            Log.d(TAG_MAIN, "triggerRefreshNow(newUrl=$newUrl)")
-                                        },
-                                        currentPage = selectedMainPage,
-                                        settingsFeedbackRequestToken = settingsFeedbackRequest
-                                    ) { settingsModalVisible = it }
+                                MainPager(
+                                    currentBackdrop = globalBackdrop,
+                                    onOpenHome = { goToPage(PAGE_HOME) },
+                                    onOpenContacts = ::openBriefingPage,
+                                    onOpenNotes = { goToPage(PAGE_NOTES) },
+                                    onOpenLiveCameras = ::openLiveCamerasScreen,
+                                    onOpenAddNote = {
+                                        addNoteLauncher.launch(
+                                            AddNoteComposeActivity.newIntent(this@MainActivity),
+                                            ActivityOptionsCompat.makeSceneTransitionAnimation(this@MainActivity)
+                                        )
+                                    },
+                                    onHomeCameraExpandedChange = { expanded ->
+                                        homeCameraExpanded = expanded && selectedMainPage == PAGE_HOME
+                                    },
+                                    onHomeCameraGestureActiveChange = { active ->
+                                        homeCameraGestureActive = active && selectedMainPage == PAGE_HOME
+                                    },
+                                    actuallyExitApp = ::actuallyExitApp,
+                                    triggerRefreshNow = { newUrl ->
+                                        Log.d(TAG_MAIN, "triggerRefreshNow(newUrl=$newUrl)")
+                                    },
+                                    currentPage = selectedMainPage,
+                                    settingsFeedbackRequestToken = settingsFeedbackRequest
+                                ) { settingsModalVisible = it }
                             }
 
                             if (selectedMainPage == PAGE_BRIEFING) {
@@ -693,10 +710,10 @@ class MainActivity : FragmentActivity() {
                                     onOpenContactsInfo = { pendingContactsInfoSheet = true },
                                     alphabeticalMode = contactsAlphabeticalMode.value,
                                     showSearchAction = contactsFloatingSearchVisible.value &&
-                                        !contactsFloatingSearchActive.value &&
-                                        contactsSearchQuery.value.isBlank(),
+                                            !contactsFloatingSearchActive.value &&
+                                            contactsSearchQuery.value.isBlank(),
                                     showSortAction = !contactsFloatingSearchActive.value &&
-                                        contactsSearchQuery.value.isBlank(),
+                                            contactsSearchQuery.value.isBlank(),
                                     onToggleAlphabetical = { allContactsFragment?.toggleContactsAlphabeticalSort() }
                                 )
                                 ContactsSelectionTopBar(
@@ -716,9 +733,9 @@ class MainActivity : FragmentActivity() {
                                     backdrop = mainMenuBackdrop,
                                     contentView = contactsContainerViewState.value,
                                     visible = contactsAddFabVisible.value &&
-                                        !contactsFloatingSearchActive.value &&
-                                        contactsSearchQuery.value.isBlank() &&
-                                        contactsSelectionCount.intValue == 0,
+                                            !contactsFloatingSearchActive.value &&
+                                            contactsSearchQuery.value.isBlank() &&
+                                            contactsSelectionCount.intValue == 0,
                                     onClick = { allContactsFragment?.showAddContactBottomSheet() }
                                 )
                                 ContactsInfoSheet(
@@ -823,9 +840,9 @@ class MainActivity : FragmentActivity() {
 
                         SettingsMainSearchButton(
                             visible = selectedMainPage == PAGE_SETTINGS &&
-                                !settingsModalVisible &&
-                                !showMenuSheet &&
-                                !settingsSearchSheetVisible.value,
+                                    !settingsModalVisible &&
+                                    !showMenuSheet &&
+                                    !settingsSearchSheetVisible.value,
                             backdrop = mainMenuBackdrop,
                             onClick = { settingsSearchSheetVisible.value = true },
                             modifier = Modifier
@@ -868,9 +885,9 @@ class MainActivity : FragmentActivity() {
                                 val pageName = emergencyPageName(selectedMainPage)
                                 val wasDismissed = message.canDismiss() && message.key == dismissedEmergencyKey
                                 message.shouldShowOnPage(pageName) &&
-                                    !wasDismissed &&
-                                    !showMainWelcome &&
-                                    !(selectedMainPage == PAGE_HOME && homeCameraExpanded)
+                                        !wasDismissed &&
+                                        !showMainWelcome &&
+                                        !(selectedMainPage == PAGE_HOME && homeCameraExpanded)
                             } == true,
                             onDismiss = {
                                 emergencyMessage?.key?.let { key ->
@@ -1605,7 +1622,7 @@ class MainActivity : FragmentActivity() {
 
     private fun scheduleNotesSyncRetry() {
         lifecycleScope.launch {
-            delay(1200)
+            delay(1200.milliseconds)
             syncPendingNotesToSupabase()
         }
     }
@@ -2373,7 +2390,7 @@ class MainActivity : FragmentActivity() {
 
     private fun cancelReminder(note: String) {
         cancelReminderWorkOnly(note)
-        clearReminderMetadata(note, keepBell = true)
+        clearReminderMetadata(note, keepBell = false)
         notesAdapter.preloadBadgeStates(this)
         notesAdapter.preloadReminderFlags(this)
         refreshNotesDisplay()
@@ -2752,7 +2769,7 @@ class MainActivity : FragmentActivity() {
             if (visible) {
                 sawKeyboard = false
                 revealPanel = false
-                kotlinx.coroutines.delay(24)
+                delay(24.milliseconds)
                 runCatching { focusRequester.requestFocus() }
                 keyboard?.show()
             } else {
@@ -2765,7 +2782,7 @@ class MainActivity : FragmentActivity() {
             if (!visible) return@LaunchedEffect
             if (keyboardOpen) {
                 sawKeyboard = true
-                kotlinx.coroutines.delay(24)
+                delay(24.milliseconds)
                 revealPanel = true
             } else if (sawKeyboard) {
                 onDismiss()
@@ -2788,10 +2805,10 @@ class MainActivity : FragmentActivity() {
             modifier = modifier,
             enter = fadeIn(animationSpec = tween(1)),
             exit = fadeOut(animationSpec = tween(120)) +
-                scaleOut(
-                    targetScale = 0.98f,
-                    animationSpec = tween(150, easing = FastOutSlowInEasing)
-                )
+                    scaleOut(
+                        targetScale = 0.98f,
+                        animationSpec = tween(150, easing = FastOutSlowInEasing)
+                    )
         ) {
             Column(
                 modifier = Modifier
@@ -2922,15 +2939,15 @@ class MainActivity : FragmentActivity() {
             visible = visible,
             modifier = modifier,
             enter = fadeIn(animationSpec = tween(durationMillis = 140)) +
-                scaleIn(
-                    initialScale = 0.88f,
-                    animationSpec = spring(dampingRatio = 0.72f, stiffness = 460f)
-                ),
+                    scaleIn(
+                        initialScale = 0.88f,
+                        animationSpec = spring(dampingRatio = 0.72f, stiffness = 460f)
+                    ),
             exit = fadeOut(animationSpec = tween(durationMillis = 120)) +
-                scaleOut(
-                    targetScale = 0.88f,
-                    animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
-                )
+                    scaleOut(
+                        targetScale = 0.88f,
+                        animationSpec = tween(durationMillis = 120, easing = FastOutSlowInEasing)
+                    )
         ) {
             Row(
                 modifier = Modifier
@@ -2959,12 +2976,12 @@ class MainActivity : FragmentActivity() {
                             val offsetAngle = atan2(offset.y, offset.x)
                             scaleX =
                                 scale +
-                                    maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
-                                    (width / height).fastCoerceAtMost(1f)
+                                        maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                                        (width / height).fastCoerceAtMost(1f)
                             scaleY =
                                 scale +
-                                    maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
-                                    (height / width).fastCoerceAtMost(1f)
+                                        maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                                        (height / width).fastCoerceAtMost(1f)
                         },
                         onDrawSurface = {
                             val baseAlpha = if (isDark) 0.34f else 0.92f
@@ -3104,18 +3121,18 @@ Version: $versionName
             transitionSpec = {
                 val direction = if (targetState > initialState) 1 else -1
                 (
-                    fadeIn(animationSpec = tween(120)) +
-                        scaleIn(initialScale = 0.985f, animationSpec = tween(170)) +
-                        slideInHorizontally(animationSpec = tween(170)) { fullWidth ->
-                            direction * (fullWidth / 24)
-                        }
-                    ).togetherWith(
-                    fadeOut(animationSpec = tween(90)) +
-                        scaleOut(targetScale = 0.995f, animationSpec = tween(110)) +
-                        slideOutHorizontally(animationSpec = tween(110)) { fullWidth ->
-                            -direction * (fullWidth / 30)
-                        }
-                )
+                        fadeIn(animationSpec = tween(120)) +
+                                scaleIn(initialScale = 0.985f, animationSpec = tween(170)) +
+                                slideInHorizontally(animationSpec = tween(170)) { fullWidth ->
+                                    direction * (fullWidth / 24)
+                                }
+                        ).togetherWith(
+                        fadeOut(animationSpec = tween(90)) +
+                                scaleOut(targetScale = 0.995f, animationSpec = tween(110)) +
+                                slideOutHorizontally(animationSpec = tween(110)) { fullWidth ->
+                                    -direction * (fullWidth / 30)
+                                }
+                    )
             },
             label = "mainTabContent"
         ) { page ->
@@ -3143,10 +3160,7 @@ Version: $versionName
                             onOpenNotes = onOpenNotes,
                             onOpenAddNote = onOpenAddNote
                         )
-                        PAGE_NOTES -> NotesPage(
-                            onOpenHome = onOpenHome,
-                            onOpenContacts = onOpenContacts
-                        )
+                        PAGE_NOTES -> NotesPage()
                         PAGE_SETTINGS -> SettingsPage(
                             onOpenHome = onOpenHome,
                             onOpenContacts = onOpenContacts,
@@ -3262,9 +3276,6 @@ Version: $versionName
             onOpenNotifications = {
                 SignUpBottomSheetDialogFragment().show(supportFragmentManager, "SignUpBottomSheet")
             },
-            onOpenRateUs = {
-                RateUsDialogFragment().show(supportFragmentManager, "RateUsDialog")
-            },
             onOpenCardDrawer = { cardId ->
                 startActivity(
                     Intent(this, WebviewflightActivity::class.java)
@@ -3295,6 +3306,7 @@ Version: $versionName
         )
     }
 
+    @Suppress("SameParameterValue")
     @Composable
     private fun BriefingPage(
         active: Boolean,
@@ -3316,7 +3328,6 @@ Version: $versionName
             val pageColor = palette.page
             val textColor = palette.text
             val subTextColor = palette.subText
-            val cardColor = palette.card
             val aiCardColor = palette.aiCard
             val cardBorder = palette.border
             val accentColor = palette.accent
@@ -3325,8 +3336,8 @@ Version: $versionName
             val briefingHour = remember { briefingCalendar.get(Calendar.HOUR_OF_DAY) }
             val briefingMessageSlot = remember {
                 briefingCalendar.get(Calendar.DAY_OF_YEAR) * 72 +
-                    briefingHour * 3 +
-                    briefingCalendar.get(Calendar.MINUTE) / 20
+                        briefingHour * 3 +
+                        briefingCalendar.get(Calendar.MINUTE) / 20
             }
             val briefingGreeting = remember(briefingHour) { briefingGreetingForHour(briefingHour) }
             val briefingGreetingTitle = remember(briefingHour) { briefingGreetingTitleForHour(briefingHour) }
@@ -3352,9 +3363,9 @@ Version: $versionName
             var briefingWeatherJson by remember(context) {
                 mutableStateOf(SettingsStore.briefingWeatherSnapshot(context))
             }
-            LaunchedEffect(active, briefingWeatherEnabled) {
+            LaunchedEffect(true, briefingWeatherEnabled) {
                 var lastNativeRefreshAt = 0L
-                while (active) {
+                while (true) {
                     val now = System.currentTimeMillis()
                     if (lastNativeRefreshAt == 0L || now - lastNativeRefreshAt >= 180_000L) {
                         launch {
@@ -3385,11 +3396,11 @@ Version: $versionName
                             briefingWeatherJson = latestWeather
                         }
                     }
-                    delay(3_000L)
+                    delay(3_000L.milliseconds)
                 }
             }
             val briefingWeather = remember(briefingWeatherJson, briefingWeatherEnabled) {
-                val snapshot = parseBriefingWeatherSnapshot(briefingWeatherJson)
+                val snapshot = par9yMnTm4NSzvG9rrwjM2ec8xZgh1cafXH8(briefingWeatherJson)
                 if (briefingWeatherEnabled && isLiveBriefingWeatherSnapshot(snapshot)) snapshot else BriefingWeatherSnapshot()
             }
             val briefingWeatherConditionForBrief = remember(
@@ -3511,6 +3522,27 @@ Version: $versionName
                     aiSentence = aiBrief.ifBlank { fallbackBrief }
                 )
             }
+            val smartBriefingCopy = remember(
+                briefingGreetingTitle,
+                briefingFriendlyMessage,
+                aiCaption,
+                currentNoteCount,
+                briefingAppContext,
+                flightBriefSnapshot,
+                briefingWeather,
+                briefingWeatherEnabled
+            ) {
+                buildBriefingSmartCopy(
+                    noteCount = currentNoteCount,
+                    appContext = briefingAppContext,
+                    flightSnapshot = flightBriefSnapshot,
+                    weather = briefingWeather,
+                    weatherEnabled = briefingWeatherEnabled,
+                    defaultCaption = if (aiCaption == "AI Brief") "Today at JAC" else aiCaption,
+                    defaultGreetingTitle = briefingGreetingTitle,
+                    defaultFriendlyMessage = briefingFriendlyMessage
+                )
+            }
             var lastAiBriefAnimationKey by rememberSaveable { mutableStateOf<String?>(null) }
             val aiBriefAnimationKey = if (aiBrief.isNotBlank()) {
                 aiContentKey
@@ -3518,7 +3550,7 @@ Version: $versionName
                 ""
             }
             val shouldAnimateAiBrief = aiBriefAnimationKey.isNotBlank() &&
-                lastAiBriefAnimationKey != aiBriefAnimationKey
+                    lastAiBriefAnimationKey != aiBriefAnimationKey
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -3555,33 +3587,22 @@ Version: $versionName
                         .padding(start = 8.dp, end = 8.dp, top = 112.dp, bottom = 92.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = BriefingLabels.SUMMARY,
-                        color = subTextColor,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 6.dp)
-                    )
-
                     BriefingSmartCard(
-                        title = "AI Brief",
+                        title = "Briefing",
                         insight = briefingInsight,
-                        caption = if (aiCaption == "AI Brief") "Control tower" else aiCaption,
+                        caption = smartBriefingCopy.caption,
                         cardColor = aiCardColor,
-                        borderColor = cardBorder,
                         accentColor = accentColor,
                         textColor = textColor,
                         subTextColor = subTextColor,
-                        greetingTitle = briefingGreetingTitle,
-                        friendlyMessage = briefingFriendlyMessage,
-                    weather = briefingWeather,
-                    weatherEnabled = briefingWeatherEnabled,
-                    fallbackCondition = briefingFallbackWeatherCondition(briefingHour),
-                    flightIssueCards = briefingAppContext.flightIssueCards,
-                    flightSnapshot = flightBriefSnapshot,
-                    animationKey = aiBriefAnimationKey,
-                    animateEffects = shouldAnimateAiBrief,
+                        greetingTitle = smartBriefingCopy.greetingTitle,
+                        friendlyMessage = smartBriefingCopy.friendlyMessage,
+                        weather = briefingWeather,
+                        weatherEnabled = briefingWeatherEnabled,
+                        fallbackCondition = briefingFallbackWeatherCondition(briefingHour),
+                        flightIssueCards = briefingAppContext.flightIssueCards,
+                        animationKey = aiBriefAnimationKey,
+                        animateEffects = shouldAnimateAiBrief,
                         onInsightAction = { action ->
                             when (action) {
                                 BriefingInsightAction.Flights -> onOpenFlights()
@@ -3603,25 +3624,25 @@ Version: $versionName
                         actions = listOf(
                             BriefingActionEntry(
                                 title = "Flights",
-                                body = "Open the live table without refreshing the whole app shell.",
+                                body = "See arrivals, departures, delays, and cancellations before you leave.",
                                 icon = Icons.Filled.Flight,
                                 onClick = onOpenFlights
                             ),
                             BriefingActionEntry(
                                 title = "Live cameras",
-                                body = "Check curb, north, and south airport camera views.",
+                                body = "Look at the curb, north lot, and south lot cameras before pickup or parking.",
                                 icon = Icons.Filled.Info,
                                 onClick = onOpenLiveCameras
                             ),
                             BriefingActionEntry(
                                 title = "FBO services",
-                                body = "Open Jackson Hole Flight Services.",
+                                body = "Open Jackson Hole Flight Services for private aviation details.",
                                 icon = Icons.Filled.Flight,
                                 onClick = onOpenFbo
                             ),
                             BriefingActionEntry(
                                 title = "News",
-                                body = "Check airport updates from the same WebView behavior.",
+                                body = "Read airport news, notices, and travel updates from JAC.",
                                 icon = Icons.Filled.Info,
                                 onClick = onOpenNews
                             )
@@ -3637,13 +3658,13 @@ Version: $versionName
                         actions = listOf(
                             BriefingActionEntry(
                                 title = "Notes",
-                                body = "Jump back to saved notes, reminders, and travel details.",
+                                body = "Open your saved notes, reminders, photos, files, and trip details.",
                                 icon = Icons.AutoMirrored.Filled.Article,
                                 onClick = onOpenNotes
                             ),
                             BriefingActionEntry(
                                 title = "Quick note",
-                                body = "Capture a flight number, parking spot, or travel reminder.",
+                                body = "Save a flight number, pickup plan, parking spot, or reminder quickly.",
                                 icon = Icons.Filled.Add,
                                 onClick = onOpenAddNote
                             )
@@ -3659,19 +3680,19 @@ Version: $versionName
                         actions = listOf(
                             BriefingActionEntry(
                                 title = "Welcome",
-                                body = "Open the airport welcome page.",
+                                body = "Open the welcome guide and see what this app can help with.",
                                 icon = Icons.Filled.Info,
                                 onClick = onOpenWelcome
                             ),
                             BriefingActionEntry(
                                 title = "About airport",
-                                body = "History, pilot information, and airport details.",
+                                body = "Read useful JAC details, airport history, and pilot information.",
                                 icon = Icons.Filled.Info,
                                 onClick = onOpenAbout
                             ),
                             BriefingActionEntry(
                                 title = "Airport help",
-                                body = "Open the official help and information page.",
+                                body = "Find official airport help when you need the right place to start.",
                                 icon = Icons.Filled.Info,
                                 onClick = onOpenContact
                             )
@@ -3710,16 +3731,31 @@ Version: $versionName
     ): BriefingPalette {
         return remember(isDark, appPalette) {
             val surfaceRoles = appThemeSurfaceRoles(appPalette, isDark)
-            BriefingPalette(
-                page = surfaceRoles.page,
-                card = surfaceRoles.card,
-                aiCard = surfaceRoles.glassCard,
-                border = surfaceRoles.border,
-                text = surfaceRoles.title,
-                subText = surfaceRoles.subtitle,
-                accent = appPalette.accent,
-                warmAccent = appPalette.warm
-            )
+            if (isDark) {
+                BriefingPalette(
+                    page = surfaceRoles.page,
+                    card = surfaceRoles.card,
+                    aiCard = surfaceRoles.glassCard,
+                    border = surfaceRoles.border,
+                    text = surfaceRoles.title,
+                    subText = surfaceRoles.subtitle,
+                    accent = appPalette.accent,
+                    warmAccent = appPalette.warm
+                )
+            } else {
+                // Briefing uses its own high-contrast light palette. The app accent can be
+                // very pale in some presets, which made chips, icons and cards disappear.
+                BriefingPalette(
+                    page = Color(0xFFF8FAFF),
+                    card = Color(0xFFFFFFFF),
+                    aiCard = Color(0xFFFCFBFF),
+                    border = Color(0xFFC9D2E3),
+                    text = Color(0xFF111827),
+                    subText = Color(0xFF4B5565),
+                    accent = Color(0xFF5B46D6),
+                    warmAccent = Color(0xFFB45309)
+                )
+            }
         }
     }
 
@@ -3731,7 +3767,7 @@ Version: $versionName
         var visible by remember(key) { mutableStateOf(false) }
         LaunchedEffect(key) {
             visible = false
-            if (delayMillis > 0L) delay(delayMillis)
+            if (delayMillis > 0L) delay(delayMillis.milliseconds)
             visible = true
         }
         val scale by animateFloatAsState(
@@ -3813,54 +3849,6 @@ Version: $versionName
     }
 
     @Composable
-    private fun BriefingStatusCard(
-        title: String,
-        body: String,
-        cardColor: Color,
-        borderColor: Color,
-        accentColor: Color,
-        textColor: Color,
-        subTextColor: Color,
-        importantColor: Color
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .briefingElasticAppear("$title|$body", delayMillis = 35)
-                .clip(RoundedCornerShape(20.dp))
-                .background(cardColor)
-                .border(BorderStroke(1.dp, borderColor), RoundedCornerShape(20.dp))
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(accentColor)
-                )
-                Text(
-                    text = title,
-                    color = textColor,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-            }
-            Text(
-                text = briefingHighlightedText(
-                    text = body,
-                    importantColor = importantColor
-                ),
-                color = subTextColor,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-    }
-
-    @Composable
     private fun BriefingSmartCardBaseGlow(
         accentColor: Color,
         modifier: Modifier = Modifier
@@ -3894,6 +3882,241 @@ Version: $versionName
         }
     }
 
+    private class BriefingMaterialPathShape(
+        private val source: Path
+    ) : Shape {
+        override fun createOutline(
+            size: Size,
+            layoutDirection: LayoutDirection,
+            density: Density
+        ): Outline {
+            val bounds = source.getBounds()
+            val scale = minOf(
+                size.width / bounds.width.coerceAtLeast(0.001f),
+                size.height / bounds.height.coerceAtLeast(0.001f)
+            )
+            val dx = (size.width - bounds.width * scale) / 2f - bounds.left * scale
+            val dy = (size.height - bounds.height * scale) / 2f - bounds.top * scale
+            val matrix = android.graphics.Matrix().apply {
+                setScale(scale, scale)
+                postTranslate(dx, dy)
+            }
+            val outPath = android.graphics.Path()
+            source.asAndroidPath().transform(matrix, outPath)
+            return Outline.Generic(outPath.asComposePath())
+        }
+    }
+
+    @Composable
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+    private fun BriefingSparkleBadge(
+        modifier: Modifier = Modifier
+    ) {
+        val isDark = isSystemInDarkTheme()
+
+        var showLoader by remember { mutableStateOf(true) }
+        var revealLottie by remember { mutableStateOf(false) }
+
+        /*
+         * The file is located at:
+         * app/src/main/assets/aibrief.json
+         *
+         * Only the asset filename is used here.
+         */
+        val lottieComposition by rememberLottieComposition(
+            LottieCompositionSpec.Asset("aibrief.json")
+        )
+
+        val lottieProgress by animateLottieCompositionAsState(
+            composition = lottieComposition,
+            isPlaying = revealLottie,
+            iterations = LottieConstants.IterateForever,
+            speed = 0.3f,
+            restartOnPlay = false
+        )
+
+        LaunchedEffect(Unit) {
+            // Show the rotating Material shapes first.
+            delay(3000L.milliseconds)
+
+            // Crossfade directly into the Lottie animation.
+            revealLottie = true
+            showLoader = false
+        }
+
+        val loaderAlpha by animateFloatAsState(
+            targetValue = if (showLoader) 1f else 0f,
+            animationSpec = tween(
+                durationMillis = 500,
+                easing = FastOutSlowInEasing
+            ),
+            label = "briefingLoaderFadeOut"
+        )
+
+        val lottieAlpha by animateFloatAsState(
+            targetValue = if (revealLottie) 1f else 0f,
+            animationSpec = tween(
+                durationMillis = 500,
+                easing = FastOutSlowInEasing
+            ),
+            label = "briefingLottieFadeIn"
+        )
+
+        val transition = rememberInfiniteTransition(
+            label = "briefingSparkleBadge"
+        )
+
+        /*
+         * Rotates the initial Material 3 morphing shapes.
+         * 5200 ms makes the rotation slower and smoother.
+         */
+        val loaderRotation by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = 5200,
+                    easing = LinearEasing
+                ),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "briefingLoaderRotation"
+        )
+
+        /*
+         * Changes the Material loader color while it is visible:
+         * gold -> cyan -> lavender -> gold.
+         */
+        val loaderColorPhase by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = 6000,
+                    easing = LinearEasing
+                ),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "briefingLoaderColorPhase"
+        )
+
+        val loaderGold = if (isDark) {
+            Color(0xFFFFE082)
+        } else {
+            Color(0xFFFFC107)
+        }
+
+        val loaderCyan = if (isDark) {
+            Color(0xFF67E8F9)
+        } else {
+            Color(0xFF00A7C4)
+        }
+
+        val loaderLavender = if (isDark) {
+            Color(0xFFC4B5FD)
+        } else {
+            Color(0xFFA78BFA)
+        }
+
+        val loaderColor = when {
+            loaderColorPhase < 0.33f -> {
+                colorLerp(
+                    loaderGold,
+                    loaderCyan,
+                    loaderColorPhase / 0.33f
+                )
+            }
+
+            loaderColorPhase < 0.66f -> {
+                colorLerp(
+                    loaderCyan,
+                    loaderLavender,
+                    (loaderColorPhase - 0.33f) / 0.33f
+                )
+            }
+
+            else -> {
+                colorLerp(
+                    loaderLavender,
+                    loaderGold,
+                    (loaderColorPhase - 0.66f) / 0.34f
+                )
+            }
+        }
+
+        val cookiePath = MaterialShapes.Cookie7Sided.toPath()
+
+        val cookieShape = remember(cookiePath) {
+            BriefingMaterialPathShape(cookiePath)
+        }
+
+        val containerColor = if (isDark) {
+            Color(0xFF30206B)
+        } else {
+            Color(0xFF5B4BEA)
+        }
+
+        Box(
+            modifier = modifier
+                .clip(cookieShape)
+                .background(containerColor)
+                .border(
+                    width = 1.dp,
+                    color = loaderColor.copy(
+                        alpha = if (isDark) 0.38f else 0.46f
+                    ),
+                    shape = cookieShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            /*
+             * Initial Material 3 morphing shapes.
+             *
+             * They:
+             * - morph automatically
+             * - rotate slowly
+             * - change color
+             * - remain full size
+             * - fade out after 3 seconds
+             */
+            LoadingIndicator(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(38.dp)
+                    .graphicsLayer {
+                        alpha = loaderAlpha
+                        rotationZ = loaderRotation
+
+                        // Never zoom out.
+                        scaleX = 1f
+                        scaleY = 1f
+                    },
+                color = loaderColor
+            )
+
+            /*
+             * Final AI Lottie animation.
+             *
+             * It:
+             * - replaces the previous star icons
+             * - does not receive extra rotation
+             * - does not receive extra zoom
+             * - follows the animation stored in aibrief.json
+             * - stays and loops continuously
+             */
+            LottieAnimation(
+                composition = lottieComposition,
+                progress = { lottieProgress },
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(42.dp)
+                    .graphicsLayer {
+                        alpha = lottieAlpha
+                    }
+            )
+        }
+    }
+
     private fun briefingAiFallback(
         noteCount: Int,
         recentNotes: List<BriefingNoteContext>,
@@ -3901,10 +4124,11 @@ Version: $versionName
     ): String {
         val latest = recentNotes.firstOrNull()
         if (appContext.badgeCount > 0) {
-            return "You have ${appContext.badgeCount} reminder ${if (appContext.badgeCount == 1) "badge" else "badges"} waiting. Open Notes, then check Flights."
+            return "You have ${appContext.badgeCount} reminder ${if (appContext.badgeCount == 1) "badge" else "badges"} waiting. Review Notes first so nothing important gets missed."
         }
         if (appContext.flightIssueCount > 0 && appContext.flightSummary.isNotBlank()) {
-            return "${appContext.flightSummary} Open Flights for the affected cards."
+            val summary = appContext.flightSummary.trim().trimEnd('.')
+            return "$summary. Open Flights to see what changed."
         }
         if (appContext.flightSummary.contains("unavailable", ignoreCase = true) ||
             appContext.flightSummary.contains("not readable", ignoreCase = true)
@@ -3912,27 +4136,26 @@ Version: $versionName
             return appContext.flightSummary
         }
         if (appContext.reminderCount > 0) {
-            return "You have ${appContext.reminderCount} note ${if (appContext.reminderCount == 1) "reminder" else "reminders"} set. Review Notes, then check Flights or Live cameras."
+            return "You have ${appContext.reminderCount} note ${if (appContext.reminderCount == 1) "reminder" else "reminders"} set. Review Notes, then check flights or cameras if your plan depends on them."
         }
         if (appContext.contactsCount > 0 && noteCount <= 0) {
-            return "${appContext.contactsCount} contacts are ready. Use Flights, Live cameras, or FBO services from this hub."
+            return "${appContext.contactsCount} airport contacts are ready if you need help, services, or a quick airport contact."
         }
         if (appContext.groupFlights || appContext.highContrastWeb) {
-            val tableMode = if (appContext.groupFlights) "grouped" else "high-contrast"
-            return "Flight table is in $tableMode mode. Open Flights for the clearest airport view."
+            return "Your flight board is ready. Open Flights for arrival times, departure times, delays, and cancellations."
         }
         if (latest != null) {
             val label = latest.title.ifBlank { latest.text }
                 .replace(Regex("\\s+"), " ")
                 .trim()
                 .take(64)
-            return "Latest note: $label. Open Notes to review it or check Flights."
+            return "Latest note: $label. Open Notes when you want to continue from where you left off."
         }
 
         return when {
-            noteCount <= 0 -> "Flights, Live cameras, FBO services, and Quick note are ready from this hub."
-            noteCount == 1 -> "You have 1 saved note. Check Flights first, then review that note."
-            else -> "You have $noteCount saved notes. Check Flights, then review reminders and travel details."
+            noteCount <= 0 -> "Flights, live cameras, airport services, and quick notes are ready when you need them."
+            noteCount == 1 -> "You have 1 saved note. Open it when you need that trip detail again."
+            else -> "You have $noteCount saved notes. Review them when your travel details need a quick check."
         }
     }
 
@@ -3957,6 +4180,91 @@ Version: $versionName
         val action: BriefingInsightAction,
         val chips: List<BriefingInsightChip>
     )
+
+    private data class BriefingSmartCopy(
+        val caption: String,
+        val greetingTitle: String,
+        val friendlyMessage: String
+    )
+
+    private fun buildBriefingSmartCopy(
+        noteCount: Int,
+        appContext: BriefingAppContext,
+        flightSnapshot: BriefingFlightSnapshot,
+        weather: BriefingWeatherSnapshot,
+        weatherEnabled: Boolean,
+        defaultCaption: String,
+        defaultGreetingTitle: String,
+        defaultFriendlyMessage: String
+    ): BriefingSmartCopy {
+        val firstIssue = flightSnapshot.issues.firstOrNull()
+        val issueText = listOfNotNull(firstIssue?.label, firstIssue?.tone, firstIssue?.flight)
+            .joinToString(" ")
+            .lowercase()
+        val criticalCount = flightSnapshot.cancelledCount + flightSnapshot.divertedCount
+        val hasCancelled = criticalCount > 0 || issueText.contains("cancel")
+        val hasDiverted = flightSnapshot.divertedCount > 0 || issueText.contains("divert")
+        val hasDelayed = flightSnapshot.delayedCount > 0 || issueText.contains("delay")
+        val condition = if (weatherEnabled && weather.temp.isNotBlank()) {
+            resolvedBriefingWeatherCondition(weather)
+        } else {
+            appContext.dayPart
+        }
+        val weatherLabel = briefingWeatherConditionLabel(briefingWeatherVisualCondition(condition))
+        val weatherNeedsAttention = condition in setOf("thunder", "rain_heavy", "hail", "mix", "snow", "rain", "fog")
+        val flightLabel = firstIssue?.flight?.takeIf { it.isNotBlank() } ?: "a flight"
+        val routeLabel = firstIssue?.route?.takeIf { it.isNotBlank() }
+        val timeLabel = firstIssue?.time?.takeIf { it.isNotBlank() }
+        val issueDetail = listOfNotNull(
+            routeLabel,
+            timeLabel?.let { "around $it" }
+        ).joinToString(" ")
+        return when {
+            hasCancelled -> BriefingSmartCopy(
+                caption = "Flight change",
+                greetingTitle = "Check $flightLabel first",
+                friendlyMessage = "There is a cancellation showing${issueDetail.takeIf { it.isNotBlank() }?.let { " for $it" }.orEmpty()}. Open Flights before you leave so the plan matches the live board."
+            )
+            hasDiverted -> BriefingSmartCopy(
+                caption = "Flight change",
+                greetingTitle = "A diverted flight needs a look",
+                friendlyMessage = "$flightLabel is marked diverted${issueDetail.takeIf { it.isNotBlank() }?.let { " for $it" }.orEmpty()}. Open Flights and check the current row before making a pickup or airport run."
+            )
+            hasDelayed -> BriefingSmartCopy(
+                caption = "Delay watch",
+                greetingTitle = "Delay showing at JAC",
+                friendlyMessage = "${flightSnapshot.delayedCount.coerceAtLeast(1)} delay ${if (flightSnapshot.delayedCount == 1) "is" else "are"} showing. Open Flights for the latest scheduled and actual times."
+            )
+            weatherNeedsAttention -> BriefingSmartCopy(
+                caption = "Weather check",
+                greetingTitle = "$weatherLabel at Jackson",
+                friendlyMessage = "Weather may matter right now. Check the live cameras before driving, pickup, parking, or heading to the terminal."
+            )
+            appContext.badgeCount > 0 || appContext.reminderCount > 0 -> {
+                val count = (appContext.badgeCount.takeIf { it > 0 } ?: appContext.reminderCount).coerceAtLeast(1)
+                BriefingSmartCopy(
+                    caption = "Notes ready",
+                    greetingTitle = "You have $count reminder ${if (count == 1) "note" else "notes"}",
+                    friendlyMessage = "Open Notes first if your trip depends on a saved photo, file, audio clip, checklist, or reminder."
+                )
+            }
+            noteCount <= 0 -> BriefingSmartCopy(
+                caption = "Start here",
+                greetingTitle = "Set up your trip",
+                friendlyMessage = "Save a flight number, parking detail, pickup note, photo, file, or voice note so it is ready when you come back."
+            )
+            appContext.imageNoteCount > 0 -> BriefingSmartCopy(
+                caption = "Notes with media",
+                greetingTitle = "Your saved media is ready",
+                friendlyMessage = "Photos and files are attached to your notes. Open Notes when you need the original detail again."
+            )
+            else -> BriefingSmartCopy(
+                caption = defaultCaption,
+                greetingTitle = defaultGreetingTitle,
+                friendlyMessage = defaultFriendlyMessage
+            )
+        }
+    }
 
     private fun buildBriefingInsight(
         noteCount: Int,
@@ -3994,26 +4302,26 @@ Version: $versionName
         val localBody: String
         when {
             criticalCount > 0 -> {
-                title = "Flight changes need eyes"
+                title = "Flight change found"
                 action = BriefingInsightAction.Flights
                 actionLabel = "Open Flights"
-                localBody = "$criticalCount critical flight ${if (criticalCount == 1) "change" else "changes"} visible for today. Open Flights before anything else."
+                localBody = "$criticalCount flight ${if (criticalCount == 1) "change needs" else "changes need"} attention today. Open Flights before you leave."
             }
             delayedCount > 0 -> {
-                title = "Today needs Flights first"
+                title = "Delay showing"
                 action = BriefingInsightAction.Flights
                 actionLabel = "Open Flights"
-                localBody = "$delayedCount delay ${if (delayedCount == 1) "is" else "are"} visible today. Check affected cards before cameras or notes."
+                localBody = "$delayedCount delay ${if (delayedCount == 1) "is" else "are"} showing today. Open Flights to see which trip may be affected."
             }
             appContext.badgeCount > 0 || appContext.reminderCount > 0 -> {
                 val reminders = (appContext.badgeCount.takeIf { it > 0 } ?: appContext.reminderCount).coerceAtLeast(1)
-                title = "Notes need a quick pass"
+                title = "Review your reminders"
                 action = BriefingInsightAction.Notes
                 actionLabel = "Review Notes"
-                localBody = "$reminders note ${if (reminders == 1) "signal is" else "signals are"} waiting. Review Notes, then check the airport view."
+                localBody = "$reminders note ${if (reminders == 1) "reminder is" else "reminders are"} waiting. Review Notes so you do not miss a trip detail."
             }
             visualCondition == "night" || condition == "rain" || condition == "thunder" || condition == "fog" -> {
-                title = "Check the field visually"
+                title = "Check the cameras"
                 action = BriefingInsightAction.Cameras
                 actionLabel = "Open Cameras"
                 localBody = "Weather and light make the cameras useful right now. Check curb, north, and south views."
@@ -4022,19 +4330,19 @@ Version: $versionName
                 title = "Set up your trip notes"
                 action = BriefingInsightAction.QuickNote
                 actionLabel = "Quick Note"
-                localBody = "Flights and cameras are ready. Add a quick note for flight numbers, parking, or pickup details."
+                localBody = "Add a note for flight numbers, parking, pickup details, or anything you want to remember later."
             }
             arrivalCount > 0 || departureCount > 0 -> {
-                title = "Airport picture is ready"
+                title = "Today at JAC"
                 action = BriefingInsightAction.Flights
                 actionLabel = "Open Flights"
-                localBody = "Today shows ${briefingFlightCountText(arrivalCount, "arrival")} and ${briefingFlightCountText(departureCount, "departure")}. Open Flights for the live table."
+                localBody = "Today shows ${briefingFlightCountText(arrivalCount, "arrival")} and ${briefingFlightCountText(departureCount, "departure")}. Open Flights for times and changes."
             }
             else -> {
-                title = "Airport tools are quiet"
+                title = "Nothing urgent right now"
                 action = BriefingInsightAction.Fbo
                 actionLabel = "Open FBO"
-                localBody = "No flight pressure is visible. FBO services, cameras, and notes are ready from here."
+                localBody = "No urgent flight changes are showing. Cameras, notes, and airport services are ready if you need them."
             }
         }
 
@@ -4055,7 +4363,12 @@ Version: $versionName
 
         return BriefingInsight(
             title = title,
-            body = aiSentence.takeIf { it.isNotBlank() } ?: localBody,
+            body = when {
+                criticalCount > 0 || delayedCount > 0 -> localBody
+                appContext.badgeCount > 0 || appContext.reminderCount > 0 -> localBody
+                visualCondition in setOf("rain", "rain_heavy", "thunder", "fog", "hail", "mix", "snow") -> localBody
+                else -> aiSentence.takeIf { it.isNotBlank() } ?: localBody
+            },
             actionLabel = actionLabel,
             action = action,
             chips = chips.ifEmpty { listOf(weatherChip) }
@@ -4084,7 +4397,7 @@ Version: $versionName
         ).joinToString("|")
     }
 
-    private fun parseBriefingWeatherSnapshot(json: String): BriefingWeatherSnapshot {
+    private fun par9yMnTm4NSzvG9rrwjM2ec8xZgh1cafXH8(json: String): BriefingWeatherSnapshot {
         if (json.isBlank()) return BriefingWeatherSnapshot()
         return runCatching {
             Gson().fromJson(json, BriefingWeatherSnapshot::class.java) ?: BriefingWeatherSnapshot()
@@ -4092,7 +4405,7 @@ Version: $versionName
     }
 
     private fun briefingWeatherDisplayKey(json: String): String {
-        val snapshot = parseBriefingWeatherSnapshot(json)
+        val snapshot = par9yMnTm4NSzvG9rrwjM2ec8xZgh1cafXH8(json)
         return listOf(snapshot.temp, snapshot.condition, snapshot.summary, snapshot.source).joinToString("|")
     }
 
@@ -4102,15 +4415,32 @@ Version: $versionName
         }
         if (weather.source == "airport_web") return true
         if (weather.temp.isBlank()) return false
-        if (weather.source == "airport_web" || weather.source == "open_meteo") return true
+        if (weather.source == "open_meteo") return true
         return weather.source.isBlank() && weather.temp.contains("/")
     }
 
     private fun resolvedBriefingWeatherCondition(weather: BriefingWeatherSnapshot): String {
-        val raw = when (weather.condition.trim().lowercase()) {
+        val conditionText = weather.condition.trim().lowercase()
+        val summaryText = weather.summary.trim().lowercase()
+        val raw = when {
+            conditionText.contains("thunder") || summaryText.contains("thunder") -> "thunder"
+            conditionText.contains("hail") || summaryText.contains("hail") -> "hail"
+            conditionText.contains("snow") || summaryText.contains("snow") -> "snow"
+            conditionText.contains("sleet") || summaryText.contains("sleet") ||
+                    conditionText.contains("mix") || summaryText.contains("wintry mix") -> "mix"
+            conditionText.contains("heavy rain") || summaryText.contains("heavy rain") -> "rain_heavy"
+            conditionText.contains("rain") || summaryText.contains("rain") -> "rain"
+            conditionText.contains("fog") || summaryText.contains("fog") -> "fog"
+            conditionText.contains("cloud") -> "cloudy"
+            conditionText.contains("partly") -> "partly"
+            conditionText.contains("clear") -> "sunny"
+            conditionText.contains("sun") -> "sunny"
+            else -> conditionText
+        }
+        val normalizedRaw = when (raw) {
             "clear" -> "sunny"
             "storm" -> "thunder"
-            else -> weather.condition.trim().lowercase()
+            else -> raw
         }
         val cloudPercent = Regex("""Cloud\s+(\d+)%""", RegexOption.IGNORE_CASE)
             .find(weather.summary)
@@ -4118,17 +4448,17 @@ Version: $versionName
             ?.getOrNull(1)
             ?.toIntOrNull()
 
-        if (raw == "rain" || raw == "thunder" || raw == "fog") {
-            return raw
+        if (normalizedRaw in setOf("rain", "rain_heavy", "thunder", "fog", "hail", "mix", "snow")) {
+            return normalizedRaw
         }
         val resolved = if (cloudPercent != null) {
             when {
                 cloudPercent >= 70 -> "cloudy"
                 cloudPercent >= 30 -> "partly"
-                else -> raw.ifBlank { "sunny" }
+                else -> normalizedRaw.ifBlank { "sunny" }
             }
         } else {
-            raw.ifBlank { "sunny" }
+            normalizedRaw.ifBlank { "sunny" }
         }
         return briefingWeatherVisualCondition(resolved)
     }
@@ -4140,28 +4470,6 @@ Version: $versionName
             ?.getOrNull(1)
             ?.toIntOrNull()
             ?: 0
-    }
-
-    private data class BriefingDayFlightCount(
-        val label: String,
-        val arrivals: Int,
-        val departures: Int
-    )
-
-    private fun briefingDayFlightCounts(summary: String): List<BriefingDayFlightCount> {
-        return Regex("""([^.:]+?):\s*(\d+)\s+arrivals?,\s*(\d+)\s+departures?""", RegexOption.IGNORE_CASE)
-            .findAll(summary)
-            .mapNotNull { match ->
-                val label = match.groupValues.getOrNull(1).orEmpty().trim()
-                val arrivals = match.groupValues.getOrNull(2)?.toIntOrNull()
-                val departures = match.groupValues.getOrNull(3)?.toIntOrNull()
-                if (label.isBlank() || arrivals == null || departures == null) {
-                    null
-                } else {
-                    BriefingDayFlightCount(label, arrivals, departures)
-                }
-            }
-            .toList()
     }
 
     private fun briefingFlightCountText(count: Int, singular: String): String {
@@ -4176,7 +4484,7 @@ Version: $versionName
     private fun briefingWeatherVisualCondition(condition: String): String {
         val normalized = condition.ifBlank { "sunny" }.lowercase()
         return if (isJacksonHoleNight() && (normalized == "sunny" || normalized == "clear" || normalized == "partly")) {
-            "night"
+            if (normalized == "partly") "partly_night" else "night"
         } else {
             normalized
         }
@@ -4224,44 +4532,44 @@ Version: $versionName
     private fun briefingFriendlyMessageForHour(hour: Int, slot: Int): String {
         val messages = when (hour) {
             in 0..3 -> listOf(
-                "A low-light briefing for the essentials: flights, notes, cameras, and anything that needs attention.",
-                "Quiet mode is on. The airport tools stay close without crowding the screen.",
-                "A calm overnight check-in, organized around what you may need next."
+                "A calm overnight check for flights, notes, cameras, and anything that needs attention.",
+                "Flights, notes, and cameras stay close while the screen keeps the night view simple.",
+                "Use this quick night pass before checking flights, parking, or reminders."
             )
             4 -> listOf(
-                "A focused start before the day gets noisy: check flights, then notes, then the live view.",
-                "Early start, clean path. The brief is ready to point you toward the next useful action.",
-                "The airport day is opening up; your tools are grouped and ready."
+                "Start early with flights, notes, and the live airport view before the day gets busy.",
+                "The airport day is waking up. This brief helps you choose the next useful step.",
+                "Check flights, reminders, and cameras before the morning starts moving."
             )
             in 5..10 -> listOf(
-                "Start with the live flight picture, then use notes and cameras only if something needs a closer look.",
-                "A clean morning read of the app: airport status, personal notes, and quick actions in one place.",
-                "The morning brief is tuned for scanning first, acting second."
+                "Start with flights, then use notes or cameras if something needs a closer look.",
+                "A morning read of JAC with flights, weather, notes, and quick actions ready.",
+                "Scan the morning brief first, then open the part that matches your next step."
             )
             11 -> listOf(
-                "A late-morning check-in with the noisy parts reduced to a few useful signals.",
-                "Use this as the quick pass: flight table, cameras, notes, and airport info.",
-                "The hub is ready for a fast read before the day shifts again."
+                "A late-morning check with flights, cameras, notes, and airport info ready when needed.",
+                "Use this as a quick pass before plans change again later today.",
+                "The useful airport details stay close so you can decide what to open next."
             )
             in 12..14 -> listOf(
-                "A midday reset: surface what changed, keep the rest quiet.",
-                "Flights, notes, and airport tools are arranged for a quick second look.",
-                "A compact read for the middle of the day, with the next action close by."
+                "A midday reset for flights, weather, notes, and anything that changed since morning.",
+                "Flights, notes, and airport tools are ready for a quick second look.",
+                "Use this midday check to decide if Flights, Notes, or Cameras should come next."
             )
             in 15..16 -> listOf(
-                "An afternoon pass over the details that can still change: flights, reminders, and cameras.",
-                "Keep the next step simple. The brief separates signal from background.",
-                "Your afternoon airport tools are ready without pulling you through extra screens."
+                "An afternoon check for details that can still change: flights, reminders, and cameras.",
+                "Keep the next step simple. This brief shows what needs attention first.",
+                "Your afternoon airport tools are ready if you need flights, notes, cameras, or service info."
             )
             in 17..20 -> listOf(
-                "An evening check that keeps the important airport details visible and the rest calm.",
-                "A softer read before the day winds down: flights first, notes if needed.",
-                "Review the live picture, then leave the noise behind."
+                "An evening check for the airport details that still matter before the day winds down.",
+                "Start with flights, then review notes or cameras if your evening plan depends on them.",
+                "Check the live airport picture, review reminders, and keep the rest simple."
             )
             else -> listOf(
-                "A night briefing with the brightness lowered and the useful pieces still easy to reach.",
-                "Only the essentials stay forward: airport tools, notes, and tomorrow’s quick path.",
-                "Wind down with a cleaner view of what is ready for the next airport check."
+                "A night briefing with flights, notes, cameras, and airport tools still easy to reach.",
+                "Only the essentials stay forward: flights, notes, cameras, and the next airport check.",
+                "Wind down with a clear view of what is ready for tomorrow or the next trip."
             )
         }
         return messages[slot.floorMod(messages.size)]
@@ -4269,53 +4577,12 @@ Version: $versionName
 
     private fun Int.floorMod(divisor: Int): Int = ((this % divisor) + divisor) % divisor
 
-    private fun briefingHighlightedText(
-        text: String,
-        importantColor: Color
-    ): AnnotatedString {
-        val importantText = Regex(
-            pattern = "\\b\\d+\\s+saved\\s+notes?\\b|" +
-                "\\bFlights\\b|" +
-                "\\bLive cameras\\b|" +
-                "\\bFBO services\\b|" +
-                "\\bNews\\b|" +
-                "\\bNotes\\b|" +
-                "\\bQuick note\\b|" +
-                "\\bSettings\\b|" +
-                "\\bAirport tools\\b|" +
-                "\\bLatest note\\b",
-            option = RegexOption.IGNORE_CASE
-        )
-
-        return buildAnnotatedString {
-            var cursor = 0
-            importantText.findAll(text).forEach { match ->
-                if (match.range.first > cursor) {
-                    append(text.substring(cursor, match.range.first))
-                }
-                withStyle(
-                    SpanStyle(
-                        color = importantColor,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                ) {
-                    append(match.value)
-                }
-                cursor = match.range.last + 1
-            }
-            if (cursor < text.length) {
-                append(text.substring(cursor))
-            }
-        }
-    }
-
     @Composable
     private fun BriefingSmartCard(
         title: String,
         insight: BriefingInsight,
         caption: String,
         cardColor: Color,
-        borderColor: Color,
         accentColor: Color,
         textColor: Color,
         subTextColor: Color,
@@ -4325,7 +4592,6 @@ Version: $versionName
         weatherEnabled: Boolean,
         fallbackCondition: String,
         flightIssueCards: List<BriefingFlightIssueCard>,
-        flightSnapshot: BriefingFlightSnapshot,
         animationKey: String,
         animateEffects: Boolean,
         onInsightAction: (BriefingInsightAction) -> Unit,
@@ -4345,11 +4611,31 @@ Version: $versionName
             else -> fallbackCondition
         }
         val visualConditionKey = briefingWeatherVisualCondition(conditionKey)
+        val isDark = isSystemInDarkTheme()
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(shape)
-                .background(cardColor.copy(alpha = 0.96f))
+                .background(cardColor.copy(alpha = if (isDark) 0.98f else 1f))
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            accentColor.copy(alpha = if (isDark) 0.20f else 0.09f),
+                            cardColor.copy(alpha = if (isDark) 0.18f else 0.82f),
+                            Color(0xFF111827).copy(alpha = if (isDark) 0.22f else 0.025f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(760f, 520f)
+                    )
+                )
+                .then(
+                    if (isDark) Modifier
+                    else Modifier.border(
+                        width = 1.dp,
+                        color = Color(0xFFC9D2E3),
+                        shape = shape
+                    )
+                )
         ) {
             BriefingSmartCardBaseGlow(
                 accentColor = accentColor,
@@ -4361,14 +4647,14 @@ Version: $versionName
                     modifier = Modifier.matchParentSize()
                 )
             }
-            if (weatherEnabled || DEBUG_FORCE_BRIEFING_RAIN || DEBUG_FORCE_BRIEFING_THUNDER || DEBUG_FORCE_BRIEFING_SUN) {
+            if (weatherEnabled) {
                 AnimatedContent(
                     targetState = visualConditionKey,
                     transitionSpec = {
                         fadeIn(animationSpec = tween(420, easing = FastOutSlowInEasing)) +
-                            scaleIn(initialScale = 0.985f, animationSpec = tween(420, easing = FastOutSlowInEasing)) togetherWith
-                            fadeOut(animationSpec = tween(260, easing = FastOutSlowInEasing)) +
-                            scaleOut(targetScale = 1.015f, animationSpec = tween(260, easing = FastOutSlowInEasing))
+                                scaleIn(initialScale = 0.985f, animationSpec = tween(420, easing = FastOutSlowInEasing)) togetherWith
+                                fadeOut(animationSpec = tween(260, easing = FastOutSlowInEasing)) +
+                                scaleOut(targetScale = 1.015f, animationSpec = tween(260, easing = FastOutSlowInEasing))
                     },
                     label = "briefingWeatherAtmosphere"
                 ) { condition ->
@@ -4380,49 +4666,56 @@ Version: $versionName
             }
 
             Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(13.dp)
             ) {
                 Row(
-                    verticalAlignment = Alignment.Top,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(accentColor.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
-                            contentDescription = null,
-                            tint = accentColor,
-                            modifier = Modifier.size(18.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 46.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(
+                            if (isDark) accentColor.copy(alpha = 0.13f)
+                            else Color(0xFFF0EDFF)
                         )
-                    }
+                        .then(
+                            if (isDark) Modifier
+                            else Modifier.border(
+                                width = 1.dp,
+                                color = Color(0xFFD8D1FF),
+                                shape = RoundedCornerShape(999.dp)
+                            )
+                        )
+                        .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    BriefingSparkleBadge(
+                        modifier = Modifier.size(48.dp)
+                    )
                     Column(
                         modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
                         Text(
-                            text = greetingTitle,
+                            text = title,
                             color = textColor,
-                            style = MaterialTheme.typography.titleMedium.copy(
+                            style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Black,
+                                lineHeight = 16.sp,
                                 letterSpacing = 0.sp
                             ),
                             maxLines = 1
                         )
                         Text(
-                            text = friendlyMessage,
+                            text = caption,
                             color = subTextColor,
-                            style = MaterialTheme.typography.labelMedium.copy(
+                            style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                lineHeight = 17.sp,
+                                lineHeight = 14.sp,
                                 letterSpacing = 0.sp
                             ),
-                            maxLines = 2
+                            maxLines = 1
                         )
                     }
                     if (weatherEnabled) {
@@ -4432,9 +4725,34 @@ Version: $versionName
                             textColor = textColor,
                             subTextColor = subTextColor
                         )
-                    } else if (playEffects) {
-                        BriefingAiWave(accentColor = accentColor)
                     }
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Text(
+                        text = greetingTitle,
+                        color = textColor,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Black,
+                            lineHeight = 30.sp,
+                            letterSpacing = 0.sp
+                        ),
+                        maxLines = 2
+                    )
+                    Text(
+                        text = friendlyMessage,
+                        color = subTextColor,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = 21.sp,
+                            letterSpacing = 0.sp
+                        ),
+                        maxLines = 3
+                    )
                 }
                 BriefingInsightPanel(
                     insight = insight,
@@ -4477,19 +4795,20 @@ Version: $versionName
         subTextColor: Color,
         onAction: (BriefingInsightAction) -> Unit
     ) {
+        val isDark = isSystemInDarkTheme()
         AnimatedContent(
             targetState = insight,
             transitionSpec = {
                 fadeIn(animationSpec = tween(720, easing = FastOutSlowInEasing)) +
-                    slideInVertically(
-                        animationSpec = tween(720, easing = FastOutSlowInEasing),
-                        initialOffsetY = { it / 6 }
-                    ) togetherWith
-                    fadeOut(animationSpec = tween(320, easing = FastOutSlowInEasing)) +
-                    slideOutVertically(
-                        animationSpec = tween(320, easing = FastOutSlowInEasing),
-                        targetOffsetY = { -it / 8 }
-                    )
+                        slideInVertically(
+                            animationSpec = tween(720, easing = FastOutSlowInEasing),
+                            initialOffsetY = { it / 6 }
+                        ) togetherWith
+                        fadeOut(animationSpec = tween(320, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(
+                            animationSpec = tween(320, easing = FastOutSlowInEasing),
+                            targetOffsetY = { -it / 8 }
+                        )
             },
             label = "briefingInsightPanel"
         ) { state ->
@@ -4502,7 +4821,6 @@ Version: $versionName
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    BriefingAiWave(accentColor = accentColor)
                     Text(
                         text = state.title,
                         color = textColor,
@@ -4518,18 +4836,29 @@ Version: $versionName
                     text = state.body,
                     color = subTextColor,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        lineHeight = 19.sp,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = 20.sp,
                         letterSpacing = 0.sp
                     ),
-                    maxLines = 2
+                    maxLines = 3
                 )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(40.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(accentColor.copy(alpha = 0.18f))
+                        .background(
+                            if (isDark) accentColor.copy(alpha = 0.18f)
+                            else Color(0xFF5B46D6)
+                        )
+                        .then(
+                            if (isDark) Modifier
+                            else Modifier.border(
+                                width = 1.dp,
+                                color = Color(0xFF4935C3),
+                                shape = RoundedCornerShape(999.dp)
+                            )
+                        )
                         .clickable { onAction(state.action) }
                         .padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -4537,7 +4866,7 @@ Version: $versionName
                 ) {
                     Text(
                         text = state.actionLabel,
-                        color = textColor,
+                        color = if (isDark) textColor else Color.White,
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.sp
@@ -4569,17 +4898,49 @@ Version: $versionName
         textColor: Color,
         modifier: Modifier = Modifier
     ) {
-        val chipColor = when (chip.tone) {
-            "critical" -> Color(0xFFFF6B6B)
-            "warning" -> Color(0xFFFACC15)
-            else -> accentColor
+        val isDark = isSystemInDarkTheme()
+        val containerColor: Color
+        val contentColor: Color
+
+        if (isDark) {
+            val toneColor = when (chip.tone) {
+                "critical" -> Color(0xFFFF6B6B)
+                "warning" -> Color(0xFFFACC15)
+                else -> accentColor
+            }
+            containerColor = toneColor.copy(alpha = 0.14f)
+            contentColor = textColor
+        } else {
+            when (chip.tone) {
+                "critical" -> {
+                    containerColor = Color(0xFFFEE2E2)
+                    contentColor = Color(0xFFB91C1C)
+                }
+                "warning" -> {
+                    containerColor = Color(0xFFFFE8A3)
+                    contentColor = Color(0xFF7C3E00)
+                }
+                else -> {
+                    containerColor = Color(0xFFEDE9FE)
+                    contentColor = Color(0xFF4338CA)
+                }
+            }
         }
+
         Row(
             modifier = modifier
-                .height(30.dp)
+                .height(if (isDark) 30.dp else 32.dp)
                 .clip(RoundedCornerShape(999.dp))
-                .background(chipColor.copy(alpha = 0.14f))
-                .padding(horizontal = 7.dp),
+                .background(containerColor)
+                .then(
+                    if (isDark) Modifier
+                    else Modifier.border(
+                        width = 1.dp,
+                        color = contentColor.copy(alpha = 0.22f),
+                        shape = RoundedCornerShape(999.dp)
+                    )
+                )
+                .padding(horizontal = if (isDark) 7.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -4587,133 +4948,25 @@ Version: $versionName
                 targetState = chip.value,
                 transitionSpec = {
                     fadeIn(animationSpec = tween(360, easing = FastOutSlowInEasing)) +
-                        slideInVertically(animationSpec = tween(360, easing = FastOutSlowInEasing)) { it / 2 } togetherWith
-                        fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
-                        slideOutVertically(animationSpec = tween(180, easing = FastOutSlowInEasing)) { -it / 2 }
+                            slideInVertically(animationSpec = tween(360, easing = FastOutSlowInEasing)) { it / 2 } togetherWith
+                            fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                            slideOutVertically(animationSpec = tween(180, easing = FastOutSlowInEasing)) { -it / 2 }
                 },
                 label = "briefingInsightChipValue"
             ) { value ->
                 Text(
                     text = value,
-                    color = textColor,
+                    color = contentColor,
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
                     maxLines = 1
                 )
             }
             Text(
                 text = " ${chip.label}",
-                color = textColor.copy(alpha = 0.72f),
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 1
-            )
-        }
-    }
-
-    @Composable
-    private fun BriefingFlightOverviewCard(
-        snapshot: BriefingFlightSnapshot,
-        textColor: Color,
-        subTextColor: Color,
-        accentColor: Color
-    ) {
-        if (snapshot.summary.isBlank()) return
-        val dayCounts = briefingDayFlightCounts(snapshot.summary)
-        val todayCounts = dayCounts.firstOrNull()
-        val arrivalCount = todayCounts?.arrivals
-            ?: snapshot.arrivalCount.takeIf { it > 0 }
-            ?: countFromSummary(snapshot.summary, "arrival")
-        val departureCount = todayCounts?.departures
-            ?: snapshot.departureCount.takeIf { it > 0 }
-            ?: countFromSummary(snapshot.summary, "departure")
-        val delayedCount = snapshot.delayedCount
-        val cancelledCount = snapshot.cancelledCount
-        val divertedCount = snapshot.divertedCount
-        val isUnavailable = snapshot.source == "native_unavailable" ||
-            snapshot.summary.contains("unavailable", ignoreCase = true)
-        val dateLabel = when {
-            isUnavailable -> "Flights"
-            todayCounts != null -> todayCounts.label
-            else -> snapshot.summary
-                .substringBefore(":")
-                .takeIf { it.length < snapshot.summary.length && it.isNotBlank() }
-                ?: "Flights"
-        }
-        val detail = if (isUnavailable) {
-            "Open Flights to sync the live table."
-        } else {
-            "${briefingFlightCountText(arrivalCount, "arrival")}, ${briefingFlightCountText(departureCount, "departure")}."
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(accentColor.copy(alpha = 0.10f))
-                .padding(horizontal = 11.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = dateLabel,
-                    color = textColor,
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = if (isUnavailable) "Open Flights" else "Synced",
-                    color = accentColor,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
-                    maxLines = 1
-                )
-            }
-            Text(
-                text = detail,
-                color = subTextColor,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 2
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                BriefingFlightCountPill("$arrivalCount", "Arr", accentColor, textColor, Modifier.weight(1f))
-                BriefingFlightCountPill("$departureCount", "Dep", accentColor, textColor, Modifier.weight(1f))
-                BriefingFlightCountPill("$delayedCount", "Delay", Color(0xFFFACC15), textColor, Modifier.weight(1f))
-                BriefingFlightCountPill("${cancelledCount + divertedCount}", "Critical", Color(0xFFFF6B6B), textColor, Modifier.weight(1f))
-            }
-        }
-    }
-
-    @Composable
-    private fun BriefingFlightCountPill(
-        value: String,
-        label: String,
-        color: Color,
-        textColor: Color,
-        modifier: Modifier = Modifier
-    ) {
-        Row(
-            modifier = modifier
-                .height(28.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(color.copy(alpha = 0.14f))
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = value,
-                color = textColor,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
-                maxLines = 1
-            )
-            Text(
-                text = " $label",
-                color = textColor.copy(alpha = 0.72f),
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = contentColor.copy(alpha = if (isDark) 0.72f else 0.84f),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = if (isDark) FontWeight.SemiBold else FontWeight.Bold
+                ),
                 maxLines = 1
             )
         }
@@ -4725,38 +4978,69 @@ Version: $versionName
         textColor: Color,
         subTextColor: Color
     ) {
+        val isDark = isSystemInDarkTheme()
         val route = issue.route
         val direction = when {
             route.startsWith("JAC to", ignoreCase = true) -> "Outbound"
             route.endsWith("to JAC", ignoreCase = true) -> "Inbound"
             else -> if (issue.tone.equals("cancelled", true) || issue.tone.equals("diverted", true)) "Flight" else "Delay"
         }
-        val toneColor = when (issue.tone.lowercase()) {
-            "cancelled" -> Color(0xFFFF6B6B)
-            "diverted" -> Color(0xFFA78BFA)
-            else -> Color(0xFFFACC15)
+        val tone = issue.tone.lowercase()
+        val toneColor = if (isDark) {
+            when (tone) {
+                "cancelled" -> Color(0xFFFF6B6B)
+                "diverted" -> Color(0xFFA78BFA)
+                else -> Color(0xFFFACC15)
+            }
+        } else {
+            when (tone) {
+                "cancelled" -> Color(0xFFB91C1C)
+                "diverted" -> Color(0xFF6D28D9)
+                else -> Color(0xFF9A4D00)
+            }
         }
+        val containerColor = if (isDark) {
+            toneColor.copy(alpha = 0.12f)
+        } else {
+            when (tone) {
+                "cancelled" -> Color(0xFFFEE2E2)
+                "diverted" -> Color(0xFFEDE9FE)
+                else -> Color(0xFFFFE8A3)
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(toneColor.copy(alpha = 0.12f))
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .background(containerColor)
+                .then(
+                    if (isDark) Modifier
+                    else Modifier.border(
+                        width = 1.dp,
+                        color = toneColor.copy(alpha = 0.24f),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                )
+                .padding(horizontal = 10.dp, vertical = if (isDark) 8.dp else 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(if (isDark) 28.dp else 30.dp)
                     .clip(CircleShape)
-                    .background(toneColor.copy(alpha = 0.18f)),
+                    .background(
+                        if (isDark) toneColor.copy(alpha = 0.18f)
+                        else toneColor.copy(alpha = 0.13f)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.Flight,
                     contentDescription = null,
                     tint = toneColor,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(if (isDark) 16.dp else 17.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -4780,7 +5064,7 @@ Version: $versionName
                 }
                 Text(
                     text = listOf(route, issue.time).filter { it.isNotBlank() }.joinToString(" • "),
-                    color = subTextColor,
+                    color = if (isDark) subTextColor else Color(0xFF4B5565),
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     maxLines = 1
                 )
@@ -4788,183 +5072,13 @@ Version: $versionName
         }
     }
 
-    @Composable
-    private fun BriefingWeatherPanel(
-        weather: BriefingWeatherSnapshot,
-        weatherEnabled: Boolean,
-        fallbackCondition: String,
-        accentColor: Color,
-        textColor: Color,
-        subTextColor: Color
-    ) {
-        if (!weatherEnabled) return
-        val hasRealAirportWeather = weather.temp.isNotBlank()
-        val hasWeatherEffects = hasRealAirportWeather || weather.source == "airport_web" ||
-            DEBUG_FORCE_BRIEFING_RAIN || DEBUG_FORCE_BRIEFING_THUNDER || DEBUG_FORCE_BRIEFING_SUN
-        val condition = when {
-            DEBUG_FORCE_BRIEFING_SUN -> "sunny"
-            DEBUG_FORCE_BRIEFING_THUNDER -> "thunder"
-            DEBUG_FORCE_BRIEFING_RAIN -> "rain"
-            hasWeatherEffects -> resolvedBriefingWeatherCondition(weather)
-            else -> fallbackCondition
-        }
-        val visualCondition = briefingWeatherVisualCondition(condition)
-        val conditionLabel = briefingWeatherConditionLabel(visualCondition)
-        val tempParts = if (hasRealAirportWeather) {
-            briefingWeatherTempParts(weather.temp, conditionLabel)
-        } else {
-            BriefingWeatherTempParts("--", "Airport weather")
-        }
-        val isDark = isSystemInDarkTheme()
-        val summary = weather.summary
-            .split("•")
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .take(2)
-            .joinToString("  ")
-        val sentence = if (hasRealAirportWeather) {
-            val sentenceDetail = tempParts.secondary.ifBlank { tempParts.main }
-            "$conditionLabel. $sentenceDetail."
-        } else {
-            "Airport weather --"
-        }
-        val weatherUiState = BriefingWeatherPanelState(
-            condition = visualCondition,
-            visualCondition = visualCondition,
-            conditionLabel = conditionLabel,
-            mainTemp = tempParts.main,
-            secondaryTemp = tempParts.secondary,
-            summary = summary,
-            sentence = sentence
-        )
-        var displayedWeatherUiState by remember { mutableStateOf(weatherUiState) }
-        LaunchedEffect(weatherUiState) {
-            if (displayedWeatherUiState == weatherUiState) return@LaunchedEffect
-            delay(220L)
-            displayedWeatherUiState = weatherUiState
-        }
-        AnimatedContent(
-            targetState = displayedWeatherUiState,
-            transitionSpec = {
-                fadeIn(animationSpec = tween(980, easing = FastOutSlowInEasing)) +
-                    slideInVertically(
-                        animationSpec = tween(980, easing = FastOutSlowInEasing),
-                        initialOffsetY = { it / 5 }
-                    ) +
-                    scaleIn(initialScale = 0.985f, animationSpec = tween(980, easing = FastOutSlowInEasing)) togetherWith
-                    fadeOut(animationSpec = tween(520, easing = FastOutSlowInEasing)) +
-                    slideOutVertically(
-                        animationSpec = tween(520, easing = FastOutSlowInEasing),
-                        targetOffsetY = { -it / 7 }
-                    ) +
-                    scaleOut(targetScale = 1.01f, animationSpec = tween(520, easing = FastOutSlowInEasing))
-            },
-            label = "briefingWeatherPanel"
-        ) { state ->
-            val animatedIconTint = when (state.visualCondition) {
-                "sunny", "partly" -> Color(0xFFFACC15)
-                "rain" -> Color(0xFF38BDF8)
-                "thunder" -> Color(0xFFFFE066)
-                "cloudy", "fog" -> if (isDark) Color(0xFFE2E8F0) else Color(0xFF64748B)
-                "night" -> Color(0xFFDCEBFF)
-                else -> accentColor
-            }
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = state.sentence,
-                    color = textColor,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.sp
-                    ),
-                    maxLines = 1
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 1.dp, bottom = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = state.mainTemp,
-                        color = textColor.copy(alpha = if (isDark) 0.95f else 0.90f),
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            fontWeight = FontWeight.Light,
-                            lineHeight = 42.sp,
-                            letterSpacing = 0.sp
-                        ),
-                        maxLines = 1
-                    )
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            text = listOf(state.conditionLabel, state.secondaryTemp).filter { it.isNotBlank() }.joinToString(" / "),
-                            color = textColor.copy(alpha = if (isDark) 0.88f else 0.80f),
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.sp
-                            ),
-                            maxLines = 1
-                        )
-                        Text(
-                            text = listOf("Jackson Hole", state.summary).filter { it.isNotBlank() }.joinToString("  "),
-                            color = subTextColor,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.sp
-                            ),
-                            maxLines = 1
-                        )
-                    }
-                    BriefingWeatherIcon(
-                        condition = state.visualCondition,
-                        tint = animatedIconTint,
-                        modifier = Modifier.size(52.dp)
-                    )
-                }
-            }
-        }
-    }
-
-    private data class BriefingWeatherPanelState(
-        val condition: String,
-        val visualCondition: String,
-        val conditionLabel: String,
-        val mainTemp: String,
-        val secondaryTemp: String,
-        val summary: String,
-        val sentence: String
-    )
-
-    private data class BriefingWeatherTempParts(
-        val main: String,
-        val secondary: String
-    )
-
-    private fun briefingWeatherTempParts(temp: String, conditionLabel: String): BriefingWeatherTempParts {
-        if (temp.isBlank()) return BriefingWeatherTempParts(conditionLabel, "")
-        val pieces = temp.split("/").map { it.trim() }.filter { it.isNotBlank() }
-        val celsius = pieces.firstOrNull { it.contains("C", ignoreCase = true) }
-        val fahrenheit = pieces.firstOrNull { it.contains("F", ignoreCase = true) }
-        val mainSource = celsius ?: pieces.firstOrNull() ?: temp
-        val mainNumber = Regex("""-?\d+""").find(mainSource)?.value
-        val main = if (mainNumber != null) "$mainNumber°" else mainSource
-        val secondary = listOfNotNull(
-            fahrenheit?.takeUnless { it == mainSource },
-            celsius?.takeUnless { it == mainSource }
-        ).firstOrNull().orEmpty()
-        return BriefingWeatherTempParts(main, secondary)
-    }
-
     private fun briefingWeatherConditionLabel(condition: String): String {
         return when (condition) {
             "thunder" -> "Storm"
+            "rain_heavy" -> "Heavy rain"
+            "hail" -> "Hail"
+            "mix" -> "Wintry mix"
+            "snow" -> "Snow"
             "rain" -> "Rain"
             "fog" -> "Fog"
             "night" -> "Night"
@@ -4974,14 +5088,32 @@ Version: $versionName
         }
     }
 
+    private fun briefingWeatherSymbolName(condition: String): String {
+        return when (condition) {
+            "night" -> "moon_stars"
+            "partly_night" -> "partly_cloudy_night"
+            "partly" -> "partly_cloudy_day"
+            "cloudy" -> "cloud"
+            "fog" -> "foggy"
+            "rain_heavy" -> "rainy_heavy"
+            "rain" -> "rainy"
+            "thunder" -> "thunderstorm"
+            "hail" -> "weather_hail"
+            "mix" -> "weather_mix"
+            "snow" -> "weather_snowy"
+            else -> "sunny"
+        }
+    }
+
     @Composable
+    @OptIn(ExperimentalMaterial3ExpressiveApi::class)
     private fun BriefingWeatherPill(
         weather: BriefingWeatherSnapshot,
         accentColor: Color,
         textColor: Color,
         subTextColor: Color
     ) {
-        if (weather.temp.isBlank() && !DEBUG_FORCE_BRIEFING_RAIN && !DEBUG_FORCE_BRIEFING_THUNDER && !DEBUG_FORCE_BRIEFING_SUN) return
+        if (weather.temp.isBlank()) return
         val condition = when {
             DEBUG_FORCE_BRIEFING_SUN -> "sunny"
             DEBUG_FORCE_BRIEFING_THUNDER -> "thunder"
@@ -4989,63 +5121,118 @@ Version: $versionName
             else -> resolvedBriefingWeatherCondition(weather)
         }
         val visualCondition = briefingWeatherVisualCondition(condition)
-        val displayTemp = when {
-            DEBUG_FORCE_BRIEFING_SUN && weather.temp.isBlank() -> "Sun"
-            DEBUG_FORCE_BRIEFING_THUNDER && weather.temp.isBlank() -> "Storm"
-            DEBUG_FORCE_BRIEFING_RAIN && weather.temp.isBlank() -> "Rain"
-            else -> weather.temp
-        }
+        val displayTemp = weather.temp
         val conditionLabel = briefingWeatherConditionLabel(visualCondition)
         val isDark = isSystemInDarkTheme()
         val conditionColor = when (visualCondition) {
-            "sunny", "partly" -> Color(0xFFFACC15)
-            "thunder" -> Color(0xFFFFE066)
-            "rain" -> Color(0xFF38BDF8)
-            "fog", "cloudy" -> if (isDark) Color(0xFFD8E2EE) else Color(0xFF64748B)
-            "night" -> Color(0xFFBFD7FF)
+            "sunny", "partly" -> if (isDark) Color(0xFFFACC15) else Color(0xFFB45309)
+            "thunder" -> if (isDark) Color(0xFFFFE066) else Color(0xFF7C3E00)
+            "rain", "rain_heavy" -> if (isDark) Color(0xFF38BDF8) else Color(0xFF0369A1)
+            "hail", "mix", "snow" -> if (isDark) Color(0xFFE0F2FE) else Color(0xFF1D4ED8)
+            "fog", "cloudy" -> if (isDark) Color(0xFFD8E2EE) else Color(0xFF475569)
+            "night", "partly_night" -> if (isDark) Color(0xFFBFD7FF) else Color(0xFF315EA8)
             else -> accentColor
         }
+        val pillTextColor = if (isDark) Color.White else textColor
+        val pillSubTextColor = if (isDark) Color.White.copy(alpha = 0.72f) else subTextColor
+        val weatherTarget = Triple(visualCondition, displayTemp, conditionLabel)
+        var visibleWeatherTarget by remember { mutableStateOf(weatherTarget) }
+        var showWeatherLoader by remember { mutableStateOf(false) }
+        LaunchedEffect(weatherTarget) {
+            if (visibleWeatherTarget == weatherTarget) return@LaunchedEffect
+            showWeatherLoader = true
+            delay(620L.milliseconds)
+            visibleWeatherTarget = weatherTarget
+            delay(360L.milliseconds)
+            showWeatherLoader = false
+        }
         AnimatedContent(
-            targetState = Triple(visualCondition, displayTemp, conditionLabel),
+            targetState = showWeatherLoader to visibleWeatherTarget,
             transitionSpec = {
-                fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-                    scaleIn(initialScale = 0.94f, animationSpec = spring(dampingRatio = 0.72f, stiffness = 460f)) togetherWith
-                    fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
-                    scaleOut(targetScale = 0.96f, animationSpec = tween(180, easing = FastOutSlowInEasing))
+                fadeIn(animationSpec = tween(560, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.92f, animationSpec = tween(560, easing = FastOutSlowInEasing)) togetherWith
+                        fadeOut(animationSpec = tween(360, easing = FastOutSlowInEasing)) +
+                        scaleOut(targetScale = 1.04f, animationSpec = tween(360, easing = FastOutSlowInEasing))
             },
             label = "briefingWeatherPill"
         ) { state ->
-            val animatedCondition = state.first
-            val animatedTemp = state.second
-            val animatedLabel = state.third
-            Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(18.dp))
-                .background(conditionColor.copy(alpha = if (isDark) 0.16f else 0.18f))
-                .padding(horizontal = 9.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            BriefingWeatherIcon(
-                condition = animatedCondition,
-                tint = conditionColor,
-                modifier = Modifier.size(25.dp)
-            )
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = animatedTemp,
-                    color = textColor,
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
-                    maxLines = 1
-                )
-                Text(
-                    text = animatedLabel,
-                    color = subTextColor,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1
-                )
+            val loading = state.first
+            val animatedCondition = state.second.first
+            val animatedTemp = state.second.second
+            val tempFontSize = when {
+                animatedTemp.length >= 12 -> 12.sp
+                animatedTemp.length >= 10 -> 14.sp
+                else -> 16.sp
             }
-        }
+            Row(
+                modifier = Modifier
+                    .height(46.dp)
+                    .widthIn(min = 104.dp)
+                    .padding(start = 4.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                if (loading) {
+                    Row(
+                        modifier = Modifier,
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        LoadingIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = conditionColor
+                        )
+                        Text(
+                            text = "Updating",
+                            color = pillTextColor.copy(alpha = 0.82f),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = 13.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Clip
+                        )
+                    }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        BriefingWeatherIcon(
+                            condition = animatedCondition,
+                            tint = conditionColor,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            Text(
+                                text = animatedTemp,
+                                color = pillTextColor,
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = tempFontSize,
+                                    lineHeight = (tempFontSize.value + 2).sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip
+                            )
+                            Text(
+                                text = "Jackson",
+                                color = pillSubTextColor,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 9.sp,
+                                    lineHeight = 11.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -5055,74 +5242,29 @@ Version: $versionName
         tint: Color,
         modifier: Modifier = Modifier
     ) {
-        Canvas(modifier = modifier) {
-            val w = size.width
-            val h = size.height
-            val sunColor = Color(0xFFFACC15)
-            val moonColor = Color(0xFFE8EEFF)
-            val cloudColor = tint.copy(alpha = 0.88f)
-            val rainColor = Color(0xFF38BDF8)
-            if (condition == "night") {
-                val c = Offset(w * 0.42f, h * 0.40f)
-                val r = w * 0.22f
-                drawCircle(moonColor.copy(alpha = 0.28f), radius = r * 1.55f, center = c)
-                drawCircle(moonColor, radius = r, center = c)
-                drawCircle(Color.Transparent, radius = r * 0.92f, center = Offset(c.x + r * 0.45f, c.y - r * 0.18f))
-                drawCircle(moonColor.copy(alpha = 0.80f), radius = w * 0.035f, center = Offset(w * 0.72f, h * 0.24f))
-                drawCircle(moonColor.copy(alpha = 0.62f), radius = w * 0.026f, center = Offset(w * 0.78f, h * 0.44f))
-                return@Canvas
-            }
-            if (condition == "sunny" || condition == "partly") {
-                val c = Offset(w * 0.38f, h * 0.36f)
-                val r = w * 0.18f
-                drawCircle(sunColor.copy(alpha = 0.24f), radius = r * 1.7f, center = c)
-                drawCircle(sunColor, radius = r, center = c)
-                for (i in 0 until 8) {
-                    val a = (Math.PI * 2.0 * i / 8.0).toFloat()
-                    drawLine(
-                        color = sunColor.copy(alpha = 0.82f),
-                        start = Offset(c.x + cos(a) * r * 1.35f, c.y + sin(a) * r * 1.35f),
-                        end = Offset(c.x + cos(a) * r * 1.85f, c.y + sin(a) * r * 1.85f),
-                        strokeWidth = 2.1f,
-                        cap = StrokeCap.Round
+        val symbolFont = remember {
+            FontFamily(
+                Font(
+                    resId = R.font.material_symbols_rounded,
+                    variationSettings = FontVariation.Settings(
+                        FontVariation.Setting("FILL", 1f),
+                        FontVariation.Setting("wght", 400f),
+                        FontVariation.Setting("GRAD", 0f),
+                        FontVariation.Setting("opsz", 24f)
                     )
-                }
-            }
-            if (condition != "sunny") {
-                drawCircle(cloudColor, radius = w * 0.18f, center = Offset(w * 0.42f, h * 0.50f))
-                drawCircle(cloudColor, radius = w * 0.22f, center = Offset(w * 0.58f, h * 0.45f))
-                drawCircle(cloudColor, radius = w * 0.16f, center = Offset(w * 0.72f, h * 0.55f))
-                drawLine(
-                    color = cloudColor,
-                    start = Offset(w * 0.32f, h * 0.64f),
-                    end = Offset(w * 0.78f, h * 0.64f),
-                    strokeWidth = h * 0.20f,
-                    cap = StrokeCap.Round
                 )
-            }
-            if (condition == "rain") {
-                listOf(0.42f, 0.58f, 0.74f).forEach { x ->
-                    drawLine(
-                        color = rainColor,
-                        start = Offset(w * x, h * 0.70f),
-                        end = Offset(w * (x - 0.06f), h * 0.92f),
-                        strokeWidth = 2.2f,
-                        cap = StrokeCap.Round
-                    )
-                }
-            }
-            if (condition == "thunder") {
-                val bolt = Color(0xFFFFF3A3)
-                val points = listOf(
-                    Offset(w * 0.61f, h * 0.23f),
-                    Offset(w * 0.50f, h * 0.52f),
-                    Offset(w * 0.61f, h * 0.50f),
-                    Offset(w * 0.48f, h * 0.86f)
-                )
-                drawLine(bolt.copy(alpha = 0.62f), points[0], points[1], strokeWidth = 2.7f, cap = StrokeCap.Round)
-                drawLine(bolt.copy(alpha = 0.62f), points[1], points[2], strokeWidth = 2.7f, cap = StrokeCap.Round)
-                drawLine(bolt.copy(alpha = 0.62f), points[2], points[3], strokeWidth = 2.7f, cap = StrokeCap.Round)
-            }
+            )
+        }
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text(
+                text = briefingWeatherSymbolName(condition),
+                color = tint,
+                fontFamily = symbolFont,
+                fontWeight = FontWeight.Normal,
+                fontSize = 30.sp,
+                lineHeight = 40.sp,
+                maxLines = 1
+            )
         }
     }
 
@@ -5241,7 +5383,7 @@ Version: $versionName
         val lengthMaxPx = with(density) { 22.dp.toPx() }
         val speedMinPx = with(density) { 130.dp.toPx() }
         val speedMaxPx = with(density) { 270.dp.toPx() }
-        val horizontalDrift = kotlin.math.abs(dirX) * heightPx / dirY
+        val horizontalDrift = abs(dirX) * heightPx / dirY
         val spawnXMin = -horizontalDrift
         val spawnXMax = widthPx + horizontalDrift
         val spawnXSpan = spawnXMax - spawnXMin
@@ -5486,9 +5628,9 @@ Version: $versionName
         LaunchedEffect(animationKey) {
             playAurora = false
             fadeAurora = false
-            delay(80)
+            delay(80.milliseconds)
             playAurora = true
-            delay(7_200)
+            delay(7_200.milliseconds)
             fadeAurora = true
         }
 
@@ -5524,267 +5666,6 @@ Version: $versionName
         }
     }
 
-    @Composable
-    private fun BriefingOpeningText(
-        importantText: String,
-        baseColor: Color,
-        animateEffects: Boolean,
-        modifier: Modifier = Modifier,
-        style: androidx.compose.ui.text.TextStyle
-    ) {
-        val isDark = isSystemInDarkTheme()
-        val density = LocalDensity.current
-        val finalText = if (isDark) Color.White else Color(0xFF111111)
-        var playAurora by remember(importantText) { mutableStateOf(false) }
-        var fadeAurora by remember(importantText) { mutableStateOf(false) }
-        val firstPhase by animateFloatAsState(
-            targetValue = if (playAurora) 1f else 0f,
-            animationSpec = tween(durationMillis = 3600, easing = FastOutSlowInEasing),
-            label = "briefingAuroraLayer1"
-        )
-        val secondPhase by animateFloatAsState(
-            targetValue = if (playAurora) 1f else 0f,
-            animationSpec = tween(durationMillis = 4200, easing = FastOutSlowInEasing),
-            label = "briefingAuroraLayer2"
-        )
-        val thirdPhase by animateFloatAsState(
-            targetValue = if (playAurora) 1f else 0f,
-            animationSpec = tween(durationMillis = 3200, easing = FastOutSlowInEasing),
-            label = "briefingAuroraLayer3"
-        )
-        val fourthPhase by animateFloatAsState(
-            targetValue = if (playAurora) 1f else 0f,
-            animationSpec = tween(durationMillis = 5200, easing = FastOutSlowInEasing),
-            label = "briefingAuroraLayer4"
-        )
-        val fadeProgress by animateFloatAsState(
-            targetValue = if (!animateEffects || fadeAurora) 1f else 0f,
-            animationSpec = tween(durationMillis = 620, easing = FastOutSlowInEasing),
-            label = "briefingAuroraFadeToWhite"
-        )
-        val auroraAlpha = if (animateEffects) 1f - fadeProgress else 0f
-        val finalAlpha = if (animateEffects) (0.28f + fadeProgress * 0.72f).coerceIn(0f, 1f) else 1f
-
-        LaunchedEffect(importantText, animateEffects) {
-            if (!animateEffects) {
-                playAurora = false
-                fadeAurora = true
-                return@LaunchedEffect
-            }
-            playAurora = false
-            fadeAurora = false
-            delay(80)
-            playAurora = true
-            delay(4_300)
-            fadeAurora = true
-        }
-
-        BoxWithConstraints(modifier = modifier) {
-            val widthPx = with(density) { maxWidth.toPx().coerceAtLeast(1f) }
-            val heightPx = with(density) { 72.dp.toPx() }
-
-            Text(
-                text = importantText,
-                modifier = Modifier.fillMaxWidth(),
-                color = finalText.copy(alpha = finalAlpha),
-                style = style.copy(
-                    shadow = Shadow(
-                        color = finalText.copy(alpha = if (isDark) 0.16f * finalAlpha else 0.02f * finalAlpha),
-                        offset = Offset.Zero,
-                        blurRadius = if (isDark) 7f else 0f
-                    )
-                )
-            )
-            if (animateEffects && auroraAlpha > 0.01f) {
-                AuroraTextLayer(
-                    text = importantText,
-                    style = style,
-                    color = Color(0xFF22D3EE),
-                    center = auroraLayerCenter(firstPhase, 1, widthPx, heightPx),
-                    radius = widthPx * 0.60f,
-                    alpha = auroraAlpha,
-                    glowBlur = if (isDark) 22f else 15f
-                )
-                AuroraTextLayer(
-                    text = importantText,
-                    style = style,
-                    color = Color(0xFFFACC15),
-                    center = auroraLayerCenter(secondPhase, 2, widthPx, heightPx),
-                    radius = widthPx * 0.60f,
-                    alpha = auroraAlpha,
-                    glowBlur = if (isDark) 26f else 18f
-                )
-                AuroraTextLayer(
-                    text = importantText,
-                    style = style,
-                    color = Color(0xFF4ADE80),
-                    center = auroraLayerCenter(thirdPhase, 3, widthPx, heightPx),
-                    radius = widthPx * 0.60f,
-                    alpha = auroraAlpha,
-                    glowBlur = if (isDark) 20f else 14f
-                )
-                AuroraTextLayer(
-                    text = importantText,
-                    style = style,
-                    color = Color(0xFF173EFF),
-                    center = auroraLayerCenter(fourthPhase, 4, widthPx, heightPx),
-                    radius = widthPx * 0.60f,
-                    alpha = auroraAlpha,
-                    glowBlur = if (isDark) 24f else 16f
-                )
-                Text(
-                    text = importantText,
-                    modifier = Modifier.fillMaxWidth(),
-                    color = finalText.copy(alpha = finalAlpha * 0.36f),
-                    style = style.copy(
-                        shadow = Shadow(
-                            color = finalText.copy(alpha = if (isDark) 0.20f * auroraAlpha else 0.04f * auroraAlpha),
-                            offset = Offset.Zero,
-                            blurRadius = if (isDark) 9f else 2f
-                        )
-                    )
-                )
-            }
-        }
-    }
-
-    @Composable
-    private fun AuroraTextLayer(
-        text: String,
-        style: androidx.compose.ui.text.TextStyle,
-        color: Color,
-        center: Offset,
-        radius: Float,
-        alpha: Float,
-        glowBlur: Float
-    ) {
-        val brush = Brush.radialGradient(
-            colors = listOf(
-                color.copy(alpha = alpha),
-                color.copy(alpha = alpha * 0.74f),
-                color.copy(alpha = alpha * 0.24f),
-                Color.Transparent
-            ),
-            center = center,
-            radius = radius
-        )
-        Text(
-            text = text,
-            modifier = Modifier.fillMaxWidth(),
-            color = Color.Unspecified,
-            style = style.copy(
-                brush = brush,
-                shadow = Shadow(
-                    color = color.copy(alpha = alpha * 0.42f),
-                    offset = Offset.Zero,
-                    blurRadius = glowBlur
-                )
-            )
-        )
-    }
-
-    private fun auroraLayerCenter(progress: Float, layer: Int, width: Float, height: Float): Offset {
-        val p = progress.coerceIn(0f, 1f)
-        return when (layer) {
-            1 -> {
-                val point = interpolateKeyframes(
-                    p,
-                    0f to Offset(width * 1.02f, height * 0.02f),
-                    0.50f to Offset(width * 0.25f, height * 1.08f),
-                    0.75f to Offset(width * 0.75f, height * 1.04f),
-                    1f to Offset(width * 1.02f, height * 0.02f)
-                )
-                point
-            }
-            2 -> interpolateKeyframes(
-                p,
-                0f to Offset(width * 0.00f, height * -0.44f),
-                0.60f to Offset(width * 0.75f, height * 1.08f),
-                0.85f to Offset(width * 0.25f, height * 1.04f),
-                1f to Offset(width * 0.00f, height * -0.44f)
-            )
-            3 -> interpolateKeyframes(
-                p,
-                0f to Offset(width * 0.02f, height * 1.02f),
-                0.40f to Offset(width * 0.75f, height * -0.08f),
-                0.65f to Offset(width * 0.50f, height * 0.60f),
-                1f to Offset(width * 0.02f, height * 1.02f)
-            )
-            else -> interpolateKeyframes(
-                p,
-                0f to Offset(width * 1.02f, height * 1.42f),
-                0.50f to Offset(width * 0.60f, height * 1.00f),
-                0.90f to Offset(width * 0.75f, height * 0.50f),
-                1f to Offset(width * 1.02f, height * 1.42f)
-            )
-        }
-    }
-
-    private fun interpolateKeyframes(progress: Float, vararg frames: Pair<Float, Offset>): Offset {
-        val p = progress.coerceIn(0f, 1f)
-        for (index in 0 until frames.lastIndex) {
-            val start = frames[index]
-            val end = frames[index + 1]
-            if (p >= start.first && p <= end.first) {
-                val local = ((p - start.first) / (end.first - start.first).coerceAtLeast(0.0001f))
-                    .coerceIn(0f, 1f)
-                val eased = smoothStep(local)
-                return Offset(
-                    x = start.second.x + (end.second.x - start.second.x) * eased,
-                    y = start.second.y + (end.second.y - start.second.y) * eased
-                )
-            }
-        }
-        return frames.last().second
-    }
-
-    private fun smoothStep(value: Float): Float {
-        val x = value.coerceIn(0f, 1f)
-        return x * x * (3f - 2f * x)
-    }
-
-    @Composable
-    private fun BriefingAiWave(
-        accentColor: Color,
-        modifier: Modifier = Modifier
-    ) {
-        val transition = rememberInfiniteTransition(label = "briefingAiWave")
-        val phase by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = (Math.PI * 2.0).toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1250, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "briefingAiWavePhase"
-        )
-
-        Canvas(
-            modifier = modifier
-                .size(width = 46.dp, height = 22.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(accentColor.copy(alpha = 0.10f))
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            val bars = 5
-            val strokeWidth = 3.dp.toPx()
-            val spacing = size.width / (bars - 1).coerceAtLeast(1)
-            val centerY = size.height / 2f
-            for (index in 0 until bars) {
-                val wave = ((sin(phase + index * 0.7f) + 1f) / 2f).coerceIn(0f, 1f)
-                val barHeight = size.height * (0.34f + wave * 0.62f)
-                val x = index * spacing
-                drawLine(
-                    color = accentColor.copy(alpha = 0.42f + wave * 0.48f),
-                    start = Offset(x, centerY - barHeight / 2f),
-                    end = Offset(x, centerY + barHeight / 2f),
-                    strokeWidth = strokeWidth,
-                    cap = StrokeCap.Round
-                )
-            }
-        }
-    }
-
     private data class BriefingActionEntry(
         val title: String,
         val body: String,
@@ -5801,6 +5682,36 @@ Version: $versionName
         subTextColor: Color,
         borderColor: Color
     ) {
+        val isDark = isSystemInDarkTheme()
+        val groupContent: @Composable () -> Unit = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                actions.forEachIndexed { index, action ->
+                    BriefingActionRow(
+                        action = action,
+                        accentColor = accentColor,
+                        textColor = textColor,
+                        subTextColor = subTextColor
+                    )
+                    if (index != actions.lastIndex) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 64.dp, end = 14.dp)
+                        ) {
+                            HorizontalDivider(
+                                thickness = 1.dp,
+                                color = if (isDark) {
+                                    borderColor.copy(alpha = 0.58f)
+                                } else {
+                                    Color(0xFFD7DDEA)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -5808,28 +5719,20 @@ Version: $versionName
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             BriefingSectionTitle(title)
-            AppThemeSectionSurface(shape = RoundedCornerShape(18.dp)) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    actions.forEachIndexed { index, action ->
-                        BriefingActionRow(
-                            action = action,
-                            accentColor = accentColor,
-                            textColor = textColor,
-                            subTextColor = subTextColor
-                        )
-                        if (index != actions.lastIndex) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 64.dp, end = 14.dp)
-                            ) {
-                                HorizontalDivider(
-                                    thickness = 1.dp,
-                                    color = borderColor.copy(alpha = 0.58f)
-                                )
-                            }
-                        }
-                    }
+            if (isDark) {
+                AppThemeSectionSurface(shape = RoundedCornerShape(18.dp)) {
+                    groupContent()
+                }
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xFFFFFFFF),
+                    border = BorderStroke(1.dp, Color(0xFFC9D2E3)),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 1.dp
+                ) {
+                    groupContent()
                 }
             }
         }
@@ -5842,117 +5745,65 @@ Version: $versionName
         textColor: Color,
         subTextColor: Color
     ) {
-        Row(
+        val isDark = isSystemInDarkTheme()
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .clickable(onClick = action.onClick)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 2.dp, vertical = 2.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.16f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = action.icon,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(21.dp)
-                )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Text(
-                    text = action.title,
-                    color = textColor,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        lineHeight = 19.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = action.body,
-                    color = subTextColor,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp
-                    ),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-
-    @Composable
-    private fun BriefingActionCard(
-        title: String,
-        body: String,
-        icon: ImageVector,
-        cardColor: Color,
-        borderColor: Color,
-        accentColor: Color,
-        textColor: Color,
-        subTextColor: Color,
-        onClick: () -> Unit
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .briefingElasticAppear(title, delayMillis = 70)
-                .clip(RoundedCornerShape(18.dp))
-                .background(cardColor)
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            accentColor.copy(alpha = if (isSystemInDarkTheme()) 0.16f else 0.12f),
-                            cardColor.copy(alpha = 0.06f),
-                            accentColor.copy(alpha = 0.08f)
+            ListItem(
+                headlineContent = {
+                    Text(
+                        text = action.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            lineHeight = 19.sp
                         ),
-                        start = Offset.Zero,
-                        end = Offset(520f, 180f)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                },
+                leadingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isDark) accentColor.copy(alpha = 0.16f)
+                                else Color(0xFFEDE9FE)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = action.icon,
+                            contentDescription = null,
+                            tint = if (isDark) accentColor else Color(0xFF5140C8),
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                },
+                supportingContent = {
+                    Text(
+                        text = action.body,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ListItemDefaults.colors(
+                    containerColor = Color.Transparent,
+                    headlineColor = textColor,
+                    supportingColor = subTextColor
                 )
-                .border(BorderStroke(1.dp, borderColor), RoundedCornerShape(18.dp))
-                .clickable(onClick = onClick)
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.16f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(22.dp))
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Text(
-                    text = title,
-                    color = textColor,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Text(
-                    text = body,
-                    color = subTextColor,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            )
         }
     }
 
@@ -6121,8 +5972,8 @@ Version: $versionName
 
         androidx.compose.animation.AnimatedVisibility(
             visible = selectionCount > 0,
-            enter = androidx.compose.animation.slideInVertically { -it } + fadeIn(),
-            exit = androidx.compose.animation.slideOutVertically { -it } + fadeOut(),
+            enter = slideInVertically { -it } + fadeIn(),
+            exit = slideOutVertically { -it } + fadeOut(),
             modifier = Modifier.fillMaxWidth()
         ) {
             Box(
@@ -6250,7 +6101,7 @@ Version: $versionName
                 onQueryChange = { query -> updateContactsFloatingSearch(query) },
                 backdrop = backdrop,
                 visible = (contactsFloatingSearchActive.value ||
-                    contactsSearchQuery.value.isNotBlank()) && contactsSelectionCount.intValue == 0,
+                        contactsSearchQuery.value.isNotBlank()) && contactsSelectionCount.intValue == 0,
                 active = contactsFloatingSearchActive.value,
                 onActiveChange = { active ->
                     contactsFloatingSearchActive.value = active
@@ -6275,8 +6126,6 @@ Version: $versionName
 
     @Composable
     private fun NotesPage(
-        onOpenHome: () -> Unit,
-        onOpenContacts: () -> Unit,
     ) {
         LaunchedEffect(Unit) {
             currentNotesFolderId = null
@@ -6298,25 +6147,12 @@ Version: $versionName
         AllNotesScreen(
             notesAdapter = notesAdapter,
             notes = noteRows,
-            notesSize = notesCount.intValue,
             onAddNote = {
                 if (currentNotesFolderId != null) {
                     addNoteLauncher.launch(
                         AddNoteComposeActivity.newIntent(this),
                         ActivityOptionsCompat.makeSceneTransitionAnimation(this)
                     )
-                }
-            },
-            onOpenSearch = { dismiss -> openNotesSearchSheet(dismiss) },
-            onNavItemClick = { id ->
-                when (id) {
-                    R.id.nav_home -> onOpenHome()
-                    R.id.nav_contacts,
-                    R.id.nav_all_contacts -> onOpenContacts()
-                    R.id.nav_settings -> {
-                        startActivity(NotesSettingsComposeActivity.newIntent(this@MainActivity))
-                        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-                    }
                 }
             },
             onDeleteSelected = ::deleteSelectedNotes,
@@ -6333,13 +6169,12 @@ Version: $versionName
             onOpenFolder = { folderId ->
                 currentNotesFolderId = folderId
                 refreshNotesDisplay()
-            },
-            onCreateFolder = { folderName ->
-                if (NoteFolderStore.createFolder(this, folderName) != null) {
-                    currentNotesFolderId = null
-                    refreshNotesDisplay()
-                }
             }
-        )
+        ) { folderName ->
+            if (NoteFolderStore.createFolder(this, folderName) != null) {
+                currentNotesFolderId = null
+                refreshNotesDisplay()
+            }
+        }
     }
 }

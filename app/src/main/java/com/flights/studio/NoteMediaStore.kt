@@ -47,24 +47,6 @@ object NoteMediaStore {
         writeMap(ctx, map)
     }
 
-    /** Appends a URI if not already present (preserves order). */
-    fun addUri(ctx: Context, noteText: String, uri: Uri) {
-        val map = readMap(ctx)
-        val list = map.getOrPut(noteText) { mutableListOf() }
-        val asString = uri.toString()
-        if (asString !in list) list.add(asString)
-        writeMap(ctx, map)
-    }
-
-    /** Removes the URI from a note; deletes the key if empty afterward. */
-    fun removeUri(ctx: Context, noteText: String, uri: Uri) {
-        val map = readMap(ctx)
-        val list = map[noteText] ?: return
-        list.remove(uri.toString())
-        if (list.isEmpty()) map.remove(noteText)
-        writeMap(ctx, map)
-    }
-
     /**
      * Call when the note TEXT changes so images follow the note.
      * If the new note already has images, this appends missing ones (keeps order).

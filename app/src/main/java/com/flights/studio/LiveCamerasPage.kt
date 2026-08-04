@@ -51,6 +51,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
@@ -68,8 +70,6 @@ import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.highlight.HighlightStyle
 import com.kyant.capsule.ContinuousCapsule
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -80,6 +80,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
+import kotlin.time.Duration.Companion.milliseconds
 
 
 // ---------- MAIN SCREEN ----------
@@ -106,7 +107,9 @@ fun LiveCamerasPage(
     var countdownMs by rememberSaveable { mutableLongStateOf(LIVE_CAMERA_REFRESH_INTERVAL_MS) }
     var isRefreshing by rememberSaveable { mutableStateOf(false) }
     val isDark = isSystemInDarkTheme()
-    val pageBg = MaterialTheme.colorScheme.background
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
+    val pageBg = roles.page
     val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
 
@@ -139,9 +142,9 @@ fun LiveCamerasPage(
 
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1_000L)
+            delay(1_000L.milliseconds)
             if (isRefreshing) {
-                delay(2_000L)
+                delay(2_000L.milliseconds)
                 isRefreshing = false
             } else if (countdownMs <= 1_000L) {
                 refreshAllCameras()
@@ -167,9 +170,24 @@ fun LiveCamerasPage(
             modifier = Modifier.matchParentSize(),
             lightRes = R.drawable.light_grid_pattern,
             darkRes = R.drawable.dark_grid_pattern,
-            imageAlpha = if (isDark) 1f else 0.8f,
-            scrimDark = 0f,
+            imageAlpha = if (isDark) 0.72f else 0.42f,
+            scrimDark = 0.04f,
             scrimLight = 0f
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            roles.page.copy(alpha = if (isDark) 0.58f else 0.34f),
+                            roles.glassCard.copy(alpha = if (isDark) 0.42f else 0.30f),
+                            appPalette.surfaceVariant.copy(alpha = if (isDark) 0.32f else 0.22f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(900f, 1350f)
+                    )
+                )
         )
 
 
@@ -222,19 +240,19 @@ fun LiveCamerasPage(
                                 Box(
                                     modifier = Modifier
                                         .draggableHandle()
-                                        .align(Alignment.TopEnd)
-                                        .padding(12.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(Color.Black.copy(alpha = 0.7f))
-                                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.DragHandle,
-                                        contentDescription = "Reorder",
-                                        tint = Color.White
-                                    )
-                                }
-                            }
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(roles.card.copy(alpha = if (isDark) 0.78f else 0.68f))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DragHandle,
+                        contentDescription = "Reorder",
+                        tint = roles.title
+                    )
+                }
+            }
                         )
                     }
                 }
@@ -261,7 +279,7 @@ fun LiveCamerasPage(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(appTopBarColor())
+                        .background(roles.page)
                 ) {
                     FullscreenImageViewer(
                         title = camera.title,
@@ -287,6 +305,9 @@ private fun GlassCameraCard(
     handle: @Composable BoxScope.() -> Unit
 ) {
     val cameraBackdrop = rememberLayerBackdrop()
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
+    val cardShape = RoundedCornerShape(28.dp)
 
     Box(
         modifier = Modifier
@@ -296,7 +317,8 @@ private fun GlassCameraCard(
                 scaleX = scale
                 scaleY = scale
             }
-            .clip(RoundedCornerShape(28.dp))
+            .clip(cardShape)
+            .background(roles.card.copy(alpha = if (isDark) 0.44f else 0.36f), cardShape)
     ) {
 
         // Just image
@@ -323,9 +345,10 @@ private fun GlassCameraCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                    Brush.verticalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.75f),
+                            roles.card.copy(alpha = if (isDark) 0.82f else 0.58f),
+                            appPalette.glassOverlay.copy(alpha = if (isDark) 0.28f else 0.22f),
                             Color.Transparent
                         )
                     )
@@ -375,9 +398,10 @@ private fun LiveCameraOpenButton(
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val containerColor = if (!isDark) Color(0xFFFAFAFA).copy(0.30f)
-    else Color(0xFF1a1a1a).copy(0.70f)
-    val iconColor = if (isDark) Color.White else Color(0xFF1A1A1A)
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
+    val containerColor = roles.glassCard.copy(alpha = if (isDark) 0.72f else 0.52f)
+    val iconColor = roles.title
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
@@ -437,6 +461,7 @@ private fun LiveCameraOpenButton(
                     scaleX = pressDragScaleX
                     scaleY = pressDragScaleY
                 },
+                highlight = null,
                 onDrawSurface = { drawRect(containerColor) }
             )
             .then(interactiveHighlight.modifier)
@@ -468,15 +493,13 @@ private fun BoxScope.GlassTopBar(
     onOpenArchive: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
     var menuOpen by remember { mutableStateOf(false) }
 
     val topBarShape = RoundedCornerShape(0.dp)
-
-    val tint = if (isDark) {
-        Color(0xFF1A1A1A).copy(alpha = 0.78f)
-    } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-    }
+    val tint = roles.card.copy(alpha = if (isDark) 0.82f else 0.74f)
+    val chromeContentColor = roles.title
 
     Surface(
         shape = topBarShape,
@@ -489,19 +512,12 @@ private fun BoxScope.GlassTopBar(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { topBarShape },
-                highlight = {
-                    Highlight(
-                        width = 0.50.dp,
-                        blurRadius = 1.dp,
-                        alpha = 0.18f,
-                        style = HighlightStyle.Ambient
-                    )
-                },
+                highlight = null,
                 effects = {
                     vibrancy()
                     blur(
                         radius = 2.dp.toPx(),
-                        edgeTreatment = androidx.compose.ui.graphics.TileMode.Mirror
+                        edgeTreatment = TileMode.Mirror
                     )
                     lens(
                         refractionHeight = 4.dp.toPx(),
@@ -516,22 +532,26 @@ private fun BoxScope.GlassTopBar(
         CenterAlignedTopAppBar(
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBackIos, contentDescription = "Back", tint = chromeContentColor)
                 }
             },
             title = {
                 Text(
                     text = "Live Cameras",
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    color = chromeContentColor
                 )
             },
             actions = {
                 IconButton(onClick = { menuOpen = !menuOpen }) {
-                    Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                    Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = chromeContentColor)
                 }
             },
             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                containerColor = Color.Transparent
+                containerColor = Color.Transparent,
+                titleContentColor = chromeContentColor,
+                navigationIconContentColor = chromeContentColor,
+                actionIconContentColor = chromeContentColor
             )
         )
     }
@@ -560,7 +580,9 @@ private fun LiveCamerasMenu(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val contentColor = MaterialTheme.colorScheme.onSurface
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
+    val contentColor = roles.title
 
     BackHandler(enabled = visible) {
         onDismiss()
@@ -584,10 +606,8 @@ private fun LiveCamerasMenu(
                         lens(4.dp.toPx(), 8.dp.toPx(), depthEffect = false, chromaticAberration = false)
                     },
                     onDrawSurface = {
-                        drawRect(
-                            if (isDark) Color(0xFF1A1A1A).copy(alpha = 0.82f)
-                            else Color.White.copy(alpha = 0.76f)
-                        )
+                        drawRect(roles.glassCard.copy(alpha = if (isDark) 0.84f else 0.78f))
+                        drawRect(appPalette.action.copy(alpha = if (isDark) 0.10f else 0.08f))
                     }
                 )
                 .clickable(onClick = onOpenArchive),
@@ -625,14 +645,12 @@ private fun FullscreenImageViewer(
     isDark: Boolean,
     onClose: () -> Unit
 ) {
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
     val shape = RoundedCornerShape(0.dp)
-    val tint = if (isDark) {
-        Color(0xFF1A1A1A).copy(alpha = 0.48f)
-    } else {
-        MaterialTheme.colorScheme.surface.copy(alpha = 0.42f)
-    }
+    val tint = roles.card.copy(alpha = if (isDark) 0.62f else 0.54f)
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(Modifier.fillMaxSize().background(roles.page)) {
         val fullscreenBackdrop = rememberLayerBackdrop()
         Box(
             modifier = Modifier
@@ -650,7 +668,13 @@ private fun FullscreenImageViewer(
             backdrop = fullscreenBackdrop,
             isDark = isDark,
             shape = RoundedCornerShape(0.dp),
-            modifier = Modifier.matchParentSize()
+            modifier = Modifier.matchParentSize(),
+            useBackdrop = false
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(appPalette.glassOverlay.copy(alpha = if (isDark) 0.05f else 0.04f))
         )
 
         Surface(
@@ -661,16 +685,19 @@ private fun FullscreenImageViewer(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
+                .background(appPalette.action.copy(alpha = if (isDark) 0.08f else 0.06f))
         ) {
             CenterAlignedTopAppBar(
-                title = { Text(title) },
+                title = { Text(title, color = roles.title) },
                 actions = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, null)
+                        Icon(Icons.Default.Close, null, tint = roles.title)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = Color.Transparent,
+                    titleContentColor = roles.title,
+                    actionIconContentColor = roles.title
                 )
             )
         }
@@ -682,12 +709,29 @@ private fun LiveCameraColorOverlay(
     backdrop: Backdrop,
     isDark: Boolean,
     shape: RoundedCornerShape,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    useBackdrop: Boolean = true
 ) {
+    val isDarkMode = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
+    if (!useBackdrop) {
+        Box(
+            modifier
+                .background(
+                    if (isDark) {
+                        Color.Black.copy(alpha = 0.08f)
+                    } else {
+                        Color.White.copy(alpha = 0.12f)
+                    }
+                )
+        )
+        return
+    }
     Box(
         modifier.drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
+            highlight = null,
             effects = {
                 colorControls(
                     brightness = if (isDark) -0.02f else 0.01f,
@@ -703,6 +747,7 @@ private fun LiveCameraColorOverlay(
                         Color.Unspecified.copy(alpha = 0.25f)
                     }
                 )
+                drawRect(appPalette.glassOverlay.copy(alpha = if (isDarkMode) 0.05f else 0.04f))
             }
         )
     )
@@ -711,10 +756,6 @@ private fun LiveCameraColorOverlay(
 @Composable
 private fun appTopBarBaseColor(): Color =
     if (isSystemInDarkTheme()) Color(0xFF1A1A1A) else Color(0xFFFAFAFA)
-
-@Composable
-private fun appTopBarColor(alpha: Float = 0.92f): Color =
-    appTopBarBaseColor().copy(alpha = alpha)
 
 private const val LIVE_CAMERA_REFRESH_INTERVAL_MS = 60_000L
 

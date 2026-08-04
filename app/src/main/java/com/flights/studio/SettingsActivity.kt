@@ -130,9 +130,6 @@ class SettingsActivity : LocaleActivity() {
                                 SignUpBottomSheetDialogFragment()
                                     .show(supportFragmentManager, "SignUpBottomSheet")
                             },
-                            onOpenRateUs = {
-                                RateUsDialogFragment().show(supportFragmentManager, "RateUsDialog")
-                            },
                             onOpenCardDrawer = { cardId ->
                                 startActivityWithTransition(
                                     Intent(this@SettingsActivity, WebviewflightActivity::class.java)

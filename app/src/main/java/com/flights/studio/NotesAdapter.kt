@@ -99,27 +99,9 @@ class NotesAdapter(
         }
     }
 
-    fun requestTitleIfNeeded(note: String, onReady: () -> Unit) {
-        val typedTitle = getUserTitle(note)
-        val cachedTitle = NotesCacheManager.cachedTitles[note]
-        val titleNow = when {
-            !typedTitle.isNullOrBlank() -> typedTitle
-            !cachedTitle.isNullOrBlank() -> cachedTitle
-            else -> null
-        }
-
-        if (titleNow == null && pendingTitles.add(note)) {
-            suggestTitle(appContext, note) { computed ->
-                NotesCacheManager.cachedTitles[note] = computed
-                pendingTitles.remove(note)
-                onReady()
-            }
-        }
-    }
 
     // forward the SAME click logic your RV used
     fun fireClick(note: String) = onClick(note, positionOf(note))
-    fun fireLongClick(note: String) = onLongClick(note)
     fun fireEdit(note: String) = onEditIconClick(note, positionOf(note))
     fun fireReminder(note: String) = onReminderClick(note, positionOf(note))
 

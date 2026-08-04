@@ -562,7 +562,7 @@ private fun GalleryExpressiveMenuAnchored(
     ) {
         DropdownMenuPopup(
             expanded = true,
-            onDismissRequest = onDismiss,
+            onDismissRequest = onDismiss
         ) {
             val itemCount = actions.size
 
@@ -570,12 +570,13 @@ private fun GalleryExpressiveMenuAnchored(
                 shapes = MenuDefaults.groupShape(index = 0, count = 1),
                 containerColor = MenuDefaults.groupVibrantContainerColor
             ) {
-                actions.forEachIndexed { index, a ->
-                    val colors = if (a.danger) {
+                actions.forEachIndexed { index, action ->
+
+                    val colors = if (action.danger) {
                         MenuDefaults.itemColors(
                             textColor = MaterialTheme.colorScheme.error,
                             leadingIconColor = MaterialTheme.colorScheme.error,
-                            trailingIconColor = MaterialTheme.colorScheme.error
+                            trailingContentColor = MaterialTheme.colorScheme.error
                         )
                     } else {
                         MenuDefaults.itemColors()
@@ -583,16 +584,21 @@ private fun GalleryExpressiveMenuAnchored(
 
                     DropdownMenuItem(
                         selected = false,
-                        enabled = a.enabled,
+                        enabled = action.enabled,
                         onClick = {
-                            a.onClick()
+                            action.onClick()
                             onDismiss()
                         },
-                        text = { Text(a.title) },
-                        shapes = MenuDefaults.itemShape(index = index, count = itemCount),
+                        text = {
+                            Text(action.title)
+                        },
+                        shapes = MenuDefaults.itemShape(
+                            index = index,
+                            count = itemCount
+                        ),
                         colors = colors,
-                        leadingIcon = a.leading,
-                        trailingIcon = a.trailing
+                        leadingIcon = action.leading,
+                        trailingContent = action.trailing
                     )
                 }
             }

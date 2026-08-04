@@ -63,7 +63,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -81,23 +80,18 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalIconButton
@@ -109,9 +103,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SplitButtonDefaults
-import androidx.compose.material3.SplitButtonLayout
-import androidx.compose.material3.SplitButtonShapes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -159,7 +150,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
 import androidx.compose.ui.zIndex
@@ -190,7 +180,9 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tanh
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.foundation.lazy.itemsIndexed as listItemsIndexed
+import androidx.compose.ui.platform.LocalLocale
 
 data class TipMeta(
     val headline: String,
@@ -1366,232 +1358,6 @@ private fun AddNoteMenuStatusChip(
 }
 
 @Composable
-private fun AddNoteVoiceRecorderCard(
-    voiceNotes: List<AddNoteVoiceAttachment>,
-    isRecording: Boolean,
-    elapsedMs: Long,
-    level: Float,
-    isDark: Boolean,
-    compact: Boolean,
-    onPressStart: () -> Unit,
-    onPressEnd: (Boolean) -> Unit,
-    onRemove: (AddNoteVoiceAttachment) -> Unit
-) {
-    val scheme = MaterialTheme.colorScheme
-    val accent = if (isRecording) scheme.error else scheme.primary
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = if (isDark) Color(0xFF1D242C) else Color(0xFFF4F8FC),
-        border = BorderStroke(
-            1.dp,
-            if (isRecording) scheme.error.copy(alpha = 0.44f) else scheme.outline.copy(alpha = 0.14f)
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = if (compact) 8.dp else 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Surface(
-                    modifier = Modifier.size(if (compact) 34.dp else 38.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    color = accent.copy(alpha = 0.16f),
-                    border = BorderStroke(1.dp, accent.copy(alpha = 0.20f))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = if (isRecording) "REC" else "Mic",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
-                            color = accent,
-                            maxLines = 1
-                        )
-                    }
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isRecording) "Recording voice note" else "Voice note",
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
-                        color = scheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = if (isRecording) "Release to save ${formatVoiceDuration(elapsedMs)}" else "Hold mic, talk, release to attach",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = scheme.onSurfaceVariant.copy(alpha = 0.82f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Surface(
-                    modifier = Modifier
-                        .height(if (compact) 34.dp else 38.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .pointerInput(Unit) {
-                            awaitEachGesture {
-                                awaitFirstDown(requireUnconsumed = false)
-                                onPressStart()
-                                val up = waitForUpOrCancellation()
-                                onPressEnd(up == null)
-                            }
-                        },
-                    shape = RoundedCornerShape(999.dp),
-                    color = accent.copy(alpha = if (isRecording) 0.24f else 0.14f),
-                    border = BorderStroke(1.dp, accent.copy(alpha = 0.28f))
-                ) {
-                    Box(
-                        modifier = Modifier.padding(horizontal = 14.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (isRecording) "Release" else "Hold",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                            color = accent,
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-
-            if (isRecording) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(28.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    repeat(18) { index ->
-                        val wave = ((index % 6) + 1) / 6f
-                        val height = (6 + (22 * (level * 0.65f + wave * 0.35f))).dp
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(height)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(accent.copy(alpha = 0.34f + (level * 0.32f)))
-                        )
-                    }
-                }
-            }
-
-            if (voiceNotes.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    voiceNotes.forEachIndexed { index, item ->
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (isDark) Color(0xFF26313B) else Color.White.copy(alpha = 0.70f),
-                            border = BorderStroke(1.dp, scheme.outline.copy(alpha = 0.10f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "Voice ${index + 1}",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = scheme.onSurface,
-                                    modifier = Modifier.weight(1f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = formatVoiceDuration(item.durationMs),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                    color = scheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "Remove",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = scheme.error,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(999.dp))
-                                        .clickable { onRemove(item) }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AddNoteQuickToolPill(
-    label: String,
-    detail: String,
-    accent: Color,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    starIcon: Boolean = false,
-    onClick: () -> Unit
-) {
-    val scheme = MaterialTheme.colorScheme
-    Surface(
-        modifier = modifier
-            .height(36.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(999.dp),
-        color = if (selected) accent.copy(alpha = 0.18f) else scheme.surfaceVariant.copy(alpha = 0.48f),
-        border = BorderStroke(1.dp, accent.copy(alpha = if (selected) 0.34f else 0.16f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            when {
-                starIcon -> Text(
-                    text = "✦",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Black),
-                    color = accent,
-                    maxLines = 1
-                )
-                icon != null -> Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(13.dp)
-                )
-                else -> Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(accent.copy(alpha = if (selected) 1f else 0.58f))
-                )
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = scheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = detail,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = accent,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
 private fun AddNoteNoteActionsPill(
     backdrop: LayerBackdrop,
     charCount: Int,
@@ -1928,56 +1694,6 @@ private fun RowScope.AddNoteFloatingToolTab(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun AddNoteVoiceHoldPill(
-    isRecording: Boolean,
-    elapsedMs: Long,
-    modifier: Modifier = Modifier,
-    onPressStart: () -> Unit,
-    onPressEnd: (Boolean) -> Unit
-) {
-    val scheme = MaterialTheme.colorScheme
-    val accent = if (isRecording) scheme.error else scheme.primary
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(36.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    onPressStart()
-                    val up = waitForUpOrCancellation()
-                    onPressEnd(up == null)
-                }
-            },
-        shape = RoundedCornerShape(999.dp),
-        color = accent.copy(alpha = if (isRecording) 0.20f else 0.12f),
-        border = BorderStroke(1.dp, accent.copy(alpha = if (isRecording) 0.42f else 0.20f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(if (isRecording) 8.dp else 6.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(accent)
-            )
-            Text(
-                text = if (isRecording) formatVoiceDuration(elapsedMs) else "Voice",
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
-                color = accent,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
 private fun AddNoteVoiceInputChip(
     voiceNotes: List<AddNoteVoiceAttachment>,
     isDark: Boolean,
@@ -1991,7 +1707,7 @@ private fun AddNoteVoiceInputChip(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        listItemsIndexed(voiceNotes) { index, item ->
+        listItemsIndexed(voiceNotes) { _, item ->
             Surface(
                 modifier = Modifier.height(36.dp),
                 shape = RoundedCornerShape(999.dp),
@@ -2186,7 +1902,7 @@ private fun addNoteEnglishWordScore(text: String): Int =
 
 private fun addNoteLatinNonEnglishSignal(text: String): Boolean {
     val lower = text.lowercase(Locale.getDefault())
-    val hasDiacritics = Regex("""[ăâîșțąćęłńóśźżáéíóúüñ¿¡]""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+    val hasDiacritics = Regex("""[ăâîșțąćęłńóśźżáéíúüñ¿¡]""", RegexOption.IGNORE_CASE).containsMatchIn(text)
     val markerWords = listOf(
         "sunt", "este", "esti", "ești", "pentru", "fara", "fără", "trebuie", "vreau", "cand", "când",
         "que", "para", "pero", "porque", "cuando", "hacer", "mañana",
@@ -2234,11 +1950,7 @@ private fun addNoteLooksTranslated(original: String, corrected: String): Boolean
     }
 
     val originalEnglishScore = addNoteEnglishWordScore(original)
-    if (originalEnglishScore >= 3 && !addNoteLatinNonEnglishSignal(original) && addNoteLatinNonEnglishSignal(corrected)) {
-        return true
-    }
-
-    return false
+    return originalEnglishScore >= 3 && !addNoteLatinNonEnglishSignal(original) && addNoteLatinNonEnglishSignal(corrected)
 }
 
 private fun currentAddNoteCheckedAt(): String =
@@ -2246,6 +1958,7 @@ private fun currentAddNoteCheckedAt(): String =
 
 private fun AddNoteTodoTemplate.previewLine(): String =
     body.lines()
+        .asSequence()
         .map { it.trim().removePrefix("□").trim().removeSuffix(":").trim() }
         .drop(1)
         .filter { it.isNotBlank() }
@@ -2416,37 +2129,6 @@ private fun addNoteTodoItemFromLine(line: String): AddNoteTodoItem? {
 }
 
 private const val AddNoteFallbackTodoSectionTitle = "Tasks"
-
-private fun addNoteTodoSectionsFromBody(
-    body: String,
-    fallback: AddNoteTodoTemplate
-): List<AddNoteTodoSection> {
-    val sections = mutableListOf<AddNoteTodoSection>()
-    var currentTitle: String? = null
-    var currentItems = mutableListOf<AddNoteTodoItem>()
-
-    fun flush() {
-        val title = currentTitle?.takeIf { it.isNotBlank() } ?: return
-        sections += AddNoteTodoSection(title = title, items = currentItems.toList())
-        currentItems = mutableListOf()
-    }
-
-    body.lines()
-        .filter { it.trim().isNotBlank() }
-        .drop(1)
-        .forEach { line ->
-            val item = addNoteTodoItemFromLine(line)
-            if (item != null) {
-                if (currentTitle == null) currentTitle = AddNoteFallbackTodoSectionTitle
-                currentItems += item
-            } else {
-                flush()
-                currentTitle = line.removeSuffix(":").trim()
-            }
-        }
-    flush()
-    return sections.ifEmpty { fallback.sections() }
-}
 
 private fun AddNoteTodoTemplate.headerLine(): String =
     body.lineSequence().map { it.trim() }.firstOrNull { it.isNotBlank() }.orEmpty().ifBlank { title }
@@ -2704,14 +2386,14 @@ private fun AddNoteStyledTodoTemplatePreview(
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = template.title.uppercase(Locale.getDefault()),
+                    text = template.title.uppercase(LocalLocale.current.platformLocale),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
                     color = scheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${template.badge.uppercase(Locale.getDefault())} · ${template.subtitle}",
+                    text = "${template.badge.uppercase(LocalLocale.current.platformLocale)} · ${template.subtitle}",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = scheme.onSurfaceVariant,
                     maxLines = 2,
@@ -2751,7 +2433,7 @@ private fun AddNoteStyledTodoTemplatePreview(
                             }
                         }
                         Text(
-                            text = section.title.uppercase(Locale.getDefault()),
+                            text = section.title.uppercase(LocalLocale.current.platformLocale),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
                             color = sectionAccent,
                             maxLines = 1,
@@ -3179,14 +2861,7 @@ private fun AddNoteScreen(
         compactComposer -> 10.dp
         else -> 12.dp
     }
-    val actionTileHeight = when {
-        tinyComposer -> 38.dp
-        compactComposer -> 42.dp
-        else -> 46.dp
-    }
-    val actionTilePadding = if (tinyComposer) 3.dp else 5.dp
-    val actionIconSize = if (tinyComposer) 12.dp else 14.dp
-    val actionIconGap = if (tinyComposer) 1.dp else 2.dp
+
     val titleIconSize = if (tinyComposer) 32.dp else 38.dp
 
     @Stable
@@ -3242,9 +2917,9 @@ private fun AddNoteScreen(
     val fileAttachments = remember { mutableStateListOf<AddNoteFileAttachment>() }
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var activeRecordingFile by remember { mutableStateOf<File?>(null) }
-    var recordingStartedAtMs by remember { mutableStateOf(0L) }
-    var recordingElapsedMs by remember { mutableStateOf(0L) }
-    var recordingLevel by remember { mutableStateOf(0f) }
+    var recordingStartedAtMs by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var recordingElapsedMs by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var recordingLevel by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var isRecordingVoice by rememberSaveable { mutableStateOf(false) }
     var showAllImages by rememberSaveable { mutableStateOf(false) }
     var showAllFiles by rememberSaveable { mutableStateOf(false) }
@@ -3971,7 +3646,7 @@ private fun AddNoteScreen(
 
     LaunchedEffect(correctionStatus, isCorrectingNote) {
         if (correctionStatus != null && !isCorrectingNote) {
-            kotlinx.coroutines.delay(2400)
+            kotlinx.coroutines.delay(2400.milliseconds)
             correctionStatus = null
         }
     }
@@ -3991,7 +3666,7 @@ private fun AddNoteScreen(
     }
     LaunchedEffect(showEmptySavePrompt) {
         if (showEmptySavePrompt) {
-            kotlinx.coroutines.delay(2200)
+            kotlinx.coroutines.delay(2200.milliseconds)
             showEmptySavePrompt = false
         }
     }
@@ -4051,7 +3726,7 @@ private fun AddNoteScreen(
             recordingElapsedMs = if (started > 0L) SystemClock.elapsedRealtime() - started else 0L
             val amplitude = runCatching { recorder?.maxAmplitude ?: 0 }.getOrDefault(0)
             recordingLevel = (amplitude / 32767f).coerceIn(0.08f, 1f)
-            kotlinx.coroutines.delay(80)
+            kotlinx.coroutines.delay(80.milliseconds)
         }
         recordingLevel = 0f
     }
@@ -4082,31 +3757,6 @@ private fun AddNoteScreen(
 
 
     // Picker
-    val picker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris ->
-        if (uris.isEmpty()) return@rememberLauncherForActivityResult
-
-        val existing = images.toSet()
-
-        uris.forEach { uri ->
-            // optional: not needed anymore once copied, but harmless
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-
-            // ✅ copy into app storage
-            val file = importImageIntoAppStorage(context, uri) ?: return@forEach
-
-            // ✅ store local file uri (stable even if gallery deletes original)
-            val localUri = Uri.fromFile(file)
-
-            if (localUri !in existing) images.add(localUri)
-        }
-    }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -4281,10 +3931,6 @@ private fun AddNoteScreen(
         if (item.uri.scheme == "file") File(item.uri.path.orEmpty()).delete()
     }
 
-    fun insertTodoBlock() {
-        appendToNote("To do\n□ \n□ \n□ ")
-    }
-
     fun noteAlreadyHasTodoTemplate(): Boolean =
         note.lines().count { addNoteTodoItemFromLine(it) != null } >= 2
 
@@ -4336,9 +3982,7 @@ private fun AddNoteScreen(
     }
 
     fun cleanedNoteText(raw: String): String =
-        raw.lines()
-            .map { it.trimEnd() }
-            .joinToString("\n")
+        raw.lines().joinToString("\n") { it.trimEnd() }
             .replace(Regex("\\n{3,}"), "\n\n")
             .trim()
 
@@ -4432,7 +4076,6 @@ private fun AddNoteScreen(
     val noteInputBackdrop = rememberLayerBackdrop()
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     var menuPage by rememberSaveable { mutableStateOf(AddNoteToolMenuPage.Main) }
-    var topMenuOpen by rememberSaveable { mutableStateOf(false) }
     val addNoteContentBlurDp by animateFloatAsState(
         targetValue = if (menuOpen || showHelp || pendingTodoTemplate != null) 2f else 0f,
         animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
@@ -4740,7 +4383,7 @@ private fun AddNoteScreen(
 
 
                         // debounce (this coroutine will be canceled automatically when note changes)
-                        kotlinx.coroutines.delay(500)
+                        kotlinx.coroutines.delay(500.milliseconds)
 
                         // re-check after debounce (note could have changed)
                         if (!tipEnabled || title.isNotBlank()) {
@@ -4806,7 +4449,6 @@ private fun AddNoteScreen(
                     val smartTitleBorder = if (isDark) Color(0xFF426B9E) else Color(0xFFB7D7FF)
                     val noteInputColor = if (isDark) Color(0xFF1B1D20) else Color(0xFFF7F4EF)
                     val noteInputBorder = if (isDark) Color(0xFF3B3E44) else Color(0xFFE6DCD0)
-                    val quietTileColor = if (isDark) Color(0xFF202D3B) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f)
                     val recordingAccent = MaterialTheme.colorScheme.error
                     val noteInputTopInset = if (tinyComposer) 48.dp else 52.dp
                     val voiceInputVisible = voiceNotes.isNotEmpty()

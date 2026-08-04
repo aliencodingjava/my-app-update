@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.preference.PreferenceManager
+import androidx.core.content.edit
 
 enum class AppThemePreset(
     val label: String,
@@ -119,9 +120,9 @@ object AppThemeStore {
 
     fun set(context: Context, preset: AppThemePreset) {
         PreferenceManager.getDefaultSharedPreferences(context.applicationContext)
-            .edit()
-            .putString(KEY_APP_THEME_PRESET, preset.name)
-            .apply()
+            .edit {
+                putString(KEY_APP_THEME_PRESET, preset.name)
+            }
     }
 
     @Composable

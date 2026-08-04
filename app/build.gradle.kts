@@ -301,6 +301,7 @@ dependencies {
     // ----- AndroidLiquidGlass -----
     implementation(libs.backdrop)
     implementation(libs.capsule)
+    implementation(libs.shapes)
 
     implementation(libs.reorderable)
     implementation(libs.lazycolumnscrollbar)

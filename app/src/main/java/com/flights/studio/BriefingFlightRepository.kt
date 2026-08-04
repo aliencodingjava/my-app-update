@@ -15,7 +15,7 @@ object BriefingFlightRepository {
     suspend fun refresh(context: Context): BriefingFlightSnapshot? = withContext(Dispatchers.IO) {
         runCatching {
             val legacyRows = runCatching { parseRows(fetchLegacyFlightTable()) }.getOrDefault(emptyList())
-            val rows = if (legacyRows.isNotEmpty()) legacyRows else parseRowsFromFlightsPage(fetchFlightsPage())
+            val rows = legacyRows.ifEmpty { parseRowsFromFlightsPage(fetchFlightsPage()) }
             val snapshot = if (rows.isNotEmpty()) {
                 buildSnapshot(rows)
             } else {

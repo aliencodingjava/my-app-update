@@ -61,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
@@ -112,6 +113,8 @@ class LiveCameraArchiveActivity : ComponentActivity() {
 private fun LiveCameraArchiveScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
     val contentBackdrop = rememberLayerBackdrop()
     var fullscreenImage by remember { mutableStateOf<LiveCameraArchiveImage?>(null) }
     var selectedCamera by remember { mutableStateOf<String?>(null) }
@@ -134,7 +137,7 @@ private fun LiveCameraArchiveScreen(onBack: () -> Unit) {
         }
     }
 
-    val pageBg = if (isDark) Color(0xFF101112) else Color(0xFFF7F7F8)
+    val pageBg = roles.page
     Box(
         Modifier
             .fillMaxSize()
@@ -149,9 +152,24 @@ private fun LiveCameraArchiveScreen(onBack: () -> Unit) {
                 modifier = Modifier.matchParentSize(),
                 lightRes = R.drawable.light_grid_pattern,
                 darkRes = R.drawable.dark_grid_pattern,
-                imageAlpha = if (isDark) 0.92f else 0.62f,
-                scrimDark = 0.10f,
-                scrimLight = 0.02f
+                imageAlpha = if (isDark) 0.72f else 0.42f,
+                scrimDark = 0.04f,
+                scrimLight = 0.00f
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                roles.page.copy(alpha = if (isDark) 0.58f else 0.34f),
+                                roles.glassCard.copy(alpha = if (isDark) 0.42f else 0.30f),
+                                appPalette.surfaceVariant.copy(alpha = if (isDark) 0.32f else 0.22f)
+                            ),
+                            start = Offset.Zero,
+                            end = Offset(900f, 1350f)
+                        )
+                    )
             )
 
             Column(
@@ -182,12 +200,12 @@ private fun LiveCameraArchiveScreen(onBack: () -> Unit) {
                             Icon(
                                 Icons.Filled.PhotoLibrary,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                                tint = roles.iconContent.copy(alpha = 0.72f),
                                 modifier = Modifier.size(34.dp)
                             )
                             Text(
                                 text = "No saved images in the latest ${timeRange.label}",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = roles.subtitle,
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.padding(top = 10.dp)
                             )
@@ -272,10 +290,11 @@ private fun LiveCameraArchiveTopBar(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
     val shape = RoundedCornerShape(0.dp)
-    val tint = if (isDark) Color(0xFF1A1A1A).copy(alpha = 0.78f)
-    else MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-    val chromeContentColor = if (isDark) Color.White else Color(0xFF1A1A1A)
+    val tint = roles.card.copy(alpha = if (isDark) 0.82f else 0.74f)
+    val chromeContentColor = roles.title
 
     Surface(
         shape = shape,
@@ -293,7 +312,10 @@ private fun LiveCameraArchiveTopBar(
                     blur(2.dp.toPx(), edgeTreatment = TileMode.Mirror)
                     lens(4.dp.toPx(), 8.dp.toPx(), depthEffect = false, chromaticAberration = false)
                 },
-                onDrawSurface = { drawRect(tint) }
+                onDrawSurface = {
+                    drawRect(tint)
+                    drawRect(appPalette.action.copy(alpha = if (isDark) 0.08f else 0.06f))
+                }
             )
     ) {
         CenterAlignedTopAppBar(
@@ -339,6 +361,9 @@ private fun ArchiveCameraTabs(
     onSelected: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
     val tabs = listOf(
         null to "All",
         "curb" to "Curb",
@@ -358,18 +383,18 @@ private fun ArchiveCameraTabs(
                     .clip(RoundedCornerShape(999.dp))
                     .clickable { onSelected(key) },
                 shape = RoundedCornerShape(999.dp),
-                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                color = if (selected) appPalette.action.copy(alpha = if (isDark) 0.24f else 0.18f)
+                else roles.glassCard.copy(alpha = if (isDark) 0.74f else 0.70f),
                 border = BorderStroke(
                     1.dp,
-                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.48f)
-                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.20f)
+                    if (selected) appPalette.action.copy(alpha = 0.50f)
+                    else roles.border.copy(alpha = 0.52f)
                 )
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = label,
-                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        color = if (selected) appPalette.actionContent else roles.title,
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -404,16 +429,19 @@ private fun ArchiveRangePill(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val isDark = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
     Surface(
         modifier = modifier
             .height(34.dp)
             .clip(RoundedCornerShape(999.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+        color = appPalette.action.copy(alpha = if (isDark) 0.24f else 0.18f),
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.48f)
+            appPalette.action.copy(alpha = 0.50f)
         )
     ) {
         Box(
@@ -422,7 +450,7 @@ private fun ArchiveRangePill(
         ) {
             Text(
                 text = label,
-                color = MaterialTheme.colorScheme.primary,
+                color = roles.title,
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -477,10 +505,11 @@ private fun ArchiveLatestPickerMenu(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val contentColor = MaterialTheme.colorScheme.onSurface
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
+    val contentColor = roles.title
     val sheetShape = RoundedCornerShape(26.dp)
-    val sheetTint = if (isDark) Color(0xFF151719).copy(alpha = 0.82f)
-    else Color.White.copy(alpha = 0.70f)
+    val sheetTint = roles.card.copy(alpha = if (isDark) 0.84f else 0.78f)
     var draftRange by remember(selectedRange) { mutableStateOf(selectedRange) }
     val selectedCameraLabel = when (selectedCamera) {
         "curb" -> "Curb"
@@ -510,11 +539,12 @@ private fun ArchiveLatestPickerMenu(
                 },
                 onDrawSurface = {
                     drawRect(sheetTint)
+                    drawRect(appPalette.action.copy(alpha = if (isDark) 0.10f else 0.08f))
                 }
             ),
         shape = sheetShape,
         color = Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.24f else 0.18f)),
+        border = BorderStroke(1.dp, roles.border),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
     ) {
@@ -536,7 +566,7 @@ private fun ArchiveLatestPickerMenu(
                     )
                     Text(
                         text = "Saved images expire after 48 hours",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = roles.subtitle,
                         style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -544,7 +574,7 @@ private fun ArchiveLatestPickerMenu(
                 }
                 Text(
                     text = "Done",
-                    color = MaterialTheme.colorScheme.primary,
+                    color = appPalette.actionContent,
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
@@ -565,13 +595,7 @@ private fun ArchiveLatestPickerMenu(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        if (isDark) {
-                            Color.White.copy(alpha = 0.08f)
-                        } else {
-                            Color.White.copy(alpha = 0.34f)
-                        }
-                    )
+                    .background(roles.glassCard.copy(alpha = if (isDark) 0.54f else 0.48f))
             ) {
                 ArchivePickerInfoRow("Range", "Latest ${draftRange.label}")
                 ArchivePickerInfoRow("Camera", selectedCameraLabel)
@@ -587,14 +611,15 @@ private fun ArchiveDetailedTimePicker(
     onSelected: (ArchiveTimeRange) -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
+    val roles = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark)
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.10f else 0.05f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)),
+            color = roles.glassCard.copy(alpha = if (isDark) 0.52f else 0.46f),
+            border = BorderStroke(1.dp, roles.border.copy(alpha = 0.48f)),
             tonalElevation = 0.dp,
             shadowElevation = 0.dp
         ) {
@@ -628,7 +653,7 @@ private fun ArchiveDetailedTimePicker(
         }
         Text(
             text = "Minute precise from 1 minute to 48 hours",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = roles.subtitle,
             style = MaterialTheme.typography.labelMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -647,6 +672,7 @@ private fun ArchivePickerWheel(
     enabled: Boolean = true
 ) {
     val isDark = isSystemInDarkTheme()
+    val roles = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark)
     val view = LocalView.current
     val listState = rememberLazyListState(
         initialFirstVisibleItemIndex = values.indexOf(selectedValue).coerceAtLeast(0)
@@ -690,7 +716,7 @@ private fun ArchivePickerWheel(
     ) {
         Text(
             text = label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.42f),
+            color = roles.subtitle.copy(alpha = if (enabled) 1f else 0.42f),
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
             maxLines = 1
         )
@@ -705,7 +731,7 @@ private fun ArchivePickerWheel(
                     .fillMaxWidth()
                     .height(38.dp)
                     .clip(RoundedCornerShape(11.dp))
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = if (isDark) 0.14f else 0.08f))
+                    .background(roles.iconSurface.copy(alpha = if (isDark) 0.78f else 0.58f))
             )
             Box(
                 modifier = Modifier
@@ -714,10 +740,10 @@ private fun ArchivePickerWheel(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.68f else 0.58f),
+                                roles.card.copy(alpha = if (isDark) 0.68f else 0.58f),
                                 Color.Transparent,
                                 Color.Transparent,
-                                MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.68f else 0.58f)
+                                roles.card.copy(alpha = if (isDark) 0.68f else 0.58f)
                             )
                         )
                     )
@@ -735,7 +761,7 @@ private fun ArchivePickerWheel(
                     val selected = value == selectedValue
                     Text(
                         text = valueText(value),
-                        color = MaterialTheme.colorScheme.onSurface.copy(
+                        color = roles.title.copy(
                             alpha = when {
                                 !enabled -> 0.24f
                                 selected -> 1f
@@ -769,6 +795,8 @@ private fun ArchivePickerInfoRow(
     label: String,
     value: String
 ) {
+    val isDark = isSystemInDarkTheme()
+    val roles = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -778,13 +806,13 @@ private fun ArchivePickerInfoRow(
     ) {
         Text(
             text = label,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = roles.title,
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
             modifier = Modifier.weight(1f)
         )
         Text(
             text = value,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = roles.subtitle,
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -802,8 +830,10 @@ private fun ArchiveSortMenu(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val contentColor = MaterialTheme.colorScheme.onSurface
-    val selectedDotColor = if (isDark) Color.White else MaterialTheme.colorScheme.primary
+    val appPalette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(appPalette, isDark)
+    val contentColor = roles.title
+    val selectedDotColor = appPalette.actionContent
 
     BackHandler(enabled = visible) { onDismiss() }
     AnimatedVisibility(
@@ -825,10 +855,8 @@ private fun ArchiveSortMenu(
                         lens(4.dp.toPx(), 8.dp.toPx(), depthEffect = false, chromaticAberration = false)
                     },
                     onDrawSurface = {
-                        drawRect(
-                            if (isDark) Color(0xFF1A1A1A).copy(alpha = 0.82f)
-                            else Color.White.copy(alpha = 0.76f)
-                        )
+                        drawRect(roles.glassCard.copy(alpha = if (isDark) 0.84f else 0.78f))
+                        drawRect(appPalette.action.copy(alpha = if (isDark) 0.10f else 0.08f))
                     }
                 )
                 .clickable(onClick = onDismiss),
@@ -881,6 +909,7 @@ private fun ArchiveImageCard(
 ) {
     val shape = RoundedCornerShape(18.dp)
     val isDark = isSystemInDarkTheme()
+    val roles = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark)
     val imageBackdrop = rememberLayerBackdrop()
     Surface(
         modifier = Modifier
@@ -889,8 +918,8 @@ private fun ArchiveImageCard(
             .clip(shape)
             .clickable(onClick = onClick),
         shape = shape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = if (isDark) 0.86f else 0.78f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.20f))
+        color = roles.card.copy(alpha = if (isDark) 0.76f else 0.70f),
+        border = BorderStroke(1.dp, roles.border.copy(alpha = 0.52f))
     ) {
         Box(Modifier.fillMaxSize()) {
             Box(
@@ -950,11 +979,12 @@ private fun ArchiveFullscreenImage(
     onClose: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
+    val roles = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark)
     val fullscreenBackdrop = rememberLayerBackdrop()
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(roles.page)
     ) {
         Box(
             modifier = Modifier
@@ -971,7 +1001,13 @@ private fun ArchiveFullscreenImage(
             backdrop = fullscreenBackdrop,
             isDark = isDark,
             shape = RoundedCornerShape(0.dp),
-            modifier = Modifier.matchParentSize()
+            modifier = Modifier.matchParentSize(),
+            useBackdrop = false
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(LocalAppThemePalette.current.glassOverlay.copy(alpha = if (isDark) 0.05f else 0.04f))
         )
         Row(
             modifier = Modifier
@@ -1006,12 +1042,28 @@ private fun ArchiveCameraColorOverlay(
     backdrop: Backdrop,
     isDark: Boolean,
     shape: RoundedCornerShape,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    useBackdrop: Boolean = true
 ) {
+    val isDarkMode = isSystemInDarkTheme()
+    val appPalette = LocalAppThemePalette.current
+    if (!useBackdrop) {
+        Box(
+            modifier.background(
+                if (isDark) {
+                    Color.Black.copy(alpha = 0.08f)
+                } else {
+                    Color.White.copy(alpha = 0.12f)
+                }
+            )
+        )
+        return
+    }
     Box(
         modifier.drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
+            highlight = null,
             effects = {
                 colorControls(
                     brightness = if (isDark) -0.02f else 0.01f,
@@ -1027,6 +1079,7 @@ private fun ArchiveCameraColorOverlay(
                         Color.Unspecified.copy(alpha = 0.25f)
                     }
                 )
+                drawRect(appPalette.glassOverlay.copy(alpha = if (isDarkMode) 0.05f else 0.04f))
             }
         )
     )

@@ -334,46 +334,46 @@ private fun ExpressiveMenuItem(
         }
     }
 
-        DropdownMenuItem(
-            selected = selected,
-            onClick = entry.onClick,
-            shapes = shapes,
-            colors = colors ?: MenuDefaults.itemColors(),
-            leadingIcon = {
-                Icon(
-                    imageVector = entry.leadingIcon,
-                    contentDescription = null,
-                    modifier = Modifier.size(leadingIconSize)
-                )
-            },
-            text = {
-                if (flags.supportingText && entry.supportingText != null) {
-                    Column {
-                        Text(
-                            text = entry.label,
-                            style = labelStyle.copy(
-                                fontSize = labelStyle.fontSize.us(bodyS)
-                            )
-                        )
-                        Text(
-                            text = entry.supportingText,
-                            style = supportingStyle.copy(
-                                fontSize = supportingStyle.fontSize.us(labelS)
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
+    DropdownMenuItem(
+        selected = selected,
+        onClick = entry.onClick,
+        shapes = shapes,
+        colors = colors ?: MenuDefaults.itemColors(),
+        leadingIcon = {
+            Icon(
+                imageVector = entry.leadingIcon,
+                contentDescription = null,
+                modifier = Modifier.size(leadingIconSize)
+            )
+        },
+        text = {
+            if (flags.supportingText && entry.supportingText != null) {
+                Column {
                     Text(
                         text = entry.label,
                         style = labelStyle.copy(
                             fontSize = labelStyle.fontSize.us(bodyS)
                         )
                     )
+                    Text(
+                        text = entry.supportingText,
+                        style = supportingStyle.copy(
+                            fontSize = supportingStyle.fontSize.us(labelS)
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            },
-            trailingIcon = trailingContent
-        )
+            } else {
+                Text(
+                    text = entry.label,
+                    style = labelStyle.copy(
+                        fontSize = labelStyle.fontSize.us(bodyS)
+                    )
+                )
+            }
+        },
+        trailingContent = trailingContent
+    )
     }
 
 @Composable

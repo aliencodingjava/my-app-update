@@ -104,6 +104,8 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -147,15 +149,11 @@ data class NoteFolderUi(
 fun AllNotesScreen(
     notesAdapter: NotesAdapter,
     notes: SnapshotStateList<NoteRow>,
-    notesSize: Int,
     onAddNote: () -> Unit,
-    onOpenSearch: (onDismiss: () -> Unit) -> Unit,
-    onNavItemClick: (Int) -> Unit,
     onDeleteSelected: (Set<String>) -> Unit,
     onDeleteSelectedFolders: (Set<String>) -> Unit = {},
     onOpenNote: ((NoteRow, Int) -> Unit)? = null,
     onBack: (() -> Unit)? = null,
-    onOpenProfile: () -> Unit = {},
     syncStatus: NotesSyncUiStatus = NotesSyncUiStatus.Synced,
     syncAvailable: Boolean = false,
     onNotesSettingsChanged: () -> Unit = {},
@@ -420,8 +418,7 @@ fun AllNotesScreen(
                             syncAvailable = syncAvailable,
                             status = syncStatus,
                             backdrop = topBarBackdrop,
-                            palette = topPalette,
-                            contentColor = contentColor
+                            palette = topPalette
                         )
                         Spacer(Modifier.width(8.dp))
 
@@ -666,7 +663,6 @@ private fun NotesFolderCard(
     } else {
         Color(0xFFD4E4F2).copy(alpha = 0.34f)
     }
-    val selectedBorder = folderAccent
     val selectedCheckFill = if (isDark) folderAccent.copy(alpha = 0.92f) else folderAccent
     val folderBack = if (selected) {
         palette?.accent?.copy(alpha = if (isDark) 0.42f else 0.28f)
@@ -716,6 +712,23 @@ private fun NotesFolderCard(
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { outerShape },
+                highlight = {
+                    if (isDark) {
+                        Highlight(
+                            width = 0.45.dp,
+                            blurRadius = 1.6.dp,
+                            alpha = 0.50f,
+                            style = HighlightStyle.Plain
+                        )
+                    } else {
+                        Highlight(
+                            width = 0.30.dp,
+                            blurRadius = 1.0.dp,
+                            alpha = 0.95f,
+                            style = HighlightStyle.Plain
+                        )
+                    }
+                },
                 effects = {
                     vibrancy()
                     blur(radius = 18.dp.toPx(), edgeTreatment = TileMode.Mirror)
@@ -755,7 +768,7 @@ private fun NotesFolderCard(
             .border(
                 width = if (selected) 2.dp else if (isDark) 0.dp else 1.dp,
                 color = if (selected) {
-                    selectedBorder
+                    folderAccent
                 } else if (isDark) {
                     Color.Transparent
                 } else {
@@ -771,43 +784,191 @@ private fun NotesFolderCard(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 5.dp)
-                .width(58.dp)
-                .height(70.dp)
-        ) {
+        // Show papers only when this folder contains notes.
+        if (folder.count > 0) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .width(50.dp)
-                    .height(64.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = if (isDark) 0.76f else 0.94f),
-                                Color(0xFFECEFF4).copy(alpha = if (isDark) 0.62f else 0.88f)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 4.dp)
+                    .width(64.dp)
+                    .height(72.dp)
+            ) {
+                // Back sheet — lavender
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .width(50.dp)
+                        .height(61.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = if (isDark) {
+                                    listOf(
+                                        Color(0xFFB9A7E8),
+                                        Color(0xFF7565A8)
+                                    )
+                                } else {
+                                    listOf(
+                                        Color(0xFFE9E0FF),
+                                        Color(0xFFC9B8F4)
+                                    )
+                                }
                             )
                         )
-                    )
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .width(50.dp)
-                    .height(65.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = if (isDark) 0.90f else 0.98f),
-                                Color(0xFFF1F4F8).copy(alpha = if (isDark) 0.76f else 0.94f)
+                        .border(
+                            width = 0.8.dp,
+                            color = if (isDark) {
+                                Color.White.copy(alpha = 0.20f)
+                            } else {
+                                Color(0xFF9A86CE).copy(alpha = 0.35f)
+                            },
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                )
+
+                // Middle sheet — cyan
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .width(52.dp)
+                        .height(65.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = if (isDark) {
+                                    listOf(
+                                        Color(0xFF82C7D5),
+                                        Color(0xFF397887)
+                                    )
+                                } else {
+                                    listOf(
+                                        Color(0xFFD8F5FA),
+                                        Color(0xFFA7DBE5)
+                                    )
+                                }
                             )
                         )
-                    )
-            )
+                        .border(
+                            width = 0.8.dp,
+                            color = if (isDark) {
+                                Color.White.copy(alpha = 0.22f)
+                            } else {
+                                Color(0xFF63AEBF).copy(alpha = 0.34f)
+                            },
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                )
+
+                // Front sheet — cream with note lines
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .width(50.dp)
+                        .height(66.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = if (isDark) {
+                                    listOf(
+                                        Color(0xFFFFE3A3),
+                                        Color(0xFFC79845)
+                                    )
+                                } else {
+                                    listOf(
+                                        Color(0xFFFFF6D9),
+                                        Color(0xFFFFDFA0)
+                                    )
+                                }
+                            )
+                        )
+                        .border(
+                            width = 0.8.dp,
+                            color = if (isDark) {
+                                Color.White.copy(alpha = 0.24f)
+                            } else {
+                                Color(0xFFC99C42).copy(alpha = 0.30f)
+                            },
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                ) {
+                    val lineColor = if (isDark) {
+                        Color(0xFF5C4628).copy(alpha = 0.65f)
+                    } else {
+                        Color(0xFF8A6A35).copy(alpha = 0.48f)
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(
+                                start = 6.dp,
+                                top = 9.dp,
+                                end = 6.dp
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(22.dp)
+                                .height(2.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(lineColor)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.5.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(lineColor)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .width(31.dp)
+                                .height(1.5.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(lineColor)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .width(27.dp)
+                                .height(1.5.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(lineColor)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .width(34.dp)
+                                .height(1.5.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(lineColor)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .width(24.dp)
+                                .height(1.5.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    lineColor.copy(alpha = 0.82f)
+                                )
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .width(30.dp)
+                                .height(1.5.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(
+                                    lineColor.copy(alpha = 0.70f)
+                                )
+                        )
+                    }
+                }
+            }
         }
 
         Box(
@@ -1000,44 +1161,73 @@ private fun NotesSyncStatusPill(
     status: NotesSyncUiStatus,
     backdrop: LayerBackdrop,
     palette: NotesPaletteColors?,
-    contentColor: Color,
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
     val appPalette = LocalAppThemePalette.current
+
     val online = syncOnline && syncAvailable
     val active = online && status != NotesSyncUiStatus.Error
-    val statusLabel = when {
-        online && status != NotesSyncUiStatus.Error -> "Online"
-        else -> "Local"
-    }
+
+    val statusLabel = if (active) "Online" else "Local"
+
+    // Stronger colors for better visibility in both themes
     val dotColor = when {
-        status == NotesSyncUiStatus.Error -> Color(0xFFFF6257)
-        online -> Color(0xFF21C765)
-        else -> if (isDark) Color(0xFFFFC95C) else Color(0xFFC47A00)
+        status == NotesSyncUiStatus.Error -> {
+            if (isDark) Color(0xFFFF6B63) else Color(0xFFD92D20)
+        }
+
+        online -> {
+            if (isDark) Color(0xFF4ADE80) else Color(0xFF07883E)
+        }
+
+        else -> {
+            if (isDark) Color(0xFFFFD166) else Color(0xFFA95E00)
+        }
     }
-    val primaryText = contentColor
+
+    val readableTextColor = if (isDark) {
+        Color.White.copy(alpha = 0.96f)
+    } else {
+        Color(0xFF15121F)
+    }
+
     val animationScope = rememberCoroutineScope()
     val interactiveHighlight = remember(animationScope) {
         InteractiveHighlight(animationScope = animationScope)
     }
-    val syncPulse by rememberInfiniteTransition(label = "notes_sync_status_pulse")
-        .animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1250, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
+
+    val syncPulse by rememberInfiniteTransition(
+        label = "notes_sync_status_pulse"
+    ).animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 1250,
+                easing = LinearEasing
             ),
-            label = "notes_sync_status_pulse_value"
-        )
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "notes_sync_status_pulse_value"
+    )
 
     Box(
         modifier = modifier
+            // Original pill size remains unchanged
             .height(NotesActionHeight)
             .widthIn(min = 104.dp, max = 136.dp)
-            .notesLiquidTransform(NotesPillShape, interactiveHighlight)
-            .notesActionGlass(backdrop, NotesPillShape, isDark, palette, appPalette)
+            .notesLiquidTransform(
+                NotesPillShape,
+                interactiveHighlight
+            )
+            .notesActionGlass(
+                backdrop,
+                NotesPillShape,
+                isDark,
+                palette,
+                appPalette
+            )
             .then(interactiveHighlight.modifier)
             .then(interactiveHighlight.gestureModifier),
         contentAlignment = Alignment.Center
@@ -1047,36 +1237,74 @@ private fun NotesSyncStatusPill(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
+            // Larger drawing area, but it does not enlarge the pill
             Box(
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(24.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (active) {
-                    Canvas(modifier = Modifier.size(18.dp)) {
-                        val outerRadius = lerp(4.8.dp.toPx(), 8.8.dp.toPx(), syncPulse)
-                        val innerRadius = lerp(3.8.dp.toPx(), 5.8.dp.toPx(), syncPulse)
+                    Canvas(modifier = Modifier.size(24.dp)) {
+                        val outerRadius = lerp(
+                            6.dp.toPx(),
+                            11.5.dp.toPx(),
+                            syncPulse
+                        )
+
+                        val innerRadius = lerp(
+                            5.dp.toPx(),
+                            8.dp.toPx(),
+                            syncPulse
+                        )
+
+                        // Larger and stronger outer pulse
                         drawCircle(
-                            color = dotColor.copy(alpha = lerp(0.34f, 0f, syncPulse)),
+                            color = dotColor.copy(
+                                alpha = lerp(0.48f, 0f, syncPulse)
+                            ),
                             radius = outerRadius
                         )
+
+                        // Softer secondary glow
                         drawCircle(
-                            color = dotColor.copy(alpha = lerp(0.24f, 0.04f, syncPulse)),
+                            color = dotColor.copy(
+                                alpha = lerp(0.34f, 0.06f, syncPulse)
+                            ),
                             radius = innerRadius
                         )
                     }
                 }
+
+                // Dark outline keeps the dot readable on pale glass
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .size(13.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isDark) {
+                                Color.Black.copy(alpha = 0.28f)
+                            } else {
+                                Color.White.copy(alpha = 0.92f)
+                            }
+                        )
+                )
+
+                // Actual dot: 8 dp → 10 dp
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
                         .background(dotColor)
                 )
             }
+
             Spacer(Modifier.width(7.dp))
+
             Text(
                 text = statusLabel,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
-                color = primaryText,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Black
+                ),
+                color = readableTextColor,
                 maxLines = 1
             )
         }

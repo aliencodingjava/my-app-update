@@ -9,7 +9,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.res.ColorStateList
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
@@ -25,10 +24,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
-import android.view.animation.DecelerateInterpolator
-import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
-import android.widget.ImageView
 import android.widget.NumberPicker
 import android.widget.TextView
 import android.widget.TimePicker
@@ -65,7 +60,6 @@ import com.google.android.material.badge.ExperimentalBadgeUtils
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.datepicker.MaterialDatePicker
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
 import com.google.android.material.transition.platform.MaterialSharedAxis
@@ -296,7 +290,6 @@ class AllNotesActivity : LocaleActivity() {
                         AllNotesScreen(
                             notesAdapter = notesAdapter,
                             notes = noteRows,
-                            notesSize = notesCount,
                             onAddNote = {
                                 if (currentFolderId != null) {
                                     val intent = AddNoteComposeActivity.newIntent(this@AllNotesActivity)
@@ -304,22 +297,6 @@ class AllNotesActivity : LocaleActivity() {
                                     addNoteLauncher.launch(intent, opts)
                                 }
                             },
-                            onOpenSearch = { onDismiss ->
-                                openSearchView(onDismiss)
-                            },
-                            onNavItemClick = { id ->
-                                when (id) {
-                                    R.id.nav_home -> goToHomeScreen()
-                                    R.id.nav_contacts -> goToContactScreen()
-                                    R.id.nav_all_contacts -> goToAllContactsScreen()
-                                    R.id.nav_settings -> {
-                                        startActivity(NotesSettingsComposeActivity.newIntent(this@AllNotesActivity))
-                                        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)                                }
-                                    R.id.openAddNoteScreen -> Unit
-                                    R.id.action_delete -> deleteSelectedNotes()
-                                }
-                            },
-
                             onDeleteSelected = { selectedRowKeys ->
                                 selectedKeys.clear()
                                 selectedKeys.addAll(selectedRowKeys)
@@ -327,14 +304,8 @@ class AllNotesActivity : LocaleActivity() {
                                 deleteSelectedNotes()
                             },
                             onDeleteSelectedFolders = ::deleteSelectedNoteFolders,
+
                             onOpenNote = { row, position -> onNoteClick(row.text, position) },
-                            onOpenProfile = {
-                                startActivity(Intent(this@AllNotesActivity, ProfileDetailsComposeActivity::class.java))
-                                overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-                            },
-                            syncStatus = notesSyncStatus,
-                            syncAvailable = hasActiveSupabaseSession(),
-                            onNotesSettingsChanged = ::refreshNotesDisplayFromSettings,
                             onBack = if (currentFolderId != null) {
                                 {
                                     currentFolderId = null
@@ -343,6 +314,9 @@ class AllNotesActivity : LocaleActivity() {
                             } else {
                                 null
                             },
+                            syncStatus = notesSyncStatus,
+                            syncAvailable = hasActiveSupabaseSession(),
+                            onNotesSettingsChanged = ::refreshNotesDisplayFromSettings,
                             pageTitle = currentFolderTitle(),
                             showWelcomeOnEmptyNotes = false,
                             folderMode = currentFolderId == null,
@@ -350,17 +324,19 @@ class AllNotesActivity : LocaleActivity() {
                             onOpenFolder = { folderId ->
                                 currentFolderId = folderId
                                 refreshNotesDisplayFromSettings()
-                            },
-                            onCreateFolder = { folderName ->
-                                if (NoteFolderStore.createFolder(this@AllNotesActivity, folderName) != null) {
-                                    currentFolderId = null
-                                    refreshNotesDisplayFromSettings()
-                                }
                             }
 
 
-
-                        )
+                        ) { folderName ->
+                            if (NoteFolderStore.createFolder(
+                                    this@AllNotesActivity,
+                                    folderName
+                                ) != null
+                            ) {
+                                currentFolderId = null
+                                refreshNotesDisplayFromSettings()
+                            }
+                        }
 
 
                     }
@@ -515,7 +491,7 @@ class AllNotesActivity : LocaleActivity() {
             }
 
             if (!newNoteContent.isNullOrBlank()) {
-                addLocalNote(newNoteContent, queuePendingSync = false)
+                addLocalNote(newNoteContent)
                 val newNoteUid = contentToUid[newNoteContent] ?: ensureLocalUid(newNoteContent)
                 saveNoteMediaForKeys(
                     context = this,
@@ -581,27 +557,6 @@ class AllNotesActivity : LocaleActivity() {
             NoteCreatedAtStore.remove(this, it)
         }
         saveUidMaps()
-    }
-
-    private fun showCreateFolderDialog() {
-        val input = EditText(this).apply {
-            hint = "Folder name"
-            setSingleLine(true)
-        }
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle("New folder")
-            .setView(input)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Save") { _, _ ->
-                val folder = NoteFolderStore.createFolder(this, input.text?.toString().orEmpty())
-                if (folder != null) {
-                    refreshFolderRows()
-                    currentFolderId = null
-                    rebuildBoth(emptyList())
-                }
-            }
-            .show()
     }
 
     private fun ensureFolderAssignmentsFor(notes: List<String>) {
@@ -1163,7 +1118,6 @@ class AllNotesActivity : LocaleActivity() {
         val pendingDeletes = pendingDeletesForUser(userId)
         val remoteRows = fetchActiveRemoteRows(userId)
         val remoteByContent = remoteRows.associateBy { it.content }
-        val remoteContents = remoteByContent.keys
         remoteRows.forEach { row ->
             val id = row.id ?: return@forEach
             idToContent[id] = row.content
@@ -2346,9 +2300,7 @@ class AllNotesActivity : LocaleActivity() {
             }
         }
         val deleted: List<Triple<String, Int, String?>> =
-            if (deletedFromRows.isNotEmpty()) {
-                deletedFromRows
-            } else {
+            deletedFromRows.ifEmpty {
                 selectedKeys.mapNotNull { key ->
                     val note = uidToContent[key] ?: return@mapNotNull null
                     val idx = notesText.indexOf(note)
@@ -2545,16 +2497,6 @@ class AllNotesActivity : LocaleActivity() {
     }
 
 
-    private fun resolveThemeColor(attr: Int): Int {
-        val tv = android.util.TypedValue()
-        theme.resolveAttribute(attr, tv, true)
-        return if (tv.resourceId != 0) {
-            ContextCompat.getColor(this, tv.resourceId)
-        } else {
-            tv.data
-        }
-    }
-
     private fun deleteSelectedNoteFolders(selectedFolderIds: Set<String>) {
         if (selectedFolderIds.isEmpty()) return
         ensureFolderAssignmentsFor(allNotes)
@@ -2607,297 +2549,6 @@ class AllNotesActivity : LocaleActivity() {
         }
         NotesCacheManager.cachedNotes = allNotes.toMutableList()
         updateNotePlaceholder()
-    }
-
-    private fun openSearchView(onDismiss: () -> Unit) {
-        val parentView = findViewById<ViewGroup>(android.R.id.content)
-        val inflater = LayoutInflater.from(this)
-        val rootLayout = inflater.inflate(
-            R.layout.dialog_search_all_notes2,
-            parentView,
-            false
-        ) as androidx.coordinatorlayout.widget.CoordinatorLayout
-
-        // ✅ NEW: EditText + icon (from your XML)
-        val etSearch = rootLayout.findViewById<EditText>(R.id.et_search)
-        val searchIcon = rootLayout.findViewById<ImageView>(R.id.search_icon)
-        val onSurfaceVariant = resolveThemeColor(com.google.android.material.R.attr.colorOnSurfaceVariant)
-        etSearch.setHintTextColor((onSurfaceVariant))
-        etSearch.highlightColor = (onSurfaceVariant and 0x00FFFFFF) or (0x33000000) // soft highlight
-
-        // ✅ split button refs
-        val btnFilter = rootLayout.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_filter)
-        val btnClose  = rootLayout.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_close)
-
-        // ✅ mode state
-        var mode = loadSearchMode()
-// ✅ apply persisted mode to hint immediately (so it shows on open)
-        etSearch.hint = if (currentFolderId == null) {
-            "Search folders or notes…"
-        } else {
-            when (mode) {
-                SearchMode.NOTE  -> "Search in note"
-                SearchMode.TITLE -> "Search title…"
-                SearchMode.BOTH  -> "Search title or note…"
-            }
-        }
-
-        fun applyFilterNow() {
-            val text = etSearch.text?.toString().orEmpty()
-            filterNotes(text, mode)
-        }
-
-        // ✅ theme-aware tint (so it looks correct light/dark)
-        val onSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
-        btnFilter.iconTint = ColorStateList.valueOf(onSurface)
-        btnClose.iconTint  = ColorStateList.valueOf(onSurface)
-        searchIcon.imageTintList = ColorStateList.valueOf(onSurface)
-
-        btnFilter.setOnClickListener {
-
-            val items = arrayOf("Note content", "Title only", "Title & note")
-
-            val checkedIndex = when (mode) {
-                SearchMode.NOTE  -> 0
-                SearchMode.TITLE -> 1
-                SearchMode.BOTH  -> 2
-            }
-
-            var pendingIndex = checkedIndex
-
-            fun hintFor(m: SearchMode) = if (currentFolderId == null) {
-                "Search folders or notes…"
-            } else {
-                when (m) {
-                    SearchMode.NOTE  -> "Search in note"
-                    SearchMode.TITLE -> "Search title…"
-                    SearchMode.BOTH  -> "Search title or note…"
-                }
-            }
-
-            fun modeForIndex(i: Int) = when (i) {
-                1 -> SearchMode.TITLE
-                2 -> SearchMode.BOTH
-                else -> SearchMode.NOTE
-            }
-
-            fun dialogPanel(d: android.app.Dialog): View? {
-                val content = d.findViewById<ViewGroup>(android.R.id.content) ?: return null
-                return content.getChildAt(0) // ✅ visible rounded dialog panel
-            }
-
-            fun dp(v: View, value: Float): Float = value * v.resources.displayMetrics.density
-
-            // ✅ M3 motion: fade + subtle scale + lift (NO height hack => NO blink)
-            fun motionPrepare(panel: View) {
-                panel.alpha = 0f
-                panel.scaleX = 0.985f
-                panel.scaleY = 0.985f
-                panel.translationY = dp(panel, 10f)
-            }
-
-            fun motionEnter(panel: View) {
-                panel.animate()
-                    .alpha(1f)
-                    .scaleX(1f)
-                    .scaleY(1f)
-                    .translationY(0f)
-                    .setDuration(220L)
-                    .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
-                    .start()
-            }
-
-            fun motionExit(panel: View, end: () -> Unit) {
-                panel.animate()
-                    .alpha(0f)
-                    .scaleX(0.985f)
-                    .scaleY(0.985f)
-                    .translationY(dp(panel, 10f))
-                    .setDuration(160L)
-                    .setInterpolator(android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f))
-                    .withEndAction(end)
-                    .start()
-            }
-
-            val dlg = MaterialAlertDialogBuilder(this)
-                .setTitle("Search in")
-                .setSingleChoiceItems(items, checkedIndex) { _, which ->
-                    pendingIndex = which
-                }
-                .setNegativeButton("Cancel", null)
-                .setNeutralButton("Reset", null)
-                .setPositiveButton("OK", null)
-                .create()
-
-
-            // 🚫 disable default window animation (so ONLY our motion runs)
-            dlg.window?.setWindowAnimations(0)
-
-            fun dismissWithMotion() {
-                val panel = dialogPanel(dlg)
-                if (panel == null) {
-                    dlg.dismiss()
-                    return
-                }
-                motionExit(panel) { dlg.dismiss() }
-            }
-
-            dlg.setOnShowListener {
-                val panel = dialogPanel(dlg) ?: return@setOnShowListener
-
-                // ✅ prepare instantly (prevents blink)
-                motionPrepare(panel)
-
-                // ✅ start motion next frame
-                panel.post { motionEnter(panel) }
-
-                dlg.getButton(android.app.AlertDialog.BUTTON_NEGATIVE)?.setOnClickListener {
-                    dismissWithMotion()
-                }
-
-                dlg.getButton(android.app.AlertDialog.BUTTON_NEUTRAL)?.setOnClickListener {
-                    mode = SearchMode.NOTE
-                    saveSearchMode(mode)
-
-                    etSearch.hint = hintFor(mode)
-                    applyFilterNow()
-                    etSearch.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-
-                    dismissWithMotion()
-                }
-
-                dlg.getButton(android.app.AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
-                    val newMode = modeForIndex(pendingIndex)
-                    etSearch.hint = hintFor(newMode)
-
-                    if (newMode != mode) {
-                        mode = newMode
-                        saveSearchMode(mode)
-                        applyFilterNow()
-                        etSearch.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                    }
-
-                    dismissWithMotion()
-                }
-            }
-
-            // back press -> animate out
-            dlg.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == android.view.KeyEvent.KEYCODE_BACK &&
-                    event.action == android.view.KeyEvent.ACTION_UP
-                ) {
-                    dismissWithMotion()
-                    true
-                } else false
-            }
-
-            // outside tap -> animate out
-            dlg.setOnCancelListener { dismissWithMotion() }
-            dlg.setCanceledOnTouchOutside(true)
-
-            dlg.show()
-        }
-
-
-
-
-        // ✅ close/clear on CLOSE split button
-        btnClose.setOnClickListener {
-            etSearch.setText("")
-            etSearch.requestFocus()
-            applyFilterNow()
-
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(etSearch, InputMethodManager.SHOW_IMPLICIT)
-        }
-
-        // ✅ live filtering (NO SearchView X ever again)
-        etSearch.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                applyFilterNow()
-            }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-
-        // ✅ BottomSheetDialog (Material 3 rounded corners)
-        val searchDialog = BottomSheetDialog(
-            this,
-            com.google.android.material.R.style.ThemeOverlay_Material3_BottomSheetDialog
-        ).apply {
-            setContentView(rootLayout)
-            window?.setBackgroundDrawableResource(android.R.color.transparent)
-            window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-
-            setOnDismissListener {
-                onDismiss()
-                filterNotes("", loadSearchMode())
-            }
-            setOnCancelListener { onDismiss() }    // optional safety
-        }
-
-        searchDialog.show()
-
-
-        searchDialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.let { sheet ->
-
-            val shape = com.google.android.material.shape.MaterialShapeDrawable.createWithElevationOverlay(this)
-
-            // 🔵 pick radius you want (28dp-ish). This number is pixels, so use dp->px:
-            val r = (28 * resources.displayMetrics.density)
-
-            shape.shapeAppearanceModel = shape.shapeAppearanceModel
-                .toBuilder()
-                .setTopLeftCornerSize(r)
-                .setTopRightCornerSize(r)
-                .build()
-
-            // Optional: make sure it uses your surface color instead of weird gray
-            shape.fillColor = ColorStateList.valueOf(
-                resolveThemeColor(com.google.android.material.R.attr.colorSurface)
-            )
-
-            sheet.background = shape
-
-            BottomSheetBehavior.from(sheet).apply {
-                isHideable = true
-                skipCollapsed = true
-            }
-        }
-
-
-
-        // ✅ focus + show keyboard
-        rootLayout.post {
-            etSearch.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(etSearch, InputMethodManager.SHOW_IMPLICIT)
-        }
-
-        // optional cute animation (animate the whole pill, not searchView)
-        ObjectAnimator.ofFloat(rootLayout.findViewById(R.id.search_pill), "translationY", 0f, 30f).apply {
-            duration = 200
-            interpolator = DecelerateInterpolator()
-            start()
-        }
-
-        // initial render
-        applyFilterNow()
-    }
-    private companion object {
-        private const val PREF_SEARCH_MODE = "pref_search_mode"
-    }
-
-    private fun saveSearchMode(mode: SearchMode) {
-        getSharedPreferences("ui_prefs", MODE_PRIVATE).edit {
-            putInt(PREF_SEARCH_MODE, mode.ordinal)
-        }
-    }
-
-    private fun loadSearchMode(): SearchMode {
-        val ord = getSharedPreferences("ui_prefs", MODE_PRIVATE)
-            .getInt(PREF_SEARCH_MODE, SearchMode.NOTE.ordinal)
-        return SearchMode.entries.getOrElse(ord) { SearchMode.NOTE }
     }
 
 
@@ -3167,77 +2818,9 @@ class AllNotesActivity : LocaleActivity() {
 
     // ----------------------- Navigation helpers -----------------------
 
-    // NEW: MainActivity::class.java (Compose home / dashboard)
-    private fun goToHomeScreen() {
-        startActivity(Intent(this, MainActivity::class.java))
-        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-        finish()
-    }
-
-
-    private fun goToContactScreen() {
-        startActivity(Intent(this, SettingsActivity::class.java))
-        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-        finish()
-    }
-
-    private fun goToAllContactsScreen() {
-        val intent = Intent(this, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_START_PAGE, MainActivity.PAGE_BRIEFING)
-        startActivity(intent)
-        overridePendingTransition(R.anim.enter_animation, R.anim.exit_animation)
-        finish()
-    }
 
     // ----------------------- Misc -----------------------
 
-    private enum class SearchMode { NOTE, TITLE, BOTH }
-
-    // ✅ mode-aware + uses the active folder list
-    private fun filterNotes(query: String, mode: SearchMode) {
-        val q = query.trim()
-        if (currentFolderId == null) {
-            refreshFolderRows(q)
-            rebuildBoth(emptyList())
-            notesAdapter.submit(emptyList())
-            notesAdapter.preloadReminderFlags(this)
-            notesAdapter.preloadBadgeStates(this)
-            notesCount = allNotes.size
-            showFabBadge(null)
-            return
-        }
-
-        val base = displayNotesForCurrentFolder()
-
-        val filtered = if (q.isEmpty()) {
-            base
-        } else {
-            base.filter { note ->
-                val title = resolveTitle(note).orEmpty() // IMPORTANT: your resolveTitle strips HTML
-                when (mode) {
-                    SearchMode.NOTE  -> note.contains(q, ignoreCase = true)
-                    SearchMode.TITLE -> title.contains(q, ignoreCase = true)
-                    SearchMode.BOTH  -> note.contains(q, true) || title.contains(q, true)
-                }
-            }
-        }
-
-        val settings = readNotesPageSettings()
-        val result = applyNotesSort(filtered, settings.sortMode)
-
-        // ✅ update COMPOSE list (what you actually see)
-        rebuildBoth(result)
-
-        // ✅ keep adapter in sync too
-        notesAdapter.submit(result)
-
-        // ✅ keep bell/badge maps correct for the new displayed list
-        notesAdapter.preloadReminderFlags(this)
-        notesAdapter.preloadBadgeStates(this)
-
-        notesCount = allNotes.size
-        showFabBadge(null)
-    }
 
     private fun applyNotesSort(list: List<String>, sortMode: String): List<String> {
         val base = list.toList() // always use a safe copy

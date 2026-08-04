@@ -27,7 +27,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,10 +51,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -64,6 +61,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ColorLens
@@ -93,6 +91,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -115,7 +115,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -128,7 +127,6 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asComposePath
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -182,6 +180,7 @@ import org.json.JSONObject
 import java.io.File
 import java.util.Locale
 import java.util.TimeZone
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.material.icons.filled.Settings as SettingsIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -193,7 +192,6 @@ fun ModernSettingsScreen(
     onOpenAppIcon: () -> Unit,
     onOpenLiquidGlass: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenRateUs: () -> Unit,
     onOpenCardDrawer: (String) -> Unit,
     onOpenNotes: () -> Unit,
     onOpenContacts: () -> Unit,
@@ -537,27 +535,25 @@ fun ModernSettingsScreen(
                         )
                 )
 
-                LazyColumn(
+                Column(
                     modifier = Modifier
-                        .fillMaxSize(),
-                    contentPadding = PaddingValues(start = 8.dp, top = 112.dp, end = 8.dp, bottom = 88.dp),
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .navigationBarsPadding()
+                        .padding(start = 8.dp, end = 8.dp, top = 112.dp, bottom = 92.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     visibleSections.forEach { section ->
-                        item(key = section.title) {
-                            SettingsSectionGroup(section)
-                        }
+                        SettingsSectionGroup(section)
                     }
 
-                    item {
-                        AnimatedVisibility(visible = normalizedQuery.isNotBlank() && visibleSections.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.settings_no_results_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = surfaceRoles.subtitle,
-                                modifier = Modifier.padding(horizontal = 6.dp)
-                            )
-                        }
+                    AnimatedVisibility(visible = normalizedQuery.isNotBlank() && visibleSections.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.settings_no_results_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = surfaceRoles.subtitle,
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        )
                     }
                 }
             }
@@ -753,82 +749,6 @@ private fun SettingsQuickTabBar(
     )
 }
 
-@Composable
-private fun RowScope.SettingsQuickTab(
-    label: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val inactiveColor = bottomTabInactiveColor()
-    val selectedContentColor = bottomTabSelectedContentColor()
-    val selectedPillColor = bottomTabSelectedPillColor()
-    val pillAlpha by animateFloatAsState(
-        targetValue = if (selected) 1f else 0f,
-        animationSpec = tween(durationMillis = if (selected) 180 else 120, easing = FastOutSlowInEasing),
-        label = "settingsTabPillAlpha"
-    )
-    val pillScale by animateFloatAsState(
-        targetValue = if (selected) 1f else 0.84f,
-        animationSpec = spring(dampingRatio = 0.78f, stiffness = 520f),
-        label = "settingsTabPillScale"
-    )
-    val contentScale by animateFloatAsState(
-        targetValue = if (selected) 1f else 0.94f,
-        animationSpec = spring(dampingRatio = 0.82f, stiffness = 620f),
-        label = "settingsTabContentScale"
-    )
-
-    Box(
-        modifier = Modifier
-            .weight(1f)
-            .height(46.dp)
-            .clip(GlassChromeInnerShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    alpha = pillAlpha
-                    scaleX = pillScale
-                    scaleY = pillScale
-                }
-                .background(selectedPillColor, GlassChromeInnerShape)
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = contentScale
-                    scaleY = contentScale
-                },
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                modifier = Modifier.size(20.dp),
-                tint = if (selected) selectedContentColor else inactiveColor
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontSize = 10.sp,
-                    lineHeight = 11.sp,
-                    fontWeight = if (selected) FontWeight.Black else FontWeight.Medium
-                ),
-                color = if (selected) selectedContentColor else inactiveColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
 private data class SettingsMenuAction(
     val label: String,
     val icon: ImageVector,
@@ -1013,7 +933,7 @@ private fun SettingsGlassTopAppBar(
     val isDark = isSystemInDarkTheme()
     val topBarShape = RoundedCornerShape(0.dp)
     val barColor = topActionBarTint()
-    val contentColor = appThemeSurfaceRoles(LocalAppThemePalette.current, isDark).title
+    val contentColor = if (isDark) Color.White else Color(0xFF111111)
 
     Surface(
         shape = topBarShape,
@@ -1297,32 +1217,64 @@ private fun SettingsRow(entry: SettingsEntry) {
     val palette = LocalAppThemePalette.current
     val surfaceRoles = appThemeSurfaceRoles(palette, isDark)
     val rowAccent = surfaceRoles.section
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { entry.onClick() }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier.size(36.dp),
-            shape = CircleShape,
-            color = rowAccent.copy(alpha = if (isDark) 0.18f else 0.14f),
-            contentColor = rowAccent
-        ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = entry.icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(19.dp)
-                )
-            }
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ListItem(
+            leadingContent = {
+                Surface(
+                    modifier = Modifier.size(36.dp),
+                    shape = CircleShape,
+                    color = rowAccent.copy(alpha = if (isDark) 0.18f else 0.14f),
+                    contentColor = rowAccent
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = entry.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                }
+            },
+            supportingContent = if (entry.summary.isNotBlank()) {
+                {
+                    Text(
+                        text = entry.summary,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                null
+            },
+            trailingContent = {
+                if (entry.trailing != null) {
+                    entry.trailing.invoke()
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = surfaceRoles.chevron
+                    )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ListItemDefaults.colors(
+                containerColor = Color.Transparent,
+                headlineColor = surfaceRoles.title,
+                supportingColor = surfaceRoles.subtitle
+            )
         ) {
             Text(
                 text = entry.title,
@@ -1332,31 +1284,8 @@ private fun SettingsRow(entry: SettingsEntry) {
                     lineHeight = 19.sp,
                     letterSpacing = 0.sp
                 ),
-                color = surfaceRoles.title,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-            if (entry.summary.isNotBlank()) {
-                Text(
-                    text = entry.summary,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp
-                    ),
-                    color = surfaceRoles.subtitle,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-        if (entry.trailing != null) {
-            entry.trailing.invoke()
-        } else {
-            Icon(
-                imageVector = Icons.Filled.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(21.dp),
-                tint = surfaceRoles.chevron
             )
         }
     }
@@ -1649,11 +1578,8 @@ private fun AppThemePickerSheet(
                 Spacer(Modifier.height(4.dp))
                 AppThemeStore.presets.forEach { preset ->
                     AppThemeOption(
-                        backdrop = backdrop,
                         preset = preset,
                         selected = selectedTheme == preset,
-                        textColor = textColor,
-                        secondaryTextColor = secondaryTextColor,
                         onClick = onThemeSelected
                     )
                 }
@@ -1664,153 +1590,190 @@ private fun AppThemePickerSheet(
 
 @Composable
 private fun AppThemeOption(
-    backdrop: Backdrop,
     preset: AppThemePreset,
     selected: Boolean,
-    textColor: Color,
-    secondaryTextColor: Color,
+    modifier: Modifier = Modifier,
     onClick: (AppThemePreset) -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    val palette = remember(preset, isDark) { appThemePaletteFor(preset, isDark) }
-    val shape = themedBottomChromeShape(preset)
-    val glassAmount = rememberLiquidGlassTintAmount()
-    val surfaceAlpha = if (selected) {
-        if (isDark) 0.66f + glassAmount * 0.20f else 0.72f + glassAmount * 0.16f
-    } else {
-        if (isDark) 0.52f + glassAmount * 0.18f else 0.62f + glassAmount * 0.14f
+
+    val palette = remember(preset, isDark) {
+        appThemePaletteFor(
+            preset = preset,
+            isDark = isDark
+        )
     }
-    val overlayAlpha = if (selected) {
-        if (isDark) 0.24f + glassAmount * 0.10f else 0.18f + glassAmount * 0.08f
+
+    val shape = RoundedCornerShape(22.dp)
+
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1f else 0.99f,
+        animationSpec = tween(
+            durationMillis = 180,
+            easing = FastOutSlowInEasing
+        ),
+        label = "theme_card_scale_${preset.name}"
+    )
+
+    // Fully opaque surface — no transparent card color
+    val cardColor = if (selected) {
+        palette.surfaceVariant
     } else {
-        if (isDark) 0.16f + glassAmount * 0.08f else 0.12f + glassAmount * 0.06f
+        palette.card
     }
-    val surfaceColor = palette.card.copy(alpha = surfaceAlpha.coerceIn(0f, 0.92f))
-    val overlayTint = palette.glassOverlay.copy(alpha = overlayAlpha.coerceIn(0f, 0.34f))
-    val materialDecorations = rememberBottomTabMaterialDecorations(preset)
-    val backdropBlurDp = bottomChromeBackdropBlurDp()
-    val rowTextColor = if (isDark) Color.White else Color(0xFF10161D)
-    val rowSecondaryColor = if (isDark) Color.White.copy(alpha = 0.82f) else Color(0xFF33404B)
+
+    val titleColor = if (isDark) {
+        Color(0xFFF6F8FB)
+    } else {
+        Color(0xFF101418)
+    }
+
+    val summaryColor = if (isDark) {
+        Color(0xFFC4CCD6)
+    } else {
+        Color(0xFF4F5B66)
+    }
+
+    val borderColor = if (selected) {
+        palette.accent
+    } else {
+        palette.outline
+    }
+
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 76.dp)
-            .shadow(GlassChromeShadowElevation, shape, clip = false)
+        modifier = modifier
+            .height(156.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            // Much smaller shadow
+            .shadow(
+                elevation = if (selected) 3.dp else 1.dp,
+                shape = shape,
+                clip = false
+            )
             .clip(shape)
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { shape },
-                shadow = { bottomChromeShadow() },
-                highlight = null,
-                effects = {
-                    vibrancy()
-                    blur(
-                        radius = backdropBlurDp.dp.toPx(),
-                        edgeTreatment = TileMode.Mirror
-                    )
-                    lens(
-                        refractionHeight = GlassChromeRefractionHeightDp.dp.toPx(),
-                        refractionAmount = GlassChromeRefractionAmountDp.dp.toPx(),
-                        depthEffect = false,
-                        chromaticAberration = false
-                    )
+            .background(
+                color = cardColor,
+                shape = shape
+            )
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = borderColor,
+                shape = shape
+            )
+            .clickable(
+                interactionSource = remember {
+                    MutableInteractionSource()
                 },
-                onDrawBackdrop = { drawBackdrop ->
-                    drawBackdrop()
-                },
-                onDrawSurface = {
-                    drawRect(surfaceColor)
+                indication = null,
+                onClick = {
+                    onClick(preset)
                 }
             )
-            .background(overlayTint, shape)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        palette.accent.copy(alpha = if (isDark) 0.18f else 0.14f),
-                        palette.warm.copy(alpha = if (isDark) 0.14f else 0.11f),
-                        palette.rose.copy(alpha = if (isDark) 0.16f else 0.12f)
-                    ),
-                    start = Offset.Zero,
-                    end = Offset(900f, 240f)
-                ),
-                shape
-            )
-            .drawBehind {
-                drawBottomTabThemeAccents(
-                    decorations = materialDecorations,
-                    accent = palette.accent,
-                    warm = palette.warm,
-                    rose = palette.rose
-                )
-            }
-            .clickable { onClick(preset) },
-        contentAlignment = Alignment.Center
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        // Solid colorful strip — not transparent
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(5.dp)
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            palette.accent,
+                            palette.warm,
+                            palette.rose
+                        )
+                    )
+                )
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = 12.dp,
+                    top = 15.dp,
+                    end = 12.dp,
+                    bottom = 12.dp
+                ),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    listOf(palette.accent, palette.warm, palette.rose).forEach { color ->
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(color)
+                Text(
+                    text = preset.label,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        lineHeight = 18.sp
+                    ),
+                    color = titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (selected) {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(palette.accent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Selected",
+                            tint = palette.actionContent,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = preset.label,
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp,
-                            lineHeight = 20.sp
-                        ),
-                        color = rowTextColor
-                    )
-                    Text(
-                        text = preset.summary,
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 16.sp),
-                        color = rowSecondaryColor
+            }
+
+            AppThemeShapePreview(
+                preset = preset,
+                palette = palette,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            )
+
+            Text(
+                text = preset.summary,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp
+                ),
+                color = summaryColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(
+                    palette.accent,
+                    palette.warm,
+                    palette.rose
+                ).forEach { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(11.dp)
+                            .clip(CircleShape)
+                            .background(color)
                     )
                 }
-                AppThemeShapePreview(
-                    preset = preset,
-                    palette = palette,
-                    modifier = Modifier.size(width = 96.dp, height = 44.dp)
-                )
-                RadioButton(
-                    selected = selected,
-                    onClick = { onClick(preset) },
-                    colors = RadioButtonDefaults.colors(
-                        selectedColor = MaterialTheme.colorScheme.primary,
-                        unselectedColor = rowSecondaryColor
-                    )
-                )
             }
         }
-    }
-}
-
-private fun appThemeOptionSafeGlassShape(preset: AppThemePreset): RoundedCornerShape {
-    return when (preset) {
-        AppThemePreset.Classic -> RoundedCornerShape(32.dp)
-        AppThemePreset.Sky -> RoundedCornerShape(28.dp, 18.dp, 28.dp, 18.dp)
-        AppThemePreset.Sunset -> RoundedCornerShape(10.dp, 30.dp, 10.dp, 30.dp)
-        AppThemePreset.Aurora -> RoundedCornerShape(34.dp, 20.dp, 34.dp, 20.dp)
-        AppThemePreset.Graphite -> RoundedCornerShape(10.dp)
-        AppThemePreset.Ocean -> RoundedCornerShape(20.dp, 34.dp, 24.dp, 34.dp)
-        AppThemePreset.Meadow -> RoundedCornerShape(34.dp, 18.dp, 34.dp, 18.dp)
-        AppThemePreset.Candy -> RoundedCornerShape(30.dp)
-        AppThemePreset.Royal -> RoundedCornerShape(14.dp, 28.dp, 14.dp, 28.dp)
-        AppThemePreset.Ember -> RoundedCornerShape(12.dp, 26.dp, 12.dp, 26.dp)
     }
 }
 
@@ -2598,7 +2561,7 @@ private fun FeedbackGlassSheet(
                                     )
                                 }
 
-                                kotlinx.coroutines.delay(1_000)
+                                kotlinx.coroutines.delay(1_000.milliseconds)
                                 successGlow.value = false
                             }
                         }
@@ -2729,7 +2692,7 @@ private fun SettingsTypingPulse(
             return@produceState
         }
         value = true
-        kotlinx.coroutines.delay(700)
+        kotlinx.coroutines.delay(700.milliseconds)
         value = false
     }
 

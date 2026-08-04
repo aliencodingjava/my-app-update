@@ -5,6 +5,7 @@ package com.flights.studio
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -203,6 +204,7 @@ private data class ZoomViewHolder(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
             // ✅ Ensure view hierarchy clips zoom-draw outside bounds
             clipChildren = true
             clipToPadding = true
@@ -212,6 +214,7 @@ private data class ZoomViewHolder(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
             scaleType = ImageView.ScaleType.CENTER_CROP
         },
         incoming = ImageView(context).apply {
@@ -219,6 +222,7 @@ private data class ZoomViewHolder(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
             scaleType = ImageView.ScaleType.CENTER_CROP
             alpha = 0f
         }

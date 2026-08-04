@@ -93,6 +93,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -104,9 +106,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -117,8 +122,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -126,18 +129,23 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
-import com.kyant.backdrop.highlight.Highlight
-import com.kyant.backdrop.highlight.HighlightStyle
+import com.kyant.shapes.Capsule
 import dev.seyfarth.composeshimmer.shimmerEffect
 import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.tanh
+import androidx.core.content.edit
+import androidx.core.net.toUri
 
 
 class ProfileDetailsComposeActivity : AppCompatActivity() {
@@ -234,9 +242,9 @@ class ProfileDetailsComposeActivity : AppCompatActivity() {
                     userPrefs.isLoggedIn = true
                     isLoggedIn = true
                     getSharedPreferences("notes_meta", MODE_PRIVATE)
-                        .edit()
-                        .remove("last_sync_at")
-                        .apply()
+                        .edit {
+                            remove("last_sync_at")
+                        }
 
                     profileThemeModeState.intValue = 6
                     userPrefs.profileThemeMode = 6
@@ -585,7 +593,7 @@ private fun normalizeProfilePhotoPath(raw: String, bucket: String = "profile-pho
     if (clean.startsWith("http", ignoreCase = true)) {
         extractStoragePathIfSignedUrl(clean, bucket = bucket)?.let { return it }
 
-        val path = runCatching { Uri.parse(clean).path.orEmpty() }.getOrDefault("")
+        val path = runCatching { clean.toUri().path.orEmpty() }.getOrDefault("")
         val publicMarker = "/storage/v1/object/public/$bucket/"
         val publicIndex = path.indexOf(publicMarker)
         if (publicIndex >= 0) {
@@ -668,41 +676,103 @@ private suspend fun resolveProfileAvatarLikeMenu(
 }
 
 @Composable
-private fun ProfileAvatarImage(
-    data: Any,
-    avatarVersion: Int,
-    shape: RoundedCornerShape,
-    onError: () -> Unit
+private fun ProfileGlassPill(
+    shape: Shape,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
 ) {
-    val context = LocalContext.current
-    val request = remember(context, data, avatarVersion) {
-        ImageRequest.Builder(context)
-            .data(data)
-            .setParameter("v", avatarVersion)
-            .crossfade(false)
-            .build()
+    val animationScope = rememberCoroutineScope()
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
     }
-    val painter = rememberAsyncImagePainter(model = request)
-    val painterState = painter.state
+    val glassTint = MaterialTheme.colorScheme.primary
+    fun androidx.compose.ui.graphics.GraphicsLayerScope.applyProfilePillMotion() {
+        val width = size.width
+        val height = size.height
 
-    LaunchedEffect(painterState) {
-        if (painterState is AsyncImagePainter.State.Error) onError()
+        val progress = interactiveHighlight.pressProgress
+        val scale = lerpFloat(1f, 1f + 6f.dp.toPx() / size.height, progress)
+
+        val maxOffset = size.minDimension
+        val initialDerivative = 0.18f
+        val offset = interactiveHighlight.offset
+        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+
+        val maxDragScale = 6f.dp.toPx() / size.height
+        val offsetAngle = atan2(offset.y, offset.x)
+        scaleX =
+            scale +
+                maxDragScale * abs(cos(offsetAngle) * offset.x / size.maxDimension) *
+                (width / height).coerceAtMost(1f)
+        scaleY =
+            scale +
+                maxDragScale * abs(sin(offsetAngle) * offset.y / size.maxDimension) *
+                (height / width).coerceAtMost(1f)
     }
 
-    if (painterState is AsyncImagePainter.State.Success) {
-        Image(
-            painter = painter,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+    val avatarBackdrop = rememberLayerBackdrop()
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                applyProfilePillMotion()
+            }
+            .shadow(1.dp, shape, clip = false)
+            .clip(shape)
+            .clickable(
+                interactionSource = null,
+                indication = null,
+                onClick = onClick
+            )
+            .then(interactiveHighlight.modifier)
+            .then(interactiveHighlight.gestureModifier),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .layerBackdrop(avatarBackdrop)
+        ) {
+            content()
+        }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .drawBackdrop(
+                    backdrop = avatarBackdrop,
+                    shape = { shape },
+                    highlight = null,
+                    effects = {
+                        colorControls(
+                            brightness = 0f,
+                            contrast = 1f,
+                            saturation = 3f
+                        )
+                        vibrancy()
+                        blur(
+                            radius = 0f.dp.toPx(),
+                            edgeTreatment = TileMode.Mirror
+                        )
+                        lens(
+                            refractionHeight = 10f.dp.toPx(),
+                            refractionAmount = 10f.dp.toPx(),
+                            depthEffect = true,
+                            chromaticAberration = false
+                        )
+                    },
+                    layerBlock = null,
+                    onDrawSurface = {
+                        drawRect(Color.White.copy(alpha = 0.025f))
+                        drawRect(glassTint.copy(alpha = 0.035f))
+                    }
+                )
         )
-    } else {
-        ProfileAvatarSkeleton(shape = shape)
     }
 }
 
 @Composable
-private fun ProfileAvatarSkeleton(shape: RoundedCornerShape) {
+private fun ProfileAvatarSkeleton(shape: Shape) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -722,7 +792,7 @@ private fun ProfileAvatarFallback() {
         Image(
             painter = painterResource(R.drawable.jh_airport_logo_dark),
             contentDescription = null,
-            modifier = Modifier.fillMaxSize(0.62f),
+            modifier = Modifier.fillMaxSize(0.36f),
             contentScale = ContentScale.Fit,
             colorFilter = ColorFilter.tint(
                 MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f)
@@ -1083,9 +1153,9 @@ private fun ProfileDetailsRoute(
                         dismissLogoutDialog()
                         scope.launch { SupabaseAuthRepo.signOutLocal() }
                         hostActivity.getSharedPreferences("notes_meta", android.content.Context.MODE_PRIVATE)
-                            .edit()
-                            .remove("last_sync_at")
-                            .apply()
+                            .edit {
+                            remove("last_sync_at")
+                            }
                         userPrefs.clear()
                         setLoggedIn(false)
                         onThemeModeChange(6)
@@ -1379,25 +1449,26 @@ private fun ProfileDetailsRoute(
 // ----------------------------
                             val style = LocalProfileBackdropStyle.current
                             val elevated = style != ProfileBackdropStyle.Solid
+                            val headerShape = RoundedCornerShape(22.dp)
+                            val headerBg = MaterialTheme.colorScheme.surfaceVariant
 
 
-                            Surface(
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 4.dp),
-                                shape = RoundedCornerShape(22.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant, // ✅ SAME AS QUICK ACTIONS
-                                shadowElevation = if (elevated) 1.dp else 0.dp    // ✅ SAME AS QUICK ACTIONS
+                                    .padding(top = 4.dp)
+                                    .shadow(
+                                        elevation = if (elevated) 1.dp else 0.dp,
+                                        shape = headerShape,
+                                        clip = false
+                                    )
+                                    .background(headerBg, headerShape)
                             ) {
-
-                                val headerShape = RoundedCornerShape(22.dp)
-                                val headerBg = MaterialTheme.colorScheme.surfaceVariant
 
                                 Box(
                                     Modifier
                                         .fillMaxWidth()
-                                        .clip(headerShape)
-                                        .background(headerBg) // ✅ background on clipped container
+                                        .background(headerBg, headerShape)
                                 ) {
 
 
@@ -1431,7 +1502,7 @@ private fun ProfileDetailsRoute(
                                                 bottom = 0.dp
                                             )
                                         )
-                                        Row(
+                                        Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(
@@ -1440,92 +1511,101 @@ private fun ProfileDetailsRoute(
                                                     top = 12.dp,
                                                     bottom = 14.dp
                                                 ),
-                                            verticalAlignment = Alignment.CenterVertically
+                                            verticalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
                                             val alpha = if (isLoggedIn) 1f else 0.4f
-                                            val avatarShape = RoundedCornerShape(38.dp)
+                                            val avatarShape = remember { Capsule() }
 
-                                            Surface(
+                                            ProfileGlassPill(
+                                                shape = avatarShape,
                                                 modifier = Modifier
-                                                    .size(76.dp)
-                                                    .alpha(alpha)
-                                                    .clip(avatarShape)
-                                                    .clickable {
-                                                        if (!isLoggedIn) {
-                                                            FancyPillToast.show(
-                                                                hostActivity,
-                                                                hostActivity.getString(R.string.prompt_create_profile),
-                                                                3000L
-                                                            )
-                                                        }
-                                                    },
-                                                tonalElevation = 1.dp,
-                                                color = MaterialTheme.colorScheme.surface,
-                                                shape = avatarShape
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp)
+                                                    .height(200.dp)
+                                                    .zIndex(2f)
+                                                    .alpha(alpha),
+                                                onClick = {
+                                                    if (!isLoggedIn) {
+                                                        FancyPillToast.show(
+                                                            hostActivity,
+                                                            hostActivity.getString(R.string.prompt_create_profile),
+                                                            3000L
+                                                        )
+                                                    }
+                                                }
                                             ) {
-                                                val rawPhoto = ui.photoRaw.trim()
+                                                Box(Modifier.fillMaxSize()) {
+                                                    val rawPhoto = ui.photoRaw.trim()
 
-                                                var avatarFailed by remember(rawPhoto, avatarVersion) {
-                                                    mutableStateOf(false)
-                                                }
+                                                    var avatarFailed by remember(rawPhoto, avatarVersion) {
+                                                        mutableStateOf(false)
+                                                    }
 
-                                                val avatarState by produceState(
-                                                    initialValue = if (rawPhoto.isBlank()) AvatarLoadState.Idle else AvatarLoadState.Loading,
-                                                    key1 = rawPhoto,
-                                                    key2 = avatarVersion
-                                                ) {
-                                                    value = resolveProfileAvatarLikeMenu(
-                                                        appContext = context.applicationContext,
-                                                        rawPhoto = rawPhoto
-                                                    )
-                                                }
+                                                    val avatarState by produceState(
+                                                        initialValue = if (rawPhoto.isBlank()) AvatarLoadState.Idle else AvatarLoadState.Loading,
+                                                        key1 = rawPhoto,
+                                                        key2 = avatarVersion
+                                                    ) {
+                                                        value = resolveProfileAvatarLikeMenu(
+                                                            appContext = context.applicationContext,
+                                                            rawPhoto = rawPhoto
+                                                        )
+                                                    }
 
-                                                // reset error flag whenever our resolved data changes
-                                                LaunchedEffect(avatarState) { avatarFailed = false }
+                                                    // reset error flag whenever our resolved data changes
+                                                    LaunchedEffect(avatarState) { avatarFailed = false }
 
-                                                when (val st = avatarState) {
-                                                    is AvatarLoadState.Ready -> {
-                                                        if (!avatarFailed) {
-                                                            Box(Modifier.fillMaxSize()) {
-                                                                ProfileAvatarSkeleton(shape = avatarShape)
-                                                                AsyncImage(
-                                                                    model = ImageRequest.Builder(context)
+                                                    when (val st = avatarState) {
+                                                        is AvatarLoadState.Ready -> {
+                                                            if (!avatarFailed) {
+                                                                val avatarImageRequest = remember(context, st.data, avatarVersion) {
+                                                                    ImageRequest.Builder(context)
                                                                         .data(st.data)
                                                                         .setParameter("v", avatarVersion)
                                                                         .crossfade(false)
-                                                                        .build(),
+                                                                        .build()
+                                                                }
+                                                                AsyncImage(
+                                                                    model = avatarImageRequest,
                                                                     contentDescription = stringResource(R.string.photo),
                                                                     contentScale = ContentScale.Crop,
                                                                     modifier = Modifier.fillMaxSize(),
                                                                     onError = { avatarFailed = true }
                                                                 )
+                                                            } else {
+                                                                ProfileAvatarSkeleton(shape = avatarShape)
                                                             }
-                                                        } else {
+                                                        }
+
+                                                        AvatarLoadState.Loading -> {
                                                             ProfileAvatarSkeleton(shape = avatarShape)
                                                         }
-                                                    }
 
-                                                    AvatarLoadState.Loading -> {
-                                                        ProfileAvatarSkeleton(shape = avatarShape)
-                                                    }
+                                                        AvatarLoadState.Idle -> {
+                                                            if (isLoggedIn) {
+                                                                ProfileAvatarSkeleton(shape = avatarShape)
+                                                            } else {
+                                                                ProfileAvatarFallback()
+                                                            }
+                                                        }
 
-                                                    AvatarLoadState.Idle -> {
-                                                        ProfileAvatarFallback()
-                                                    }
-
-                                                    AvatarLoadState.Failed -> {
-                                                        if (rawPhoto.isBlank()) {
-                                                            ProfileAvatarFallback()
-                                                        } else {
-                                                            ProfileAvatarSkeleton(shape = avatarShape)
+                                                        AvatarLoadState.Failed -> {
+                                                            if (rawPhoto.isBlank() && !isLoggedIn) {
+                                                                ProfileAvatarFallback()
+                                                            } else {
+                                                                ProfileAvatarSkeleton(shape = avatarShape)
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
 
-                                            Spacer(Modifier.width(14.dp))
-
-                                            Column(Modifier.weight(1f)) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 4.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
                                                 val nameStyle = MaterialTheme.typography.titleLarge
                                                 val dialogTextColor = MaterialTheme.colorScheme.onSurface
 
@@ -1537,31 +1617,35 @@ private fun ProfileDetailsRoute(
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
-                                                Spacer(Modifier.height(4.dp))
 
                                                 val secondaryStyle =
                                                     MaterialTheme.typography.bodyMedium
+                                                val phoneText = ui.secondaryTextRaw.ifEmpty {
+                                                    stringResource(R.string.unknown_contact)
+                                                }
+                                                val onlineColor = if (isSystemInDarkTheme()) {
+                                                    Color(0xFFFFD43B)
+                                                } else {
+                                                    Color(0xFFC48700)
+                                                }
                                                 Text(
-                                                    text = ui.secondaryTextRaw.ifEmpty {
-                                                        stringResource(
-                                                            R.string.unknown_contact
-                                                        )
+                                                    text = buildAnnotatedString {
+                                                        withStyle(
+                                                            SpanStyle(
+                                                                color = onlineColor,
+                                                                fontWeight = FontWeight.Black
+                                                            )
+                                                        ) {
+                                                            append(if (isLoggedIn) "Online" else "Offline")
+                                                        }
+                                                        append(" ")
+                                                        append(phoneText)
                                                     },
-                                                    style = secondaryStyle,
+                                                    style = secondaryStyle.copy(fontWeight = FontWeight.SemiBold),
                                                     fontSize = secondaryStyle.fontSize.us(bodyS),
                                                     color = dialogSubTextColor,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
-                                                )
-                                                Spacer(Modifier.height(4.dp))
-
-                                                val statusStyle =
-                                                    MaterialTheme.typography.labelMedium
-                                                Text(
-                                                    text = if (isLoggedIn) "🟢 Signed in" else "⚪ Guest mode",
-                                                    style = statusStyle,
-                                                    fontSize = statusStyle.fontSize.us(labelS),
-                                                    color = dialogSubTextColor
                                                 )
 
                                             }
@@ -1791,22 +1875,16 @@ private fun MfaSettingsDialog(
                         backdrop = backdrop,
                         shape = { dialogShape },
                         shadow = null,
-                        highlight = {
-                            Highlight(
-                                width = 0.45.dp,
-                                blurRadius = 1.2.dp,
-                                alpha = 0.22f,
-                                style = HighlightStyle.Plain
-                            )
-                        },
+                        highlight = null,
                         effects = {
                             vibrancy()
-                            blur(4.dp.toPx())
+                            // this is not blur on the image
+                            blur(5.dp.toPx())
                             lens(
-                                refractionHeight = 22.dp.toPx(),
-                                refractionAmount = 32.dp.toPx(),
+                                refractionHeight = 12.dp.toPx(),
+                                refractionAmount = 12.dp.toPx(),
                                 depthEffect = false,
-                                chromaticAberration = true
+                                chromaticAberration = false
                             )
                         },
                         onDrawSurface = {

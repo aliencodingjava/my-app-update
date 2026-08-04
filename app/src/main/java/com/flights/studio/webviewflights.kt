@@ -22,7 +22,6 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.webkit.JavascriptInterface
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.compose.animation.AnimatedContent
@@ -60,7 +59,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -119,7 +117,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -167,57 +164,11 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 
 internal val FlightArrivalLantern = Color(0xFFF70D1A)
 internal val FlightDepartureLantern = Color(0xFF4D4DFF)
 internal val FlightAlertLantern = Color(0xFF2FEF73)
-
-internal fun flightLanternPanelColor(
-    accent: Color,
-    isDark: Boolean,
-    glassAmount: Float
-): Color {
-    val amount = glassAmount.coerceIn(0f, 1f)
-    return if (isDark) {
-        accent.copy(alpha = 0.36f + 0.24f * amount)
-            .compositeOver(Color(0xFF130004).copy(alpha = 0.34f))
-    } else {
-        accent.copy(alpha = 0.18f + 0.15f * amount)
-            .compositeOver(Color.White.copy(alpha = 0.68f))
-    }
-}
-
-internal fun flightLanternOverlayColor(
-    accent: Color,
-    isDark: Boolean,
-    glassAmount: Float
-): Color {
-    val amount = glassAmount.coerceIn(0f, 1f)
-    return if (isDark) {
-        accent.copy(alpha = 0.24f + 0.22f * amount)
-    } else {
-        accent.copy(alpha = 0.10f + 0.14f * amount)
-    }
-}
-
-internal fun flightLanternSheenBrush(
-    accent: Color,
-    isDark: Boolean,
-    glassAmount: Float
-): Brush {
-    val amount = glassAmount.coerceIn(0f, 1f)
-    val bright = if (isDark) 0.15f + 0.10f * amount else 0.20f + 0.08f * amount
-    val glow = if (isDark) 0.18f + 0.10f * amount else 0.08f + 0.06f * amount
-    return Brush.linearGradient(
-        0.00f to Color.White.copy(alpha = bright),
-        0.20f to accent.copy(alpha = glow),
-        0.54f to Color.Transparent,
-        0.82f to accent.copy(alpha = glow * 0.82f),
-        1.00f to Color.Black.copy(alpha = if (isDark) 0.10f else 0.00f),
-        start = Offset.Zero,
-        end = Offset.Infinite
-    )
-}
 
 internal fun flightLanternSheetPanelColor(
     accent: Color,
@@ -412,7 +363,7 @@ fun WebviewFlights(
         )
         webView.reload()
         while (true) {
-            delay(10_000L)
+            delay(10_000L.milliseconds)
             webView.evaluateJavascript(
                 "try{window.fsRefreshNativeLiveStatus&&window.fsRefreshNativeLiveStatus()}catch(e){}",
                 null
@@ -1041,52 +992,93 @@ fun LegalHtmlScreen(
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
-    val textColor = MaterialTheme.colorScheme.onBackground
+    val palette = LocalAppThemePalette.current
+    val roles = appThemeSurfaceRoles(palette, isDark)
+    val textColor = roles.title
+    val linkColor = palette.action
+    val density = context.resources.displayMetrics.density
+    val topPaddingPx = (108f * density).toInt()
+    val sidePaddingPx = (18f * density).toInt()
+    val bottomPaddingPx = (126f * density).toInt()
 
     Box(
         modifier = modifier.fillMaxSize()
     ) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(roles.page)
+        )
 
-        // Same background as Settings screen
         ProfileBackdropImageLayer(
             modifier = Modifier.matchParentSize(),
             lightRes = R.drawable.light_grid_pattern,
             darkRes = R.drawable.dark_grid_pattern,
-            imageAlpha = if (isDark) 1f else 0.8f,
-            scrimDark = 0f,
-            scrimLight = 0f
+            imageAlpha = if (isDark) 0.72f else 0.42f,
+            scrimDark = 0.04f,
+            scrimLight = 0.00f
         )
-
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = {
-
-                val scrollView = ScrollView(context).apply {
-                    isFillViewport = true
-                    overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-                }
-
-                val textView = TextView(context).apply {
-
-
-                    text = HtmlCompat.fromHtml(
-                        html,
-                        HtmlCompat.FROM_HTML_MODE_COMPACT
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            roles.page.copy(alpha = if (isDark) 0.58f else 0.36f),
+                            roles.glassCard.copy(alpha = if (isDark) 0.44f else 0.34f),
+                            palette.surfaceVariant.copy(alpha = if (isDark) 0.34f else 0.28f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(900f, 1400f)
                     )
-
-                    setTextColor(textColor.toArgb())
-                    textSize = 16f
-                    setLineSpacing(12f, 1.2f)
-
-                    movementMethod = LinkMovementMethod.getInstance()
-
-                    setPadding(40, 430, 40, 120)
-                }
-
-                scrollView.addView(textView)
-                scrollView
-            }
+                )
         )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 12.dp, end = 12.dp, top = 108.dp, bottom = 100.dp)
+        ) {
+            AppThemeSectionSurface(shape = RoundedCornerShape(24.dp)) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = {
+                        val scrollView = ScrollView(context).apply {
+                            isFillViewport = true
+                            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+                            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                            clipToPadding = false
+                        }
+
+                        val textView = TextView(context).apply {
+                            movementMethod = LinkMovementMethod.getInstance()
+                            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                            includeFontPadding = false
+                        }
+
+                        scrollView.addView(textView)
+                        scrollView
+                    },
+                    update = { scrollView ->
+                        val textView = scrollView.getChildAt(0) as TextView
+                        textView.setPadding(
+                            sidePaddingPx,
+                            sidePaddingPx,
+                            sidePaddingPx,
+                            bottomPaddingPx - topPaddingPx
+                        )
+                        textView.text = HtmlCompat.fromHtml(
+                            html,
+                            HtmlCompat.FROM_HTML_MODE_COMPACT
+                        )
+                        textView.setTextColor(textColor.toArgb())
+                        textView.setLinkTextColor(linkColor.toArgb())
+                        textView.textSize = 16f
+                        textView.setLineSpacing(7f * density, 1.14f)
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -1582,70 +1574,7 @@ private class FlightBriefBridge(
 ) {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var lastLiveStatusSignature: String? = null
 
-    @JavascriptInterface
-    fun updateFlightBriefSnapshot(json: String) {
-        SettingsStore.setFlightBriefSnapshot(appContext, json)
-        mainHandler.post { onFlightBriefSnapshot(json) }
-    }
-
-    @JavascriptInterface
-    fun updateFlightLiveStatusSnapshot(json: String) {
-        val signature = stableFlightLiveStatusSignature(json)
-        if (signature == lastLiveStatusSignature) return
-        lastLiveStatusSignature = signature
-        SettingsStore.setFlightLiveStatusSnapshot(appContext, json)
-        mainHandler.post { onLiveStatusSnapshot(json) }
-    }
-
-    @JavascriptInterface
-    fun updateFlightTableSnapshot(json: String) {
-        SettingsStore.setFlightTableSnapshot(appContext, json)
-        mainHandler.post { onFlightTableSnapshot(json) }
-    }
-
-    @JavascriptInterface
-    fun updateWeatherSnapshot(json: String) {
-        val taggedJson = runCatching {
-            JSONObject(json).apply {
-                put("source", optString("source").ifBlank { "airport_web" })
-                if (!has("updatedAt")) put("updatedAt", System.currentTimeMillis())
-            }.toString()
-        }.getOrElse { json }
-        SettingsStore.setBriefingWeatherSnapshot(appContext, taggedJson)
-        mainHandler.post { onWeatherSnapshot(taggedJson) }
-    }
-}
-
-private fun stableFlightLiveStatusSignature(json: String): String {
-    return runCatching {
-        val root = JSONObject(json)
-        val items = root.optJSONArray("items") ?: JSONArray()
-        buildString {
-            append(root.optString("day"))
-            append('|')
-            for (index in 0 until items.length()) {
-                val item = items.optJSONObject(index) ?: continue
-                append(item.optString("flight"))
-                append('~')
-                append(item.optString("route"))
-                append('~')
-                append(item.optString("status"))
-                append('~')
-                append(item.optString("detail"))
-                append('~')
-                append(item.optString("tone"))
-                append('~')
-                append(item.optString("badge"))
-                append('~')
-                append(item.optString("etaText"))
-                append('~')
-                append(item.optDouble("progress", -1.0))
-                append('|')
-            }
-        }
-    }.getOrElse { json }
 }
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -2525,11 +2454,6 @@ private fun fallbackFlightLiveStatusItems(snapshot: FlightTableSnapshot): List<F
     return sourceRows
         .take(10)
         .map { row -> row.toFallbackLiveStatusItem() }
-}
-
-private fun FlightTableRow.flightTableStableKey(): String {
-    return listOf(kind, day, airline, flight, place, sched)
-        .joinToString("|") { it.lowercase(Locale.US).trim() }
 }
 
 private fun FlightTableRow.toFallbackLiveStatusItem(): FlightLiveStatusItem {
@@ -3597,123 +3521,6 @@ private fun FlightScheduleSheet(
 }
 
 @Composable
-private fun FlightTableSheet(
-    visible: Boolean,
-    modifier: Modifier = Modifier,
-    backdrop: LayerBackdrop,
-    snapshot: FlightTableSnapshot,
-    mode: String,
-    textZoom: Int,
-    groupedFlights: Boolean,
-    highContrast: Boolean,
-    onDismiss: () -> Unit
-) {
-    val isDark = isSystemInDarkTheme()
-    val glassAmount = rememberLiquidGlassTintAmount()
-    val modeAccent = if (mode == "departure") FlightDepartureLantern else FlightArrivalLantern
-    val panelColor = flightLanternSheetPanelColor(modeAccent, isDark, glassAmount)
-    val overlayTint = flightLanternSheetOverlayColor(modeAccent, isDark, glassAmount)
-    val sheenBrush = flightLanternSheetSheenBrush(modeAccent, isDark, glassAmount)
-    val sheetBlurDp = if (isDark) 18f + 14f * glassAmount else 17f + 13f * glassAmount
-    val textColor = if (highContrast) {
-        if (isDark) Color.White else Color.Black
-    } else if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
-    val mutedColor = textColor.copy(alpha = 0.62f)
-    val innerSurface = if (highContrast) {
-        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.92f)
-    } else if (isDark) Color.White.copy(alpha = 0.10f + 0.08f * glassAmount)
-    else Color.White.copy(alpha = 0.50f + 0.20f * glassAmount)
-    val sheetShape = RoundedCornerShape(26.dp)
-    val textScale = flightTableTextScale(textZoom)
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(animationSpec = tween(durationMillis = 130)),
-        exit = fadeOut(animationSpec = tween(durationMillis = 160))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = if (isDark) 0.34f else 0.16f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismiss
-                )
-        )
-    }
-
-    AnimatedVisibility(
-        visible = visible,
-        modifier = modifier,
-        enter = slideInVertically(
-            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
-            initialOffsetY = { it / 2 }
-        ) + fadeIn(animationSpec = tween(durationMillis = 170)) +
-            scaleIn(animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing), initialScale = 0.94f),
-        exit = slideOutVertically(
-            animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
-            targetOffsetY = { it / 3 }
-        ) + fadeOut(animationSpec = tween(durationMillis = 150)) +
-            scaleOut(animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing), targetScale = 0.98f)
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(start = 6.dp, end = 6.dp, bottom = 68.dp)
-                .navigationBarsPadding()
-                .fillMaxWidth()
-                .heightIn(max = 650.dp)
-                .clip(sheetShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
-                .adaptiveLiquidGlassBackdrop(
-                    backdrop = backdrop,
-                    shape = sheetShape,
-                    surfaceColor = panelColor,
-                    blurDp = sheetBlurDp,
-                    shadow = null,
-                    highlight = null,
-                    refractionHeightDp = GlassChromeRefractionHeightDp,
-                    refractionAmountDp = GlassChromeRefractionAmountDp
-                )
-                .background(overlayTint, sheetShape)
-                .background(sheenBrush, sheetShape)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 86.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .width(42.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(mutedColor.copy(alpha = 0.34f))
-                )
-                FlightTableContent(
-                    snapshot = snapshot,
-                    mode = mode,
-                    textColor = textColor,
-                    mutedColor = mutedColor,
-                    surface = innerSurface,
-                    tablePalette = null,
-                    textScale = textScale,
-                    groupedFlights = groupedFlights,
-                    highContrast = highContrast
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun FlightTableContent(
     snapshot: FlightTableSnapshot,
     mode: String,
@@ -3784,9 +3591,7 @@ private fun FlightTableContent(
                     day = entry.key,
                     total = entry.value.size,
                     lastUpdated = snapshot.lastUpdated,
-                    textColor = textColor,
-                    mutedColor = mutedColor,
-                    surface = surface
+                    textColor = textColor
                 )
             }
             FlightDataFadeIn(index = visibleRowIndex++, key = "${mode}-${entry.key}-${snapshot.lastUpdated}-columns") {
@@ -3873,7 +3678,7 @@ private fun FlightDataFadeIn(
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(key) {
         visible = false
-        delay(24L + (index.coerceAtMost(10) * 42L).coerceAtMost(320L))
+        delay((24L + (index.coerceAtMost(10) * 42L).coerceAtMost(320L)).milliseconds)
         visible = true
     }
     val alpha by animateFloatAsState(
@@ -4202,9 +4007,7 @@ private fun FlightTableDayHeader(
     day: String,
     total: Int,
     lastUpdated: String,
-    textColor: Color,
-    mutedColor: Color,
-    surface: Color
+    textColor: Color
 ) {
     val headerShape = RoundedCornerShape(999.dp)
     val isDark = isSystemInDarkTheme()
@@ -4483,35 +4286,6 @@ private fun FlightTablePositionedColumn(
 }
 
 @Composable
-private fun FlightTableAirlineCell(
-    airline: String,
-    color: Color,
-    mutedColor: Color,
-    textScale: Float,
-    highContrast: Boolean
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        AirlineBadge(airline = airline)
-        Text(
-            text = airline,
-            color = color,
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = FontWeight.Medium,
-                fontSize = flightTableScaledSp(10.2f, 11.3f, textScale),
-                lineHeight = flightTableScaledSp(11.5f, 12.8f, textScale)
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
 private fun AirlineBadge(
     airline: String
 ) {
@@ -4556,11 +4330,9 @@ private fun AirlineBadge(
 private fun FlightTableCell(
     text: String,
     color: Color,
-    mutedColor: Color = color,
     header: Boolean = false,
     textScale: Float = 1f,
-    textAlign: TextAlign = TextAlign.Start,
-    highContrast: Boolean = false
+    textAlign: TextAlign = TextAlign.Start
 ) {
     Text(
         text = text,
@@ -4887,7 +4659,13 @@ private fun ColumnScope.FlightLiveStatusContent(
     }
 
     var parkingAvailability by remember { mutableStateOf<FlightParkingAvailability?>(null) }
-    LaunchedEffect(refreshSpinKey) {
+    val context = LocalContext.current
+    val online = rememberValidatedInternetState(context)
+    LaunchedEffect(refreshSpinKey, online) {
+        if (!online) {
+            parkingAvailability = null
+            return@LaunchedEffect
+        }
         fetchFlightParkingAvailability()?.let { parkingAvailability = it }
     }
 
@@ -4989,8 +4767,6 @@ private fun ColumnScope.FlightTransportationContent(
         accent = Color(0xFF34C759),
         textColor = textColor,
         mutedColor = mutedColor,
-        surface = surface,
-        lightLift = lightLift,
         textScale = textScale,
         highContrast = highContrast
     )
@@ -5000,8 +4776,6 @@ private fun ColumnScope.FlightTransportationContent(
         accent = Color(0xFF5AC8FA),
         textColor = textColor,
         mutedColor = mutedColor,
-        surface = surface,
-        lightLift = lightLift,
         textScale = textScale,
         highContrast = highContrast
     )
@@ -5011,8 +4785,6 @@ private fun ColumnScope.FlightTransportationContent(
         accent = Color(0xFFFFB020),
         textColor = textColor,
         mutedColor = mutedColor,
-        surface = surface,
-        lightLift = lightLift,
         textScale = textScale,
         highContrast = highContrast
     )
@@ -5022,8 +4794,6 @@ private fun ColumnScope.FlightTransportationContent(
         accent = Color(0xFFFF6B4A),
         textColor = textColor,
         mutedColor = mutedColor,
-        surface = surface,
-        lightLift = lightLift,
         textScale = textScale,
         highContrast = highContrast
     )
@@ -5043,8 +4813,6 @@ private fun ColumnScope.FlightTransportationContent(
             provider = provider,
             textColor = textColor,
             mutedColor = mutedColor,
-            surface = surface,
-            lightLift = lightLift,
             textScale = textScale,
             highContrast = highContrast
         )
@@ -5058,8 +4826,6 @@ private fun FlightTransportInfoCard(
     accent: Color,
     textColor: Color,
     mutedColor: Color,
-    surface: Color,
-    lightLift: Boolean,
     textScale: Float,
     highContrast: Boolean
 ) {
@@ -5133,8 +4899,6 @@ private fun FlightTransportProviderRow(
     provider: FlightTransportProvider,
     textColor: Color,
     mutedColor: Color,
-    surface: Color,
-    lightLift: Boolean,
     textScale: Float,
     highContrast: Boolean
 ) {
@@ -5225,146 +4989,7 @@ private fun FlightTransportProviderRow(
     }
 }
 
-@Composable
-private fun FlightLiveStatusSheet(
-    visible: Boolean,
-    modifier: Modifier = Modifier,
-    backdrop: LayerBackdrop,
-    snapshot: FlightLiveStatusSnapshot,
-    flightSnapshot: FlightSheetBrief,
-    tableSnapshot: FlightTableSnapshot,
-    weather: FlightSheetWeather,
-    textZoom: Int,
-    highContrast: Boolean,
-    onRefresh: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val isDark = isSystemInDarkTheme()
-    val glassAmount = rememberLiquidGlassTintAmount()
-    val panelColor = flightLanternSheetPanelColor(FlightAlertLantern, isDark, glassAmount, intensity = 0.52f)
-    val overlayTint = flightLanternSheetOverlayColor(FlightAlertLantern, isDark, glassAmount, intensity = 0.48f)
-    val sheenBrush = flightLanternSheetSheenBrush(FlightAlertLantern, isDark, glassAmount, intensity = 0.45f)
-    val sheetBlurDp = if (isDark) 14f + 12f * glassAmount else 13f + 11f * glassAmount
-    val textColor = if (highContrast) {
-        if (isDark) Color.White else Color.Black
-    } else if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
-    val mutedColor = textColor.copy(alpha = 0.64f)
-    val innerSurface = if (highContrast) {
-        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.92f)
-    } else if (isDark) {
-        Color.White.copy(alpha = 0.10f + 0.08f * glassAmount)
-    } else {
-        Color.White.copy(alpha = 0.50f + 0.20f * glassAmount)
-    }
-    val sheetShape = RoundedCornerShape(26.dp)
-    val lightLift = !isDark
-    val textScale = (textZoom.coerceIn(60, 100) / SettingsStore.DEFAULT_TEXT_ZOOM.toFloat())
-        .coerceIn(0.82f, 1.12f)
-    val effectiveFlightSnapshot = remember(flightSnapshot, tableSnapshot) {
-        flightSnapshot.withCurrentTableCounts(tableSnapshot)
-    }
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(animationSpec = tween(durationMillis = 130)),
-        exit = fadeOut(animationSpec = tween(durationMillis = 160))
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = if (isDark) 0.34f else 0.16f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismiss
-                )
-        )
-    }
-
-    AnimatedVisibility(
-        visible = visible,
-        modifier = modifier,
-        enter = slideInVertically(
-            animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
-            initialOffsetY = { it / 2 }
-        ) + fadeIn(animationSpec = tween(durationMillis = 170)) +
-            scaleIn(
-                animationSpec = tween(durationMillis = 340, easing = FastOutSlowInEasing),
-                initialScale = 0.94f
-            ),
-        exit = slideOutVertically(
-            animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
-            targetOffsetY = { it / 3 }
-        ) + fadeOut(animationSpec = tween(durationMillis = 150)) +
-            scaleOut(
-                animationSpec = tween(durationMillis = 210, easing = FastOutLinearInEasing),
-                targetScale = 0.98f
-            )
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(
-                    start = 6.dp,
-                    end = 6.dp,
-                    bottom = 68.dp
-                )
-                .navigationBarsPadding()
-                .fillMaxWidth()
-                .heightIn(max = 620.dp)
-                .clip(sheetShape)
-                .border(
-                    1.dp,
-                    if (isDark) Color(0xFF7DD3FC).copy(alpha = 0.20f)
-                    else Color(0xFF2C8AA0).copy(alpha = 0.18f),
-                    sheetShape
-                )
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
-                .adaptiveLiquidGlassBackdrop(
-                    backdrop = backdrop,
-                    shape = sheetShape,
-                    surfaceColor = panelColor,
-                    blurDp = sheetBlurDp,
-                    shadow = null,
-                    highlight = null,
-                    refractionHeightDp = GlassChromeRefractionHeightDp,
-                    refractionAmountDp = GlassChromeRefractionAmountDp
-                )
-                .background(overlayTint, sheetShape)
-                .background(sheenBrush, sheetShape)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 86.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                FlightLiveStatusContent(
-                    snapshot = snapshot,
-                    tableSnapshot = tableSnapshot,
-                    flightSnapshot = effectiveFlightSnapshot,
-                    weather = weather,
-                    textColor = textColor,
-                    mutedColor = mutedColor,
-                    surface = innerSurface,
-                    lightLift = lightLift,
-                    textScale = textScale,
-                    highContrast = highContrast,
-                    showHandle = true,
-                    showRefresh = true,
-                    title = "Live arrival status",
-                    onRefresh = onRefresh
-                )
-            }
-        }
-    }
-}
-
-private fun Modifier.lightThemeSurfaceLift(enabled: Boolean, shape: Shape): Modifier {
+private fun Modifier.lightThemeSurfaceLift(): Modifier {
     return this
 }
 
@@ -5415,7 +5040,7 @@ private fun FlightWeatherBannerSkeleton(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift(lightLift, cardShape)
+            .lightThemeSurfaceLift()
             .clip(cardShape)
             .background(surface)
             .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else flightItemBorderColor(isDark), cardShape)
@@ -5507,7 +5132,7 @@ private fun FlightCountPillSkeleton(
     val pillShape = RoundedCornerShape(999.dp)
     Row(
         modifier = modifier
-            .lightThemeSurfaceLift(lightLift, pillShape)
+            .lightThemeSurfaceLift()
             .clip(pillShape)
             .background(accent.copy(alpha = 0.14f))
             .border(1.dp, accent.copy(alpha = 0.22f), pillShape)
@@ -5546,7 +5171,7 @@ private fun FlightAlertsSummaryBoxSkeleton(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift(lightLift, cardShape)
+            .lightThemeSurfaceLift()
             .clip(cardShape)
             .background(if (highContrast) surface else Color.White.copy(alpha = if (isDark) 0.11f else 0.46f).compositeOver(surface))
             .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else flightItemBorderColor(isDark), cardShape)
@@ -5643,7 +5268,7 @@ private fun FlightLiveStatusCardSkeleton(
         modifier = Modifier
             .fillMaxWidth()
             .height(84.dp)
-            .lightThemeSurfaceLift(lightLift, cardShape)
+            .lightThemeSurfaceLift()
             .clip(cardShape)
             .background(surface)
             .background(
@@ -5740,7 +5365,7 @@ private fun FlightWeatherBanner(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift(lightLift, cardShape)
+            .lightThemeSurfaceLift()
             .clip(cardShape)
             .background(surface)
             .border(1.dp, flightItemBorderColor(isDark), cardShape)
@@ -5821,7 +5446,7 @@ private fun FlightParkingAvailabilityBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift(lightLift, cardShape)
+            .lightThemeSurfaceLift()
             .clip(cardShape)
             .background(surface)
             .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else flightItemBorderColor(isDark), cardShape)
@@ -6018,7 +5643,7 @@ private fun FlightNoLiveStatusCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift(lightLift, cardShape)
+            .lightThemeSurfaceLift()
             .clip(cardShape)
             .background(surface)
             .border(1.dp, flightItemBorderColor(isDark), cardShape)
@@ -6091,7 +5716,7 @@ private fun FlightAlertsSummaryBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift(lightLift, cardShape)
+            .lightThemeSurfaceLift()
             .clip(cardShape)
             .background(boxSurface)
             .border(1.dp, boxBorder, cardShape)
@@ -6192,7 +5817,7 @@ private fun FlightCountPill(
     val isDark = isSystemInDarkTheme()
     Row(
         modifier = modifier
-            .lightThemeSurfaceLift(lightLift, pillShape)
+            .lightThemeSurfaceLift()
             .clip(pillShape)
             .background(accent.copy(alpha = 0.16f))
             .border(1.dp, accent.copy(alpha = if (isDark) 0.28f else 0.24f), pillShape)
@@ -6262,7 +5887,7 @@ private fun FlightIssuePill(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift(lightLift, pillShape)
+            .lightThemeSurfaceLift()
             .clip(pillShape)
             .background(rowSurface)
             .border(1.dp, rowBorder, pillShape)
@@ -6361,7 +5986,7 @@ private fun FlightLiveStatusCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift(lightLift, cardShape)
+            .lightThemeSurfaceLift()
             .clip(cardShape)
             .background(cardSurface)
             .background(progressBrush)
@@ -6535,7 +6160,7 @@ private fun FlightTinyPill(
 private fun NativeFlightBottomTabs(
     selected: String,
     backdrop: LayerBackdrop,
-    contentView: android.view.View?,
+    contentView: View?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {

@@ -447,26 +447,33 @@ private fun ContactsTopAppBar(
                             containerColor = MenuDefaults.groupVibrantContainerColor
                         ) {
                             DropdownMenuItem(
-                                selected = false,
+                                text = { Text("Search") },
                                 onClick = {
                                     menuOpen = false
                                     onOpenSearch()
                                 },
-                                text = { Text("Search") },
-                                shapes = MenuDefaults.itemShape(index = 0, count = 2),
                                 colors = MenuDefaults.itemColors(),
-                                trailingIcon = { Icon(Icons.Filled.Search, null) }
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.Search,
+                                        contentDescription = null
+                                    )
+                                }
                             )
+
                             DropdownMenuItem(
-                                selected = false,
+                                text = { Text("Import contacts") },
                                 onClick = {
                                     menuOpen = false
                                     onImportContacts()
                                 },
-                                text = { Text("Import contacts") },
-                                shapes = MenuDefaults.itemShape(index = 1, count = 2),
                                 colors = MenuDefaults.itemColors(),
-                                trailingIcon = { Icon(Icons.Filled.ImportContacts, null) }
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.ImportContacts,
+                                        contentDescription = null
+                                    )
+                                }
                             )
                         }
                     }
