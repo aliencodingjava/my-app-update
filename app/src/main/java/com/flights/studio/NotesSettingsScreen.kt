@@ -774,14 +774,14 @@ private fun PalettePreviewCard(
     secondaryText: Color
 ) {
     val previewPalette = if (enabled) palette else null
-    val previewBackground = previewPalette?.screenBackground
-        ?: if (isSystemInDarkTheme()) Color(0xFF151515) else Color(0xFFF7F7F8)
+    val previewBackground = if (isSystemInDarkTheme()) Color(0xFF1F2329)
+        else previewPalette?.screenBackground ?: Color.White
     val titleRail = previewPalette?.titleRail
-        ?: if (isSystemInDarkTheme()) Color(0xFF2A2131) else Color(0xFFEFE7F6)
+        ?: if (isSystemInDarkTheme()) Color(0xFF252B31) else Color(0xFFE6EEF7)
     val noteTint = previewPalette?.noteTint
-        ?: if (isSystemInDarkTheme()) Color(0xFF201923).copy(alpha = 0.80f) else Color.White
+        ?: if (isSystemInDarkTheme()) Color(0xFF151617) else Color(0xFFE2E9F1)
     val accent = previewPalette?.accent
-        ?: if (isSystemInDarkTheme()) Color(0xFFCBB6E5) else Color(0xFF6D4B86)
+        ?: if (isSystemInDarkTheme()) Color(0xFF9FDBFF) else Color(0xFF2A79D8)
 
     Surface(
         shape = RoundedCornerShape(26.dp),

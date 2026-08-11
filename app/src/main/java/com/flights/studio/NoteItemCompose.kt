@@ -1,7 +1,9 @@
 package com.flights.studio
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -10,7 +12,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -46,16 +47,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
@@ -63,23 +65,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastCoerceAtMost
-import androidx.compose.ui.util.lerp
-import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
-import com.kyant.capsule.ContinuousRoundedRectangle
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.tanh
 
 private const val LIST_PREVIEW_CHARS = 50
 private const val NOTE_SELECT_HOLD_MS = 850L
@@ -215,10 +205,8 @@ fun NoteItem(
     onLongClick: () -> Unit,
     onEdit: () -> Unit,
     onReminderClick: () -> Unit,
-    backdrop: Backdrop,
     titleTopCompactDp: Int,
     titleTopNormalDp: Int,
-    isInteractive: Boolean = true,
     palette: NotesPaletteColors? = null,
     smallMediaBadges: Boolean = false,
 ) {
@@ -249,40 +237,19 @@ fun NoteItem(
     val appPalette = LocalAppThemePalette.current
 
 
-// Container: in light, use warmBase; in dark, keep your dark glass
-    val paletteBackgroundIsLight = (palette?.screenBackground ?: appPalette.page)
+    val paletteBackgroundIsLight = (palette?.noteTint
+        ?: if (isDark) Color(0xFF151617) else Color(0xFFE2E9F1))
         .luminance() > 0.5f
     val noteActionColor = palette?.let {
         val readableBase = if (paletteBackgroundIsLight) Color.Black else Color.White
         lerp(readableBase, it.accent.copy(alpha = 1f), if (paletteBackgroundIsLight) 0.46f else 0.56f)
     } ?: appPalette.actionContent
-    val glassBodyTintSource = palette?.let {
-        lerp(it.noteTint.copy(alpha = 1f), it.accent.copy(alpha = 1f), if (isDark) 0.62f else 0.56f)
-    } ?: lerp(appPalette.card.copy(alpha = 1f), appPalette.glassOverlay.copy(alpha = 1f), if (isDark) 0.22f else 0.14f)
-    val containerTintColor = glassBodyTintSource.copy(
-        alpha = when {
-            hasPalette && isDark -> 0.16f
-            hasPalette -> 0.11f
-            isDark -> 0.36f
-            else -> 0.24f
-        }
-    )
+    // Keep the row surface palette-driven; only the page behind it is fixed graphite.
+    val containerTintColor = (palette?.noteTint
+        ?: if (isDark) Color(0xFF151617) else Color(0xFFE2E9F1)).copy(alpha = 1f)
 
-    val rawNoteAccentSurfaceColor = palette?.titleRail ?: if (isLightTheme) {
-        appPalette.badge.copy(alpha = 0.76f)
-    } else {
-        appPalette.badge.copy(alpha = 0.72f)
-    }
-    val glassAccentTintSource = palette?.let {
-        lerp(it.titleRail.copy(alpha = 1f), it.accent.copy(alpha = 1f), if (isDark) 0.48f else 0.42f)
-    } ?: rawNoteAccentSurfaceColor
-    val noteAccentSurfaceColor = glassAccentTintSource.copy(
-        alpha = when {
-            hasPalette && isDark -> 0.18f
-            hasPalette -> 0.13f
-            else -> rawNoteAccentSurfaceColor.alpha
-        }
-    )
+    val noteAccentSurfaceColor = (palette?.titleRail
+        ?: if (isDark) Color(0xFF252B31) else Color(0xFFE6EEF7)).copy(alpha = 1f)
     val settingsBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = if (isDark) 0.34f else 0.22f)
 
 
@@ -293,97 +260,83 @@ fun NoteItem(
     } else {
         appPalette.action.copy(alpha = 0.10f)
     }
+    var isPressed by remember { mutableStateOf(false) }
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.985f else 1f,
+        animationSpec = spring(dampingRatio = 0.84f, stiffness = 700f),
+        label = "notePressScale"
+    )
+    val pressedFill by animateColorAsState(
+        targetValue = if (isPressed) {
+            noteActionColor.copy(alpha = if (isDark) 0.14f else 0.10f)
+        } else {
+            Color.Transparent
+        },
+        animationSpec = tween(durationMillis = if (isPressed) 90 else 170),
+        label = "notePressFill"
+    )
 
 
     val adaptiveColor = if (hasPalette) {
         if (paletteBackgroundIsLight) Color.Black else Color.White
     } else if (isDark) Color.White else Color.Black
 
-    val animationScope = rememberCoroutineScope()
-    val interactiveHighlight = remember(animationScope) {
-        InteractiveHighlight(animationScope = animationScope)
-    }
     val createdLabel = remember(createdAtMs) { noteCreatedAtLabel(createdAtMs) }
-    //  OUTER ELEVATION WRAPPER (NO clickable here anymore)
+    // Keep each row to a single cheap static surface. Large note lists should not
+    // allocate backdrop, blur, lens, or interactive transform layers per item.
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(h)
             .graphicsLayer {
-                if (isInteractive && size.width > 0f && size.height > 0f) {
-                    val progress = interactiveHighlight.pressProgress
-                    val zoomAmountPx = 3.5.dp.toPx()
-                    val scale = lerp(1f, 1f + zoomAmountPx / size.height, progress)
-                    val maxOffset = size.minDimension
-                    val k = 0.025f
-                    val offset = interactiveHighlight.offset
-                    translationX = maxOffset * tanh(k * offset.x / maxOffset)
-                    translationY = maxOffset * tanh(k * offset.y / maxOffset)
-
-                    val maxDragScale = 1.5.dp.toPx() / size.height
-                    val ang = atan2(offset.y, offset.x)
-                    scaleX = scale +
-                        maxDragScale *
-                        abs(cos(ang) * offset.x / size.maxDimension) *
-                        (size.width / size.height).fastCoerceAtMost(1f)
-                    scaleY = scale +
-                        maxDragScale *
-                        abs(sin(ang) * offset.y / size.maxDimension) *
-                        (size.height / size.width).fastCoerceAtMost(1f)
-                }
+                scaleX = pressScale
+                scaleY = pressScale
             }
+            .shadow(
+                elevation = if (compact) 4.dp else 6.dp,
+                shape = cardShape,
+                clip = false
+            )
             .clip(cardShape)
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { ContinuousRoundedRectangle((if (compact) 14f else 18f).dp) },
-                highlight = null,
-                effects = {
-                    vibrancy()
-                    blur(2f.dp.toPx())
-                    lens(12f.dp.toPx(), 24f.dp.toPx())
-                },
-                onDrawSurface = {
-                    drawRect(containerTintColor, blendMode = BlendMode.Hue)
-                    if (hasPalette) {
-                        drawRect(containerTintColor)
-                    }
-                    if (selected) drawRect(selectedOverlay)
-                }
+            .background(containerTintColor)
+            .then(
+                if (selected) Modifier.background(selectedOverlay)
+                else Modifier
             )
-            .border(
-                BorderStroke(0.dp, settingsBorderColor),
-                cardShape
-            )
-            .then(if (isInteractive) interactiveHighlight.modifier else Modifier)
-            .then(if (isInteractive) interactiveHighlight.gestureModifier else Modifier)
+            .background(pressedFill)
             .pointerInput(onClick, onLongClick) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    val pointerId = down.id
-                    val downPosition = down.position
-                    val touchSlop = viewConfiguration.touchSlop
+                    isPressed = true
+                    try {
+                        val pointerId = down.id
+                        val downPosition = down.position
+                        val touchSlop = viewConfiguration.touchSlop
 
-                    val releasedBeforeLongPress = withTimeoutOrNull(NOTE_SELECT_HOLD_MS) {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == pointerId }
-                                ?: return@withTimeoutOrNull false
+                        val releasedBeforeLongPress = withTimeoutOrNull(NOTE_SELECT_HOLD_MS) {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == pointerId }
+                                    ?: return@withTimeoutOrNull false
 
-                            if (change.isConsumed) return@withTimeoutOrNull false
-                            if (!change.pressed) return@withTimeoutOrNull true
+                                if (change.isConsumed) return@withTimeoutOrNull false
+                                if (!change.pressed) return@withTimeoutOrNull true
 
-                            val drag = change.position - downPosition
-                            if (abs(drag.x) > touchSlop || abs(drag.y) > touchSlop) {
-                                return@withTimeoutOrNull false
+                                val drag = change.position - downPosition
+                                if (abs(drag.x) > touchSlop || abs(drag.y) > touchSlop) {
+                                    return@withTimeoutOrNull false
+                                }
                             }
                         }
-                    }
 
-                    if (releasedBeforeLongPress == true) {
-                        onClick()
-                    } else if (releasedBeforeLongPress == null) {
-                        onLongClick()
-                        waitForUpOrCancellation()?.consume()
+                        if (releasedBeforeLongPress == true) {
+                            onClick()
+                        } else if (releasedBeforeLongPress == null) {
+                            onLongClick()
+                            waitForUpOrCancellation()?.consume()
+                        }
+                    } finally {
+                        isPressed = false
                     }
                 }
             }

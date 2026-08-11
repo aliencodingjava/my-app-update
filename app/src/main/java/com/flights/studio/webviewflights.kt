@@ -80,6 +80,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
@@ -182,6 +183,22 @@ import kotlin.time.Duration.Companion.milliseconds
 internal val FlightArrivalLantern = Color(0xFFF70D1A)
 internal val FlightDepartureLantern = Color(0xFF4D4DFF)
 internal val FlightAlertLantern = Color(0xFF2FEF73)
+
+private val FlightAlertReadableDarkPanel = Color(0xFF06281B)
+
+private val FlightAlertReadableDarkOverlay = Color(0xFF0B6A42).copy(alpha = 0.18f)
+
+private val FlightAlertReadableDarkSurface = Color(0xFF1F2329)
+
+private val FlightAlertItemDarkSurface = Color(0xFF23262F)
+
+private val FlightAlertItemLightSurface = Color(0xFFDFF7FF)
+
+private val FlightArrivalCountAccent = Color(0xFFFF4696)
+
+private val FlightDepartureCountAccent = Color(0xFF0057FF)
+
+private val FlightAlertCountAccent = Color(0xFFFC6C26)
 
 internal fun flightLanternSheetPanelColor(
     accent: Color,
@@ -3296,16 +3313,31 @@ private fun NativeFlightTablePage(
         "transportation" -> LocalAppThemePalette.current.action
         else -> FlightArrivalLantern
     }
-    val modePanel = flightLanternSheetPanelColor(modeAccent, isDark, glassAmount)
-    val modeOverlay = flightLanternSheetOverlayColor(modeAccent, isDark, glassAmount)
+    val alertsMode = mode == "alerts"
+    val modePanel = if (alertsMode && isDark && !highContrast) {
+        FlightAlertReadableDarkPanel
+    } else {
+        flightLanternSheetPanelColor(modeAccent, isDark, glassAmount)
+    }
+    val modeOverlay = if (alertsMode && isDark && !highContrast) {
+        FlightAlertReadableDarkOverlay
+    } else {
+        flightLanternSheetOverlayColor(modeAccent, isDark, glassAmount)
+    }
     val modeSheen = flightLanternSheetSheenBrush(modeAccent, isDark, glassAmount)
     val alertSurface = if (highContrast) {
-        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.92f)
+        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White
+    } else if (alertsMode && isDark) {
+        FlightAlertReadableDarkSurface
+    } else if (alertsMode) {
+        palette.surface.compositeOver(Color(0xFFF8F8FF))
     } else if (isDark) {
         Color.White.copy(alpha = 0.10f + 0.08f * glassAmount)
     } else {
         Color.White.copy(alpha = 0.50f + 0.20f * glassAmount)
     }
+    val alertTextColor = if (alertsMode && isDark && !highContrast) Color.White.copy(alpha = 0.97f) else palette.text
+    val alertMutedColor = if (alertsMode && isDark && !highContrast) Color.White.copy(alpha = 0.74f) else palette.muted
     val effectiveFlightSnapshot = remember(flightSnapshot, snapshot) {
         flightSnapshot.withCurrentTableCounts(snapshot)
     }
@@ -3400,8 +3432,8 @@ private fun NativeFlightTablePage(
                             tableSnapshot = snapshot,
                             flightSnapshot = effectiveFlightSnapshot,
                             weather = weather,
-                            textColor = palette.text,
-                            mutedColor = palette.muted,
+                            textColor = alertTextColor,
+                            mutedColor = alertMutedColor,
                             surface = alertSurface,
                             textScale = textScale.coerceIn(0.82f, 1.12f),
                             highContrast = highContrast,
@@ -3459,16 +3491,31 @@ private fun FlightScheduleSheet(
         "transportation" -> LocalAppThemePalette.current.action
         else -> FlightArrivalLantern
     }
-    val panelColor = flightLanternSheetPanelColor(modeAccent, isDark, glassAmount)
-    val overlayTint = flightLanternSheetOverlayColor(modeAccent, isDark, glassAmount)
+    val alertsMode = mode == "alerts"
+    val panelColor = if (alertsMode && isDark && !highContrast) {
+        FlightAlertReadableDarkPanel
+    } else {
+        flightLanternSheetPanelColor(modeAccent, isDark, glassAmount)
+    }
+    val overlayTint = if (alertsMode && isDark && !highContrast) {
+        FlightAlertReadableDarkOverlay
+    } else {
+        flightLanternSheetOverlayColor(modeAccent, isDark, glassAmount)
+    }
     val sheenBrush = flightLanternSheetSheenBrush(modeAccent, isDark, glassAmount)
     val sheetBlurDp = if (isDark) 18f + 14f * glassAmount else 17f + 13f * glassAmount
     val textColor = if (highContrast) {
         if (isDark) Color.White else Color.Black
+    } else if (alertsMode && isDark) {
+        Color.White.copy(alpha = 0.97f)
     } else if (isDark) Color.White.copy(alpha = 0.94f) else Color(0xFF1E1F24)
-    val mutedColor = textColor.copy(alpha = 0.62f)
+    val mutedColor = textColor.copy(alpha = if (alertsMode && isDark && !highContrast) 0.76f else 0.62f)
     val innerSurface = if (highContrast) {
-        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.92f)
+        if (isDark) Color.Black.copy(alpha = 0.72f) else Color.White
+    } else if (alertsMode && isDark) {
+        FlightAlertReadableDarkSurface
+    } else if (alertsMode) {
+        modeAccent.copy(alpha = 0.06f).compositeOver(Color(0xFFF8F8FF))
     } else if (isDark) Color.White.copy(alpha = 0.10f + 0.08f * glassAmount)
     else Color.White.copy(alpha = 0.50f + 0.20f * glassAmount)
     val sheetShape = RoundedCornerShape(26.dp)
@@ -5092,7 +5139,7 @@ private fun ColumnScope.FlightLiveStatusContent(
 
     FlightDataFadeIn(
         index = 0,
-        key = "weather-${weather.hashCode()}",
+        key = "weather-refresh-$refreshSpinKey",
         hiddenAlpha = 1f
     ) {
         FlightWeatherBanner(
@@ -5106,7 +5153,7 @@ private fun ColumnScope.FlightLiveStatusContent(
 
     FlightDataFadeIn(
         index = 1,
-        key = "parking-${parkingAvailability?.percent}-${parkingAvailability?.updatedLabel}",
+        key = "parking-refresh-$refreshSpinKey",
         hiddenAlpha = 1f
     ) {
         FlightParkingAvailabilityBox(
@@ -5120,7 +5167,8 @@ private fun ColumnScope.FlightLiveStatusContent(
 
     FlightDataFadeIn(
         index = 2,
-        key = "issues-${flightSnapshot.issues.hashCode()}"
+        key = "issues-refresh-$refreshSpinKey",
+        hiddenAlpha = 1f
     ) {
         FlightIssueSummaryRow(
             brief = flightSnapshot,
@@ -5134,7 +5182,19 @@ private fun ColumnScope.FlightLiveStatusContent(
 
     if (displayItems.isNotEmpty()) {
         displayItems.forEachIndexed { index, item ->
-            FlightDataFadeIn(index = index + 3, key = "live-${item.flight}-${item.route}-${item.detail}-${item.status}") {
+            val settled = item.tone == "arrived" ||
+                item.tone == "cancelled" ||
+                item.tone == "diverted"
+            val animationKey = if (settled) {
+                "settled-${item.flight}-${item.route}-${item.tone}"
+            } else {
+                "active-${item.flight}-${item.route}-refresh-$refreshSpinKey"
+            }
+            FlightDataFadeIn(
+                index = index + 3,
+                key = animationKey,
+                hiddenAlpha = 1f
+            ) {
                 FlightLiveStatusCard(
                     item = item,
                     textColor = textColor,
@@ -5146,7 +5206,7 @@ private fun ColumnScope.FlightLiveStatusContent(
             }
         }
     } else {
-        FlightDataFadeIn(index = 3, key = "empty") {
+        FlightDataFadeIn(index = 3, key = "empty", hiddenAlpha = 1f) {
             FlightNoLiveStatusCard(
                 textColor = textColor,
                 mutedColor = mutedColor,
@@ -5410,10 +5470,6 @@ private fun FlightTransportProviderRow(
     }
 }
 
-private fun Modifier.lightThemeSurfaceLift(): Modifier {
-    return this
-}
-
 @Composable
 private fun FlightLiveStatusLoadingSkeleton(
     textColor: Color,
@@ -5424,8 +5480,7 @@ private fun FlightLiveStatusLoadingSkeleton(
     FlightWeatherBannerSkeleton(
         textColor = textColor,
         surface = surface,
-        pulse = pulse,
-        highContrast = highContrast
+        pulse = pulse
     )
     FlightIssueSummarySkeleton(
         textColor = textColor,
@@ -5437,9 +5492,7 @@ private fun FlightLiveStatusLoadingSkeleton(
         FlightLiveStatusCardSkeleton(
             index = index,
             textColor = textColor,
-            surface = surface,
-            pulse = pulse,
-            highContrast = highContrast
+            pulse = pulse
         )
     }
 }
@@ -5448,18 +5501,24 @@ private fun FlightLiveStatusLoadingSkeleton(
 private fun FlightWeatherBannerSkeleton(
     textColor: Color,
     surface: Color,
-    pulse: Float,
-    highContrast: Boolean
+    pulse: Float
 ) {
     val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(18.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = cardShape,
+                clip = false
+            )
             .clip(cardShape)
-            .background(surface)
-            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else flightItemBorderColor(isDark), cardShape)
+            .background(
+                surface.compositeOver(
+                    if (isDark) Color(0xFF0E1118) else Color.White
+                )
+            )
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
@@ -5539,15 +5598,29 @@ private fun FlightCountPillSkeleton(
     pulse: Float,
     modifier: Modifier = Modifier
 ) {
-    val accents = listOf(Color(0xFF5AC8FA), Color(0xFF7C8CFF), Color(0xFFFFB020))
+    val accents = listOf(
+        FlightArrivalCountAccent,
+        FlightDepartureCountAccent,
+        FlightAlertCountAccent
+    )
     val accent = accents[index % accents.size]
     val pillShape = RoundedCornerShape(999.dp)
+    val isDark = isSystemInDarkTheme()
     Row(
         modifier = modifier
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = pillShape,
+                clip = false
+            )
             .clip(pillShape)
-            .background(accent.copy(alpha = 0.14f))
-            .border(1.dp, accent.copy(alpha = 0.22f), pillShape)
+            .background(
+                if (isDark) {
+                    accent.copy(alpha = 0.24f).compositeOver(FlightAlertReadableDarkSurface)
+                } else {
+                    accent.copy(alpha = 0.14f)
+                }
+            )
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
@@ -5582,10 +5655,18 @@ private fun FlightAlertsSummaryBoxSkeleton(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = cardShape,
+                clip = false
+            )
             .clip(cardShape)
-            .background(if (highContrast) surface else Color.White.copy(alpha = if (isDark) 0.11f else 0.46f).compositeOver(surface))
-            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else flightItemBorderColor(isDark), cardShape)
+            .background(
+                when {
+                    highContrast || isDark -> surface
+                    else -> Color.White.copy(alpha = 0.46f).compositeOver(surface)
+                }
+            )
             .padding(horizontal = 12.dp, vertical = 11.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
@@ -5667,20 +5748,23 @@ private fun FlightAlertsSummaryBoxSkeleton(
 private fun FlightLiveStatusCardSkeleton(
     index: Int,
     textColor: Color,
-    surface: Color,
-    pulse: Float,
-    highContrast: Boolean
+    pulse: Float
 ) {
     val isDark = isSystemInDarkTheme()
     val accent = if (index % 2 == 0) Color(0xFF5AC8FA) else Color(0xFFFFB020)
+    val cardSurface = if (isDark) FlightAlertItemDarkSurface else FlightAlertItemLightSurface
     val cardShape = RoundedCornerShape(20.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(84.dp)
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = cardShape,
+                clip = false
+            )
             .clip(cardShape)
-            .background(surface)
+            .background(cardSurface)
             .background(
                 Brush.horizontalGradient(
                     0f to accent.copy(alpha = if (isDark) 0.18f else 0.10f),
@@ -5688,7 +5772,6 @@ private fun FlightLiveStatusCardSkeleton(
                     1f to Color.Transparent
                 )
             )
-            .border(1.dp, if (highContrast) textColor.copy(alpha = 0.30f) else accent.copy(alpha = if (isDark) 0.28f else 0.22f), cardShape)
             .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Column(
@@ -5852,7 +5935,16 @@ private fun FlightParkingAvailabilityBox(
     }
     // In dark theme, keep the warning background/progress color,
     // but make the parking symbol and percentage easier to read.
-    val parkingForegroundColor = if (isDark) Color.White else accent
+    val parkingForegroundColor = if (isDark) {
+        Color.White
+    } else {
+        when {
+            availability == null -> Color(0xFF475569)
+            percent >= 50 -> Color(0xFF064E3B)
+            percent >= 20 -> Color(0xFF8A4B08)
+            else -> Color(0xFFB42318)
+        }
+    }
     val parkingProgressColor =
         if (isDark) Color.White else Color(0xFF111827)
 
@@ -5974,7 +6066,7 @@ private fun FlightIssueSummaryRow(
             FlightCountPill(
                 value = brief.arrivalCount.toString(),
                 label = "Arrivals",
-                accent = Color(0xFF5AC8FA),
+                accent = FlightArrivalCountAccent,
                 textColor = textColor,
                 modifier = Modifier.weight(1f),
                 textScale = textScale
@@ -5982,7 +6074,7 @@ private fun FlightIssueSummaryRow(
             FlightCountPill(
                 value = brief.departureCount.toString(),
                 label = "Departures",
-                accent = Color(0xFF7C8CFF),
+                accent = FlightDepartureCountAccent,
                 textColor = textColor,
                 modifier = Modifier.weight(1f),
                 textScale = textScale
@@ -5990,7 +6082,7 @@ private fun FlightIssueSummaryRow(
             FlightCountPill(
                 value = totalAlerts.toString(),
                 label = "Alerts",
-                accent = if (hasIssues) Color(0xFFFFB020) else Color(0xFF34C759),
+                accent = if (hasIssues) FlightAlertCountAccent else Color(0xFF34C759),
                 textColor = textColor,
                 modifier = Modifier.weight(1f),
                 textScale = textScale
@@ -5998,7 +6090,7 @@ private fun FlightIssueSummaryRow(
         }
         FlightAlertScheduleContextLine(
             brief = brief,
-            mutedColor = mutedColor,
+            textColor = textColor,
             textScale = textScale
         )
         if (brief.issues.isNotEmpty() || hasIssues) {
@@ -6012,12 +6104,13 @@ private fun FlightIssueSummaryRow(
                 highContrast = highContrast
             )
         } else if (brief.summary.isNotBlank()) {
-            Text(
-                text = brief.summary,
-                color = mutedColor,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+            FlightClearScheduleSummary(
+                summary = brief.summary,
+                textColor = textColor,
+                mutedColor = mutedColor,
+                surface = surface,
+                textScale = textScale,
+                highContrast = highContrast
             )
         }
     }
@@ -6026,9 +6119,10 @@ private fun FlightIssueSummaryRow(
 @Composable
 private fun FlightAlertScheduleContextLine(
     brief: FlightSheetBrief,
-    mutedColor: Color,
+    textColor: Color,
     textScale: Float
 ) {
+    val isDark = isSystemInDarkTheme()
     val countedDay = compactFlightDayLabel(brief.scheduleDayLabel)
     val upcomingDay = compactFlightDayLabel(brief.upcomingDayLabel)
     val text = when {
@@ -6038,19 +6132,96 @@ private fun FlightAlertScheduleContextLine(
         else -> ""
     }
     if (text.isBlank()) return
-    Text(
-        text = text,
-        color = mutedColor.copy(alpha = 0.82f),
-        textAlign = TextAlign.Center,
-        style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Medium,
-            fontSize = (10f * textScale).sp,
-            lineHeight = (11.5f * textScale).sp
-        ),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.fillMaxWidth()
-    )
+    val capsuleShape = RoundedCornerShape(999.dp)
+    val capsuleSurface = if (isDark) FlightAlertItemDarkSurface else Color(0xFFF0F8FF)
+    val capsuleAccent = if (isDark) Color(0xFFB8F7E4) else Color(0xFF245777)
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = 420.dp)
+                .shadow(
+                    elevation = if (isDark) 4.dp else 6.dp,
+                    shape = capsuleShape,
+                    clip = false
+                )
+                .clip(capsuleShape)
+                .background(capsuleSurface)
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Filled.CalendarMonth,
+                contentDescription = null,
+                tint = capsuleAccent,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = text,
+                color = if (isDark) textColor.copy(alpha = 0.88f) else Color(0xFF243B8F),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (10f * textScale).sp,
+                    lineHeight = (11.5f * textScale).sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlightClearScheduleSummary(
+    summary: String,
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    textScale: Float,
+    highContrast: Boolean
+) {
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(16.dp)
+    val accent = if (isDark) Color(0xFF34D399) else Color(0xFF047857)
+    val cardSurface = when {
+        highContrast -> if (isDark) surface else surface.compositeOver(Color.White)
+        isDark -> FlightAlertItemDarkSurface
+        else -> Color(0xFFFFFAFA)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = if (isDark) 6.dp else 8.dp,
+                shape = cardShape,
+                clip = false
+            )
+            .clip(cardShape)
+            .background(cardSurface)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(9.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(accent)
+        )
+        Text(
+            text = summary,
+            color = if (isDark) textColor.copy(alpha = 0.90f) else mutedColor,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontWeight = FontWeight.Medium,
+                fontSize = (11.5f * textScale).sp,
+                lineHeight = (15f * textScale).sp
+            ),
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 private fun compactFlightDayLabel(label: String): String {
@@ -6079,10 +6250,17 @@ private fun FlightNoLiveStatusCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = cardShape,
+                clip = false
+            )
             .clip(cardShape)
-            .background(surface)
-            .border(1.dp, flightItemBorderColor(isDark), cardShape)
+            .background(
+                surface.compositeOver(
+                    if (isDark) Color(0xFF0E1118) else Color.White
+                )
+            )
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
@@ -6125,18 +6303,11 @@ private fun FlightAlertsSummaryBox(
         else -> Color(0xFF22C55E)
     }
     val boxSurface = if (highContrast) {
+        if (isDark) surface else surface.compositeOver(Color.White)
+    } else if (isDark) {
         surface
-    } else if (isDark) {
-        Color.White.copy(alpha = 0.12f).compositeOver(Color.Black.copy(alpha = 0.12f))
     } else {
-        Color.White.copy(alpha = 0.48f).compositeOver(surface)
-    }
-    val boxBorder = if (brief.cancelledCount > 0) {
-        Color.Transparent
-    } else if (isDark) {
-        accent.copy(alpha = 0.52f)
-    } else {
-        accent.copy(alpha = 0.26f)
+        surface.compositeOver(Color(0xFFF8F8FF))
     }
     var expanded by rememberSaveable(brief.summary, brief.issues.size, totalAlerts) { mutableStateOf(false) }
     val previewCount = 3
@@ -6151,10 +6322,13 @@ private fun FlightAlertsSummaryBox(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = cardShape,
+                clip = false
+            )
             .clip(cardShape)
             .background(boxSurface)
-            .border(1.dp, boxBorder, cardShape)
             .padding(horizontal = 12.dp, vertical = 11.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
@@ -6200,7 +6374,6 @@ private fun FlightAlertsSummaryBox(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
                         .background(accent.copy(alpha = if (isDark) 0.22f else 0.14f))
-                        .border(1.dp, accent.copy(alpha = if (isDark) 0.34f else 0.24f), RoundedCornerShape(999.dp))
                         .clickable { expanded = !expanded }
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 )
@@ -6249,19 +6422,32 @@ private fun FlightCountPill(
 ) {
     val pillShape = RoundedCornerShape(999.dp)
     val isDark = isSystemInDarkTheme()
+    val pillSurface = if (isDark) {
+        accent.copy(alpha = 0.24f).compositeOver(FlightAlertReadableDarkSurface)
+    } else {
+        accent.copy(alpha = 0.16f)
+    }
+    val valueColor = if (isDark) {
+        Color.White
+    } else {
+        Color.Black.copy(alpha = 0.38f).compositeOver(accent)
+    }
     Row(
         modifier = modifier
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = pillShape,
+                clip = false
+            )
             .clip(pillShape)
-            .background(accent.copy(alpha = 0.16f))
-            .border(1.dp, accent.copy(alpha = if (isDark) 0.28f else 0.24f), pillShape)
+            .background(pillSurface)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
         Text(
             text = value,
-            color = accent,
+            color = valueColor,
             style = MaterialTheme.typography.labelLarge.copy(
                 fontWeight = FontWeight.Black,
                 fontSize = (14f * textScale).sp,
@@ -6301,17 +6487,17 @@ private fun FlightIssuePill(
     val isDiverted = issue.tone.contains("divert", ignoreCase = true)
     val isDelayed = issue.label.contains("+") || issue.tone.contains("delay", ignoreCase = true)
     val rowSurface = if (isDark) {
-        when {
-            isCancelled -> Color(0xFF5C1E24).copy(alpha = 0.92f)
-            isDiverted -> Color(0xFF51330A).copy(alpha = 0.90f)
-            isDelayed -> Color(0xFF44320A).copy(alpha = 0.88f)
-            else -> accent.copy(alpha = 0.22f)
-        }
+        accent.copy(
+            alpha = when {
+                isCancelled -> 0.22f
+                isDiverted -> 0.18f
+                isDelayed -> 0.16f
+                else -> 0.12f
+            }
+        ).compositeOver(FlightAlertReadableDarkSurface)
     } else {
-        accent.copy(alpha = 0.13f)
+        accent.copy(alpha = 0.13f).compositeOver(Color(0xFFF8F8FF))
     }
-    val rowBorder = if (isCancelled) Color.Transparent
-    else accent.copy(alpha = if (isDark) 0.42f else 0.24f)
     val labelColor = if (isCancelled) {
         if (isDark) Color(0xFFFF7A72) else Color(0xFFB42318)
     } else {
@@ -6320,10 +6506,13 @@ private fun FlightIssuePill(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = pillShape,
+                clip = false
+            )
             .clip(pillShape)
             .background(rowSurface)
-            .border(1.dp, rowBorder, pillShape)
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -6389,23 +6578,32 @@ private fun FlightLiveStatusCard(
         "diverted" -> divertedAccent
         else -> upcomingAccent
     }
-    val cardSurface = if (!isDark && item.tone == "arrived") {
-        Color(0xFFE8F8F0).copy(alpha = 0.96f)
-    } else if (highContrast) {
-        surface
-    } else {
-        surface
+    val cardSurface = when {
+        highContrast -> if (isDark) surface else surface.compositeOver(Color.White)
+        isArrived && isDark -> Color(0xFF064E3B)
+        isArrived -> Color(0xFFB8F7E4)
+        isDark -> FlightAlertItemDarkSurface
+        else -> FlightAlertItemLightSurface
     }
     val cardShape = RoundedCornerShape(if (isArrived) 14.dp else 20.dp)
     val compactRoute = compactFlightRoute(item.route)
     val statusLine = compactFlightStatusLine(item, compactRoute)
     val detailLine = compactFlightDetailLine(item)
     val progress = item.effectiveProgress()
+    val etaMinutes = parseFlightEtaMinutes(item.etaText)
+    val progressAccent = when {
+        isArrived -> arrivedAccent
+        etaMinutes == null -> accent
+        etaMinutes <= 1 -> FlightArrivalLantern
+        etaMinutes <= 15 -> FlightAlertCountAccent
+        etaMinutes <= 30 -> Color(0xFFFFB020)
+        else -> FlightDepartureCountAccent
+    }
     val fillFraction = if (isClosedAlert) 0f else (progress / 100f).coerceIn(0.04f, 1f)
     val fillEdge = (fillFraction + 0.001f).coerceAtMost(1f)
-    val progressFill = accent.copy(alpha = if (isDark) 0.26f else 0.18f)
-    val progressFeather = accent.copy(alpha = if (isDark) 0.13f else 0.09f)
-    val progressBrush = if (isClosedAlert) {
+    val progressFill = progressAccent.copy(alpha = if (isDark) 0.26f else 0.28f)
+    val progressFeather = progressAccent.copy(alpha = if (isDark) 0.13f else 0.14f)
+    val progressBrush = if (isClosedAlert || isArrived) {
         Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
     } else {
         Brush.horizontalGradient(
@@ -6419,11 +6617,14 @@ private fun FlightLiveStatusCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .lightThemeSurfaceLift()
+            .shadow(
+                elevation = if (isDark) 8.dp else 10.dp,
+                shape = cardShape,
+                clip = false
+            )
             .clip(cardShape)
             .background(cardSurface)
             .background(progressBrush)
-            .border(1.dp, accent.copy(alpha = if (isDark) 0.28f else 0.24f), cardShape)
     ) {
         Column(
             modifier = Modifier

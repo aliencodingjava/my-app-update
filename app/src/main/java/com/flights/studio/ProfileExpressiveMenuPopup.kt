@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Login
@@ -162,6 +163,11 @@ private fun MenuContent(
     onDismiss: () -> Unit
 ) {
     val totalGroups = 2
+    val authContentColor = if (isSystemInDarkTheme()) {
+        Color.White
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
 
     val topItems = remember(hasProfile, isLoggedIn, flags) {
         buildList {
@@ -259,7 +265,9 @@ private fun MenuContent(
                 flags = flags,
                 scales = scales,
                 colors = MenuDefaults.itemColors(
-                    leadingIconColor = MaterialTheme.colorScheme.primary,
+                    textColor = authContentColor,
+                    leadingIconColor = authContentColor,
+                    trailingContentColor = authContentColor,
                 )
             )
         }

@@ -799,13 +799,67 @@ private fun PrimaryMenuSheet(
     onDismiss: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
+    val textColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
+    val iconColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
+    val buttonColor = buttonColorOverride ?: if (isDark) Color.White else Color.Black
+
+    PrimaryBottomModalShell(
+        visible = visible,
+        modifier = modifier,
+        backdrop = backdrop,
+        contentView = contentView,
+        panelColorOverride = panelColorOverride,
+        overlayTintOverride = overlayTintOverride,
+        blurDpOverride = blurDpOverride,
+        onDismiss = onDismiss
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp)
+        ) {
+            actions.chunked(4).forEach { rowActions ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    rowActions.forEach { action ->
+                        PrimaryMenuButton(
+                            action = action,
+                            backdrop = backdrop,
+                            buttonColor = buttonColor,
+                            buttonAlphaOverride = buttonAlphaOverride,
+                            iconColor = iconColor,
+                            textColor = textColor,
+                            onDismiss = onDismiss
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PrimaryBottomModalShell(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop,
+    contentView: android.view.View? = null,
+    panelColorOverride: Color? = null,
+    overlayTintOverride: Color? = null,
+    blurDpOverride: Float? = null,
+    useGlass: Boolean = true,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
     val panelColor = panelColorOverride ?: bottomTabBarTint()
     val overlayTint = overlayTintOverride ?: bottomTabBarOverlayTint()
     val backdropBlurDp = blurDpOverride ?: (bottomChromeBackdropBlurDp() + (rememberLiquidGlassBlurAmount() * 8f))
     val nativeBlurPx = bottomChromeNativeBlurPx()
-    val textColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
-    val iconColor = if (isDark) Color.White.copy(alpha = 0.92f) else Color(0xFF1E1F24)
-    val buttonColor = buttonColorOverride ?: if (isDark) Color.White else Color.Black
 
     AnimatedVisibility(
         visible = visible,
@@ -852,62 +906,55 @@ private fun PrimaryMenuSheet(
                     bottom = GlassChromeHorizontalPadding
                 )
                 .fillMaxWidth()
+                .shadow(
+                    elevation = if (useGlass) 0.dp else 18.dp,
+                    shape = GlassChromeShape,
+                    clip = false
+                )
                 .clip(GlassChromeShape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = {}
                 )
-                .adaptiveLiquidGlassBackdrop(
-                    backdrop = backdrop,
-                    shape = GlassChromeShape,
-                    surfaceColor = panelColor,
-                    blurDp = backdropBlurDp,
-                    shadow = { bottomChromeShadow() },
-                    refractionHeightDp = GlassChromeRefractionHeightDp,
-                    refractionAmountDp = GlassChromeRefractionAmountDp
-                )
-                .background(overlayTint, GlassChromeShape)
-        ) {
-            AndroidView(
-                modifier = Modifier.matchParentSize(),
-                factory = { FrostedActionBarBlurView(it) },
-                update = {
-                    it.contentView = contentView
-                    it.scrimColor = panelColor.toArgb()
-                    it.cornerRadiusPx = it.resources.displayMetrics.density * 28f
-                    it.useLiquidRefraction = true
-                    it.blurRadiusPx = blurDpOverride?.let { blurDp -> it.resources.displayMetrics.density * blurDp }
-                        ?: nativeBlurPx
-                    it.saturation = 1.18f
-                    it.refractIntensity = GlassChromeNativeRefractionIntensity
-                }
-            )
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 22.dp),
-                verticalArrangement = Arrangement.spacedBy(22.dp)
-            ) {
-                actions.chunked(4).forEach { rowActions ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        rowActions.forEach { action ->
-                            PrimaryMenuButton(
-                                action = action,
+                .then(
+                    if (useGlass) {
+                        Modifier
+                            .adaptiveLiquidGlassBackdrop(
                                 backdrop = backdrop,
-                                buttonColor = buttonColor,
-                                buttonAlphaOverride = buttonAlphaOverride,
-                                iconColor = iconColor,
-                                textColor = textColor,
-                                onDismiss = onDismiss
+                                shape = GlassChromeShape,
+                                surfaceColor = panelColor,
+                                blurDp = backdropBlurDp,
+                                shadow = { bottomChromeShadow() },
+                                refractionHeightDp = GlassChromeRefractionHeightDp,
+                                refractionAmountDp = GlassChromeRefractionAmountDp
                             )
-                        }
+                            .background(overlayTint, GlassChromeShape)
+                    } else {
+                        Modifier.background(panelColor, GlassChromeShape)
                     }
-                }
+                )
+        ) {
+            if (useGlass) {
+                AndroidView(
+                    modifier = Modifier.matchParentSize(),
+                    factory = { FrostedActionBarBlurView(it) },
+                    update = {
+                        it.contentView = contentView
+                        it.scrimColor = panelColor.toArgb()
+                        it.cornerRadiusPx = it.resources.displayMetrics.density * 28f
+                        it.useLiquidRefraction = true
+                        it.blurRadiusPx = blurDpOverride?.let { blurDp -> it.resources.displayMetrics.density * blurDp }
+                            ?: nativeBlurPx
+                        it.saturation = 1.18f
+                        it.refractIntensity = GlassChromeNativeRefractionIntensity
+                    }
+                )
+            }
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                content()
             }
         }
     }

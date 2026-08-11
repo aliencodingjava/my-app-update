@@ -316,11 +316,24 @@ class AllNotesActivity : LocaleActivity() {
                             },
                             syncStatus = notesSyncStatus,
                             syncAvailable = hasActiveSupabaseSession(),
+                            onOpenNotesSettings = {
+                                startActivity(NotesSettingsComposeActivity.newIntent(this@AllNotesActivity))
+                            },
                             onNotesSettingsChanged = ::refreshNotesDisplayFromSettings,
                             pageTitle = currentFolderTitle(),
                             showWelcomeOnEmptyNotes = false,
                             folderMode = currentFolderId == null,
                             folders = folderRows,
+                            onRenameFolder = { folderId, name ->
+                                if (NoteFolderStore.renameFolder(this@AllNotesActivity, folderId, name)) {
+                                    refreshNotesDisplayFromSettings()
+                                }
+                            },
+                            onSetFolderColor = { folderId, colorArgb ->
+                                if (NoteFolderStore.setFolderColor(this@AllNotesActivity, folderId, colorArgb)) {
+                                    refreshNotesDisplayFromSettings()
+                                }
+                            },
                             onOpenFolder = { folderId ->
                                 currentFolderId = folderId
                                 refreshNotesDisplayFromSettings()
@@ -592,10 +605,10 @@ class AllNotesActivity : LocaleActivity() {
         val folders = buildList {
             if (allNotes.isNotEmpty()) {
                 val main = NoteFolderStore.mainFolder()
-                add(NoteFolderUi(main.id, main.name, counts[main.id] ?: 0))
+                add(NoteFolderUi(main.id, main.name, counts[main.id] ?: 0, main.createdAt, main.modifiedAt, main.colorArgb))
             }
             NoteFolderStore.loadCustomFolders(this@AllNotesActivity).forEach { folder ->
-                add(NoteFolderUi(folder.id, folder.name, counts[folder.id] ?: 0))
+                add(NoteFolderUi(folder.id, folder.name, counts[folder.id] ?: 0, folder.createdAt, folder.modifiedAt, folder.colorArgb))
             }
         }
         val q = query.trim()
@@ -1946,9 +1959,10 @@ class AllNotesActivity : LocaleActivity() {
                     notesAdapter.setUserTitle(row.content, title)
                 } ?: notesAdapter.removeUserTitle(row.content)
 
-                val localPendingReminder = hasPendingReminderPulse(row.content)
+                val pulseWasCancelled = ReminderPulseCancellationStore.isCancelled(this@AllNotesActivity, row.content)
+                val localPendingReminder = !pulseWasCancelled && hasPendingReminderPulse(row.content)
                 val shouldKeepReminder = row.hasReminder || localPendingReminder
-                val shouldKeepBadge = row.hasReminderBadge || localPendingReminder
+                val shouldKeepBadge = !pulseWasCancelled && (row.hasReminderBadge || localPendingReminder)
                 getSharedPreferences("reminder_flags", MODE_PRIVATE).edit {
                     if (shouldKeepReminder) putBoolean(row.content.hashCode().toString(), true)
                     else remove(row.content.hashCode().toString())
@@ -2765,6 +2779,7 @@ class AllNotesActivity : LocaleActivity() {
         WorkManager.getInstance(this).enqueue(workRequest)
 
         // badge + bell flags (force write)
+        ReminderPulseCancellationStore.clear(this, note)
         getSharedPreferences("reminder_badges", MODE_PRIVATE).edit(commit = true) {
             putBoolean(note.hashCode().toString(), true)
         }

@@ -9,7 +9,9 @@ import java.util.UUID
 data class NoteFolder(
     val id: String,
     val name: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val modifiedAt: Long = createdAt,
+    val colorArgb: Long? = null
 )
 
 object NoteFolderStore {
@@ -25,7 +27,8 @@ object NoteFolderStore {
     fun mainFolder(): NoteFolder = NoteFolder(
         id = MAIN_FOLDER_ID,
         name = "Main",
-        createdAt = 0L
+        createdAt = 0L,
+        modifiedAt = 0L
     )
 
     fun loadCustomFolders(context: Context): List<NoteFolder> {
@@ -35,6 +38,9 @@ object NoteFolderStore {
         return prefs.getString(KEY_FOLDERS, null)
             ?.let { runCatching { gson.fromJson<List<NoteFolder>>(it, type) }.getOrNull() }
             .orEmpty()
+            .map { folder ->
+                if (folder.modifiedAt > 0L) folder else folder.copy(modifiedAt = folder.createdAt)
+            }
             .filterNot { it.id == MAIN_FOLDER_ID || it.id in deletedFolderIds }
             .distinctBy { it.id }
             .sortedBy { it.createdAt }
@@ -51,7 +57,8 @@ object NoteFolderStore {
         val folder = NoteFolder(
             id = UUID.randomUUID().toString(),
             name = uniqueName(name, existingNames),
-            createdAt = System.currentTimeMillis()
+            createdAt = System.currentTimeMillis(),
+            modifiedAt = System.currentTimeMillis()
         )
         saveCustomFolders(context, current + folder)
         return folder
@@ -71,6 +78,47 @@ object NoteFolderStore {
     fun folderNameForId(context: Context, folderId: String): String {
         if (folderId == MAIN_FOLDER_ID) return mainFolder().name
         return loadCustomFolders(context).firstOrNull { it.id == folderId }?.name ?: "Folder"
+    }
+
+    fun renameFolder(context: Context, folderId: String, rawName: String): Boolean {
+        if (folderId == MAIN_FOLDER_ID) return false
+        val name = sanitizeFolderName(rawName)
+        if (name.isBlank()) return false
+        val current = loadCustomFolders(context)
+        val target = current.firstOrNull { it.id == folderId } ?: return false
+        val existingNames = (current.filterNot { it.id == folderId }.map { it.name } + mainFolder().name)
+            .map { it.lowercase() }
+            .toSet()
+        val renamed = uniqueName(name, existingNames)
+        if (target.name == renamed) return true
+        saveCustomFolders(
+            context,
+            current.map { folder ->
+                if (folder.id == folderId) {
+                    folder.copy(name = renamed, modifiedAt = System.currentTimeMillis())
+                } else {
+                    folder
+                }
+            }
+        )
+        return true
+    }
+
+    fun setFolderColor(context: Context, folderId: String, colorArgb: Long?): Boolean {
+        if (folderId == MAIN_FOLDER_ID) return false
+        val current = loadCustomFolders(context)
+        if (current.none { it.id == folderId }) return false
+        saveCustomFolders(
+            context,
+            current.map { folder ->
+                if (folder.id == folderId) {
+                    folder.copy(colorArgb = colorArgb, modifiedAt = System.currentTimeMillis())
+                } else {
+                    folder
+                }
+            }
+        )
+        return true
     }
 
     fun folderForNoteKey(context: Context, noteKey: String): String {

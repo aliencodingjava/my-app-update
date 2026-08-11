@@ -642,6 +642,9 @@ fun ReminderTimePickerSheet(
     val selectedDayLabel = dayWheelLabels.getOrElse(selectedDayOffset) {
         reminderDayLabel(dayWheelAnchorMillis)
     }
+    val selectedDaySummaryLabel = remember(dayWheelAnchorMillis, selectedDayOffset) {
+        reminderDaySummaryLabel(dayWheelAnchorMillis, selectedDayOffset)
+    }
     var status by remember(visible) { mutableStateOf(ReminderTimeStatus.Idle) }
     val alarmSoundLabel = remember(context, selectedAlarmSoundUri) {
         selectedAlarmSoundUri?.let { context.reminderAlarmSoundName(it) } ?: "Default app sound"
@@ -882,7 +885,7 @@ fun ReminderTimePickerSheet(
                     )
 
                     val statusText = when (status) {
-                        ReminderTimeStatus.Idle -> "Reminder will be set for $selectedDayLabel."
+                        ReminderTimeStatus.Idle -> "Reminder will be set for $selectedDaySummaryLabel."
                         ReminderTimeStatus.Error -> "Selected time is in the past."
                         ReminderTimeStatus.Success -> "Reminder set."
                     }
@@ -2246,9 +2249,11 @@ private fun ReminderWheelTimePicker(
                     selectedTextColor = accentColor,
                     mutedTextColor = mutedColor,
                     itemHeight = rowHeight,
+                    visibleRows = visibleRows,
                     openKey = openKey,
                     large = false,
                     compact = compact,
+                    cyclic = false,
                     modifier = Modifier.weight(1.2f),
                     onSelected = { index ->
                         if (index != dayOffset) {
@@ -2264,6 +2269,7 @@ private fun ReminderWheelTimePicker(
                     selectedTextColor = textColor,
                     mutedTextColor = mutedColor,
                     itemHeight = rowHeight,
+                    visibleRows = visibleRows,
                     openKey = openKey,
                     large = true,
                     compact = compact,
@@ -2305,6 +2311,7 @@ private fun ReminderWheelTimePicker(
                     selectedTextColor = textColor,
                     mutedTextColor = mutedColor,
                     itemHeight = rowHeight,
+                    visibleRows = visibleRows,
                     openKey = openKey,
                     large = true,
                     compact = compact,
@@ -2325,6 +2332,7 @@ private fun ReminderWheelTimePicker(
                         else accentColor,
                     mutedTextColor = mutedColor,
                     itemHeight = rowHeight,
+                    visibleRows = visibleRows,
                     openKey = openKey,
                     large = false,
                     compact = compact,
@@ -2349,19 +2357,21 @@ private fun ReminderWheelColumn(
     selectedTextColor: Color,
     mutedTextColor: Color,
     itemHeight: Dp,
+    visibleRows: Int,
     openKey: Long,
     large: Boolean,
     compact: Boolean,
+    cyclic: Boolean = true,
     modifier: Modifier = Modifier,
     onSelected: (Int) -> Unit
 ) {
-    val visibleRows = 5
     val centerRow = visibleRows / 2
     val density = LocalDensity.current
     val view = LocalView.current
 
     val cycles = 80
     val valuesSize = values.size.coerceAtLeast(1)
+    val itemCount = if (cyclic) valuesSize * cycles else valuesSize
 
     val safeSelectedIndex =
         selectedIndex.coerceIn(
@@ -2389,11 +2399,14 @@ private fun ReminderWheelColumn(
          */
         val startIndex = remember(
             openKey,
-            valuesSize
+            valuesSize,
+            cyclic
         ) {
-            (cycles / 2) *
-                    valuesSize +
-                    safeSelectedIndex
+            if (cyclic) {
+                (cycles / 2) * valuesSize + safeSelectedIndex
+            } else {
+                safeSelectedIndex
+            }
         }
 
         /*
@@ -2488,10 +2501,11 @@ private fun ReminderWheelColumn(
                         absoluteIndex
 
                     val normalized =
-                        floorMod(
-                            absoluteIndex,
-                            valuesSize
-                        )
+                        if (cyclic) {
+                            floorMod(absoluteIndex, valuesSize)
+                        } else {
+                            absoluteIndex.coerceIn(0, valuesSize - 1)
+                        }
 
                     /*
                      * Update the actual selected
@@ -2536,24 +2550,24 @@ private fun ReminderWheelColumn(
                     centeredItemIndex
 
                 val currentNormalized =
-                    floorMod(
-                        currentIndex,
-                        valuesSize
-                    )
+                    if (cyclic) {
+                        floorMod(currentIndex, valuesSize)
+                    } else {
+                        currentIndex.coerceIn(0, valuesSize - 1)
+                    }
 
                 if (
                     currentNormalized !=
                     safeSelectedIndex
                 ) {
 
-                    val currentCycle =
-                        currentIndex /
-                                valuesSize
+                    val currentCycle = currentIndex / valuesSize
 
-                    var targetIndex =
-                        currentCycle *
-                                valuesSize +
-                                safeSelectedIndex
+                    var targetIndex = if (cyclic) {
+                        currentCycle * valuesSize + safeSelectedIndex
+                    } else {
+                        safeSelectedIndex
+                    }
 
                     /*
                      * Stay inside our repeated
@@ -2562,9 +2576,7 @@ private fun ReminderWheelColumn(
                     targetIndex =
                         targetIndex.coerceIn(
                             0,
-                            valuesSize *
-                                    cycles -
-                                    1
+                            itemCount - 1
                         )
 
                     state.scrollToItem(
@@ -2625,10 +2637,11 @@ private fun ReminderWheelColumn(
                                 item ->
 
                             val normalized =
-                                floorMod(
-                                    item.index,
-                                    valuesSize
-                                )
+                                if (cyclic) {
+                                    floorMod(item.index, valuesSize)
+                                } else {
+                                    item.index.coerceIn(0, valuesSize - 1)
+                                }
 
                             centeredItemIndex =
                                 item.index
@@ -2699,16 +2712,15 @@ private fun ReminderWheelColumn(
         ) {
 
             items(
-                count =
-                    valuesSize *
-                            cycles
+                count = itemCount
             ) { index ->
 
                 val normalized =
-                    floorMod(
-                        index,
-                        valuesSize
-                    )
+                    if (cyclic) {
+                        floorMod(index, valuesSize)
+                    } else {
+                        index.coerceIn(0, valuesSize - 1)
+                    }
 
                 /*
                  * Safe state read.
@@ -3343,6 +3355,14 @@ private fun formatReminderTime(triggerAtMillis: Long): String =
 
 private fun reminderDayLabel(triggerAtMillis: Long): String =
     SimpleDateFormat("EEE MMM d", Locale.getDefault()).format(Date(triggerAtMillis))
+
+private fun reminderDaySummaryLabel(anchorMillis: Long, dayOffset: Int): String {
+    val selectedDay = Calendar.getInstance().apply {
+        timeInMillis = anchorMillis
+        add(Calendar.DAY_OF_YEAR, dayOffset)
+    }
+    return SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault()).format(selectedDay.time)
+}
 
 private fun android.view.View.performReminderTick() {
     performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)

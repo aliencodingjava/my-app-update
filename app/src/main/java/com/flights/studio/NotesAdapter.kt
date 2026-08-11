@@ -13,7 +13,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.kyant.backdrop.Backdrop
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,15 +40,6 @@ class NotesAdapter(
     private var showImagesBadge: Boolean = true
     private var showReminderBadge: Boolean = true
     private var showReminderBell: Boolean = true
-    private var backdrop: Backdrop? = null
-    fun setBackdrop(backdrop: Backdrop) {
-        this.backdrop = backdrop
-        notifyItemRangeChanged(0, itemCount)
-    }
-
-
-
-
     fun applyPageSettings(
         compact: Boolean,
         showImagesBadge: Boolean,
@@ -237,37 +227,29 @@ class NotesAdapter(
             }
         }
 
-        val b = backdrop
-
         holder.composeView.setContent {
             FlightsTheme {
-                if (b != null) {
-                    NoteItem(
-                        title = titleNow,
-                        note = note,
-                        compact = compactRows,
-                        dense = compactRows,
-                        selectionMode = selectionMode,
-                        selected = selected,
-                        showReminderBell = bellOn,
-                        showReminderBadge = badgeOn,
-                        imagesCount = imagesCount,
-                        attachmentsCount = mediaCounts.documents,
-                        audioCount = mediaCounts.audio,
-                        videoCount = mediaCounts.video,
-                        createdAtMs = NoteCreatedAtStore.ensure(holder.composeView.context, key),
-                        onClick = { onClick(note, holder.bindingAdapterPosition) },
-                        onLongClick = { onLongClick(note) },
-                        onEdit = { onEditIconClick(note, holder.bindingAdapterPosition) },
-                        onReminderClick = { onReminderClick(note, holder.bindingAdapterPosition) },
-
-                        // ✅ NEW
-                        backdrop = b,
-                        titleTopCompactDp = titleTopCompactDp,
-                        titleTopNormalDp = titleTopNormalDp,
-                    )
-
-                }
+                NoteItem(
+                    title = titleNow,
+                    note = note,
+                    compact = compactRows,
+                    dense = compactRows,
+                    selectionMode = selectionMode,
+                    selected = selected,
+                    showReminderBell = bellOn,
+                    showReminderBadge = badgeOn,
+                    imagesCount = imagesCount,
+                    attachmentsCount = mediaCounts.documents,
+                    audioCount = mediaCounts.audio,
+                    videoCount = mediaCounts.video,
+                    createdAtMs = NoteCreatedAtStore.ensure(holder.composeView.context, key),
+                    onClick = { onClick(note, holder.bindingAdapterPosition) },
+                    onLongClick = { onLongClick(note) },
+                    onEdit = { onEditIconClick(note, holder.bindingAdapterPosition) },
+                    onReminderClick = { onReminderClick(note, holder.bindingAdapterPosition) },
+                    titleTopCompactDp = titleTopCompactDp,
+                    titleTopNormalDp = titleTopNormalDp,
+                )
             }
         }
 

@@ -201,6 +201,17 @@ import kotlin.math.sin
 import kotlin.math.tanh
 import kotlin.random.Random
 
+/**
+ * The main entry point of the application, responsible for orchestrating the primary UI layers
+ * including Home, Briefing, Notes, and Settings using Jetpack Compose and View-based components.
+ *
+ * This activity handles:
+ * - Navigation between high-level application pages.
+ * - Integration with Supabase for notes and folder synchronization.
+ * - Management of contacts through [AllContactsFragment].
+ * - Coordination of reminders and local notifications.
+ * - Implementation of a glass-morphic UI design language using [FlightsBackdropScaffold].
+ */
 @Suppress("DEPRECATION")
 class MainActivity : FragmentActivity() {
 
@@ -212,6 +223,7 @@ class MainActivity : FragmentActivity() {
     private val noteRows = mutableStateListOf<NoteRow>()
     private val noteFolderRows = mutableStateListOf<NoteFolderUi>()
     private var currentNotesFolderId by mutableStateOf<String?>(null)
+    private var notesFolderSelectionActive by mutableStateOf(false)
     private val notesCount = mutableIntStateOf(0)
     private var notesSyncStatus by mutableStateOf(NotesSyncUiStatus.Synced)
     private val uidToContent = mutableMapOf<String, String>()
@@ -363,6 +375,14 @@ class MainActivity : FragmentActivity() {
         if (result.resultCode == RESULT_OK) handleNoteEditResult(result.data)
     }
 
+    /**
+     * Initializes the activity, sets up window insets for edge-to-edge display,
+     * initializes analytics, and sets the main Compose content.
+     *
+     * @param savedInstanceState If the activity is being re-initialized after
+     * previously being shut down then this Bundle contains the data it most
+     * recently supplied in [onSaveInstanceState].
+     */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -677,7 +697,8 @@ class MainActivity : FragmentActivity() {
 
                             if (
                                 !(selectedMainPage == PAGE_HOME && homeCameraExpanded) &&
-                                !(selectedMainPage == PAGE_SETTINGS && settingsModalVisible)
+                                !(selectedMainPage == PAGE_SETTINGS && settingsModalVisible) &&
+                                !(selectedMainPage == PAGE_NOTES && notesFolderSelectionActive)
                             ) {
                                 PrimaryBottomChrome(
                                     selectedTab = selectedTab,
@@ -749,7 +770,10 @@ class MainActivity : FragmentActivity() {
                             }
                         }
 
-                        if (!(selectedMainPage == PAGE_HOME && homeCameraExpanded)) {
+                        if (
+                            !(selectedMainPage == PAGE_HOME && homeCameraExpanded) &&
+                            !(selectedMainPage == PAGE_NOTES && notesFolderSelectionActive)
+                        ) {
                             PrimaryBottomChrome(
                                 selectedTab = selectedTab,
                                 backdrop = mainMenuBackdrop,
@@ -1049,6 +1073,10 @@ class MainActivity : FragmentActivity() {
         allContactsFragment?.deleteSelectedContacts()
     }
 
+    /**
+     * Configures the [NotesAdapter] and its interaction callbacks for note management.
+     * Sets up listeners for long-press selection, single-tap viewing, and reminder management.
+     */
     private fun setupNotes() {
         notesAdapter = NotesAdapter(
             notesText,
@@ -1201,6 +1229,10 @@ class MainActivity : FragmentActivity() {
         refreshNotesDisplay()
     }
 
+    /**
+     * Rebuilds the current notes display by applying sorting and filtering
+     * based on the currently selected folder and user preferences.
+     */
     private fun refreshNotesDisplay() {
         refreshMainNoteFolderRows()
         val sorted = applyNotesSort(displayMainNotesForCurrentFolder())
@@ -1401,6 +1433,17 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Synchronizes a note and its associated media (images, voice notes, attachments)
+     * to the Supabase backend.
+     *
+     * @param content The text content of the note.
+     * @param titleOverride Optional title to use instead of the auto-resolved title.
+     * @param imageUrisOverride Optional list of image URIs to upload.
+     * @param fileItemsOverride Optional list of file attachments to upload.
+     * @param voiceItemsOverride Optional list of voice recordings to upload.
+     * @param hasReminderOverride Optional flag indicating if the note has an active reminder.
+     */
     private fun syncNoteWithAttachmentsToSupabase(
         content: String,
         titleOverride: String? = null,
@@ -1749,9 +1792,10 @@ class MainActivity : FragmentActivity() {
                 notesAdapter.setUserTitle(row.content, title)
             } ?: notesAdapter.removeUserTitle(row.content)
 
-            val localPendingReminder = hasPendingReminderPulse(row.content)
+            val pulseWasCancelled = ReminderPulseCancellationStore.isCancelled(this, row.content)
+            val localPendingReminder = !pulseWasCancelled && hasPendingReminderPulse(row.content)
             val shouldKeepReminder = row.hasReminder || localPendingReminder
-            val shouldKeepBadge = row.hasReminderBadge || localPendingReminder
+            val shouldKeepBadge = !pulseWasCancelled && (row.hasReminderBadge || localPendingReminder)
             getSharedPreferences("reminder_flags", MODE_PRIVATE).edit {
                 if (shouldKeepReminder) putBoolean(row.content.hashCode().toString(), true)
                 else remove(row.content.hashCode().toString())
@@ -2349,6 +2393,7 @@ class MainActivity : FragmentActivity() {
         WorkManager.getInstance(this).enqueue(workRequest)
         val reminderKey = reminderKey(note)
 
+        ReminderPulseCancellationStore.clear(this, note)
         getSharedPreferences("reminder_badges", MODE_PRIVATE).edit(commit = true) {
             putBoolean(reminderKey, true)
         }
@@ -2390,10 +2435,12 @@ class MainActivity : FragmentActivity() {
 
     private fun cancelReminder(note: String) {
         cancelReminderWorkOnly(note)
-        clearReminderMetadata(note, keepBell = false)
+        ReminderPulseCancellationStore.markCancelled(this, note)
+        clearReminderMetadata(note, keepBell = true)
         notesAdapter.preloadBadgeStates(this)
         notesAdapter.preloadReminderFlags(this)
         refreshNotesDisplay()
+        syncEditedNoteToSupabase(note, note, hasReminderOverride = true)
     }
 
     private fun clearReminderMetadata(note: String, keepBell: Boolean) {
@@ -2505,10 +2552,10 @@ class MainActivity : FragmentActivity() {
         val folders = buildList {
             if (allNotes.isNotEmpty()) {
                 val main = NoteFolderStore.mainFolder()
-                add(NoteFolderUi(main.id, main.name, counts[main.id] ?: 0))
+                add(NoteFolderUi(main.id, main.name, counts[main.id] ?: 0, main.createdAt, main.modifiedAt, main.colorArgb))
             }
             NoteFolderStore.loadCustomFolders(this@MainActivity).forEach { folder ->
-                add(NoteFolderUi(folder.id, folder.name, counts[folder.id] ?: 0))
+                add(NoteFolderUi(folder.id, folder.name, counts[folder.id] ?: 0, folder.createdAt, folder.modifiedAt, folder.colorArgb))
             }
         }
         val q = query.trim()
@@ -3097,6 +3144,23 @@ Version: $versionName
         return source.action == null || source.action == Intent.ACTION_MAIN || hasLauncherCategory
     }
 
+    /**
+     * The main pager component that handles transitions between the application's top-level screens.
+     *
+     * @param currentBackdrop The global backdrop layer for frosted glass effects.
+     * @param onOpenHome Callback to navigate to the Home screen.
+     * @param onOpenContacts Callback to navigate to the Briefing/Updates screen.
+     * @param onOpenNotes Callback to navigate to the Notes screen.
+     * @param onOpenLiveCameras Callback to launch the Live Cameras activity.
+     * @param onOpenAddNote Callback to launch the Add Note flow.
+     * @param onHomeCameraExpandedChange Callback when the home camera layer expands or collapses.
+     * @param onHomeCameraGestureActiveChange Callback during camera gesture interactions.
+     * @param actuallyExitApp Callback to terminate the application.
+     * @param triggerRefreshNow Callback to force refresh data.
+     * @param currentPage The current active page index.
+     * @param settingsFeedbackRequestToken A token to trigger feedback actions in the settings page.
+     * @param onSettingsModalVisibleChange Callback when a settings modal is shown or hidden.
+     */
     @Composable
     private fun MainPager(
         currentBackdrop: LayerBackdrop,
@@ -3306,6 +3370,21 @@ Version: $versionName
         )
     }
 
+    /**
+     * Displays the Briefing page, which provides AI-generated summaries of trip details,
+     * flight statuses, weather updates, and quick actions.
+     *
+     * @param active Whether the page is currently active.
+     * @param onOpenFlights Callback to open flight tracking.
+     * @param onOpenNews Callback to open airport news.
+     * @param onOpenFbo Callback to open FBO services.
+     * @param onOpenWelcome Callback to open the welcome guide.
+     * @param onOpenAbout Callback to open airport information.
+     * @param onOpenContact Callback to open airport contact help.
+     * @param onOpenLiveCameras Callback to view airport cameras.
+     * @param onOpenNotes Callback to navigate to the Notes screen.
+     * @param onOpenAddNote Callback to quickly add a new note.
+     */
     @Suppress("SameParameterValue")
     @Composable
     private fun BriefingPage(
@@ -6162,10 +6241,26 @@ Version: $versionName
             syncStatus = notesSyncStatus,
             syncAvailable = notesOnlineSyncEnabled() &&
                     SupabaseManager.client.auth.currentSessionOrNull()?.user?.id != null,
+            onOpenNotesSettings = {
+                startActivity(NotesSettingsComposeActivity.newIntent(this@MainActivity))
+            },
             pageTitle = mainNotesFolderTitle(),
             showWelcomeOnEmptyNotes = false,
             folderMode = currentNotesFolderId == null,
             folders = noteFolderRows,
+            bottomOverlayClearance = 60.dp,
+            onFolderSelectionModeChanged = { active -> notesFolderSelectionActive = active },
+            onRenameFolder = { folderId, name ->
+                if (NoteFolderStore.renameFolder(this, folderId, name)) {
+                    refreshNotesDisplay()
+                    syncPendingNotesToSupabase()
+                }
+            },
+            onSetFolderColor = { folderId, colorArgb ->
+                if (NoteFolderStore.setFolderColor(this, folderId, colorArgb)) {
+                    refreshNotesDisplay()
+                }
+            },
             onOpenFolder = { folderId ->
                 currentNotesFolderId = folderId
                 refreshNotesDisplay()

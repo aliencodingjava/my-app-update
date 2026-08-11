@@ -15,6 +15,8 @@ object NotesPagePrefs {
     const val KEY_PALETTE_ENABLED = "palette_enabled"
     const val KEY_PALETTE_ID = "palette_id"
     const val KEY_SYNC_ONLINE = "sync_online"
+    const val KEY_FOLDER_VIEW = "folder_view"
+    const val KEY_FOLDER_SORT = "folder_sort"
 
     // ✅ NEW: title vertical offset (in dp)
     const val KEY_TITLE_TOP_COMPACT = "title_top_compact"
