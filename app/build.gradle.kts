@@ -195,6 +195,8 @@ dependencies {
     implementation(libs.preference.ktx)
     implementation(libs.palette.ktx)
     implementation(libs.gridlayout)
+    implementation(libs.concurrent.futures)
+    implementation(libs.concurrent.futures.ktx)
     implementation(libs.work.runtime.ktx)
     implementation(libs.coordinatorlayout)
     implementation(libs.viewfinder.core)

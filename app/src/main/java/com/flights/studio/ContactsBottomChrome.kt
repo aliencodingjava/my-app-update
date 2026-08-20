@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -807,6 +808,7 @@ private fun ContactCountryRow(
     secondaryColor: Color,
     onClick: () -> Unit
 ) {
+    val locale = LocalConfiguration.current.locales[0]
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -832,7 +834,7 @@ private fun ContactCountryRow(
             )
         }
         Text(
-            text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(stat.count),
+            text = NumberFormat.getIntegerInstance(locale).format(stat.count),
             color = textColor,
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
         )
@@ -845,6 +847,7 @@ private fun ContactPhoneRow(
     textColor: Color,
     secondaryColor: Color
 ) {
+    val locale = LocalConfiguration.current.locales[0]
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -862,7 +865,7 @@ private fun ContactPhoneRow(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = entry.name.trim().take(1).uppercase(Locale.getDefault()).ifBlank { "#" },
+                text = entry.name.trim().take(1).uppercase(locale).ifBlank { "#" },
                 color = textColor,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
             )

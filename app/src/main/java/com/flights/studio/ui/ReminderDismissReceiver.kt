@@ -25,6 +25,7 @@ class ReminderDismissReceiver : BroadcastReceiver() {
         LocalBroadcastManager.getInstance(context)
             .sendBroadcast(
                 Intent(ACTION_BADGE_CHANGED)
+                    .setPackage(context.packageName)
                     .putExtra(EXTRA_BADGE_KEY, badgeKey)
             )
     }

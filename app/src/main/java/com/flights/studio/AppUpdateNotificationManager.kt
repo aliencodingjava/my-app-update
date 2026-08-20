@@ -74,7 +74,11 @@ object AppUpdateNotificationManager {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
 
-        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+        try {
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+        } catch (_: SecurityException) {
+            return
+        }
     }
 
     fun shouldNotify(context: Context, versionCode: Long): Boolean {

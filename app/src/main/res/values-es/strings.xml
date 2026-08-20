@@ -37,6 +37,7 @@
         <string name="attachment_title">Descargar adjuntos entrantes</string>
         <string name="attachment_summary_on">Descargas automáticas; Requiere verificación.</string>
         <string name="check_for_updates_title">Buscar actualizaciones</string>
+        <string name="open_chat">Abrir informe</string>
 
     <string name="feature_released">Función lanzada</string>
 
@@ -281,6 +282,7 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="All_contacts">todos los contactos</string>
     <string name="Import_contacts">importar contactos</string>
     <string name="contacts_bottom_notes">Notas</string>
+    <string name="chat_bottom_tab">Informe</string>
     <string name="new_contacts_count">Conteo de nuevos contactos</string>
     <string name="total_contacts">Contactos</string>
     <string name="make_a_call">Hacer una llamada</string>
@@ -411,6 +413,14 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="settings_changelog_title">Registro de cambios</string>
     <string name="settings_app_icon_title">Icono de la app</string>
     <string name="settings_app_icon_summary">Elige el icono que aparece en tu dispositivo.</string>
+    <string name="settings_liquid_glass_title">Liquid Glass</string>
+    <string name="settings_liquid_glass_summary">Ajusta las pestañas inferiores de transparente a tintado.</string>
+    <string name="liquid_glass_clear">Transparente</string>
+    <string name="liquid_glass_tinted">Tintado</string>
+    <string name="liquid_glass_preview_title">Liquid Glass</string>
+    <string name="liquid_glass_preview_summary">Desliza a la izquierda para más claridad o a la derecha para más tinte.</string>
+    <string name="settings_messages_storage_title">Almacenamiento del informe</string>
+    <string name="settings_messages_storage_summary">Abre herramientas de almacenamiento y caché del informe.</string>
     <string name="settings_language_title">Idioma</string>
     <string name="settings_language_summary">Elige el idioma usado por las pantallas compatibles.</string>
     <string name="settings_language_picker_title">Elegir idioma</string>
@@ -418,6 +428,8 @@ Escanea códigos QR, comparte momentos y vive una experiencia fluida.
     <string name="settings_language_spanish">Español</string>
     <string name="settings_camera_glow_title">Brillo de cámara</string>
     <string name="settings_camera_glow_summary">Muestra el brillo animado alrededor de la acción de cámara.</string>
+    <string name="settings_briefing_weather_title">Clima del informe</string>
+    <string name="settings_briefing_weather_summary">Muestra condición, temperatura y animaciones del clima en el informe AI.</string>
     <string name="settings_main_page_keep_awake_title">Pantalla principal siempre activa</string>
     <string name="settings_main_page_keep_awake_summary">Evita que la pantalla se apague en la página principal de cámaras.</string>
     <string name="settings_live_cameras_keep_awake_title">Cámaras en vivo siempre activas</string>

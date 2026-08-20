@@ -94,6 +94,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -968,7 +969,8 @@ private fun EditNoteStyledTodoTemplate(
 ) {
     val scheme = MaterialTheme.colorScheme
     val taskFocusScope = rememberCoroutineScope()
-    val accent = when (template.badge.lowercase(Locale.getDefault())) {
+    val locale = LocalConfiguration.current.locales[0]
+    val accent = when (template.badge.lowercase(locale)) {
         "focus" -> scheme.tertiary
         "create" -> scheme.primary
         "daily" -> scheme.primary
@@ -1010,14 +1012,14 @@ private fun EditNoteStyledTodoTemplate(
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = template.title.uppercase(Locale.getDefault()),
+                    text = template.title.uppercase(locale),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Black),
                     color = scheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${template.badge.uppercase(Locale.getDefault())} · ${template.subtitle}",
+                    text = "${template.badge.uppercase(locale)} · ${template.subtitle}",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = scheme.onSurfaceVariant,
                     maxLines = 2,
@@ -1057,7 +1059,7 @@ private fun EditNoteStyledTodoTemplate(
                             }
                         }
                         Text(
-                            text = section.title.uppercase(Locale.getDefault()),
+                            text = section.title.uppercase(locale),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
                             color = sectionAccent,
                             maxLines = 1,

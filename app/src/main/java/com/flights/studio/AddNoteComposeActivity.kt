@@ -4284,17 +4284,17 @@ private fun AddNoteScreen(
                 .background(pageBg)
         ) {
             val isDark = isSystemInDarkTheme()
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .layerBackdrop(noteToolsBackdrop)
+            ) {
                 Box(
                     Modifier
                         .matchParentSize()
-                        .layerBackdrop(noteToolsBackdrop)
+                        .blur(addNoteContentBlurDp.dp)
+                        .layerBackdrop(pageBackdrop)
                 ) {
-                    Box(
-                        Modifier
-                            .matchParentSize()
-                            .blur(addNoteContentBlurDp.dp)
-                            .layerBackdrop(pageBackdrop)
-                    ) {
                     ProfileBackdropImageLayer(
                         modifier = Modifier.matchParentSize(),
                         lightRes = R.drawable.light_grid_pattern,
