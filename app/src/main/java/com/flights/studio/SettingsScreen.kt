@@ -75,6 +75,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -565,7 +566,7 @@ fun SettingsScreen(
         if (systemDark) DarkFlightTheme else LightFlightTheme
     }
     val pageColor by animateColorAsState(
-        if (systemDark) Color(0xFF101114) else Color(0xFFF8F9FB),
+        if (systemDark) Color(0xFF0E1118) else Color(0xFFFCFCFD),
         label = "webSettingsPage"
     )
 
@@ -577,21 +578,6 @@ fun SettingsScreen(
         val tablet = maxWidth >= 700.dp
         val horizontalPadding = if (tablet) 34.dp else 0.dp
         val contentWidth = if (tablet) 980.dp else Dp.Unspecified
-
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .layerBackdrop(settingsBackdrop)
-        ) {
-            ProfileBackdropImageLayer(
-                modifier = Modifier.matchParentSize(),
-                lightRes = R.drawable.light_grid_pattern,
-                darkRes = R.drawable.dark_grid_pattern,
-                imageAlpha = if (systemDark) 0.95f else 0.70f,
-                scrimDark = 0.12f,
-                scrimLight = 0.03f
-            )
-        }
 
         Column(
             modifier = Modifier
@@ -610,61 +596,13 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .widthIn(max = contentWidth)
             ) {
-                SectionCard(
-                    title = "Themed Appearance",
-                    subtitle = "Light, Mint, Sky, Ocean, Violet, Rose, Amber, Gray, Dark, Auto System.",
-                    icon = Icons.Default.Palette,
-                    theme = resolvedTheme,
-                    backdrop = settingsBackdrop,
-                    tablet = tablet,
-                    trailing = {
-                        WebSettingsGlassActionButton(
-                            backdrop = settingsBackdrop,
-                            theme = resolvedTheme,
-                            icon = Icons.Default.Cached,
-                            text = "Reset",
-                            onClick = {
-                                selectedTheme = SettingsStore.DEFAULT_WEB_THEME
-                                textZoom = SettingsStore.DEFAULT_TEXT_ZOOM
-                                groupFlights = false
-                                highContrastWeb = false
-                                hwAccel = true
-                                blockTrackers = true
-                                cachePages = true
-                                reduceWebMotion = false
-                                aiPerformance = false
-                                SettingsStore.setWebTheme(context, selectedTheme)
-                                SettingsStore.setTextZoom(context, textZoom)
-                                SettingsStore.setGroupFlights(context, groupFlights)
-                                SettingsStore.setHighContrastWeb(context, highContrastWeb)
-                                SettingsStore.setHardwareAccel(context, hwAccel)
-                                SettingsStore.setBlockTrackers(context, blockTrackers)
-                                SettingsStore.setCachePages(context, cachePages)
-                                SettingsStore.setReduceWebMotion(context, reduceWebMotion)
-                                SettingsStore.setAiPerformance(context, aiPerformance)
-                                markSaved()
-                            }
-                        )
-                    }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(horizontal = if (tablet) 0.dp else 8.dp)
                 ) {
-                    ThemeChooser(
-                        selectedTheme = selectedTheme,
-                        systemDark = systemDark,
-                        tablet = tablet,
-                        onSelect = {
-                            selectedTheme = it
-                            SettingsStore.setWebTheme(context, it)
-                            markSaved()
-                        }
-                    )
-
-                    Spacer(Modifier.height(10.dp))
-
-                    OneUiTextSizePanel(
+                    CompactWebTextSizeCard(
                         value = textZoom,
-                        theme = resolvedTheme,
-                        backdrop = settingsBackdrop,
-                        mutedColor = resolvedTheme.muted,
+                        theme = uiTheme,
                         onValueChange = {
                             val next = it.coerceIn(60, 100)
                             textZoom = next
@@ -672,261 +610,772 @@ fun SettingsScreen(
                             markSaved()
                         }
                     )
-
-                    Spacer(Modifier.height(10.dp))
-
-                    FlightRowsPreview(
-                        theme = resolvedTheme,
-                        groupedFlights = groupFlights,
-                        textScale = textZoom,
-                        highContrast = highContrastWeb
+                    CompactFlightTextPreviewCard(
+                        textZoom = textZoom,
+                        theme = uiTheme
                     )
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                SectionCard(
-                    title = "Table & Display",
-                    subtitle = null,
-                    icon = Icons.Default.GridView,
-                    theme = uiTheme,
-                    backdrop = settingsBackdrop,
-                    tablet = tablet
-                ) {
-                    val tableItems: @Composable ColumnScope.() -> Unit = {
-                        SettingToggleCard(
-                            title = "Grouped flights table beta",
-                            subtitle = "Groups Delta, United, American, Alaska, and each airline by time.",
-                            icon = Icons.Default.ViewAgenda,
-                            checked = groupFlights,
-                            theme = uiTheme,
-                            backdrop = settingsBackdrop,
-                            onChange = {
-                                groupFlights = it
-                                SettingsStore.setGroupFlights(context, it)
-                                markSaved()
+                    CompactAiPerformanceCard(
+                        checked = aiPerformance,
+                        theme = uiTheme,
+                        onChange = {
+                            aiPerformance = it
+                            SettingsStore.setAiPerformance(context, it)
+                            if (it) {
+                                hwAccel = true
+                                blockTrackers = true
+                                cachePages = true
+                                reduceWebMotion = false
+                                textZoom = textZoom.coerceAtLeast(95)
+                                SettingsStore.setHardwareAccel(context, true)
+                                SettingsStore.setBlockTrackers(context, true)
+                                SettingsStore.setCachePages(context, true)
+                                SettingsStore.setReduceWebMotion(context, false)
+                                SettingsStore.setTextZoom(context, textZoom)
                             }
-                        )
-                        if (!tablet) Spacer(Modifier.height(6.dp))
-                        SettingToggleCard(
-                            title = "High contrast table beta",
-                            subtitle = "Black, white, and grayscale flight rows.",
-                            icon = Icons.Default.Contrast,
-                            checked = highContrastWeb,
-                            theme = uiTheme,
-                            backdrop = settingsBackdrop,
-                            onChange = {
-                                highContrastWeb = it
-                                SettingsStore.setHighContrastWeb(context, it)
-                                markSaved()
-                            }
-                        )
-                    }
-                    if (tablet) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Box(Modifier.weight(1f)) {
-                                    SettingToggleCard(
-                                        title = "Grouped flights table beta",
-                                        subtitle = "Groups airlines together and sorts each group by time.",
-                                        icon = Icons.Default.ViewAgenda,
-                                        checked = groupFlights,
-                                        theme = uiTheme,
-                                        backdrop = settingsBackdrop,
-                                        onChange = {
-                                            groupFlights = it
-                                            SettingsStore.setGroupFlights(context, it)
-                                            markSaved()
-                                        }
-                                    )
-                                }
-                                Box(Modifier.weight(1f)) {
-                                    SettingToggleCard(
-                                        title = "High contrast table beta",
-                                        subtitle = "Black, white, and grayscale flight rows.",
-                                        icon = Icons.Default.Contrast,
-                                        checked = highContrastWeb,
-                                        theme = uiTheme,
-                                        backdrop = settingsBackdrop,
-                                        onChange = {
-                                            highContrastWeb = it
-                                            SettingsStore.setHighContrastWeb(context, it)
-                                            markSaved()
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        Column { tableItems() }
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                SectionCard(
-                    title = "Performance",
-                    subtitle = null,
-                    icon = Icons.Default.Speed,
-                    theme = uiTheme,
-                    backdrop = settingsBackdrop,
-                    tablet = tablet
-                ) {
-                    val performanceCards = listOf<@Composable () -> Unit>(
-                        {
-                            SettingToggleCard(
-                                title = "Hardware acceleration",
-                                subtitle = "Keeps scrolling and table animations smoother.",
-                                icon = Icons.Default.Memory,
-                                checked = hwAccel,
-                                theme = uiTheme,
-                                backdrop = settingsBackdrop,
-                                onChange = {
-                                    hwAccel = it
-                                    SettingsStore.setHardwareAccel(context, it)
-                                    markSaved()
-                                }
-                            )
-                        },
-                        {
-                            SettingToggleCard(
-                                title = "Block ads and trackers",
-                                subtitle = "Reduces noisy web requests while pages load.",
-                                icon = Icons.Default.Security,
-                                checked = blockTrackers,
-                                theme = uiTheme,
-                                backdrop = settingsBackdrop,
-                                onChange = {
-                                    blockTrackers = it
-                                    SettingsStore.setBlockTrackers(context, it)
-                                    markSaved()
-                                }
-                            )
-                        },
-                        {
-                            SettingToggleCard(
-                                title = "Cache web pages",
-                                subtitle = "Keeps recently opened airport pages faster.",
-                                icon = Icons.Default.Storage,
-                                checked = cachePages,
-                                theme = uiTheme,
-                                backdrop = settingsBackdrop,
-                                onChange = {
-                                    cachePages = it
-                                    SettingsStore.setCachePages(context, it)
-                                    markSaved()
-                                }
-                            )
-                        },
-                        {
-                            SettingToggleCard(
-                                title = "Enhanced motion",
-                                subtitle = "Uses softer animated page transitions.",
-                                icon = Icons.Default.Waves,
-                                checked = !reduceWebMotion,
-                                theme = uiTheme,
-                                backdrop = settingsBackdrop,
-                                onChange = {
-                                    reduceWebMotion = !it
-                                    SettingsStore.setReduceWebMotion(context, reduceWebMotion)
-                                    markSaved()
-                                }
-                            )
-                        },
-                        {
-                            SettingToggleCard(
-                                title = "AI performance",
-                                subtitle = "Boosts hardware, text clarity, caching, and motion for AI-assisted views.",
-                                icon = Icons.Default.Speed,
-                                checked = aiPerformance,
-                                theme = uiTheme,
-                                backdrop = settingsBackdrop,
-                                onChange = {
-                                    aiPerformance = it
-                                    SettingsStore.setAiPerformance(context, it)
-                                    if (it) {
-                                        hwAccel = true
-                                        cachePages = true
-                                        reduceWebMotion = false
-                                        textZoom = textZoom.coerceAtLeast(95)
-                                        SettingsStore.setHardwareAccel(context, true)
-                                        SettingsStore.setCachePages(context, true)
-                                        SettingsStore.setReduceWebMotion(context, false)
-                                        SettingsStore.setTextZoom(context, textZoom)
-                                    }
-                                    markSaved()
-                                }
-                            )
+                            markSaved()
                         }
                     )
-                    if (tablet) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            performanceCards.chunked(2).forEach { rowItems ->
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    rowItems.forEach { item ->
-                                        Box(Modifier.weight(1f)) { item() }
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            performanceCards.forEach { it() }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                SectionCard(
-                    title = "WebView Storage",
-                    subtitle = null,
-                    icon = Icons.Default.Storage,
-                    theme = uiTheme,
-                    backdrop = settingsBackdrop,
-                    tablet = tablet
-                ) {
-                    StorageUsagePanel(
-                        stats = storageStats,
+                    CompactWebPerformanceCard(
+                        hardwareAcceleration = hwAccel || aiPerformance,
+                        blockTrackers = blockTrackers || aiPerformance,
+                        cachePages = cachePages || aiPerformance,
+                        enhancedMotion = !reduceWebMotion,
                         theme = uiTheme,
                         tablet = tablet,
-                        backdrop = settingsBackdrop,
+                        onHardwareAccelerationChange = {
+                            hwAccel = it
+                            SettingsStore.setHardwareAccel(context, it)
+                            markSaved()
+                        },
+                        onBlockTrackersChange = {
+                            blockTrackers = it
+                            SettingsStore.setBlockTrackers(context, it)
+                            markSaved()
+                        },
+                        onCachePagesChange = {
+                            cachePages = it
+                            SettingsStore.setCachePages(context, it)
+                            markSaved()
+                        },
+                        onEnhancedMotionChange = {
+                            reduceWebMotion = !it
+                            SettingsStore.setReduceWebMotion(context, reduceWebMotion)
+                            markSaved()
+                        }
+                    )
+                    CompactWebCacheCard(
+                        stats = storageStats,
+                        theme = uiTheme,
                         onClear = {
                             WebView(context).apply {
                                 clearCache(true)
                                 destroy()
                             }
-
                             CookieManager.getInstance().apply {
                                 removeAllCookies(null)
                                 flush()
                             }
-
                             WebStorage.getInstance().deleteAllData()
                             context.deleteDatabase("webview.db")
                             context.deleteDatabase("webviewCache.db")
-
                             listOf(
                                 File(context.cacheDir, "WebView"),
                                 File(context.applicationInfo.dataDir, "app_webview")
                             ).forEach { file ->
                                 if (file.exists()) file.deleteRecursively()
                             }
-
                             storageStats = getWebStorageStats(context)
                             markSaved()
                         }
                     )
                 }
 
-                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+}
 
-                SaveConfirmation(
-                    visible = showSaved,
-                    theme = uiTheme
+@Composable
+private fun CompactAiPerformanceCard(
+    checked: Boolean,
+    theme: FlightThemeSpec,
+    onChange: (Boolean) -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(20.dp)
+    val surface = if (isDark) Color(0xFF202734) else Color(0xFFFCFCFD)
+    val inner = if (isDark) Color(0xFF2A3442) else Color(0xFFF0F2F7)
+    val text = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D)
+    val muted = if (isDark) Color(0xFFC2CBDA) else Color(0xFF667498)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = if (isDark) 2.dp else 4.dp, shape = shape, clip = false)
+            .clip(shape)
+            .background(surface)
+            .clickable { onChange(!checked) }
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (checked) theme.accent.copy(alpha = if (isDark) 0.28f else 0.15f) else inner),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Speed,
+                contentDescription = null,
+                tint = if (checked) theme.accent else muted,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                text = "AI performance",
+                color = text,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 18.sp,
+                lineHeight = 21.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (checked) {
+                    "Active: GPU, cache, tracker blocking, and lighter web runtime"
+                } else {
+                    "Keeps the normal look until you turn on the faster web runtime"
+                },
+                color = muted,
+                fontWeight = FontWeight.Normal,
+                fontSize = 12.sp,
+                lineHeight = 15.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        CompactSettingsSwitch(checked = checked, accent = theme.accent)
+    }
+}
+
+@Composable
+private fun CompactWebPerformanceCard(
+    hardwareAcceleration: Boolean,
+    blockTrackers: Boolean,
+    cachePages: Boolean,
+    enhancedMotion: Boolean,
+    theme: FlightThemeSpec,
+    tablet: Boolean,
+    onHardwareAccelerationChange: (Boolean) -> Unit,
+    onBlockTrackersChange: (Boolean) -> Unit,
+    onCachePagesChange: (Boolean) -> Unit,
+    onEnhancedMotionChange: (Boolean) -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(20.dp)
+    val surface = if (isDark) Color(0xFF202734) else Color(0xFFFCFCFD)
+    val text = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D)
+    val muted = if (isDark) Color(0xFFC2CBDA) else Color(0xFF667498)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = if (isDark) 2.dp else 4.dp, shape = shape, clip = false)
+            .clip(shape)
+            .background(surface)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = "Web performance",
+            color = text,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 17.sp,
+            lineHeight = 20.sp
+        )
+        if (tablet) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompactPerformanceToggle(
+                    title = "Hardware acceleration",
+                    subtitle = "Use GPU rendering",
+                    icon = Icons.Filled.Memory,
+                    checked = hardwareAcceleration,
+                    accent = theme.accent,
+                    text = text,
+                    muted = muted,
+                    modifier = Modifier.weight(1f),
+                    onChange = onHardwareAccelerationChange
+                )
+                CompactPerformanceToggle(
+                    title = "Block ads and trackers",
+                    subtitle = "Cleaner, lighter pages",
+                    icon = Icons.Filled.Security,
+                    checked = blockTrackers,
+                    accent = theme.accent,
+                    text = text,
+                    muted = muted,
+                    modifier = Modifier.weight(1f),
+                    onChange = onBlockTrackersChange
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompactPerformanceToggle(
+                    title = "Cache web pages",
+                    subtitle = "Load repeat visits faster",
+                    icon = Icons.Filled.Cached,
+                    checked = cachePages,
+                    accent = theme.accent,
+                    text = text,
+                    muted = muted,
+                    modifier = Modifier.weight(1f),
+                    onChange = onCachePagesChange
+                )
+                CompactPerformanceToggle(
+                    title = "Enhanced motion",
+                    subtitle = "Keep page animation smooth",
+                    icon = Icons.Filled.Waves,
+                    checked = enhancedMotion,
+                    accent = theme.accent,
+                    text = text,
+                    muted = muted,
+                    modifier = Modifier.weight(1f),
+                    onChange = onEnhancedMotionChange
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CompactPerformanceToggle(
+                    title = "Hardware acceleration",
+                    subtitle = "Use GPU rendering",
+                    icon = Icons.Filled.Memory,
+                    checked = hardwareAcceleration,
+                    accent = theme.accent,
+                    text = text,
+                    muted = muted,
+                    modifier = Modifier.fillMaxWidth(),
+                    onChange = onHardwareAccelerationChange
+                )
+                CompactPerformanceToggle(
+                    title = "Block ads and trackers",
+                    subtitle = "Cleaner, lighter pages",
+                    icon = Icons.Filled.Security,
+                    checked = blockTrackers,
+                    accent = theme.accent,
+                    text = text,
+                    muted = muted,
+                    modifier = Modifier.fillMaxWidth(),
+                    onChange = onBlockTrackersChange
+                )
+                CompactPerformanceToggle(
+                    title = "Cache web pages",
+                    subtitle = "Load repeat visits faster",
+                    icon = Icons.Filled.Cached,
+                    checked = cachePages,
+                    accent = theme.accent,
+                    text = text,
+                    muted = muted,
+                    modifier = Modifier.fillMaxWidth(),
+                    onChange = onCachePagesChange
+                )
+                CompactPerformanceToggle(
+                    title = "Enhanced motion",
+                    subtitle = "Keep page animation smooth",
+                    icon = Icons.Filled.Waves,
+                    checked = enhancedMotion,
+                    accent = theme.accent,
+                    text = text,
+                    muted = muted,
+                    modifier = Modifier.fillMaxWidth(),
+                    onChange = onEnhancedMotionChange
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CompactPerformanceToggle(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    checked: Boolean,
+    accent: Color,
+    text: Color,
+    muted: Color,
+    modifier: Modifier = Modifier,
+    onChange: (Boolean) -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(if (isDark) Color(0xFF252E3B) else Color(0xFFF5F7FA))
+            .clickable { onChange(!checked) }
+            .padding(horizontal = 11.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (checked) accent.copy(alpha = if (isDark) 0.24f else 0.13f) else muted.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (checked) accent else muted,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = title,
+                color = text,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.5.sp,
+                lineHeight = 16.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = subtitle,
+                color = muted,
+                fontWeight = FontWeight.Normal,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        CompactSettingsSwitch(checked = checked, accent = accent)
+    }
+}
+
+@Composable
+private fun CompactWebCacheCard(
+    stats: WebStorageStats,
+    theme: FlightThemeSpec,
+    onClear: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(20.dp)
+    val surface = if (isDark) Color(0xFF202734) else Color(0xFFFCFCFD)
+    val inner = if (isDark) Color(0xFF252E3B) else Color(0xFFF5F7FA)
+    val text = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D)
+    val muted = if (isDark) Color(0xFFC2CBDA) else Color(0xFF667498)
+    val safeTotal = if (stats.total <= 0f) 1f else stats.total
+    val httpRatio = (stats.httpCache / safeTotal).coerceAtLeast(0.015f)
+    val cookieRatio = (stats.cookies / safeTotal).coerceAtLeast(0.015f)
+    val dbRatio = (stats.webDb / safeTotal).coerceAtLeast(0.015f)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = if (isDark) 2.dp else 4.dp, shape = shape, clip = false)
+            .clip(shape)
+            .background(surface)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(inner),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Storage, contentDescription = null, tint = theme.accent, modifier = Modifier.size(20.dp))
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Clean web cache",
+                    color = text,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 17.sp,
+                    lineHeight = 20.sp
+                )
+                Text(
+                    text = String.format(LocalLocale.current.platformLocale, "%.1f MB used", stats.total),
+                    color = muted,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (isDark) Color(0xFF303B4B) else Color(0xFFF0F2F7))
+                    .clickable(onClick = onClear)
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(Icons.Filled.Delete, contentDescription = null, tint = text, modifier = Modifier.size(15.dp))
+                Text(
+                    text = "Clear",
+                    color = text,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    lineHeight = 13.sp
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(muted.copy(alpha = 0.16f))
+        ) {
+            Box(Modifier.fillMaxHeight().weight(httpRatio).background(theme.accent.copy(alpha = 0.88f)))
+            Box(Modifier.fillMaxHeight().weight(cookieRatio).background(Color(0xFFFFB47A)))
+            Box(Modifier.fillMaxHeight().weight(dbRatio).background(Color(0xFF8EA0BD)))
+            Box(Modifier.fillMaxHeight().weight(1f).background(Color.Transparent))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CompactStorageMetric("HTTP", stats.httpCache, text, muted, Modifier.weight(1f))
+            CompactStorageMetric("Cookies", stats.cookies, text, muted, Modifier.weight(1f))
+            CompactStorageMetric("Other", stats.webDb, text, muted, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun CompactStorageMetric(
+    label: String,
+    value: Float,
+    text: Color,
+    muted: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = label,
+            color = muted,
+            fontWeight = FontWeight.Normal,
+            fontSize = 10.5.sp,
+            lineHeight = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = String.format(LocalLocale.current.platformLocale, "%.1f MB", value),
+            color = text,
+            fontWeight = FontWeight.Medium,
+            fontSize = 12.sp,
+            lineHeight = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun CompactSettingsSwitch(
+    checked: Boolean,
+    accent: Color
+) {
+    val isDark = isSystemInDarkTheme()
+    val track = if (checked) {
+        accent
+    } else if (isDark) {
+        Color(0xFF3B4657)
+    } else {
+        Color(0xFFDDE3EC)
+    }
+    val thumbOffset by animateDpAsState(if (checked) 18.dp else 2.dp, label = "compactSettingsSwitch")
+    Box(
+        modifier = Modifier
+            .width(42.dp)
+            .height(24.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(track.copy(alpha = if (checked) 0.92f else 1f)),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+        )
+    }
+}
+
+@Composable
+private fun CompactWebTextSizeCard(
+    value: Int,
+    theme: FlightThemeSpec,
+    onValueChange: (Int) -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(18.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = if (isDark) 2.dp else 4.dp, shape = shape, clip = false)
+            .clip(shape)
+            .background(if (isDark) Color(0xFF202734) else Color(0xFFFCFCFD))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .shadow(elevation = if (isDark) 1.dp else 3.dp, shape = RoundedCornerShape(12.dp), clip = false)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isDark) Color(0xFF2A3442) else Color(0xFFF0F2F7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.TextFields,
+                    contentDescription = null,
+                    tint = if (isDark) Color.White.copy(alpha = 0.88f) else Color(0xFF13294D),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "Text size",
+                    color = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    lineHeight = 21.sp
+                )
+                Text(
+                    "Flight table scale",
+                    color = if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp
+                )
+            }
+            AnimatedContent(value, label = "compactTextZoomValue") { current ->
+                Text(
+                    text = "$current%",
+                    color = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 20.sp,
+                    lineHeight = 22.sp
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("60", color = if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Slider(
+                value = value.toFloat(),
+                onValueChange = { onValueChange(it.roundToInt().coerceIn(60, 100)) },
+                valueRange = 60f..100f,
+                steps = 39,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp)
+            )
+            Text("100", color = if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun CompactFlightTextPreviewCard(
+    textZoom: Int,
+    theme: FlightThemeSpec
+) {
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(18.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = if (isDark) 2.dp else 4.dp, shape = shape, clip = false)
+            .clip(shape)
+            .background(if (isDark) Color(0xFF202734) else Color(0xFFFCFCFD))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "Preview",
+                    color = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    lineHeight = 21.sp
+                )
+                Text(
+                    "Current flight text scale",
+                    color = if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp
+                )
+            }
+            Text(
+                text = "${textZoom.coerceIn(60, 100)}%",
+                color = if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498),
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (isDark) Color(0xFF2A3442) else Color(0xFFF0F2F7))
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            CompactFlightPreviewRow(
+                airline = "United",
+                flight = "2472",
+                route = "San Francisco to JAC",
+                sched = "4:39pm",
+                est = "4:22pm",
+                gate = "U2",
+                textZoom = textZoom,
+                theme = theme
+            )
+            CompactFlightPreviewRow(
+                airline = "Delta",
+                flight = "417",
+                route = "Salt Lake City to JAC",
+                sched = "4:57pm",
+                est = "4:35pm",
+                gate = "D4",
+                textZoom = textZoom,
+                theme = theme
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactFlightPreviewRow(
+    airline: String,
+    flight: String,
+    route: String,
+    sched: String,
+    est: String,
+    gate: String,
+    textZoom: Int,
+    theme: FlightThemeSpec
+) {
+    val isDark = isSystemInDarkTheme()
+    val textScale = previewFlightTextScale(textZoom)
+    val rowShape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = if (isDark) 1.dp else 3.dp, shape = rowShape, clip = false)
+            .clip(rowShape)
+            .background(if (isDark) Color(0xFF252E3B) else Color(0xFFFCFCFD))
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .shadow(elevation = if (isDark) 1.dp else 3.dp, shape = RoundedCornerShape(12.dp), clip = false)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (isDark) Color(0xFF303B4B) else Color(0xFFF0F2F7)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = gate,
+                color = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = previewFlightScaledSp(12f, 15f, textScale),
+                lineHeight = previewFlightScaledSp(13f, 16f, textScale),
+                maxLines = 1
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(
+                text = "$airline $flight",
+                color = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = previewFlightScaledSp(13f, 16f, textScale),
+                lineHeight = previewFlightScaledSp(15f, 18f, textScale),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = route,
+                color = if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = previewFlightScaledSp(11f, 13f, textScale),
+                lineHeight = previewFlightScaledSp(13f, 15f, textScale),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CompactPreviewTime("Sched", sched, textZoom)
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(26.dp)
+                        .background((if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498)).copy(alpha = 0.20f))
+                )
+                CompactPreviewTime("Est.", est, textZoom)
+            }
+        }
+        Text(
+            text = "Arrived",
+            color = if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498),
+            fontWeight = FontWeight.Medium,
+            fontSize = previewFlightScaledSp(10f, 12f, textScale),
+            lineHeight = previewFlightScaledSp(11f, 13f, textScale),
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(if (isDark) Color(0xFF303B4B) else Color(0xFFF0F2F7))
+                .padding(horizontal = 8.dp, vertical = 5.dp)
+        )
+    }
+}
+
+@Composable
+private fun CompactPreviewTime(
+    label: String,
+    value: String,
+    textZoom: Int
+) {
+    val isDark = isSystemInDarkTheme()
+    val textScale = previewFlightTextScale(textZoom)
+    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(
+            text = value,
+            color = if (isDark) Color.White.copy(alpha = 0.96f) else Color(0xFF13294D),
+            fontWeight = FontWeight.Medium,
+            fontSize = previewFlightScaledSp(11f, 14f, textScale),
+            lineHeight = previewFlightScaledSp(13f, 16f, textScale)
+        )
+        Text(
+            text = label,
+            color = if (isDark) Color(0xFFAAB3C5) else Color(0xFF667498),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = previewFlightScaledSp(9f, 11f, textScale),
+            lineHeight = previewFlightScaledSp(10f, 12f, textScale)
+        )
     }
 }
 
