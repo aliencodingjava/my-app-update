@@ -14,7 +14,6 @@ class JHAirTracker : Application() {
         AppIconManager.repairLauncherAliases(this)
         AppUpdateNotificationManager.createChannels(this)
         AppUpdateCheckWorker.schedule(this)
-        AppUpdater.cleanupUpdateApks(this)
         FirebaseMessaging.getInstance().subscribeToTopic("app_updates")
     }
 }

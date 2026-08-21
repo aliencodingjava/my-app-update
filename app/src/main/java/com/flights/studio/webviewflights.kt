@@ -6157,6 +6157,14 @@ private fun FlightUpcomingFlightsSection(
     textScale: Float,
     highContrast: Boolean
 ) {
+    val activeItems = remember(items) {
+        items.filterNot { it.tone.equals("arrived", ignoreCase = true) }
+    }
+    val arrivedItems = remember(items) {
+        items.filter { it.tone.equals("arrived", ignoreCase = true) }
+    }
+    val firstArrived = arrivedItems.firstOrNull()
+    val extraArrived = arrivedItems.drop(1)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier
@@ -6187,7 +6195,7 @@ private fun FlightUpcomingFlightsSection(
                 maxLines = 1
             )
         }
-        if (items.isEmpty()) {
+        if (activeItems.isEmpty() && arrivedItems.isEmpty()) {
             FlightNoLiveStatusCard(
                 textColor = textColor,
                 mutedColor = mutedColor,
@@ -6195,7 +6203,7 @@ private fun FlightUpcomingFlightsSection(
                 textScale = textScale
             )
         } else {
-            items.forEach { item ->
+            activeItems.forEach { item ->
                 FlightUpcomingFlightCard(
                     item = item,
                     textColor = textColor,
@@ -6206,6 +6214,194 @@ private fun FlightUpcomingFlightsSection(
                 )
             }
         }
+
+        FlightAlertsPillDivider(
+            label = "Arrived",
+            accent = FlightArrivalCountAccent,
+            mutedColor = mutedColor,
+            textScale = textScale
+        )
+
+        AnimatedContent(
+            targetState = firstArrived,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing))
+                    .togetherWith(fadeOut(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)))
+                    .using(SizeTransform(clip = false))
+            },
+            label = "alertsArrivedPlaceholderSwap"
+        ) { arrived ->
+            if (arrived == null) {
+                FlightArrivedPlaceholderCard(
+                    textColor = textColor,
+                    mutedColor = mutedColor,
+                    surface = surface,
+                    textScale = textScale,
+                    highContrast = highContrast
+                )
+            } else {
+                FlightUpcomingFlightCard(
+                    item = arrived,
+                    textColor = textColor,
+                    mutedColor = mutedColor,
+                    surface = surface,
+                    textScale = textScale,
+                    highContrast = highContrast
+                )
+            }
+        }
+
+        extraArrived.forEach { item ->
+            FlightUpcomingFlightCard(
+                item = item,
+                textColor = textColor,
+                mutedColor = mutedColor,
+                surface = surface,
+                textScale = textScale,
+                highContrast = highContrast
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlightAlertsPillDivider(
+    label: String,
+    accent: Color,
+    mutedColor: Color,
+    textScale: Float,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val lineColor = if (isDark) accent.copy(alpha = 0.42f) else accent.copy(alpha = 0.24f)
+    val pillBg = if (isDark) {
+        accent.copy(alpha = 0.13f).compositeOver(Color(0xFF101621))
+    } else {
+        accent.copy(alpha = 0.08f).compositeOver(Color.White)
+    }
+    val pillBorder = accent.copy(alpha = if (isDark) 0.28f else 0.18f)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.5.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(lineColor)
+        )
+        Text(
+            text = label,
+            color = if (isDark) accent.copy(alpha = 0.92f) else accent,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Black,
+                fontSize = (10.5f * textScale).sp,
+                lineHeight = (12f * textScale).sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(pillBg)
+                .border(1.dp, pillBorder, RoundedCornerShape(999.dp))
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+        )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.5.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(lineColor)
+        )
+    }
+}
+
+@Composable
+private fun FlightArrivedPlaceholderCard(
+    textColor: Color,
+    mutedColor: Color,
+    surface: Color,
+    textScale: Float,
+    highContrast: Boolean
+) {
+    val isDark = isSystemInDarkTheme()
+    val shape = RoundedCornerShape(22.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = if (isDark) 2.dp else 4.dp, shape = shape, clip = false)
+            .clip(shape)
+            .background(
+                when {
+                    highContrast -> surface
+                    isDark -> Color(0xFF202734)
+                    else -> Color(0xFFFCFCFD)
+                }
+            )
+            .graphicsLayer { alpha = if (isDark) 0.92f else 0.74f }
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(50.dp)
+                .shadow(elevation = if (isDark) 2.dp else 4.dp, shape = RoundedCornerShape(14.dp), clip = false)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (isDark) Color(0xFF2A3442) else Color(0xFFF0F2F7)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Flight,
+                contentDescription = null,
+                tint = mutedColor.copy(alpha = if (isDark) 0.72f else 0.58f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(
+                text = "Waiting for arrivals",
+                color = textColor.copy(alpha = if (isDark) 0.86f else 0.70f),
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.Black,
+                    fontSize = (13.5f * textScale).sp,
+                    lineHeight = (15.5f * textScale).sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            FlightSkeletonBone(
+                modifier = Modifier
+                    .fillMaxWidth(0.72f)
+                    .height(11.dp),
+                color = mutedColor,
+                alpha = if (isDark) 0.30f else 0.18f,
+                shape = RoundedCornerShape(999.dp)
+            )
+            Text(
+                text = "Arrived flights will appear here",
+                color = mutedColor.copy(alpha = if (isDark) 0.78f else 0.64f),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = (10.2f * textScale).sp,
+                    lineHeight = (11.5f * textScale).sp
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        FlightAlertStatusPill(
+            text = "Waiting",
+            textColor = textColor,
+            mutedColor = mutedColor,
+            textScale = textScale
+        )
     }
 }
 

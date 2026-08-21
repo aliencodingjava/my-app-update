@@ -22,7 +22,8 @@ data class DownloadProgress(
     val percent: Int,
     val downloadedMb: Double,
     val speedMbPerSec: Double,
-    val timeLeftText: String
+    val timeLeftText: String,
+    val totalMb: Double = 0.0
 )
 
 object AppUpdater {
@@ -62,6 +63,7 @@ object AppUpdater {
             connection.disconnect()
             throw IOException("Invalid file length")
         }
+        val totalMb = fileLength / 1024.0 / 1024.0
 
         val apkFile = createPrivateUpdateFile(context)
 
@@ -89,7 +91,8 @@ object AppUpdater {
                             percent = percent,
                             downloadedMb = downloadedMb,
                             speedMbPerSec = speedMbPerSec,
-                            timeLeftText = timeLeft
+                            timeLeftText = timeLeft,
+                            totalMb = totalMb
                         )
                     )
                 }
@@ -100,8 +103,38 @@ object AppUpdater {
         uriForPrivateUpdate(context, apkFile)
     }
 
+    fun fetchApkSizeBytes(apkUrl: String): Long? {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = (URL(apkUrl).openConnection() as HttpURLConnection).apply {
+                requestMethod = "HEAD"
+                connectTimeout = 10_000
+                readTimeout = 10_000
+                instanceFollowRedirects = true
+                connect()
+            }
+
+            connection.contentLengthLong.takeIf { it > 0L }
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
     fun cleanupUpdateApks(context: Context) {
         updateApkDir(context).deleteRecursively()
+    }
+
+    fun savedUpdateUri(context: Context): Uri? {
+        val file = savedUpdateFile(context)
+        if (!file.exists() || file.length() <= 0L) return null
+        return uriForPrivateUpdate(context, file)
+    }
+
+    fun savedUpdateFileSizeBytes(context: Context): Long? {
+        val file = savedUpdateFile(context)
+        return file.takeIf { it.exists() && it.length() > 0L }?.length()
     }
 
     private fun createPrivateUpdateFile(context: Context): File {
@@ -112,7 +145,11 @@ object AppUpdater {
     }
 
     private fun updateApkDir(context: Context): File {
-        return File(context.cacheDir, UPDATE_APK_DIR)
+        return File(context.filesDir, UPDATE_APK_DIR)
+    }
+
+    private fun savedUpdateFile(context: Context): File {
+        return File(updateApkDir(context), UPDATE_APK_NAME)
     }
 
     private fun uriForPrivateUpdate(context: Context, file: File): Uri {

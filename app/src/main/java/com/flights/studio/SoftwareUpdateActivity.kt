@@ -1,6 +1,7 @@
 package com.flights.studio
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -22,6 +23,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -42,6 +45,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -75,15 +80,23 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -91,6 +104,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -182,9 +196,11 @@ sealed interface UpdateScreenState {
         val currentVersionCode: Long,
         val currentVersionName: String,
         val remote: RemoteUpdateInfo,
+        val remoteSizeBytes: Long? = null,
         val downloading: Boolean = false,
         val progress: DownloadProgress? = null,
-        val downloadedUri: Uri? = null
+        val downloadedUri: Uri? = null,
+        val downloadedSizeBytes: Long? = null
     ) : UpdateScreenState
 
     data class Error(val message: String) : UpdateScreenState
@@ -218,7 +234,7 @@ private enum class UpdateSheetType {
 }
 
 class SoftwareUpdateViewModel(
-    private val appContext: android.content.Context
+    private val appContext: Context
 ) : ViewModel() {
 
     var state by mutableStateOf<UpdateScreenState>(UpdateScreenState.Home())
@@ -229,6 +245,11 @@ class SoftwareUpdateViewModel(
 
     var latestUpdate by mutableStateOf(LatestUpdateUi())
         private set
+
+    private val downloadPrefs = appContext.getSharedPreferences(
+        "software_update_downloads",
+        Context.MODE_PRIVATE
+    )
 
     init {
         viewModelScope.launch {
@@ -274,6 +295,7 @@ class SoftwareUpdateViewModel(
                     .getPackageInfo(appContext.packageName, 0)
                     .versionName
                     .orEmpty()
+                val remoteSizeBytes = AppUpdater.fetchApkSizeBytes(remote.apkUrl)
 
                 val nowText = SimpleDateFormat(
                     "MMMM d, yyyy 'at' h:mm a",
@@ -294,12 +316,17 @@ class SoftwareUpdateViewModel(
                     )
 
                     state = if (remote.versionCode > localCode) {
+                        val savedDownload = savedDownloadFor(remote)
                         UpdateScreenState.Details(
                             currentVersionCode = localCode,
                             currentVersionName = localName,
-                            remote = remote
+                            remote = remote,
+                            remoteSizeBytes = remoteSizeBytes,
+                            downloadedUri = savedDownload?.uri,
+                            downloadedSizeBytes = savedDownload?.sizeBytes
                         )
                     } else {
+                        clearRememberedDownload()
                         UpdateScreenState.Home(
                             checking = false,
                             statusMessage = "Your app is up to date",
@@ -328,6 +355,9 @@ class SoftwareUpdateViewModel(
                 .getPackageInfo(appContext.packageName, 0)
                 .versionName
                 .orEmpty()
+            val remoteSizeBytes = withContext(Dispatchers.IO) {
+                AppUpdater.fetchApkSizeBytes(remote.apkUrl)
+            }
             val nowText = SimpleDateFormat(
                 "MMMM d, yyyy 'at' h:mm a",
                 Locale.getDefault()
@@ -343,10 +373,14 @@ class SoftwareUpdateViewModel(
                 loading = false,
                 loadedAtText = nowText
             )
+            val savedDownload = savedDownloadFor(remote)
             state = UpdateScreenState.Details(
                 currentVersionCode = localCode,
                 currentVersionName = localName,
-                remote = remote
+                remote = remote,
+                remoteSizeBytes = remoteSizeBytes,
+                downloadedUri = savedDownload?.uri,
+                downloadedSizeBytes = savedDownload?.sizeBytes
             )
         }
     }
@@ -407,9 +441,11 @@ class SoftwareUpdateViewModel(
                 }
 
                 val latest = state as? UpdateScreenState.Details ?: return@launch
+                rememberDownloadedUpdate(latest.remote)
                 state = latest.copy(
                     downloading = false,
-                    downloadedUri = uri
+                    downloadedUri = uri,
+                    downloadedSizeBytes = AppUpdater.savedUpdateFileSizeBytes(appContext)
                 )
             } catch (e: Exception) {
                 state = UpdateScreenState.Error(
@@ -425,7 +461,49 @@ class SoftwareUpdateViewModel(
         AppUpdater.installApk(appContext, uri)
     }
 
-    class Factory(private val context: android.content.Context) : ViewModelProvider.Factory {
+    private fun savedDownloadFor(remote: RemoteUpdateInfo): RememberedDownload? {
+        val savedVersionCode = downloadPrefs.getInt(KEY_DOWNLOADED_VERSION_CODE, -1)
+        val savedVersionName = downloadPrefs.getString(KEY_DOWNLOADED_VERSION_NAME, null)
+        if (savedVersionCode != remote.versionCode || savedVersionName != remote.versionName) return null
+
+        val uri = AppUpdater.savedUpdateUri(appContext) ?: return null
+        val rememberedSize = downloadPrefs.getLong(KEY_DOWNLOADED_SIZE_BYTES, -1L)
+            .takeIf { it > 0L }
+        val fileSize = rememberedSize ?: AppUpdater.savedUpdateFileSizeBytes(appContext)
+
+        return RememberedDownload(uri = uri, sizeBytes = fileSize)
+    }
+
+    private fun rememberDownloadedUpdate(remote: RemoteUpdateInfo) {
+        val sizeBytes = AppUpdater.savedUpdateFileSizeBytes(appContext) ?: -1L
+        downloadPrefs.edit()
+            .putInt(KEY_DOWNLOADED_VERSION_CODE, remote.versionCode)
+            .putString(KEY_DOWNLOADED_VERSION_NAME, remote.versionName)
+            .putLong(KEY_DOWNLOADED_SIZE_BYTES, sizeBytes)
+            .apply()
+    }
+
+    private fun clearRememberedDownload() {
+        downloadPrefs.edit()
+            .remove(KEY_DOWNLOADED_VERSION_CODE)
+            .remove(KEY_DOWNLOADED_VERSION_NAME)
+            .remove(KEY_DOWNLOADED_SIZE_BYTES)
+            .apply()
+        AppUpdater.cleanupUpdateApks(appContext)
+    }
+
+    private data class RememberedDownload(
+        val uri: Uri,
+        val sizeBytes: Long?
+    )
+
+    private companion object {
+        const val KEY_DOWNLOADED_VERSION_CODE = "downloaded_version_code"
+        const val KEY_DOWNLOADED_VERSION_NAME = "downloaded_version_name"
+        const val KEY_DOWNLOADED_SIZE_BYTES = "downloaded_size_bytes"
+    }
+
+    class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             return SoftwareUpdateViewModel(context) as T
@@ -567,9 +645,10 @@ private fun UpdateHomeScreen(
     onLastUpdate: () -> Unit
 ) {
     val dark = isSystemInDarkTheme()
-    val bg = if (dark) Color(0xFF120F20) else Color(0xFFF7F7FB)
-    val accent = Color(0xFF77D4B2)
-    val buttonBg = if (dark) Color(0xFF16372F) else Color(0xFF155E4D)
+    val bg = if (dark) Color(0xFF151515) else Color.White
+    val accent = if (dark) Color(0xFFC8B2FF) else Color(0xFF654DA4)
+    val buttonBg = if (dark) Color(0xFF8E70D6) else Color(0xFFC2A5F5)
+    val buttonText = if (dark) Color.White else Color.White
 
     Box(
         modifier = Modifier
@@ -579,6 +658,7 @@ private fun UpdateHomeScreen(
         UpdateGlow(
             modifier = Modifier
                 .fillMaxSize()
+                .blur(28.dp)
         )
 
         TopBar(
@@ -598,7 +678,8 @@ private fun UpdateHomeScreen(
                 text = "JAC",
                 style = MaterialTheme.typography.displayMedium,
                 color = accent,
-                fontWeight = FontWeight.SemiBold
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.Medium
             )
 
             Spacer(Modifier.height(10.dp))
@@ -621,11 +702,11 @@ private fun UpdateHomeScreen(
                         text = state.statusMessage.orEmpty(),
                         textAlign = TextAlign.Center,
                         color = if (upToDate) {
-                            if (dark) Color(0xFFBFF3DF) else Color(0xFF166B52)
+                            if (dark) Color(0xFFD8C8FF) else Color(0xFF654DA4)
                         } else if (dark) {
-                            Color.White.copy(alpha = 0.62f)
+                            Color.White.copy(alpha = 0.58f)
                         } else {
-                            Color(0xFF45454D).copy(alpha = 0.76f)
+                            Color(0xFF5D566B).copy(alpha = 0.70f)
                         },
                         style = if (upToDate) {
                             MaterialTheme.typography.titleMedium
@@ -652,31 +733,33 @@ private fun UpdateHomeScreen(
                 onClick = onCheck,
                 enabled = !state.checking,
                 modifier = Modifier
-                    .fillMaxWidth(0.64f)
-                    .height(58.dp),
+                    .fillMaxWidth(0.60f)
+                    .height(50.dp),
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = buttonBg,
-                    contentColor = Color.White,
+                    contentColor = buttonText,
                     disabledContainerColor = buttonBg.copy(alpha = 0.78f),
-                    disabledContentColor = Color.White.copy(alpha = 0.78f)
+                    disabledContentColor = buttonText.copy(alpha = 0.78f)
                 )
             ) {
                 if (state.checking) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.2.dp,
-                        color = Color.White
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = buttonText
                     )
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         "Checking...",
-                        color = Color.White
+                        color = buttonText,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
                     )
                 } else {
                     Text(
                         "Check for updates",
-                        color = Color.White,
+                        color = buttonText,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -697,8 +780,29 @@ private fun UpdateDetailsScreen(
     onLastUpdate: () -> Unit
 ) {
     val dark = isSystemInDarkTheme()
-    val bg = if (dark) Color(0xFF120F20) else Color(0xFFF5F6FA)
-    val accent = Color(0xFF77D4B2)
+    val bg = if (dark) Color(0xFF111114) else Color.White
+    val accent = Color(0xFF3E7CF4)
+    val primaryText = if (dark) Color.White else Color(0xFF111111)
+    val secondaryText = if (dark) Color.White.copy(alpha = 0.66f) else Color(0xFF565B65)
+    val downloaded = state.downloadedUri != null
+    val progress = state.progress?.percent ?: 0
+    val bottomReserved = if (state.downloading || downloaded) 132.dp else 88.dp
+    val heroHeight = (LocalConfiguration.current.screenHeightDp.dp * 0.38f)
+        .coerceIn(265.dp, 350.dp)
+    val updateSizeText = state.downloadedSizeBytes?.let { formatFileSize(it) }
+        ?: state.remoteSizeBytes?.let { formatFileSize(it) }
+        ?: state.progress?.totalMb?.takeIf { it > 0.0 }?.let { formatMegabytes(it) }
+        ?: "Checking size"
+    val headline = when {
+        downloaded -> "Update ready to install"
+        state.downloading -> "Downloading update"
+        else -> "Update your app"
+    }
+    val body = when {
+        downloaded -> "Ready to install. You can keep using the app until you start installation."
+        state.downloading -> "You can keep using the app while download and verification finish."
+        else -> "Using Wi-Fi is recommended. Mobile data may add charges."
+    }
 
     Box(
         modifier = Modifier
@@ -706,47 +810,384 @@ private fun UpdateDetailsScreen(
             .background(bg)
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 250.dp,
-                bottom = 60.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = bottomReserved),
+            contentPadding = PaddingValues(bottom = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            item {
+                SoftwareUpdateHeroImage(
+                    backgroundColor = bg,
+                    dark = dark,
+                    height = heroHeight
+                )
+            }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 28.dp)
+                ) {
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        text = headline,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = primaryText,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = MaterialTheme.typography.titleLarge.lineHeight
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        text = body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = secondaryText,
+                        lineHeight = MaterialTheme.typography.bodySmall.lineHeight
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    UpdatePillDivider(
+                        label = "Caution",
+                        accent = accent,
+                        dark = dark
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    UpdateCautionSection(
+                        bodyColor = secondaryText
+                    )
+
+                    Spacer(Modifier.height(9.dp))
+
+                    UpdatePillDivider(
+                        label = "Update information",
+                        accent = accent,
+                        dark = dark
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    UpdateInformationSection(
+                        versionName = state.remote.versionName,
+                        installedVersionName = state.currentVersionName,
+                        sizeText = updateSizeText,
+                        bodyColor = secondaryText
+                    )
+
+                    Spacer(Modifier.height(9.dp))
+
+                    UpdatePillDivider(
+                        label = "What's new",
+                        accent = accent,
+                        dark = dark
+                    )
+                }
+            }
+
             items(state.remote.updates) { item ->
-                UpdateBlockCard(item = item)
+                Box(modifier = Modifier.padding(horizontal = 18.dp)) {
+                    UpdateBlockCard(item = item)
+                }
             }
         }
 
+        TopBar(
+            onBack = onBack,
+            onSoftwareInfo = onSoftwareInfo,
+            onLastUpdate = onLastUpdate,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+
+        UpdateBottomActionBar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            accent = accent,
+            dark = dark,
+            downloading = state.downloading,
+            downloaded = downloaded,
+            progress = progress,
+            onBack = onBack,
+            onActionClick = {
+                if (downloaded) onInstall() else onDownload()
+            }
+        )
+    }
+
+}
+
+@Composable
+private fun SoftwareUpdateHeroImage(
+    backgroundColor: Color,
+    dark: Boolean,
+    height: androidx.compose.ui.unit.Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .clipToBounds()
+            .background(backgroundColor)
+    ) {
+        Image(
+            painter = painterResource(R.drawable.software_update_hero),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            alignment = Alignment.TopCenter,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(height + 150.dp)
+                .align(Alignment.TopCenter)
+                .graphicsLayer {
+                    translationY = 0f
+                }
+        )
+
         Box(
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .background(bg)
-                .statusBarsPadding()
-                .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 18.dp)
-        ) {
-            UpdateHeroActionBar(
-                currentVersionCode = state.currentVersionCode,
-                currentVersionName = state.currentVersionName,
-                remoteVersionCode = state.remote.versionCode,
-                remoteVersionName = state.remote.versionName,
-                accent = accent,
-                downloading = state.downloading,
-                downloaded = state.downloadedUri != null,
-                progress = state.progress?.percent ?: 0,
-                onBack = onBack,
-                onSoftwareInfo = onSoftwareInfo,
-                onLastUpdate = onLastUpdate,
-                onActionClick = {
-                    if (state.downloadedUri != null) onInstall() else onDownload()
-                }
+                .matchParentSize()
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.00f to Color.Transparent,
+                            0.96f to Color.Transparent,
+                            1.00f to backgroundColor.copy(alpha = 0.34f)
+                        )
+                    )
+                )
+        )
+
+        if (dark) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color.Black.copy(alpha = 0.04f))
             )
         }
     }
+}
 
+@Composable
+private fun UpdatePillDivider(
+    label: String,
+    accent: Color,
+    dark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val lineAlpha = if (dark) 0.48f else 0.26f
+    val pillBg = accent.copy(alpha = if (dark) 0.13f else 0.075f)
+    val pillBorder = accent.copy(alpha = if (dark) 0.26f else 0.16f)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.5.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(accent.copy(alpha = lineAlpha))
+        )
+        Surface(
+            shape = RoundedCornerShape(999.dp),
+            color = pillBg,
+            border = BorderStroke(1.dp, pillBorder)
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.padding(horizontal = 11.dp, vertical = 3.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = accent,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.5.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(accent.copy(alpha = lineAlpha))
+        )
+    }
+}
+
+@Composable
+private fun UpdateInformationSection(
+    versionName: String,
+    installedVersionName: String,
+    sizeText: String,
+    bodyColor: Color
+) {
+    Text(
+        text = "• Version: $versionName",
+        style = MaterialTheme.typography.bodySmall,
+        color = bodyColor
+    )
+    Spacer(Modifier.height(4.dp))
+    Text(
+        text = "• Installed: $installedVersionName",
+        style = MaterialTheme.typography.bodySmall,
+        color = bodyColor
+    )
+    Spacer(Modifier.height(4.dp))
+    Text(
+        text = "• Size: $sizeText",
+        style = MaterialTheme.typography.bodySmall,
+        color = bodyColor
+    )
+}
+
+@Composable
+private fun UpdateCautionSection(
+    bodyColor: Color
+) {
+    Text(
+        text = "• Keep the app open while the update downloads.",
+        style = MaterialTheme.typography.bodySmall,
+        color = bodyColor
+    )
+    Spacer(Modifier.height(4.dp))
+    Text(
+        text = "• Android may ask for install permission before the update opens.",
+        style = MaterialTheme.typography.bodySmall,
+        color = bodyColor
+    )
+}
+
+private fun formatMegabytes(value: Double): String {
+    return if (value >= 100.0) {
+        String.format(Locale.getDefault(), "%.0f MB", value)
+    } else {
+        String.format(Locale.getDefault(), "%.1f MB", value)
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    val mb = bytes / 1024.0 / 1024.0
+    return formatMegabytes(mb)
+}
+
+@Composable
+private fun UpdateBottomActionBar(
+    modifier: Modifier,
+    accent: Color,
+    dark: Boolean,
+    downloading: Boolean,
+    downloaded: Boolean,
+    progress: Int,
+    onBack: () -> Unit,
+    onActionClick: () -> Unit
+) {
+    val bg = if (dark) Color(0xFF111114).copy(alpha = 0.97f) else Color.White.copy(alpha = 0.97f)
+    val neutralButton = if (dark) Color(0xFF2D2D31) else Color(0xFFEDEEF2)
+    val neutralText = if (dark) Color.White else Color(0xFF111111)
+    val track = if (dark) Color.White.copy(alpha = 0.18f) else Color(0xFFE0E4EB)
+    val progressValue = progress.coerceIn(0, 100)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(bg)
+            .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 8.dp)
+            .navigationBarsPadding()
+    ) {
+        if (downloading || downloaded) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = if (downloaded) "100%" else "$progressValue%",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (dark) Color.White else Color(0xFF111111),
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = if (downloaded) "Ready" else "Verification",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (dark) Color.White.copy(alpha = 0.62f) else Color(0xFF6B7280),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(Modifier.height(5.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(track)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(if (downloaded) 1f else progressValue / 100f)
+                        .height(4.dp)
+                        .background(accent, RoundedCornerShape(999.dp))
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                onClick = onBack,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = neutralButton,
+                    contentColor = neutralText
+                )
+            ) {
+                Text(
+                    text = "Not now",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Button(
+                onClick = onActionClick,
+                enabled = !downloading,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accent,
+                    contentColor = Color.White,
+                    disabledContainerColor = neutralButton,
+                    disabledContentColor = neutralText.copy(alpha = 0.64f)
+                )
+            ) {
+                Text(
+                    text = when {
+                        downloading -> "Downloading"
+                        downloaded -> "Install now"
+                        else -> "Update"
+                    },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -1135,6 +1576,8 @@ private fun CompactVersionRow(
 @Composable
 private fun UpdateBlockCard(item: UpdateBlock) {
     var expanded by remember { mutableStateOf(false) }
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
     val dark = isSystemInDarkTheme()
 
     val cardBg = if (dark) Color(0xFF1B1828) else MaterialTheme.colorScheme.surface
@@ -1182,7 +1625,9 @@ private fun UpdateBlockCard(item: UpdateBlock) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardBg),
         border = androidx.compose.foundation.BorderStroke(
@@ -1195,7 +1640,13 @@ private fun UpdateBlockCard(item: UpdateBlock) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = !expanded }
+                    .clickable {
+                        expanded = !expanded
+                        scope.launch {
+                            delay(180)
+                            bringIntoViewRequester.bringIntoView()
+                        }
+                    }
                     .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1345,16 +1796,24 @@ private fun TopBar(
         Color(0xFFDCE2EA)
     }
     val menuText = if (dark) Color.White else Color(0xFF111111)
+    val buttonBg = if (dark) {
+        Color(0xFF2D2D31).copy(alpha = 0.92f)
+    } else {
+        Color.White.copy(alpha = 0.86f)
+    }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 10.dp, vertical = 2.dp)
+            .padding(horizontal = 22.dp, vertical = 12.dp)
     ) {
         IconButton(
             onClick = onBack,
-            modifier = Modifier.align(Alignment.CenterStart)
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(52.dp)
+                .background(buttonBg, CircleShape)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.ArrowBackIos,
@@ -1364,7 +1823,12 @@ private fun TopBar(
         }
 
         Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-            IconButton(onClick = { expanded = true }) {
+            IconButton(
+                onClick = { expanded = true },
+                modifier = Modifier
+                    .size(52.dp)
+                    .background(buttonBg, CircleShape)
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.MoreVert,
                     contentDescription = "More",
@@ -1418,14 +1882,6 @@ private fun TopBar(
 private fun UpdateGlow(modifier: Modifier = Modifier) {
     val zoom = remember { Animatable(0f) }
     val dark = isSystemInDarkTheme()
-    val phase by rememberInfiniteTransition(label = "updateGlowMotion").animateFloat(
-        initialValue = 0f,
-        targetValue = 6.2831855f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 28_000, easing = LinearEasing)
-        ),
-        label = "updateGlowPhase"
-    )
 
     LaunchedEffect(Unit) {
         zoom.animateTo(
@@ -1441,80 +1897,43 @@ private fun UpdateGlow(modifier: Modifier = Modifier) {
         val easedZoom = zoom.value.coerceIn(0f, 1f)
         if (easedZoom <= 0f) return@Canvas
 
-        val glowRadius = size.minDimension * 0.34f * easedZoom
-        val circleCenter = center.copy(y = center.y - 24.dp.toPx())
+        val glowRadius = size.minDimension * 0.20f * easedZoom
+        val circleCenter = center.copy(y = center.y + 8.dp.toPx())
 
-        fun paletteColor(offset: Float): Color {
-            val palette = listOf(
-                Color(0xFF3AAEEB),
-                Color(0xFF77D4B2),
-                Color(0xFFF2C94C),
-                Color(0xFFD86AF7)
-            )
-            val progress = ((phase / 6.2831855f) + offset).let { it - it.toInt() }
-            val segment = progress * palette.size
-            val index = segment.toInt().coerceIn(0, palette.lastIndex)
-            val nextIndex = (index + 1) % palette.size
-            val rawT = segment - index
-            val smoothT = rawT * rawT * (3f - 2f * rawT)
-            return lerp(palette[index], palette[nextIndex], smoothT)
-        }
-
-        fun drawSoftLight(
-            color: Color,
-            offset: Offset,
-            radiusScale: Float,
-            alpha: Float
-        ) {
-            val lightCenter = Offset(
-                circleCenter.x + offset.x * easedZoom,
-                circleCenter.y + offset.y * easedZoom
-            )
+        fun drawSoftLight(color: Color, center: Offset, radiusScale: Float, alpha: Float) {
             val lightRadius = glowRadius * radiusScale
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
                         color.copy(alpha = alpha),
-                        color.copy(alpha = alpha * 0.42f),
-                        color.copy(alpha = alpha * 0.12f),
+                        color.copy(alpha = alpha * 0.32f),
+                        color.copy(alpha = alpha * 0.08f),
                         Color.Transparent
                     ),
-                    center = lightCenter,
+                    center = center,
                     radius = lightRadius
                 ),
                 radius = lightRadius,
-                center = lightCenter
+                center = center
             )
         }
 
         drawSoftLight(
-            color = paletteColor(0.00f),
-            offset = Offset(38.dp.toPx(), -22.dp.toPx()),
-            radiusScale = 0.92f,
-            alpha = 0.17f
+            color = if (dark) Color(0xFFB997FF) else Color(0xFFB99CF7),
+            center = Offset(circleCenter.x - 28.dp.toPx(), circleCenter.y - 8.dp.toPx()),
+            radiusScale = 1.08f,
+            alpha = if (dark) 0.36f else 0.30f
         )
         drawSoftLight(
-            color = paletteColor(0.25f),
-            offset = Offset(-16.dp.toPx(), -18.dp.toPx()),
-            radiusScale = 0.82f,
-            alpha = 0.12f
-        )
-        drawSoftLight(
-            color = paletteColor(0.50f),
-            offset = Offset(-48.dp.toPx(), 56.dp.toPx()),
-            radiusScale = 0.94f,
-            alpha = 0.13f
-        )
-        drawSoftLight(
-            color = paletteColor(0.75f),
-            offset = Offset(4.dp.toPx(), 42.dp.toPx()),
-            radiusScale = 0.86f,
-            alpha = 0.12f
+            color = if (dark) Color(0xFFBEE89B) else Color(0xFFC9EEA5),
+            center = Offset(circleCenter.x + 36.dp.toPx(), circleCenter.y + 38.dp.toPx()),
+            radiusScale = 1.02f,
+            alpha = if (dark) 0.20f else 0.24f
         )
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color.White.copy(alpha = if (dark) 0.018f else 0.030f),
+                    Color.White.copy(alpha = if (dark) 0.010f else 0.035f),
                     Color.Transparent
                 ),
                 center = circleCenter,

@@ -13,6 +13,7 @@
     <files-path name="notes_photos" path="notes_photos/" />
     <files-path name="notes_files" path="notes_files/" />
     <files-path name="voice_notes" path="voice_notes/" />
+    <files-path name="saved_update_apks" path="update_apks/" />
 
 </paths>
 
