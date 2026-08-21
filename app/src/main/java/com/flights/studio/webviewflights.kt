@@ -2395,6 +2395,30 @@ private data class FlightLiveStatusItem(
     val progress: Float
 )
 
+private fun FlightLiveStatusItem.isVisibleArrivedStatus(): Boolean {
+    val visibleStatus = listOf(status, badge, pill, etaText, delayLabel)
+        .joinToString(" ")
+        .lowercase(Locale.US)
+    val activeMarkers = listOf(
+        "on time",
+        "upcoming",
+        "minor delay",
+        "delay",
+        "delayed",
+        "early",
+        "scheduled",
+        "sched",
+        "due",
+        "en route",
+        "boarding"
+    )
+    if (activeMarkers.any { marker -> visibleStatus.contains(marker) }) {
+        return false
+    }
+    val detailText = detail.lowercase(Locale.US)
+    return visibleStatus.contains("arrived") || detailText.contains("arrived")
+}
+
 @Stable
 private data class FlightSheetIssue(
     val label: String,
@@ -6157,14 +6181,11 @@ private fun FlightUpcomingFlightsSection(
     textScale: Float,
     highContrast: Boolean
 ) {
-    val activeItems = remember(items) {
-        items.filterNot { it.tone.equals("arrived", ignoreCase = true) }
+    val groupedItems = remember(items) {
+        items.partition { item -> !item.isVisibleArrivedStatus() }
     }
-    val arrivedItems = remember(items) {
-        items.filter { it.tone.equals("arrived", ignoreCase = true) }
-    }
-    val firstArrived = arrivedItems.firstOrNull()
-    val extraArrived = arrivedItems.drop(1)
+    val activeItems = groupedItems.first
+    val arrivedItems = groupedItems.second
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier
@@ -6195,7 +6216,15 @@ private fun FlightUpcomingFlightsSection(
                 maxLines = 1
             )
         }
-        if (activeItems.isEmpty() && arrivedItems.isEmpty()) {
+
+        FlightAlertsPillDivider(
+            label = "Arrivals",
+            accent = FlightArrivalCountAccent,
+            mutedColor = mutedColor,
+            textScale = textScale
+        )
+
+        if (activeItems.isEmpty()) {
             FlightNoLiveStatusCard(
                 textColor = textColor,
                 mutedColor = mutedColor,
@@ -6223,44 +6252,37 @@ private fun FlightUpcomingFlightsSection(
         )
 
         AnimatedContent(
-            targetState = firstArrived,
+            targetState = arrivedItems,
             transitionSpec = {
                 fadeIn(animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing))
                     .togetherWith(fadeOut(animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing)))
                     .using(SizeTransform(clip = false))
             },
             label = "alertsArrivedPlaceholderSwap"
-        ) { arrived ->
-            if (arrived == null) {
-                FlightArrivedPlaceholderCard(
+        ) { landedItems ->
+            if (landedItems.isEmpty()) {
+                FlightNoLiveStatusCard(
                     textColor = textColor,
                     mutedColor = mutedColor,
                     surface = surface,
-                    textScale = textScale,
-                    highContrast = highContrast
+                    textScale = textScale
                 )
             } else {
-                FlightUpcomingFlightCard(
-                    item = arrived,
-                    textColor = textColor,
-                    mutedColor = mutedColor,
-                    surface = surface,
-                    textScale = textScale,
-                    highContrast = highContrast
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    landedItems.forEach { item ->
+                        FlightUpcomingFlightCard(
+                            item = item,
+                            textColor = textColor,
+                            mutedColor = mutedColor,
+                            surface = surface,
+                            textScale = textScale,
+                            highContrast = highContrast
+                        )
+                    }
+                }
             }
         }
 
-        extraArrived.forEach { item ->
-            FlightUpcomingFlightCard(
-                item = item,
-                textColor = textColor,
-                mutedColor = mutedColor,
-                surface = surface,
-                textScale = textScale,
-                highContrast = highContrast
-            )
-        }
     }
 }
 
